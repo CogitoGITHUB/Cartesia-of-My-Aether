@@ -1,28 +1,32 @@
-#+TITLE: Cartesia of My Aether
-
-* Cartesia of My Aether
-The entire ecosystem exists to support and sustain my modularized mindset,
-the architecture of the ShapeShifter.
-This loop is the only structure capable of holding the way my mind operates.
-
-** The Trifold Loop
+* The Trifolding Loop
 
 Each layer builds the one above it, while being supported by the one below it.
 There is no one without the other.
 This is a single growing loop.
+** Cartesia of My Aether
+The entire ecosystem exists to support and sustain my modularized mindset,
+the architecture of the ShapeShifter.
+This loop is the only structure capable of holding the way my mind operates.
+
 
 *** Cartesia of My Aether — The consciousness and map of reality
 The final layer and ultimate purpose of the system. The living map of reality itself
 where all knowledge, skills, experiences, and domains are deeply interconnected.
 This is where the modularized mindset is fully expressed and sustained.
 
-*** Emacs — The mind mapping system
+*** ManifoldOS — The base operating system
+The foundation of the entire ecosystem.
+A custom Guix-based distribution built from scratch with fully self-contained package declarations.
+It eliminates external channels and provides a completely controlled, reproducible, and 
+frictionless base system that everything else runs on.
+
+**** Emacs — The mind mapping system
 The interface and nervous system of the ecosystem.
 A deeply literate, fully customized Emacs configuration that serves as the primary environment
 for thought, organization, knowledge capture, and mapping.
 It transforms raw information into structured, interconnected maps.
 
-*** CLI — The Heart of It
+**** CLI — The Heart of It
 The CLI is the true heart of the entire ecosystem.
 It is the single point through which everything is controlled and executed. 
 One command can trigger the full workflow:
@@ -30,10 +34,4 @@ downloading books and papers, converting them to Org-mode,
 breaking them down, mapping them across domains, linking them to existing knowledge,
 and generating actionable daily checklists.
 The CLI is the direct interface between my will and the entire Trifold Loop.
-
-*** ManifoldOS — The base operating system
-The foundation of the entire ecosystem.
-A custom Guix-based distribution built from scratch with fully self-contained package declarations.
-It eliminates external channels and provides a completely controlled, reproducible, and 
-frictionless base system that everything else runs on.
 
