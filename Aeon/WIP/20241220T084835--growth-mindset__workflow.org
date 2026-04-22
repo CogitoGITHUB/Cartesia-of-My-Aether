@@ -1,0 +1,36 @@
+#+title:      Growth Mindset
+#+date:       [2024-12-20 Fri 08:48]
+#+filetags:   :workflow:
+#+identifier: 20241220T084835
+
+
+* Cultivating a Growth Mindset
+
+Writing software is hard; writing good software is even harder. It requires focus, discipline, and a great deal of perseverance. But with the right mindset, the process becomes a whole lot more manageable.
+
+If you've been writing code for some time, you know that almost all of the technical difficulties you have faced weren't the technical concepts but the challenge of maintaining the right mindset.
+
+In recent years, mindset has been a highly researched area of psychology led by the Stanford psychologist Carol Dweck. In her work, she defined the fixed and growth mindsets as follows:
+
+**Fixed mindset:** Students believe their basic abilities, intelligence, or talents are fixed traits.
+
+**Growth mindset:** People believe that their most basic abilities can be developed through dedication and hard work; brains and talent are just the starting point. This view creates a love of learning and a resilience that is essential for great accomplishment.
+
+When Professor Carol Dweck analyzed students' mindsets, she found that most students leaned strongly toward one side or the other, but many had mindsets somewhere in the middle. For example, they might believe that their ability to improve at math comes down to learning strategies and their own attention and commitment to the learning process, but they might also believe that their reading and writing abilities are inherent.
+
+Dweck also noticed that many seem to believe that it all comes down to effort. Even some teachers believe that they could improve a student's achievement by telling them to try harder. She called this a false growth mindset. Effort is important, but more crucial is a student's attitude toward learning a new thing and their perspective on failure as a part of the learning process. In essence, students with the growth mindset understood that positive improvement was possible. They believed that to achieve their goals, they must view failure as a part of learning, put in the time, embrace the challenge, and develop new strategies to overcome each challenge. Working toward a goal without these views is unlikely to elicit positive results.
+
+In other words, cultivating a growth mindset won't do much without putting in the necessary time and practice to develop a new skill.
+
+Now that we've discussed the fundamentals of the growth mindset, let's walk through some tips on how you can develop one:
+
+1. **Determine your current mindset:** Are you more inclined towards a growth mindset or a fixed mindset? Knowing where you stand is the first step towards growth.
+2. **Explore your motivation:** Understand why you want to develop a growth mindset and what benefits it can bring to your life. This will give you purpose during the difficult stages of developing this worldview.
+3. **Find examples of growth mindset:** Seek out others who have developed a growth mindset and learn from their experiences. Surround yourself with people who foster growth and positivity.
+4. **Change your perspective on failure:** View failure not as a sign of inability but as part of the process of learning and growth. Embrace failure as an opportunity to learn and improve.
+5. **Understand your limitations:** Recognize that some things will be beyond what you can achieve. Set realistic goals and focus on continuous improvement rather than perfection.
+
+Cultivating a growth mindset is not an easy task, nor a painless process. It requires constant setbacks and practice, as well as being open to failure and receptive to criticism. But it is the most fulfilling path to personal and professional growth.
+
+If you found this information useful, consider liking the video, subscribing to the channel, and clicking the notification bell for more content like this in the future.
+

@@ -1,0 +1,77 @@
+#+TITLE: Consequence Practice Method - Universal Template
+#+AUTHOR: Shapeshifter
+#+DATE: <2026-04-06>
+#+OPTIONS: toc:nil
+#+STARTUP: showeverything
+
+* Overview
+This template follows the **Consequence Practice Method**:
+- Define actions/practices
+- Predict consequences
+- Execute
+- Observe actual consequences
+- Reflect and iterate
+
+It is universal: you can apply it to skills, experiments, learning, habits, or any system.
+
+* Instructions
+1. Fill in the **Area of Practice**.
+2. List the **Actions** you want to test.
+3. Predict expected consequences.
+4. Execute and log real outcomes.
+5. Reflect and update the practice cycle.
+
+* Area of Practice
+:PROPERTIES:
+:DOMAIN: 
+:END:
+
+* Practice Cycle
+** Action List
+- Action 1 :: Description of the action
+- Action 2 :: Description
+- Action 3 :: Description
+...
+** Predicted Consequences
+- Action 1 :: What you expect to happen
+- Action 2 :: Predicted outcome
+- Action 3 :: Predicted outcome
+...
+** Execution Log
+| Date       | Action      | Execution Notes | Outcome Observed | Deviation from Prediction |
+|------------+------------+----------------+-----------------|--------------------------|
+| <2026-04-06> | Action 1 |                |                 |                          |
+|              | Action 2 |                |                 |                          |
+|              | Action 3 |                |                 |                          |
+
+** Reflection & Iteration
+- What worked as predicted?
+- What deviated from expectations?
+- Adjustments for next cycle:
+
+* Metrics & Analysis
+#+BEGIN_SRC emacs-lisp
+;; Example: simple scoring of outcome vs predicted
+(defun consequence-score (predicted actual)
+  "Score consequences: 1 = fully as predicted, 0 = not at all, 0.5 = partial match"
+  (cond ((equal predicted actual) 1)
+        ((string-match-p (regexp-quote predicted) actual) 0.5)
+        (t 0)))
+#+END_SRC
+
+* Long-Term Tracking
+| Date       | Action      | Predicted | Actual Outcome | Score |
+|------------+------------+-----------+----------------+-------|
+| <2026-04-06> | Action 1 | High     | Medium         | 0.5   |
+|              | Action 2 | Low      | Low            | 1     |
+|              | Action 3 | Medium   | High           | 0     |
+
+* Notes
+- Free-form observations, discoveries, or side effects
+- Links to references, scripts, or tools
+- Attachments, org-babel blocks, or images
+
+* Future Ideas
+- Extend to multi-step chains of actions
+- Automate scoring with org-babel
+- Integrate with habit trackers or experimental logs

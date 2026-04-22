@@ -1,0 +1,79 @@
+#+title:      War College Studies
+#+date:       [2025-01-30 Thu 15:29]
+#+filetags:   :studies:war:
+#+identifier: 20250130T152940
+
+
+#+TITLE: War College Studies
+#+AUTHOR: The Architect
+#+DATE: <2025-01-30>
+#+OPTIONS: toc:3 num:nil
+#+STARTUP: indent overview
+
+* Overview
+  - This file organizes research on:
+    - Military Strategy & Doctrine
+    - Intelligence & Cyber Warfare
+    - Geopolitical Power Structures
+    - Economic Warfare & Statecraft
+  - Use it to track books, courses, documents, and analysis.
+
+* TODO Research Areas
+** TODO Military Strategy & Doctrine
+   - [ ] Study *On War* by Carl von Clausewitz
+   - [ ] Study *The Art of War* by Sun Tzu
+   - [ ] Analyze RAND Corporation reports
+   - [ ] Examine declassified U.S. military doctrine (Joint Chiefs of Staff)
+   - [ ] Read *The Grand Strategy of the Roman Empire*
+   - [ ] Research NATO & Russian military strategies
+
+** TODO Intelligence & Cyber Warfare
+   - [ ] Read *Unrestricted Warfare* (PLA Strategy)
+   - [ ] Study NSA cyber doctrine & USCYBERCOM reports
+   - [ ] Review *LikeWar: The Weaponization of Social Media*
+   - [ ] Research active operations in hybrid warfare (Ukraine, Taiwan)
+   - [ ] Learn SIGINT & HUMINT fundamentals
+
+** TODO Geopolitical Strategy & Economic Warfare
+   - [ ] Study IMF/World Bank influence on global policy
+   - [ ] Analyze books on financial warfare (e.g., *The Lords of Easy Money*)
+   - [ ] Research energy dependence as a geopolitical weapon
+   - [ ] Examine China’s Belt & Road Initiative (BRI)
+
+* Reading List
+** Military Strategy
+   - *On War* – Carl von Clausewitz
+   - *The Book of Five Rings* – Miyamoto Musashi
+   - *The Grand Strategy of the Roman Empire* – Edward Luttwak
+
+** Intelligence & Cyber Warfare
+   - *The Secret World: A History of Intelligence* – Christopher Andrew
+   - *Spycraft: The Secret History of the CIA's Spytechs* – Robert Wallace
+   - *LikeWar: The Weaponization of Social Media* – P.W. Singer & Emerson Brooking
+
+** Geopolitical & Economic Strategy
+   - *The Accidental Superpower* – Peter Zeihan
+   - *The New Rules of War* – Sean McFate
+   - *The Economic Weapon: The Rise of Sanctions as a Tool of Modern War* – Nicholas Mulder
+
+* Notes & Analysis
+  - Use this section for writing summaries and key insights.
+  - Example:
+    - *On War* key insight: "War is the continuation of politics by other means."
+    - Russian strategy: "Emphasizes hybrid warfare & disinformation."
+    - U.S. doctrine: "Maintains full-spectrum dominance in conventional & cyber domains."
+
+* Useful Resources
+  - [[https://publications.armywarcollege.edu/][U.S. Army War College Publications]]
+  - [[https://www.rand.org/pubs.html][RAND Corporation Research Papers]]
+  - [[https://usnwc.edu/Publications][Naval War College Review]]
+  - [[https://www.jcs.mil/Doctrine/][Joint Chiefs of Staff Doctrine Library]]
+  - [[https://www.airuniversity.af.edu/AUPress/][Air University Press (Air War College)]]
+  - [[https://www.ihedn.fr/publications/][French IHEDN Strategic Publications]]
+
+* TODO Next Actions
+   - [ ] Order books & download PDFs
+   - [ ] Identify key war colleges for deeper research
+   - [ ] Summarize first five readings
+   - [ ] Compare NATO vs. Russian military doctrines
+   - [ ] Investigate intelligence recruitment pathways

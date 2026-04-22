@@ -1,0 +1,59 @@
+#+title:      Types of journals
+#+date:       [2025-01-11 Sat 16:54]
+#+filetags:   :journal:
+#+identifier: 20250111T165407
+
+
+* Types of Journals
+** Personal Development Journals:
+   - Personal Journal
+   - Gratitude Journal
+   - Dream Journal
+   - Reflective Journal
+
+** Experience Journals:
+   - Travel Journal
+   - Art Journal
+   - Reading Journal
+   - Music Journal
+   - Film/TV Journal
+   - Nature Journal
+   - Relationship Journal
+   - Pet Journal
+   - Memory Journal
+
+** Lifestyle and Well-being Journals:
+   - Fitness Journal
+   - Health Journal
+   - Food Journal
+   - Spiritual Journal
+   - DIY/Craft Journal
+   - Gardening Journal
+   - Environmental Journal
+   - Fashion Journal
+   - Mindfulness Journal
+   - Recovery Journal
+   - Happiness Journal
+
+** Professional and Academic Journals:
+   - Career Journal
+   - Academic Journal
+   - Finance Journal
+   - Technology Journal
+   - Research Journal
+   - Teaching Journal
+   - Business Journal
+   - Innovation Journal
+   - Leadership Journal
+   - Networking Journal
+
+** Organizational Journals:
+   - Bullet Journal
+   - Project Journal
+   - Meeting Journal
+   - Ideas Journal
+   - Workflow Journal
+   - Productivity Journal
+
+     
+ 

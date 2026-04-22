@@ -1,0 +1,37 @@
+#+title:      Becoming Anti-Fragile
+#+date:       [2024-12-20 Fri 15:40]
+#+filetags:   :mindset:
+#+identifier: 20241220T154052
+
+
+* Becoming Anti-Fragile
+** Introduction
+*** Anti-fragility, coined by Nassim Nicholas Taleb, is the ability to grow and thrive under stressful circumstances.
+*** Three qualities of an anti-fragile person, two practices to achieve them, and the difference between anti-fragile, robust, and fragile.
+** Fragile vs. Robust vs. Anti-Fragile
+*** Fragile: Negatively affected by stress; small setbacks ruin their day.
+*** Robust: Not affected by stress; can handle setbacks with ease.
+*** Anti-Fragile: Positively affected by stress; turn setbacks into opportunities for growth.
+** Qualities of an Anti-Fragile Person
+*** Faces the possibility of failure.
+**** Overprotection leads to fragility.
+**** Kids need to experience failure to grow.
+*** Protected from irreversible harm in the event of failure.
+**** Recovery from failure is crucial.
+*** Learns from failures.
+**** Failure is used as an opportunity for growth.
+** Barbell Technique
+*** Combines hyper-conservative activities with risky ones.
+**** Protects from irreversible harm while allowing benefits of smart risks.
+*** Example: Stable day job with risky passion-job.
+*** Example: Investing 95% in conservative assets, 5% in risky ones.
+** Transforming Failure into Lessons
+*** Disprove own beliefs to strengthen knowledge.
+*** Failure is like weightlifting for the mind.
+*** Benefits of disproving false beliefs.
+** Conclusion
+*** Anti-fragility requires taking smart risks and learning from mistakes.
+*** Recommended reading: Nassim Taleb's "Incerto" series.
+*** Becoming anti-fragile: Taking smart risks, using a barbell technique, and transforming failures into lessons.
+*** Good luck!
+    

@@ -1,0 +1,48 @@
+#+title:      Cognitive Biases
+#+date:       [2024-12-20 Fri 15:51]
+#+filetags:   :mindset:
+#+identifier: 20241220T155123
+
+
+* 12 Cognitive Biases Explained
+
+  In this video, we'll explore 12 cognitive biases that influence our decision-making process:
+
+  1. **Anchoring Bias**
+     - People rely heavily on the first piece of information they receive when making decisions. This can significantly influence subsequent judgments.
+
+  2. **Availability Heuristic Bias**
+     - Overestimating the importance of information readily available to us, such as news headlines, leading to skewed perceptions of reality.
+
+  3. **Bandwagon Effect**
+     - The tendency to follow the crowd or conform to popular opinions without critical thinking.
+
+  4. **Choice-Supportive Bias**
+     - Defending our choices even when they may not be the best, simply because we made them.
+
+  5. **Confirmation Bias**
+     - Seeking out information that confirms our existing beliefs and ignoring contradictory evidence.
+
+  6. **Ostrich Bias**
+     - Ignoring negative information or problems in the hope that they will go away on their own.
+
+  7. **Outcome Bias**
+     - Judging the effectiveness of a decision based solely on its outcome, rather than considering the circumstances at the time the decision was made.
+
+  8. **Overconfidence**
+     - Being overly confident in our abilities or judgments, often leading to poor decision-making.
+
+  9. **Placebo Bias**
+     - Believing in the effectiveness of something (e.g., medication) solely because we expect it to work, even if it has no real impact.
+
+  10. **Survivorship Bias**
+      - Focusing only on successful outcomes and overlooking failures, leading to skewed perceptions of success.
+
+  11. **Selective Perception**
+      - Perceiving messages and actions according to our existing beliefs, often ignoring contradictory information.
+
+  12. **Blind Spot Bias**
+      - Underestimating our own biases while overestimating the biases of others, leading to a false sense of objectivity.
+
+  These biases can significantly impact our decision-making process and lead to irrational behavior. By understanding them, we can become more aware of our thought patterns and make more informed choices.
+

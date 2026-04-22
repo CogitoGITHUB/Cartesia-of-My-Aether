@@ -1,0 +1,106 @@
+#+TITLE: Shapeless Ghost Tracker
+#+AUTHOR: Shapeshifter
+#+DATE: <2026-04-06>
+
+* Instructions
+Capture your baseline → set the target → add pressure → chase → record → repeat.
+Use timestamps for each session. Track multiple domains in parallel if you want.
+
+* Daily Ghost Chase
+** <2026-04-06>
+*** Writing
+- Baseline: 
+  - Paragraphs: 
+  - Time: 
+  - Quality/Clarity: 
+- Target: 
+  - Paragraphs: 
+  - Time: 
+- Pressure applied: [ ] Timer [ ] Countdown [ ] Opponent [ ] Music
+- Result: 
+  - Paragraphs: 
+  - Time: 
+  - Notes: 
+
+*** Drawing
+- Baseline: 
+  - Object: 
+  - Time: 
+  - Quality: 
+- Target: 
+  - Time: 
+- Pressure: [ ] Timer [ ] Music [ ] Ghost image
+- Result: 
+  - Time: 
+  - Quality: 
+  - Notes: 
+
+*** Workout
+- Baseline: 
+  - Exercise: 
+  - Reps: 
+  - Time: 
+- Target: 
+  - Reps: 
+  - Time: 
+- Pressure: [ ] Timer [ ] Heartbeat [ ] Opponent
+- Result: 
+  - Reps: 
+  - Time: 
+  - Notes: 
+
+*** Coding
+- Baseline: 
+  - Problem: 
+  - Time: 
+  - Lines/Complexity: 
+- Target: 
+  - Time limit: 
+- Pressure: [ ] Timer [ ] Countdown [ ] Old solution
+- Result: 
+  - Time: 
+  - Output quality: 
+  - Notes: 
+
+*** Studying
+- Baseline: 
+  - Material: 
+  - Pages: 
+  - Time: 
+  - Comprehension score: 
+- Target: 
+  - Pages: 
+  - Time: 
+- Pressure: [ ] Timer [ ] Music [ ] Countdown
+- Result: 
+  - Pages: 
+  - Time: 
+  - Notes: 
+
+*** Meditation
+- Baseline: 
+  - Duration: 
+  - Stillness quality: 
+- Target: 
+  - Duration: 
+- Pressure: [ ] Timer [ ] Silence [ ] Breath focus
+- Result: 
+  - Duration: 
+  - Notes: 
+
+*** Conversation / Social
+- Baseline: 
+  - Thought: 
+  - Time: 
+  - Clarity: 
+- Target: 
+  - Time: 
+- Pressure: [ ] Timer [ ] Audience [ ] Countdown
+- Result: 
+  - Time: 
+  - Notes: 
+
+* Reflections
+- Wins: 
+- Losses / Weak Points: 
+- Ghosts to chase tomorrow:

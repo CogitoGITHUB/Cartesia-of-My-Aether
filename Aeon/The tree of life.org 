@@ -1,0 +1,49 @@
+#+TITLE: The Tree of Life – Scientific Overview
+#+AUTHOR: Shapeshifter
+#+DATE: 2026-04-06
+#+DESCRIPTION: Introductory mapping of life on Earth, showing domains, kingdoms, and major lineages. Prepared for MappingOS.
+
+* Introduction
+The Tree of Life is a representation of the evolutionary relationships among all living organisms on Earth. It is a branching diagram (phylogenetic tree) where each split represents a common ancestor from which descendant species evolved. Modern trees are constructed using molecular data, including DNA, RNA, and proteins, in addition to morphological and fossil evidence.
+
+* Domains of Life
+** Bacteria
+   - Unicellular prokaryotes
+   - Diverse metabolism and habitats
+   - Examples: *Escherichia coli*, cyanobacteria
+
+** Archaea
+   - Unicellular prokaryotes
+   - Often extremophiles
+   - Genetically closer to eukaryotes than bacteria
+
+** Eukarya
+   - Organisms with nucleated cells
+   - Includes: protists, fungi, plants, animals
+
+* Major Lineages within Eukarya
+** Protists
+   - Mostly unicellular eukaryotes
+   - Examples: amoebae, algae
+
+** Fungi
+   - Absorptive heterotrophs
+   - Examples: yeast, mushrooms, molds
+
+** Plants
+   - Photosynthetic autotrophs
+   - Examples: mosses, ferns, flowering plants
+
+** Animals
+   - Multicellular heterotrophs
+   - Examples: sponges, insects, vertebrates
+
+* Evolutionary Principles
+- Speciation: divergence of populations into distinct species
+- Common ancestry: all life shares genetic lineage from early cells
+- Phylogenetics: study of evolutionary relationships using genetic and morphological data
+
+* Notes for Expansion
+- Each domain can be expanded into phyla and major groups
+- Include timeline of evolutionary events
+- Add visual diagrams or links to genomic databases

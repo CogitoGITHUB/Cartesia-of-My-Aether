@@ -1,0 +1,74 @@
+#+TITLE: Tensegrity Structures
+#+AUTHOR: Shapeshifter
+#+DATE: 2026-04-06
+#+DESCRIPTION: Notes and mapping of tensegrity structures for The Grand Index of T.O.E
+#+OPTIONS: toc:nil
+
+* Overview
+Tensegrity (tensional integrity) structures rely on a balance of continuous tension and isolated compression. They are lightweight, resilient, and self-stabilizing.
+
+* Key Concepts
+** Compression
+- Elements: rods, struts
+- Discontinuous: do not touch each other directly
+- Bear compressive forces
+
+** Tension
+- Elements: cables, tendons, wires
+- Continuous: connect all compression elements
+- Bear tensile forces
+
+** Stability
+- Achieved via global equilibrium of tension and compression
+- No rigid joints required
+
+* Properties
+- Lightweight but strong
+- Flexible and resilient
+- Self-stabilizing
+- Modular and scalable
+- Efficient material usage
+
+* Examples
+** Architecture & Design
+- Sculptures and art installations
+- Modern architectural roofs
+- Example: Kurilpa Bridge (Australia)
+
+** Space Structures
+- Deployable antennas and solar arrays
+- NASA tensegrity robots for planetary exploration
+
+** Robotics
+- Robots that crawl, roll, or deform to adapt to terrain
+
+** Biology
+- Cells, cytoskeleton modeling
+- Bones as compression struts, muscles/fascia as tension
+
+** Everyday Objects
+- Furniture: chairs, tables, light fixtures
+- Artistic tensegrity pieces (Kenneth Snelson)
+
+* Advantages
+- Challenging traditional structural norms
+- Energy and material efficiency
+- Dynamic adaptability
+- Suited for extreme environments
+
+* Design Notes / Experiments
+- Draw simple tensegrity diagrams
+- Explore different node and strut arrangements
+- Consider scale-up vs. modular units
+- Integration with robotics or deployable structures
+
+* References / Further Reading
+- Kenneth Snelson: sculptures and papers
+- Buckminster Fuller: tensegrity theory
+- NASA tensegrity robot projects
+- Biological tensegrity models
+
+* To Do
+- Create a 3D model of basic tensegrity prism
+- Map tension-compression relationships in LaTeX diagram
+- Experiment with deployable and flexible structures

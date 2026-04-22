@@ -1,0 +1,122 @@
+#+title:      How Designers are Controlling Your Mind
+#+date:       [2024-12-20 Fri 15:12]
+#+filetags:   :social:
+#+identifier: 20241220T151206
+
+
+* Transcription of "How Designers Are Controlling Your Mind"
+
+I became a designer to make the world a more beautiful place.
+
+But the longer I’ve continued in my career, the more I’ve started to notice some aspects of design changing into something a bit different, something that can be quite dangerous for all of us.
+
+Many of you may remember design, as most people think of it, designing a beautiful poster for your wall or designing the interior of a gorgeous building.
+
+But design has evolved alongside technology and many designers these days are crafting what we call User Experiences, or UX Design.
+
+A UX Designer isn’t really concerned with how a website looks. A UX Designer is designing the way that you interact with the technology, products and apps that you use every day.
+
+A UX Designer is working to make your digital spaces easier, more delightful and sometimes more addictive.
+
+And that’s how design might be controlling your behavior, without you even noticing, when designers turn to what we call dark patterns.
+
+Dark patterns is a name for the multitude of worryingly effective ways that designers use manipulative tactics to get you to behave the way that they would like.
+
+I’m about to tell you about four of them today.
+
+So think back to last time you signed up for something. It was probably super simple. It might have felt a little bit exciting. If it was something like this, you might have done it even with a single click.
+
+And then, you might want to cancel that service or unsubscribe from that email.
+
+In that case, you may have run into one of our first dark patterns, confirmshaming.
+
+Confirmshaming is when designers use manipulative language, an emotionally charged design to make you feel really, really guilty about canceling a service or leaving.
+
+Duolingo redesigned their owl to make you feel even more guilty about quitting than you did before.
+
+It’s been proven to be really effective. I mean, do you want to make the owl cry?
+
+Platforms that use this technique also often employ our next dark pattern, misdirection.
+
+That’s when designers will hide the things that they don’t really want you to see and draw lots of attention to the things that you do, in order to help you to behave the way that they want.
+
+I know all of you will have had some experience with buying tickets and you know, this is a great price. But four screens later, when you've raced to enter all your personal information, you might see something more like this in the fine print.
+
+On platform StubHub, they used to put the entire price up front, even with that 30 % extra you can see in the tiny little text there.
+
+But they discovered when they moved that fee just to the end and hid it until it was almost too late, people spent, on average, about 21 % extra.
+
+But, that one’s kind of obvious. You’ve probably noticed that one.
+
+Designers are using even more manipulative techniques to influence the way that you behave.
+
+The color red has been shown to raise heart rate and it gets your attention.
+
+Online platform HubSpot discovered that when they changed one button from green to red, about 20 % more people actually clicked on it just for that.
+
+Even that is pretty simple when you compare it to how some platforms are using this little red dot to enable mechanics that are kind of like gambling or slot machines.
+
+What will happen is Instagram’s notification algorithm will actually withhold likes from you. It’ll create this growing sense of unease, disappointment and anticipation, and then, suddenly, BAM! They hit you with it all at once.
+
+And that's what's being designed, that rush of dopamine that someone noticed your cat picture that keeps you coming back.
+
+And when you combine that compulsion to keep clicking with the next dark pattern number three, the trick question, things can get bad pretty quickly.
+
+In 2010, online e-commerce platform Game Station added this little clause to their shopping checkout, which gave them ownership of your immortal soul when you purchased with them.
+
+They did also put a big opt-out option but they were quite surprised to end up the owners of several thousand souls.
+
+They concluded that around 88 % of people didn’t read the Terms and Conditions or text when they checked out.
+
+The problem is, even if you are someone who happens to read all the Terms and Conditions, it might not help you.
+
+For instance, this is just a trick. [Are you sure you want to cancel your account? Cancel. Continue.] I mean, I put this in the presentation, and I’m still not sure which button I meant to be clicking.
+
+When you bring these all together, often you enable dark pattern number four, privacy Zuckering, named, of course, for Facebook CEO, Mark Zuckerberg.
+
+This pattern is when designers combine all of these different techniques to get people to reveal much more information about themselves than they intended to.
+
+Many people don’t know that in a disquieting form of digital grave robbering, Facebook can actually continue to collect information on you even if your account is deactivated.
+
+And, why does this matter? Well, it's all to do with how these platforms work.
+
+The problem is that they use your information to make money. They collect it and sell it to other people.
+
+The people who collect and sell this information are called Data Brokers, and research by the U.S. Federal Trade Commission uncovered the fact that one Data Broker had as many as 3 000 pieces of personal information on nearly every American in the United States.
+
+And Professor Frank Pasquale highlighted the fact that this can be used to classify people into groups that can be dangerous or discriminatory.
+
+They may group people together into a group called ‘Elderly and Gullible’, and then, sell their information onto gambling marketers.
+
+This is what the dark side of design can enable. And this is why it matters.
+
+Recent research, backed by the British National Health Service, uncovered the fact that 4 out of 5 health apps are so bad they may be putting patient health at risk.
+
+7 out of 10 apps designed to prevent suicide fail to even meet basic measures of clinical quality.
+
+But, more than that, when you’re at your most vulnerable, that's when you need your privacy the most.
+
+That’s the reason that there are such strict laws on therapists and counselors that control what information they can share about you.
+
+But unfortunately, design and technology is moving faster than the law can catch up.
+
+Four of the major therapy apps have been shown to be sharing some of your data with platforms like Facebook, Pinterest, Google and Snapchat.
+
+One of the reasons, these platforms gave, was that it enables a personalized experience. That is, they serve personalized advertising to you while you’re on those platforms.
+
+That means that these companies are using information about your mental health to sell you advertising.
+
+Why is this happening? Well, what you need to know is how platforms like Facebook make their money.
+
+They make it from you and your attention. Your attention is the most valuable commodity in our modern digital ecosystem.
+
+If they have your attention, if they can keep you on the app or their website, they can gather more data about you.
+
+They can sell more data on to Data Brokers.
+
+They can give you more advertising and they can make more money off you.
+
+That’s why all of these companies are so desperate to get your time and attention.
+
+And that’s why their designers have been pushed to such extremes to try
+

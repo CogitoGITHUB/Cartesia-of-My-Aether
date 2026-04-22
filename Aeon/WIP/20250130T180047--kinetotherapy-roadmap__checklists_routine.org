@@ -1,0 +1,129 @@
+#+title:      Kinetotherapy roadmap
+#+date:       [2025-01-30 Thu 18:00]
+#+filetags:   :checklists:routine:
+#+identifier: 20250130T180047
+
+* Kinetotherapy Map: Foundational Overview
+  - This map covers broad areas such as **joint mobility**, **muscle activation**, **posture correction**, and **functional strengthening**.
+  - Adjust and specialize as necessary based on specific needs and progress.
+
+* TODO Joint Mobility & Flexibility
+** TODO Neck & Upper Spine Mobility
+   - [ ] **Cervical rotations** (left and right)
+   - [ ] **Neck tilts** (side to side)
+   - [ ] **Thoracic spine twists**
+   - [ ] **Chin tucks** for neck stability and alignment
+
+** TODO Shoulder & Upper Body Mobility
+   - [ ] **Shoulder circles** (forward and backward)
+   - [ ] **Wall slides** (shoulder mobility)
+   - [ ] **Scapular retractions** (to improve shoulder posture)
+   - [ ] **External/internal rotations** with resistance bands
+
+** TODO Elbow & Wrist Mobility
+   - [ ] **Wrist stretches** (flexion, extension, and rotations)
+   - [ ] **Elbow extensions** and flexions
+   - [ ] **Wrist rotations** with light resistance or bodyweight
+   - [ ] **Forearm stretches** (flexor and extensor stretches)
+
+** TODO Hip & Lower Spine Mobility
+   - [ ] **Hip circles** (internal and external rotation)
+   - [ ] **Cat-Cow stretches** (for spinal flexibility)
+   - [ ] **Pelvic tilts** (for lower back mobility)
+   - [ ] **Deep squats** (assisted, with focus on depth)
+
+** TODO Knee & Ankle Mobility
+   - [ ] **Knee extensions/flexions**
+   - [ ] **Ankle rotations** (inward, outward, and circles)
+   - [ ] **Calf stretches** (for ankle flexibility)
+   - [ ] **Hip flexor stretches** (lunge variations)
+
+* TODO Muscle Activation & Strengthening
+** TODO Core Activation
+   - [ ] **Plank variations** (front, side planks)
+   - [ ] **Dead bugs** (core stabilization)
+   - [ ] **Bridges** (glute and core activation)
+   - [ ] **Bird-Dog** (balance and core stabilization)
+
+** TODO Glute & Hip Strengthening
+   - [ ] **Clamshells** (with resistance band)
+   - [ ] **Glute bridges** (single leg variations)
+   - [ ] **Lunges** (forward, reverse, lateral)
+   - [ ] **Hip abduction/adduction** (lying or standing)
+
+** TODO Knee Stabilization
+   - [ ] **Quad sets** (activation without movement)
+   - [ ] **Hamstring curls** (with a ball or machine)
+   - [ ] **Step-ups** (onto a raised platform)
+   - [ ] **Terminal knee extensions** (resistance band focus)
+
+** TODO Upper Body Activation
+   - [ ] **Shoulder press** (light weight, bodyweight variations)
+   - [ ] **Push-ups** (modified if necessary, progressive overload)
+   - [ ] **Lat pull-downs** (focus on scapular depression)
+   - [ ] **Bicep curls** (controlled tempo, light resistance)
+
+* TODO Posture Correction & Alignment
+** TODO Spinal Alignment
+   - [ ] **Chin tucks** (improving cervical posture)
+   - [ ] **Thoracic extensions** (foam rolling or supported)
+   - [ ] **Cat-Cow stretches** (mobilizing thoracic spine)
+   - [ ] **Seated rows** (to improve posture and scapular retraction)
+
+** TODO Pelvic Alignment
+   - [ ] **Pelvic tilts** (lying or standing)
+   - [ ] **Glute bridges** (to activate posterior chain)
+   - [ ] **Hip flexor stretches** (to relieve anterior pelvic tilt)
+   - [ ] **Abdominal strengthening** (to stabilize the pelvis)
+
+** TODO Shoulder Alignment
+   - [ ] **Wall angels** (correcting shoulder mobility and posture)
+   - [ ] **External rotation with resistance bands** (focus on rotator cuff)
+   - [ ] **Scapular push-ups** (to activate upper back muscles)
+   - [ ] **Chest openers** (stretching pectorals to release tightness)
+
+* TODO Functional Strengthening & Recovery
+** TODO Low-Impact Full Body Movements
+   - [ ] **Squats** (assisted or air squats for functional movement)
+   - [ ] **Lunges** (forward, reverse, lateral variations)
+   - [ ] **Hip hinges** (good morning, deadlifts with bodyweight)
+   - [ ] **Step-ups** (using a platform or low box)
+
+** TODO Balance & Stability Training
+   - [ ] **Single-leg balance** (static or dynamic)
+   - [ ] **Standing on an unstable surface** (balance board or BOSU)
+   - [ ] **Standing leg lifts** (front, side, and rear)
+   - [ ] **Resistance band walking** (side steps to activate glutes)
+
+** TODO Full-Body Mobility Drills
+   - [ ] **Bear crawl** (engages full body mobility)
+   - [ ] **Inchworms** (mobilizes hamstrings, glutes, and shoulders)
+   - [ ] **Leg swings** (front-to-back and side-to-side)
+   - [ ] **World’s greatest stretch** (full body mobility flow)
+
+* TODO Recovery & Stretching
+** TODO Active Stretching
+   - [ ] **Dynamic hip flexor stretches** (lunge variations)
+   - [ ] **Dynamic hamstring stretches** (leg swings or walking lunges)
+   - [ ] **Arm circles** (for shoulder mobility)
+   - [ ] **Lateral lunges** (improve inner thigh flexibility)
+
+** TODO Passive Stretching
+   - [ ] **Hamstring stretch** (seated or lying)
+   - [ ] **Quadriceps stretch** (standing or prone)
+   - [ ] **Hip flexor stretch** (lunges, kneeling variations)
+   - [ ] **Child’s pose** (for spine and hip release)
+   - [ ] **Shoulder stretches** (overhead, across body)
+
+* TODO Neuromuscular Coordination
+** TODO Proprioception Drills
+   - [ ] **Walking on unstable surfaces** (balance and sensory feedback)
+   - [ ] **Eyes-closed standing balance**
+   - [ ] **Standing on one leg** with slow, controlled movements
+   - [ ] **Tandem walking** (heel-to-toe to improve balance)
+
+** TODO Motor Control Training
+   - [ ] **Movement pattern drills** (walking, squatting with focus on form)
+   - [ ] **Slow-motion exercises** (e.g., controlled push-ups, squats)
+   - [ ] **Resistance band movements** (focus on slow activation)
+   - [ ] **Active stretching with muscle control** (e.g., controlled leg raises)
