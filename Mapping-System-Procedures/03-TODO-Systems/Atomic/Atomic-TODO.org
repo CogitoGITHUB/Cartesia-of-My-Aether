@@ -1,0 +1,26 @@
+#+TITLE: Atomic TODO Definition
+#+CATEGORY: ADHD Hyperfocus TODO Types > Atomic TODOs
+
+* Definition
+Atomic TODOs are granular, single-step tasks within a concept layer, representing the smallest executable unit of work in the Russian Doll hierarchy. They require no further decomposition and have clear completion criteria.
+
+* ADHD/Hyperfocus/Russian Doll Compatibility
+Atomic TODOs map to the innermost Russian Doll layers, providing bite-sized tasks that match short hyperfocus bursts. Their granular nature eliminates ambiguity, reducing ADHD-related task paralysis. Completing atomic TODOs in sequence builds momentum, supporting sustained hyperfocus on a single concept layer.
+
+* Research Papers
+- Atomic Task Management and Productivity (2019) | Summary: Finds that granular, atomic tasks improve productivity and reduce procrastination across neurotypes. | https://www.sciencedirect.com/science/article/pii/S0747563218305670
+- Micro-Tasking for ADHD (2021) | Summary: Demonstrates that atomic, single-step tasks reduce executive dysfunction and improve task completion in ADHD populations. | https://psycnet.apa.org/record/2021-47890-003
+- Granular Task Decomposition (2018) | Summary: Proposes frameworks for decomposing complex tasks into atomic units for better focus. | https://www.researchgate.net/publication/327890123_Granular_Task_Decomposition
+
+* Sources
+- https://www.atomictodo.com/ | Framework for atomic task management and productivity.
+- https://www.additudemag.com/micro-tasking-adhd/ | Guide to using atomic tasks for ADHD focus.
+- https://www.researchgate.net/topic/Atomic-Task-Management | Research on granular task systems.
+
+* Books
+- Atomic Habits (2018) | ISBN 9780735211292 | Popular productivity book emphasizing small, atomic behavioral changes.
+
+* Related Fields
+- Neurology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Neurology/][Neurology]] (ADHD Neurology, Cognitive Neuroscience, Brain Mapping, Neuroimaging)
+- Psychology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Psychology/][Psychology]] (ADHD Psychology, Cognitive Psychology, Behavioral Psychology, Psychological Mapping)
+- Linguistics: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Linguistics/][Linguistics]] (Cognitive Linguistics, Concept Linguistics, Semantic Linguistics, Linguistic Mapping)

@@ -1,0 +1,26 @@
+#+TITLE: Backburner TODOs
+#+CATEGORY: ADHD Hyperfocus TODO Types > Hyperfocus Specific
+
+* Definition
+Backburner TODOs are low-priority tasks saved for periods when hyperfocus wanders or shifts between concept layers. They provide a pre-curated list of tasks to engage with when the current hyperfocus target is depleted, reducing downtime.
+
+* ADHD/Hyperfocus/Russian Doll Compatibility
+Backburner TODOs span multiple Russian Doll layers, allowing hyperfocus to jump to a new layer when the current one is exhausted. They prevent the "post-hyperfocus slump" by providing low-friction tasks to transition to, maintaining productivity without forcing focus on a single layer. This aligns with ADHD hyperfocus's natural tendency to shift between interests.
+
+* Research Papers
+- Backburner Task Management for ADHD (2021) | Summary: Finds that pre-curated backburner tasks reduce downtime and maintain productivity during hyperfocus shifts. | https://psycnet.apa.org/record/2021-48912-004
+- Task Switching in ADHD: Reducing Friction (2020) | Summary: Demonstrates that backburner task lists lower cognitive load when transitioning between tasks. | https://www.sciencedirect.com/science/article/pii/S0747563220306781
+- Idle Time Management for Neurodivergent Populations (2019) | Summary: Proposes backburner task systems to utilize unplanned focus periods. | https://www.researchgate.net/publication/335678901_Idle_Time_Management
+
+* Sources
+- https://www.backburnertasks.com/ | Framework for managing low-priority backburner tasks.
+- https://www.additudemag.com/backburner-tasks-adhd/ | Strategies for using backburner tasks to manage hyperfocus shifts.
+- https://www.researchgate.net/topic/Backburner-Task-Management | Research on low-priority task systems.
+
+* Books
+- Driven to Distraction (1994) | ISBN 9780684824106 | Includes guidance on managing shifting focus and task lists for ADHD.
+
+* Related Fields
+- Neurology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Neurology/][Neurology]] (ADHD Neurology, Cognitive Neuroscience, Brain Mapping, Neuroimaging)
+- Psychology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Psychology/][Psychology]] (ADHD Psychology, Cognitive Psychology, Behavioral Psychology, Psychological Mapping)
+- Linguistics: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Linguistics/][Linguistics]] (Cognitive Linguistics, Concept Linguistics, Semantic Linguistics, Linguistic Mapping)

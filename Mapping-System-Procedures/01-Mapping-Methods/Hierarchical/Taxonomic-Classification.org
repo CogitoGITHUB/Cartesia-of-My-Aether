@@ -1,0 +1,25 @@
+#+TITLE: Taxonomic Classification
+#+CATEGORY: Information Mapping Methods > Hierarchical Methods
+
+* Definition
+Taxonomic classification is a hierarchical system of organizing entities (e.g., organisms, concepts) into nested categories, where each level (rank) groups items sharing common characteristics, mirroring Russian doll nesting.
+
+* ADHD/Hyperfocus/Russian Doll Compatibility
+Perfect for Russian doll layering: each rank is a doll nesting inside the next broader rank. Concept-centric and predictable structure aids ADHD hyperfocus by limiting scope to one taxonomic branch at a time.
+
+* Research Papers
+- Information organization and retrieval: A comparison of taxonomical and tagging systems (2007) Pak et al. | Summary: Empirical comparison showing taxonomic systems enable faster organization but more clicks at retrieval. | https://blogs.clemson.edu/catlab/files/2021/09/Pak-et-al.-2007-Information-organization-and-retrieval-A-comparison-of-taxonomical-and-tagging-systems.pdf
+- Taxallnomy: an extension of NCBI Taxonomy that produces a hierarchically complete taxonomic tree (2021) BMC Bioinformatics | Summary: Algorithm to generate complete hierarchical taxonomic tree with 41 levels from NCBI Taxonomy. | https://bmcbioinformatics.biomedcentral.com/counter/pdf/10.1186/s12859-021-04304-3.pdf
+
+* Sources
+- Taxonomy and Knowledge Organization (LOC handout) | Overview of taxonomies as knowledge organization tools. | https://www.loc.gov/flicc/cm/taxscript.pdf
+- Collaborative Tagging vs Taxonomic Classification debate | Discussion of taxonomic systems vs tagging. | https://strathprints.strath.ac.uk/2335/1/strathprints002335.pdf
+
+* Books
+- Biological Classification: A Philosophical Introduction by Richard A. Richards (2016) ISBN: 9781107687844 | Examines philosophical foundations of biological classification.
+- The Hierarchies in Biological Systematics: A Conceptual Perspective by I. Ya. Pavlinov (2026) ISBN: 9781032982120 | Analyzes hierarchical structures in biological systematics.
+
+* Related Fields
+- Neurology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Neurology/][Neurology]] (ADHD Neurology, Cognitive Neuroscience, Brain Mapping, Neuroimaging)
+- Psychology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Psychology/][Psychology]] (ADHD Psychology, Cognitive Psychology, Behavioral Psychology, Psychological Mapping)
+- Linguistics: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Linguistics/][Linguistics]] (Cognitive Linguistics, Concept Linguistics, Semantic Linguistics, Linguistic Mapping)

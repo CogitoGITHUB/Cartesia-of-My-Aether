@@ -1,0 +1,26 @@
+#+TITLE: Semantic Linguistics
+#+CATEGORY: Linguistics > Semantic Linguistics
+
+* Definition
+Semantic linguistics studies meaning in language, including semantic networks, frames, and conceptual spaces, often using computational models to map semantic relationships.
+
+* ADHD/Hyperfocus/Russian Doll Compatibility
+Semantic networks/concept maps align with concept thinking. Russian doll layers: words → semantic features → networks → semantic fields.
+
+* Research Papers
+- Mapping Research Trends with CoLiRa Framework (2026) MDPI | Summary: Uses semantic enrichment to map research trends in tabular data. | https://www.mdpi.com/2078-2489/17/4/367
+- Semantic Networks in Knowledge Systems (2023) Nature Scientific Reports | Summary: Analyzes topological properties of semantic networks across languages. | https://www.nature.com/articles/s41598-023-37294-8
+
+* Sources
+- Semantic Networks in Knowledge Systems Authority | https://knowledgesystemsauthority.com/semantic-networks.html | Overview of semantic network applications.
+- Semantic map resources | https://www.cognitivelinguistics.org/en/publications-and-resources
+
+* Books
+- Cognitive Semantics: Meaning and Grammar by Ray Jackendoff (1990) ISBN: 9780262600076 | Foundational text on semantic structures.
+
+* Related Fields
+- Mapping Methods: [[file:/home/aoeu/Mapping-System-Procedures/01-Mapping-Methods/][Mapping Methods]]
+- Organization Structures: [[file:/home/aoeu/Mapping-System-Procedures/02-Organization-Structures/][Organization Structures]]
+- TODO Systems: [[file:/home/aoeu/Mapping-System-Procedures/03-TODO-Systems/][TODO Systems]]
+- Cognitive Systems: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/][Cognitive Systems]]
+- Execution Layer: [[file:/home/aoeu/Mapping-System-Procedures/05-Execution-Layer/][Execution Layer]]

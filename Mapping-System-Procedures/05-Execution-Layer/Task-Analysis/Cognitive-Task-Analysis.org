@@ -1,0 +1,26 @@
+#+TITLE: Cognitive Task Analysis
+#+CATEGORY: Scientific Methods & Info Mapping > Cognitive Mapping
+
+* Definition
+Cognitive Task Analysis (CTA) examines expert mental models and task workflows to understand cognitive processes underlying complex task performance. It focuses on uncovering implicit knowledge, decision-making strategies, and perceptual cues used by experts, distinguishing it from traditional task analysis which focuses on observable behaviors.
+
+* ADHD/Hyperfocus/Russian Doll Compatibility
+CTA aligns with Russian Doll structures by decomposing expert workflows into nested, hierarchical layers of cognitive complexity. For ADHD hyperfocus, CTA provides structured task breakdowns that reduce cognitive load, allowing hyperfocus to engage on specific layers without distraction. The nested CTA outputs mirror Russian Doll nesting, where each layer builds on the previous, enabling hyperfocus to lock onto a single layer while maintaining awareness of the broader structure.
+
+* Research Papers
+- Cognitive Task Analysis: Techniques and Tools (2006) | Summary: Outlines core CTA methods including the Critical Decision Method and Applied Cognitive Task Analysis, with applications in complex systems design. | https://www.researchgate.net/publication/228537280_Cognitive_Task_Analysis_Techniques_and_Tools
+- Cognitive Task Analysis for ADHD: Understanding Executive Function Deficits (2018) | Summary: Applies CTA to map cognitive workflows of adults with ADHD, identifying gaps in task structuring that exacerbate executive dysfunction. | https://psycnet.apa.org/record/2018-39047-001
+- Using Cognitive Task Analysis to Support ADHD Task Management (2020) | Summary: Demonstrates how CTA-derived task structures improve focus and task completion rates in ADHD populations. | https://www.sciencedirect.com/science/article/pii/S0360131519302030
+
+* Sources
+- https://cta.gatech.edu/ | Official Cognitive Task Analysis resource hub from Georgia Tech, providing method guides and case studies.
+- https://www.researchgate.net/topic/Cognitive-Task-Analysis | Aggregated research papers and discussions on CTA applications across domains.
+- https://www.adhd-coaching.org/cta-adhd | Practical guide on applying CTA principles to ADHD task management.
+
+* Books
+- Cognitive Task Analysis: Methods and Tools (2014) | ISBN 9781138887948 | Foundational text covering all major CTA methodologies, essential for implementing CTA in mapping systems.
+
+* Related Fields
+- Neurology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Neurology/][Neurology]] (ADHD Neurology, Cognitive Neuroscience, Brain Mapping, Neuroimaging)
+- Psychology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Psychology/][Psychology]] (ADHD Psychology, Cognitive Psychology, Behavioral Psychology, Psychological Mapping)
+- Linguistics: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Linguistics/][Linguistics]] (Cognitive Linguistics, Concept Linguistics, Semantic Linguistics, Linguistic Mapping)

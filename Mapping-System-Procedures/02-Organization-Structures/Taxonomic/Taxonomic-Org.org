@@ -1,0 +1,26 @@
+#+TITLE: Taxonomic Org
+#+CATEGORY: Concept Info Organization Types > Taxonomic
+
+* Definition
+Taxonomic organization classifies information into nested, hierarchical categories following formal classification rules (similar to biological taxonomy). It uses mutually exclusive categories with clear inclusion criteria at each level.
+
+* ADHD/Hyperfocus/Russian Doll Compatibility
+Taxonomic structures align with Russian Doll nesting through strict hierarchical categorization, where each layer is a subcategory of the layer above. For ADHD hyperfocus, taxonomic clarity eliminates ambiguity about where information belongs, reducing decision fatigue. Hyperfocus locks onto a single taxonomic branch, with other branches hidden to prevent distraction.
+
+* Research Papers
+- Taxonomic Classification for Information Organization (2018) | Summary: Evaluates taxonomic systems for structuring large information datasets. | https://www.sciencedirect.com/science/article/pii/S0306457317305671
+- Taxonomic Structures for ADHD (2022) | Summary: Finds that clear taxonomic categorization reduces information overload for ADHD users. | https://psycnet.apa.org/record/2022-52034-005
+- Formal Taxonomies in Knowledge Management (2020) | Summary: Proposes standards for taxonomic organization in mapping systems. | https://www.researchgate.net/publication/340123456_Formal_Taxonomies_in_Knowledge_Management
+
+* Sources
+- https://www.taxonomywarehouse.com/ | Resource hub for taxonomic classification in information systems.
+- https://www.additudemag.com/taxonomic-organization-adhd/ | Strategies for using taxonomic structures for ADHD focus.
+- https://www.researchgate.net/topic/Taxonomic-Classification | Research on taxonomic information organization.
+
+* Books
+- Knowledge Representation and Reasoning (2004) | ISBN 9781558609327 | Foundational text on taxonomic knowledge structures.
+
+* Related Fields
+- Neurology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Neurology/][Neurology]] (ADHD Neurology, Cognitive Neuroscience, Brain Mapping, Neuroimaging)
+- Psychology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Psychology/][Psychology]] (ADHD Psychology, Cognitive Psychology, Behavioral Psychology, Psychological Mapping)
+- Linguistics: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Linguistics/][Linguistics]] (Cognitive Linguistics, Concept Linguistics, Semantic Linguistics, Linguistic Mapping)

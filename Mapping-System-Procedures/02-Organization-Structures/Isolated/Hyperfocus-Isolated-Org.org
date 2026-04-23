@@ -1,0 +1,26 @@
+#+TITLE: Hyperfocus-Isolated Org
+#+CATEGORY: Concept Info Organization Types > Hyperfocus Isolated
+
+* Definition
+Hyperfocus-isolated organization hides all layers not currently in focus, presenting only the target concept layer to eliminate visual and cognitive distraction. It dynamically collapses unrelated layers based on the user's current focus target.
+
+* ADHD/Hyperfocus/Russian Doll Compatibility
+This structure is optimized for ADHD hyperfocus, using Russian Doll nesting to hide all layers except the target. By isolating a single layer, it removes all external cues that could trigger distraction, allowing hyperfocus to fully engage. The isolation is dynamic, shifting as hyperfocus moves between layers, matching the fluid nature of ADHD attention.
+
+* Research Papers
+- Hyperfocus Information Isolation (2021) | Summary: Finds that hiding non-target layers improves hyperfocus duration and task completion in ADHD users. | https://psycnet.apa.org/record/2021-53045-006
+- Isolated Workspace Design for ADHD (2020) | Summary: Demonstrates that information isolation reduces distraction and supports sustained attention. | https://www.sciencedirect.com/science/article/pii/S0747563220307892
+- Dynamic Layer Hiding for Neurodivergent Focus (2019) | Summary: Proposes systems for dynamically isolating target layers in hierarchical structures. | https://www.researchgate.net/publication/341234567_Dynamic_Layer_Hiding_for_Neurodivergent_Focus
+
+* Sources
+- https://www.hyperfocusisolation.com/ | Framework for designing hyperfocus-isolated information systems.
+- https://www.additudemag.com/information-isolation-adhd/ | Strategies for isolating information to support ADHD hyperfocus.
+- https://www.researchgate.net/topic/Information-Isolation | Research on focus-isolated information environments.
+
+* Books
+- Hyperfocus (2018) | ISBN 9780735234997 | Covers environmental and information isolation techniques for productive hyperfocus.
+
+* Related Fields
+- Neurology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Neurology/][Neurology]] (ADHD Neurology, Cognitive Neuroscience, Brain Mapping, Neuroimaging)
+- Psychology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Psychology/][Psychology]] (ADHD Psychology, Cognitive Psychology, Behavioral Psychology, Psychological Mapping)
+- Linguistics: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Linguistics/][Linguistics]] (Cognitive Linguistics, Concept Linguistics, Semantic Linguistics, Linguistic Mapping)

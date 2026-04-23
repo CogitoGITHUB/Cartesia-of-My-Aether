@@ -1,0 +1,26 @@
+#+TITLE: Psychological Mapping Methods
+#+CATEGORY: Psychology > Psychological Mapping Methods
+
+* Definition
+Psychological mapping methods visualize mental processes, brain-behavior relationships, and psychological constructs using techniques like connectograms, cognitive maps, and psychometric profiling.
+
+* ADHD/Hyperfocus/Russian Doll Compatibility
+Maps cognitive processes underlying ADHD hyperfocus (attention networks, executive function). Russian doll layers: behavior → cognitive process → brain network → psychological model.
+
+* Research Papers
+- Mapping cortical brain asymmetry in 17,141 individuals (2018) PNAS | Summary: Large-scale brain mapping of structural asymmetry relevant to cognitive neuroscience. | https://www.pnas.org/doi/10.1073/pnas.1718418115
+- High-resolution brain atlas expands with 18 tasks (2026) MedicalXpress | Summary: IBC project releases detailed task-based fMRI brain mapping dataset. | https://medicalxpress.com/news/2026-04-high-resolution-brain-atlas-tasks.html
+
+* Sources
+- Human Brain Mapping Nature Methods (2023) | https://www.nature.com/articles/s41592-023-02106-4 | Journal focusing on brain mapping techniques.
+- Brain mapping Wikipedia | https://en.wikipedia.org/wiki/Brain_mapping | Overview of psychological/neuroimaging mapping methods.
+
+* Books
+- Research Methods for Cognitive Neuroscience by Aaron Newman (2019) ISBN: 9781446296504 | Includes psychological mapping methodologies.
+
+* Related Fields
+- Mapping Methods: [[file:/home/aoeu/Mapping-System-Procedures/01-Mapping-Methods/][Mapping Methods]]
+- Organization Structures: [[file:/home/aoeu/Mapping-System-Procedures/02-Organization-Structures/][Organization Structures]]
+- TODO Systems: [[file:/home/aoeu/Mapping-System-Procedures/03-TODO-Systems/][TODO Systems]]
+- Cognitive Systems: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/][Cognitive Systems]]
+- Execution Layer: [[file:/home/aoeu/Mapping-System-Procedures/05-Execution-Layer/][Execution Layer]]

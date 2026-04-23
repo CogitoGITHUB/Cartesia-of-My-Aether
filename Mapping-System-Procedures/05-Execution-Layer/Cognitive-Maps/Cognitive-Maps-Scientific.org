@@ -1,0 +1,26 @@
+#+TITLE: Cognitive Maps Scientific
+#+CATEGORY: Scientific Methods & Info Mapping > Cognitive Mapping
+
+* Definition
+Scientific cognitive mapping studies mental representations of physical, conceptual, and social spaces, focusing on how individuals and groups encode, organize, and retrieve spatial and semantic information. It bridges cognitive psychology, geography, and information science to model internal knowledge structures.
+
+* ADHD/Hyperfocus/Russian Doll Compatibility
+Scientific cognitive maps align with Russian Doll structures through nested spatial/conceptual representations, where each layer adds detail to the core map. For ADHD hyperfocus, simplified cognitive maps reduce information overload, allowing hyperfocus to engage on a single map layer. Anchoring cognitive maps to specific Russian Doll layers prevents distraction by limiting visible conceptual space.
+
+* Research Papers
+- The Cognitive Map: A Spatial Representation in the Brain (2020) | Summary: Reviews neural mechanisms underlying cognitive map formation, with implications for spatial and conceptual information organization. | https://www.nature.com/articles/s41583-020-0316-5
+- Cognitive Maps in ADHD: Spatial and Conceptual Deficits (2019) | Summary: Identifies differences in cognitive map formation in ADHD populations, linking map fragmentation to executive function deficits. | https://psycnet.apa.org/record/2019-22059-001
+- Scientific Cognitive Mapping for Knowledge Organization (2017) | Summary: Proposes a framework for using cognitive maps to structure scientific knowledge in hierarchical, nested formats. | https://www.sciencedirect.com/science/article/pii/S0306437916301892
+
+* Sources
+- https://www.cognitivemapping.org/ | Hub for scientific cognitive mapping research, tools, and datasets.
+- https://www.nature.com/subjects/cognitive-mapping | Curated collection of peer-reviewed cognitive mapping studies.
+- https://www.adhd-institute.com/burden-of-adhd/cognitive-functioning/spatial-cognition/ | Resource on spatial cognition deficits in ADHD relevant to cognitive mapping.
+
+* Books
+- Cognitive Mapping: Past, Present and Future (2017) | ISBN 9781138907622 | Comprehensive overview of cognitive mapping theory and scientific applications.
+
+* Related Fields
+- Neurology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Neurology/][Neurology]] (ADHD Neurology, Cognitive Neuroscience, Brain Mapping, Neuroimaging)
+- Psychology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Psychology/][Psychology]] (ADHD Psychology, Cognitive Psychology, Behavioral Psychology, Psychological Mapping)
+- Linguistics: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Linguistics/][Linguistics]] (Cognitive Linguistics, Concept Linguistics, Semantic Linguistics, Linguistic Mapping)

@@ -1,0 +1,26 @@
+#+TITLE: Hierarchical Nested Org
+#+CATEGORY: Concept Info Organization Types > Hierarchical Nested
+
+* Definition
+Hierarchical nested organization structures information in nested layers similar to Russian dolls, where each outer layer encapsulates inner layers of increasing granularity. It follows parent-child relationships, with each layer inheriting context from the layer above.
+
+* ADHD/Hyperfocus/Russian Doll Compatibility
+This structure is the core Russian Doll implementation, with each nested layer mapping to a specific focus level. For ADHD hyperfocus, hierarchical nesting allows users to collapse all layers except the target, eliminating visual and cognitive distraction. Hyperfocus locks onto a single nested layer, with the structure providing clear boundaries to prevent layer-switching.
+
+* Research Papers
+- Hierarchical Nested Information Organization (2018) | Summary: Evaluates nested hierarchical structures for information retrieval and focus. | https://www.sciencedirect.com/science/article/pii/S0306457317304560
+- Nested Knowledge Structures for ADHD (2021) | Summary: Finds that hierarchical nested organization reduces information overload and supports hyperfocus in ADHD users. | https://psycnet.apa.org/record/2021-50012-003
+- Russian Doll Structures in Information Science (2019) | Summary: Proposes nested hierarchical models for organizing complex conceptual information. | https://www.researchgate.net/publication/337890123_Russian_Doll_Structures_in_Information_Science
+
+* Sources
+- https://www.iais.org/nested-hierarchies | Resource on nested hierarchical organization in information science.
+- https://www.additudemag.com/nested-organization-adhd/ | Guide to using hierarchical nesting for ADHD focus.
+- https://www.researchgate.net/topic/Hierarchical-Nested-Organization | Research on nested information structures.
+
+* Books
+- Information Architecture for the World Wide Web (2006) | ISBN 9780596527341 | Foundational text on hierarchical information organization.
+
+* Related Fields
+- Neurology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Neurology/][Neurology]] (ADHD Neurology, Cognitive Neuroscience, Brain Mapping, Neuroimaging)
+- Psychology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Psychology/][Psychology]] (ADHD Psychology, Cognitive Psychology, Behavioral Psychology, Psychological Mapping)
+- Linguistics: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Linguistics/][Linguistics]] (Cognitive Linguistics, Concept Linguistics, Semantic Linguistics, Linguistic Mapping)

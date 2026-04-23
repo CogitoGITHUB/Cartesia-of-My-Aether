@@ -1,0 +1,26 @@
+#+TITLE: Linguistic Mapping Methods
+#+CATEGORY: Linguistics > Linguistic Mapping Methods
+
+* Definition
+Linguistic mapping methods visualize cross-linguistic semantic patterns using semantic maps, conceptual spaces, and typological databases to compare meaning structures.
+
+* ADHD/Hyperfocus/Russian Doll Compatibility
+Maps linguistic concepts hierarchically/networked, aligning with concept thinking. Russian doll layers: lexical items → semantic maps → typological patterns → language families.
+
+* Research Papers
+- The semantic map model: State of the art (2018) Language and Linguistics Compass | Summary: Reviews semantic map construction and applications. | https://compass.onlinelibrary.wiley.com/doi/10.1111/lnc3.12270
+- Mapping Research Trends with CoLiRa Framework (2026) MDPI | Summary: Computational semantic mapping for literature analysis. | https://www.mdpi.com/2078-2489/17/4/367
+
+* Sources
+- Semantic Maps Oxford Bibliographies | https://www.oxfordbibliographies.com/display/document/obo-9780199772810-0229.xml | Authoritative guide.
+- Cognitive Linguistics journal | https://www.cognitivelinguistics.org/en/journal | Publishes linguistic mapping research.
+
+* Books
+- Cognitive Linguistics Research series (De Gruyter) | https://www.degruyterbrill.com/serial/clr-b/html | Book series on linguistic mapping methods.
+
+* Related Fields
+- Mapping Methods: [[file:/home/aoeu/Mapping-System-Procedures/01-Mapping-Methods/][Mapping Methods]]
+- Organization Structures: [[file:/home/aoeu/Mapping-System-Procedures/02-Organization-Structures/][Organization Structures]]
+- TODO Systems: [[file:/home/aoeu/Mapping-System-Procedures/03-TODO-Systems/][TODO Systems]]
+- Cognitive Systems: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/][Cognitive Systems]]
+- Execution Layer: [[file:/home/aoeu/Mapping-System-Procedures/05-Execution-Layer/][Execution Layer]]

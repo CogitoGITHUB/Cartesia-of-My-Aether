@@ -1,0 +1,24 @@
+#+TITLE: Mind Maps
+#+CATEGORY: Information Mapping Methods > Networked Methods
+
+* Definition
+Mind maps are visual diagrams that organize information by connecting a central concept to related ideas via branching nodes, creating a radial network of associations.
+
+* ADHD/Hyperfocus/Russian Doll Compatibility
+Good for concept-centric thinking; radial structure less Russian doll-like but can adapt by focusing on one branch at a time (drill-down) to support hyperfocus. Helps externalize thoughts for ADHD executive function.
+
+* Research Papers
+- From Chaos to Clarity: Using Mind Maps to Navigate Adult ADHD (2024) CHADD | Summary: Explores how mind maps aid executive function in adults with ADHD. | https://chadd.org/attention-article/from-chaos-to-clarity-using-mind-maps-to-navigate-adult-adhd/
+- Using Mind Mapping Software to Initiate Writing and Organizing Ideas for Students with SLD and ADHD (2016) Springer | Summary: Demonstrates benefits of mind mapping software for students with ADHD. | https://link.springer.com/chapter/10.1007/978-3-319-41267-2_50
+
+* Sources
+- Mind maps effectiveness for ADHD children: https://mdpi-res.com/d_attachment/ijerph/ijerph-18-00878/article_deploy/ijerph-18-00878-v2.pdf | Study showing mind maps improve inhibition in children with ADHD.
+- ResearchGate summary: https://www.researchgate.net/publication/384940151_From_Chaos_to_Clarity_Using_Mind_Maps_to_Navigate_Adult_ADHD | Overview of mind maps for ADHD.
+
+* Books
+- Mind Mapping For Dummies by Florian Rustler (2012) ISBN: 978-1119969150 | Practical guide to mind mapping techniques.
+
+* Related Fields
+- Neurology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Neurology/][Neurology]] (ADHD Neurology, Cognitive Neuroscience, Brain Mapping, Neuroimaging)
+- Psychology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Psychology/][Psychology]] (ADHD Psychology, Cognitive Psychology, Behavioral Psychology, Psychological Mapping)
+- Linguistics: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Linguistics/][Linguistics]] (Cognitive Linguistics, Concept Linguistics, Semantic Linguistics, Linguistic Mapping)

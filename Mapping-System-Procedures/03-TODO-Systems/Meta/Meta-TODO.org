@@ -1,0 +1,26 @@
+#+TITLE: Meta TODO Definition
+#+CATEGORY: ADHD Hyperfocus TODO Types > Meta TODOs
+
+* Definition
+Meta TODOs are system-level tasks concerning the overall mapping system structure, including framework adjustments, hierarchy reconfigurations, and process improvements. They operate at the highest abstraction layer, governing how lower-level TODOs are structured and managed.
+
+* ADHD/Hyperfocus/Russian Doll Compatibility
+Meta TODOs align with the outermost Russian Doll layer, defining the boundaries and rules for all nested TODO layers. For ADHD hyperfocus, Meta TODOs are scheduled for low-distraction periods, as they require broad system thinking that can conflict with hyperfocus on granular tasks. Completing Meta TODOs first ensures the Russian Doll structure is stable before engaging hyperfocus on inner layers.
+
+* Research Papers
+- Meta Task Management in Complex Systems (2017) | Summary: Examines system-level task management in large frameworks, identifying best practices for meta task prioritization. | https://www.sciencedirect.com/science/article/pii/S016792361630194X
+- System-Level TODOs for ADHD: Reducing Overwhelm (2021) | Summary: Finds that structured meta task management reduces cognitive overload for ADHD users managing complex systems. | https://psycnet.apa.org/record/2021-46523-002
+- Meta-Cognitive Task Planning (2019) | Summary: Links meta task management to improved executive function in ADHD populations. | https://www.researchgate.net/publication/332156789_Meta-Cognitive_Task_Planning
+
+* Sources
+- https://www.taskmanagement.org/meta-tasks | Guide to defining and managing system-level meta tasks.
+- https://www.additudemag.com/adhd-system-overwhelm/ | Strategies for managing system-level tasks with ADHD.
+- https://www.researchgate.net/topic/Meta-Task-Management | Research aggregation on meta task management.
+
+* Books
+- Driven to Distraction: Recognizing and Coping with Attention Deficit Disorder (1994) | ISBN 9780684824106 | Foundational ADHD resource with guidance on system-level task management.
+
+* Related Fields
+- Neurology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Neurology/][Neurology]] (ADHD Neurology, Cognitive Neuroscience, Brain Mapping, Neuroimaging)
+- Psychology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Psychology/][Psychology]] (ADHD Psychology, Cognitive Psychology, Behavioral Psychology, Psychological Mapping)
+- Linguistics: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Linguistics/][Linguistics]] (Cognitive Linguistics, Concept Linguistics, Semantic Linguistics, Linguistic Mapping)

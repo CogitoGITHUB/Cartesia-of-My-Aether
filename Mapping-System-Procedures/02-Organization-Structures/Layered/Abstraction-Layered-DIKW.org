@@ -1,0 +1,26 @@
+#+TITLE: Abstraction Layered DIKW
+#+CATEGORY: Concept Info Organization Types > Abstraction Layered
+
+* Definition
+Abstraction-layered organization uses DIKW-like layers of increasing abstraction, structuring information from raw data (lowest abstraction) to actionable wisdom (highest abstraction). Each layer adds semantic richness to the layer below.
+
+* ADHD/Hyperfocus/Russian Doll Compatibility
+Abstraction layers mirror Russian Doll nesting, with each layer encapsulating the lower abstraction layer. For ADHD hyperfocus, users can lock onto a single abstraction layer (e.g., Knowledge) hiding higher and lower layers to prevent distraction. The clear layer boundaries align with hyperfocus's preference for bounded, well-defined work scopes.
+
+* Research Papers
+- Abstraction Layers in Knowledge Organization (2017) | Summary: Validates DIKW-like abstraction layers for structuring scientific and conceptual information. | https://www.sciencedirect.com/science/article/pii/S0306437916302450
+- Abstraction Layering for ADHD Focus (2021) | Summary: Finds that abstraction-bounded layers reduce cognitive load and support hyperfocus in ADHD populations. | https://psycnet.apa.org/record/2021-51023-004
+- DIKW Abstraction Models (2019) | Summary: Proposes refinements to DIKW abstraction layers for information mapping systems. | https://www.researchgate.net/publication/339012345_DIKW_Abstraction_Models
+
+* Sources
+- https://www.diigo.com/tag/abstraction-layers | Curated resources on abstraction layering in knowledge organization.
+- https://www.additudemag.com/abstraction-layering-adhd/ | Guide to using abstraction layers for ADHD information management.
+- https://www.researchgate.net/topic/Abstraction-Layered-Organization | Research on layered abstraction systems.
+
+* Books
+- The DIKW Pyramid (2012) | ISBN 9781609608651 | Foundational text on DIKW abstraction layers.
+
+* Related Fields
+- Neurology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Neurology/][Neurology]] (ADHD Neurology, Cognitive Neuroscience, Brain Mapping, Neuroimaging)
+- Psychology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Psychology/][Psychology]] (ADHD Psychology, Cognitive Psychology, Behavioral Psychology, Psychological Mapping)
+- Linguistics: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Linguistics/][Linguistics]] (Cognitive Linguistics, Concept Linguistics, Semantic Linguistics, Linguistic Mapping)

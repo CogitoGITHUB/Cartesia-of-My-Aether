@@ -1,0 +1,26 @@
+#+TITLE: Behavioral Psychology
+#+CATEGORY: Psychology > Behavioral Psychology
+
+* Definition
+Behavioral psychology examines how conditioning, reinforcement, and learning shape behavior, informing ADHD interventions like behavioral parent training and token economies.
+
+* ADHD/Hyperfocus/Russian Doll Compatibility
+Informs behavioral interventions for ADHD hyperactivity/impulsivity. Russian doll layers: behaviors → reinforcement schedules → intervention protocols.
+
+* Research Papers
+- Cognitive-behavioural interventions for ADHD (2018) PMC | Summary: Reviews CBT effectiveness for adult ADHD, targeting core symptoms and comorbidities. | https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6494390/
+- Aversive Pavlovian inhibition in adult ADHD (2012) Frontiers in Behavioral Neuroscience | Summary: Shows diminished Pavlovian inhibition in hyperactive/impulsive ADHD, enhanced by MBCT. | https://www.frontiersin.org/journals/behavioral-neuroscience/articles/10.3389/fnbeh.2012.938082/full
+
+* Sources
+- NIMH ADHD page | https://www.nimh.nih.gov/health/topics/attention-deficit-hyperactivity-disorder-adhd | Treatment approaches including behavioral therapy.
+- Executive and motivational pathways to ADHD traits (2026) BMC Psychology | https://link.springer.com/article/10.1186/s40359-026-04279-x
+
+* Books
+- Driven to Distraction by Edward M. Hallowell & John J. Ratey (1994) ISBN: 9780684824106 | Includes behavioral strategies for ADHD.
+
+* Related Fields
+- Mapping Methods: [[file:/home/aoeu/Mapping-System-Procedures/01-Mapping-Methods/][Mapping Methods]]
+- Organization Structures: [[file:/home/aoeu/Mapping-System-Procedures/02-Organization-Structures/][Organization Structures]]
+- TODO Systems: [[file:/home/aoeu/Mapping-System-Procedures/03-TODO-Systems/][TODO Systems]]
+- Cognitive Systems: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/][Cognitive Systems]]
+- Execution Layer: [[file:/home/aoeu/Mapping-System-Procedures/05-Execution-Layer/][Execution Layer]]

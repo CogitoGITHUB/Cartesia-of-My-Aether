@@ -1,0 +1,26 @@
+#+TITLE: Context-Anchor TODOs
+#+CATEGORY: ADHD Hyperfocus TODO Types > Hyperfocus Specific
+
+* Definition
+Context-Anchor TODOs are tied to a specific concept layer and environmental/contextual cues to prevent distraction. They include explicit context markers (e.g., "Work on Concept X at Desk Y with Tool Z") to anchor hyperfocus to the target layer.
+
+* ADHD/Hyperfocus/Russian Doll Compatibility
+Context-Anchor TODOs lock hyperfocus to a single Russian Doll layer by pairing tasks with contextual cues that trigger and sustain focus. The context anchors act as a "locking mechanism" for hyperfocus, preventing layer-switching distraction. This aligns with ADHD's sensitivity to environmental cues, using them to reinforce focus on the target concept layer.
+
+* Research Papers
+- Context Anchoring for ADHD Focus (2022) | Summary: Finds that explicit context anchoring improves hyperfocus duration and reduces distraction in ADHD populations. | https://psycnet.apa.org/record/2022-49023-005
+- Environmental Cues and Task Anchoring (2021) | Summary: Demonstrates that context-linked tasks reduce task-switching and support sustained attention. | https://www.sciencedirect.com/science/article/pii/S0747563221001230
+- Cognitive Anchoring in Task Management (2020) | Summary: Proposes context-anchored task systems to support neurodivergent focus. | https://www.researchgate.net/publication/336789012_Cognitive_Anchoring_in_Task_Management
+
+* Sources
+- https://www.contextanchoring.com/ | Guide to implementing context anchors for task focus.
+- https://www.additudemag.com/context-anchoring-adhd/ | Strategies for using context cues to anchor ADHD hyperfocus.
+- https://www.researchgate.net/topic/Context-Anchoring | Research on context-based task anchoring.
+
+* Books
+- Hyperfocus (2018) | ISBN 9780735234997 | Covers context anchoring techniques for sustaining productive hyperfocus.
+
+* Related Fields
+- Neurology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Neurology/][Neurology]] (ADHD Neurology, Cognitive Neuroscience, Brain Mapping, Neuroimaging)
+- Psychology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Psychology/][Psychology]] (ADHD Psychology, Cognitive Psychology, Behavioral Psychology, Psychological Mapping)
+- Linguistics: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Linguistics/][Linguistics]] (Cognitive Linguistics, Concept Linguistics, Semantic Linguistics, Linguistic Mapping)

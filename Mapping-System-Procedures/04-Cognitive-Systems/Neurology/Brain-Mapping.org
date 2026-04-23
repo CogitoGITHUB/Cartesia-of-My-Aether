@@ -1,0 +1,26 @@
+#+TITLE: Brain Mapping Methods
+#+CATEGORY: Neurology > Brain Mapping Methods
+
+* Definition
+Brain mapping methods localize and visualize brain structure, function, and connectivity using techniques like fMRI, EEG, MEG, PET, and diffusion MRI to create detailed brain atlases.
+
+* ADHD/Hyperfocus/Russian Doll Compatibility
+Direct application to ADHD: maps hyperfocus-related networks (default mode network, frontal control network). Russian doll layers: voxel → region → network → system maps.
+
+* Research Papers
+- High-resolution brain atlas expands with 18 tasks (2026) MedicalXpress | Summary: IBC project release of detailed task-based fMRI brain mapping dataset. | https://medicalxpress.com/news/2026-04-high-resolution-brain-atlas-tasks.html
+- Mapping cortical asymmetry in 17,141 individuals (2018) PNAS | Summary: Large-scale structural brain mapping via ENIGMA Consortium. | https://www.pnas.org/doi/10.1073/pnas.1718418115
+
+* Sources
+- Functional Magnetic Resonance Imaging Methods (2015) PMC | https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4565730/ | Overview of fMRI methods.
+- Human Brain Mapping Nature Methods (2023) | https://www.nature.com/articles/s41592-023-02106-4 | Journal focus on brain mapping techniques.
+
+* Books
+- Research Methods for Cognitive Neuroscience by Aaron Newman (2019) ISBN: 9781446296504 | Includes brain mapping methodology chapters.
+
+* Related Fields
+- Mapping Methods: [[file:/home/aoeu/Mapping-System-Procedures/01-Mapping-Methods/][Mapping Methods]]
+- Organization Structures: [[file:/home/aoeu/Mapping-System-Procedures/02-Organization-Structures/][Organization Structures]]
+- TODO Systems: [[file:/home/aoeu/Mapping-System-Procedures/03-TODO-Systems/][TODO Systems]]
+- Cognitive Systems: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/][Cognitive Systems]]
+- Execution Layer: [[file:/home/aoeu/Mapping-System-Procedures/05-Execution-Layer/][Execution Layer]]

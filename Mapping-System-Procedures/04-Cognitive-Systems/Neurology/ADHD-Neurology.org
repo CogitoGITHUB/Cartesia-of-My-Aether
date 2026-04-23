@@ -1,0 +1,26 @@
+#+TITLE: ADHD Neurology
+#+CATEGORY: Neurology > ADHD Neurology
+
+* Definition
+ADHD neurology studies the brain structure, connectivity, and neurochemistry underlying Attention-Deficit/Hyperactivity Disorder, focusing on cortical and subcortical differences in ADHD brains.
+
+* ADHD/Hyperfocus/Russian Doll Compatibility
+Directly relevant to ADHD hyperfocus: explains neurological basis of hyperfocus (dopamine, frontal-striatal connectivity). Russian doll layering can map brain regions → networks → systems.
+
+* Research Papers
+- Subcortico-cortical dysconnectivity in ADHD (2024) American Journal of Psychiatry | Summary: Large-scale study showing atypical frontal-subcortical connectivity in youth ADHD. | https://ajp.psychiatryonline.org/doi/10.1176/appi.ajp.20230026
+- Neurobiology of ADHD: historical challenges and emerging frontiers (2024) Nature Reviews Neuroscience | Summary: Reviews global brain network alterations in ADHD beyond localizationist models. | https://www.nature.com/articles/s41583-024-00869-z
+
+* Sources
+- NIH brain connectivity study (2024) | https://www.nimh.nih.gov/news/science-updates/2024/nih-researchers-identify-brain-connections-associated-with-adhd-in-youth
+- Cortical alterations in adult ADHD (2024) Springer | https://link.springer.com/article/10.1007/s00406-024-01872-2
+
+* Books
+- Research Methods for Cognitive Neuroscience by Aaron Newman (2019) ISBN: 9781446296504 | Comprehensive guide to neuroimaging techniques relevant to ADHD research.
+
+* Related Fields
+- Mapping Methods: [[file:/home/aoeu/Mapping-System-Procedures/01-Mapping-Methods/][Mapping Methods]]
+- Organization Structures: [[file:/home/aoeu/Mapping-System-Procedures/02-Organization-Structures/][Organization Structures]]
+- TODO Systems: [[file:/home/aoeu/Mapping-System-Procedures/03-TODO-Systems/][TODO Systems]]
+- Cognitive Systems: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/][Cognitive Systems]]
+- Execution Layer: [[file:/home/aoeu/Mapping-System-Procedures/05-Execution-Layer/][Execution Layer]]

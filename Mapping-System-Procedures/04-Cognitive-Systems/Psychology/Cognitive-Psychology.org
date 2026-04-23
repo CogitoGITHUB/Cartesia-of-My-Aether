@@ -1,0 +1,26 @@
+#+TITLE: Cognitive Psychology
+#+CATEGORY: Psychology > Cognitive Psychology
+
+* Definition
+Cognitive psychology studies mental processes such as perception, attention, memory, language, problem-solving, and decision-making, providing frameworks for understanding ADHD executive function.
+
+* ADHD/Hyperfocus/Russian Doll Compatibility
+Directly studies attention, working memory, and executive function deficits in ADHD. Russian doll layers: basic processes → cognitive models → ADHD applications.
+
+* Research Papers
+- What Makes Memories Vivid? (2025) Journal of Experimental Psychology | Summary: Investigates vividness in episodic recall, relevant to memory deficits in ADHD. | https://psycnet.apa.org/manuscript/2026-85139-001.pdf
+- Cognitive Foundations (Open Access Textbook) | Summary: Free textbook covering attention, memory, language relevant to cognitive psychology. | https://bookdown.org/pilegard/cogfoundations/
+
+* Sources
+- Cognitive Psychology SAGE Publications | https://uk.sagepub.com/en-gb/hkg/cognitive-psychology/book287769 | Textbook overview.
+- Cognitive Psychology Journal ScienceDirect | https://www.sciencedirect.com/journal/cognitive-psychology | Academic journal overview.
+
+* Books
+- Cognitive Psychology, 6th Edition by Robert J. Sternberg (2011) ISBN: 9780495904583 | Comprehensive cognitive psychology textbook.
+
+* Related Fields
+- Mapping Methods: [[file:/home/aoeu/Mapping-System-Procedures/01-Mapping-Methods/][Mapping Methods]]
+- Organization Structures: [[file:/home/aoeu/Mapping-System-Procedures/02-Organization-Structures/][Organization Structures]]
+- TODO Systems: [[file:/home/aoeu/Mapping-System-Procedures/03-TODO-Systems/][TODO Systems]]
+- Cognitive Systems: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/][Cognitive Systems]]
+- Execution Layer: [[file:/home/aoeu/Mapping-System-Procedures/05-Execution-Layer/][Execution Layer]]

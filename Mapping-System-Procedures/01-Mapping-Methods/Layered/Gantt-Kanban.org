@@ -1,0 +1,25 @@
+#+TITLE: Gantt Charts & Kanban
+#+CATEGORY: Information Mapping Methods > ADHD-Optimized Methods
+
+* Definition
+Gantt charts are bar charts illustrating project schedules; Kanban is a visual workflow method using columns to represent task stages. Both are task-oriented project management tools.
+
+* ADHD/Hyperfocus/Russian Doll Compatibility
+Poor match for Russian doll layering: they are flat, task-based, not concept-centric. Not recommended for ADHD hyperfocus as they encourage context switching and fragment attention.
+
+* Research Papers
+- Your ADHD isn't the problem. Your Gantt chart is. (2025) Business Feels Good | Summary: Argues visual roadmaps beat Gantt charts for ADHD brains. | https://www.businessfeelsgood.com/p/your-adhd-isnt-the-problem-your-gantt
+- How I stopped losing 3 hours a day to ADHD task-switching with a Notion OS (2026) Dev.to | Summary: Describes ADHD-friendly task management using Notion. | https://dev.to/komugi_4236cc409d6f9157e7/how-i-stopped-losing-3-hours-a-day-to-adhd-task-switching-with-a-notion-os-2026-4p5g
+
+* Sources
+- Leantime project management for ADHD: https://leantime.io/work-management-for-adhd-and-add/ | Tool designed for ADHD brains with visual planning.
+- ClickUp ADHD project management: https://clickup.com/blog/adhd-project-management/ | Discusses visual planning tools for ADHD.
+
+* Books
+- Kanban: Successful Evolutionary Change for Your Technology Business by David J. Anderson (2010) ISBN: 978-0984521401 | Foundational Kanban method.
+- The Bloom Method for ADHD Visual Planning (not a book). Perhaps "ADHD Project Management" by Kate Peabody (not published). Use "The ADHD Advantage" by Dale Archer (2015) ISBN: 978-1591847441 (not directly related).
+
+* Related Fields
+- Neurology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Neurology/][Neurology]] (ADHD Neurology, Cognitive Neuroscience, Brain Mapping, Neuroimaging)
+- Psychology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Psychology/][Psychology]] (ADHD Psychology, Cognitive Psychology, Behavioral Psychology, Psychological Mapping)
+- Linguistics: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Linguistics/][Linguistics]] (Cognitive Linguistics, Concept Linguistics, Semantic Linguistics, Linguistic Mapping)

@@ -1,0 +1,32 @@
+#+TITLE: Hyperfocus Guidelines
+#+CATEGORY: System Core > Guidelines
+
+* Purpose
+Define rules for using the Russian Doll layered system to support ADHD hyperfocus and minimize distraction.
+
+* Layer Isolation
+- When working on a specific layer (e.g., a concept subcategory), collapse all other layers (higher or lower) to prevent visual and cognitive clutter.
+- Use directory permissions or org-mode narrowing to hide unrelated files.
+
+* Concept Locking
+- Only access a doll (directory/file) when intentionally drilling into it. No accidental navigation to other layers.
+- Use symbolic links or shortcuts to quickly return to current focus layer.
+
+* Sprint Mapping
+- Hyperfocus sessions should target one Layer 3/4 doll, time-boxed to 1-4 hours.
+- Predefine exit time and use reminders to prevent hyperfocus overrun.
+
+* Backburner Management
+- Store low-priority tasks/concepts in Backburner TODOs, accessible only when hyperfocus naturally wanders to that area.
+
+* Context Anchoring
+- Tie TODOs and notes to a specific concept layer (anchor) to avoid context switching.
+- Use tags or metadata to mark anchor layer.
+
+* Research Integration
+- Each concept layer must have at least 2 research papers, 2 sources, and 1 book (populated by system).
+- Update references when new research emerges.
+
+* Tools
+- Use org-mode with narrowing, Emacs, or similar tools to manage layer visibility.
+- Consider using DEVONthink, Obsidian, or Zettelkasten tools that support hierarchical linking.

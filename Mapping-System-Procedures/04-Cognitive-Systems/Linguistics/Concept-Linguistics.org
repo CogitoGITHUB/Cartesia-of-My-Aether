@@ -1,0 +1,26 @@
+#+TITLE: Concept Linguistics
+#+CATEGORY: Linguistics > Concept Linguistics
+
+* Definition
+Concept linguistics focuses on how linguistic structures encode and organize conceptual categories, using semantic maps, frames, and conceptual spaces to model meaning cross-linguistically.
+
+* ADHD/Hyperfocus/Russian Doll Compatibility
+Directly aligns with concept thinking: maps linguistic concepts hierarchically. Russian doll layers: lexical units → concepts → semantic maps → linguistic typology.
+
+* Research Papers
+- The semantic map model: State of the art (2018) Language and Linguistics Compass | Summary: Comprehensive overview of semantic map methodology in linguistics. | https://compass.onlinelibrary.wiley.com/doi/10.1111/lnc3.12270
+- Semantic Maps (Oxford Bibliographies) | Summary: Authoritative overview of semantic map methods in linguistic research. | https://www.oxfordbibliographies.com/display/document/obo-9780199772810-0229.xml
+
+* Sources
+- Cognitive Linguistics Publications & Resources | https://www.cognitivelinguistics.org/en/publications-and-resources | Lists semantic map resources.
+- Semantic map model overview PDF | https://orbi.uliege.be/bitstream/2268/218917/1/Georgakopoulos&Polis_2018_SemanticMaps_Compass.pdf
+
+* Books
+- Cognitive Linguistics: An Introductory Bibliography by Dick Hudson (2000) | Foundational bibliography for concept linguistics.
+
+* Related Fields
+- Mapping Methods: [[file:/home/aoeu/Mapping-System-Procedures/01-Mapping-Methods/][Mapping Methods]]
+- Organization Structures: [[file:/home/aoeu/Mapping-System-Procedures/02-Organization-Structures/][Organization Structures]]
+- TODO Systems: [[file:/home/aoeu/Mapping-System-Procedures/03-TODO-Systems/][TODO Systems]]
+- Cognitive Systems: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/][Cognitive Systems]]
+- Execution Layer: [[file:/home/aoeu/Mapping-System-Procedures/05-Execution-Layer/][Execution Layer]]

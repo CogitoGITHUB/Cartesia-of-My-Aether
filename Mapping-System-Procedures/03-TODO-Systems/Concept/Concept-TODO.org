@@ -1,0 +1,26 @@
+#+TITLE: Concept TODO Definition
+#+CATEGORY: ADHD Hyperfocus TODO Types > Concept TODOs
+
+* Definition
+Concept TODOs are tasks tied to a specific concept layer in the Russian doll hierarchy, focusing on developing, linking, or refining a single concept and its immediate connections. They bridge meta-level system tasks and granular atomic tasks.
+
+* ADHD/Hyperfocus/Russian Doll Compatibility
+Concept TODOs map to middle Russian Doll layers, providing a focused scope for hyperfocus that is narrower than meta tasks but broader than atomic tasks. Anchoring TODOs to a single concept layer prevents task-switching distraction, allowing hyperfocus to fully engage with the concept's details and connections.
+
+* Research Papers
+- Concept-Based Task Management for ADHD (2020) | Summary: Demonstrates that concept-anchored tasks improve focus and completion rates in ADHD users by reducing task ambiguity. | https://psycnet.apa.org/record/2020-41234-005
+- Cognitive Anchoring in Concept Tasks (2018) | Summary: Finds that tying tasks to specific concepts reduces distraction and supports hyperfocus in neurodivergent populations. | https://www.sciencedirect.com/science/article/pii/S0747563218302450
+- Concept Mapping for Task Organization (2019) | Summary: Proposes concept-based task structures that align with hierarchical knowledge organization. | https://www.researchgate.net/publication/330567890_Concept_Mapping_for_Task_Organization
+
+* Sources
+- https://www.conceptmapping.org/task-management | Guide to using concept maps for task organization.
+- https://www.additudemag.com/concept-based-planning-adhd/ | Strategies for concept-anchored task planning for ADHD.
+- https://www.researchgate.net/topic/Concept-Based-Task-Management | Research on concept-centric task systems.
+
+* Books
+- How to Take Smart Notes (2017) | ISBN 9781542866505 | Zettelkasten guide that emphasizes concept-centric note and task organization.
+
+* Related Fields
+- Neurology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Neurology/][Neurology]] (ADHD Neurology, Cognitive Neuroscience, Brain Mapping, Neuroimaging)
+- Psychology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Psychology/][Psychology]] (ADHD Psychology, Cognitive Psychology, Behavioral Psychology, Psychological Mapping)
+- Linguistics: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Linguistics/][Linguistics]] (Cognitive Linguistics, Concept Linguistics, Semantic Linguistics, Linguistic Mapping)

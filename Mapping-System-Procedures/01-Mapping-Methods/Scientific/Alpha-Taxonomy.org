@@ -1,0 +1,24 @@
+#+TITLE: Alpha Taxonomy
+#+CATEGORY: Scientific Methods Info Mapping > Taxonomic
+
+* Definition
+Alpha taxonomy is the discipline of identifying, describing, and naming species based on morphological characteristics, forming the foundation of biological classification.
+
+* ADHD/Hyperfocus/Russian Doll Compatibility
+Strict hierarchical classification (kingdom → species) matches Russian doll nesting perfectly. Concept-centric focus on taxonomic groups suits hyperfocus.
+
+* Research Papers
+- Alpha taxonomy definition and scope (Wikipedia) | Summary: Overview of alpha taxonomy and its role in biological classification. | https://en.wikipedia.org/wiki/Alpha_taxonomy
+- Taxonomy: Definition, Scope and Levels (2016) Notes on Zoology | Summary: Explains alpha, beta, gamma taxonomy levels. | https://www.notesonzoology.com/taxonomy/taxonomy-definition-scope-and-levels-zoology/3346
+
+* Sources
+- Alpha taxonomy glossary (Bugs with Mike) | Brief definition and historical context. | https://bugswithmike.com/glossary/alpha-taxonomy
+- Oxford English Dictionary entry | https://oed.com/dictionary/alpha-taxonomy_n | Formal definition.
+
+* Books
+- Biological Systematics: Principles and Applications by Andrew V. Z. Brower and Randall T. Schuh (2021) ISBN: 9781501752797 | Includes taxonomic classification methods.
+
+* Related Fields
+- Neurology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Neurology/][Neurology]] (ADHD Neurology, Cognitive Neuroscience, Brain Mapping, Neuroimaging)
+- Psychology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Psychology/][Psychology]] (ADHD Psychology, Cognitive Psychology, Behavioral Psychology, Psychological Mapping)
+- Linguistics: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Linguistics/][Linguistics]] (Cognitive Linguistics, Concept Linguistics, Semantic Linguistics, Linguistic Mapping)

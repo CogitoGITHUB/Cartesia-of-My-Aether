@@ -1,0 +1,24 @@
+#+TITLE: Grounded Theory
+#+CATEGORY: Scientific Methods Info Mapping > Grounded Theory
+
+* Definition
+Grounded Theory is a qualitative research methodology that constructs theory inductively from data through systematic coding, constant comparison, and theoretical sampling.
+
+* ADHD/Hyperfocus/Russian Doll Compatibility
+Builds nested concepts bottom-up (inner → outer Russian doll). Concept-centric analysis aligns with hyperfocus deep dives into data.
+
+* Research Papers
+- Grounded theory research: A design framework for novice researchers (2024) PMC | Summary: Provides visual framework and overview of GT methodology. | https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6318722/
+- How to do a grounded theory study: a worked example (2011) BMC Med Res Methodol | Summary: Worked example of GT in dental practice adaptation. | https://bmcmedresmethodol.biomedcentral.com/counter/pdf/10.1186/1471-2288-11-128.pdf
+
+* Sources
+- Using Grounded Theory Method to Capture Health Care Experiences (2014) PMC | https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4545354/ | Application of GT in healthcare research.
+- Modified Grounded Theory Approach study (2026) MDPI | https://www.mdpi.com/2227-9032/14/8/1003 | Example of GT in mental health.
+
+* Books
+- The Discovery of Grounded Theory by Barney G. Glaser and Anselm L. Strauss (1967) ISBN: 978-0202302619 | Foundational text on GT methodology.
+
+* Related Fields
+- Neurology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Neurology/][Neurology]] (ADHD Neurology, Cognitive Neuroscience, Brain Mapping, Neuroimaging)
+- Psychology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Psychology/][Psychology]] (ADHD Psychology, Cognitive Psychology, Behavioral Psychology, Psychological Mapping)
+- Linguistics: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Linguistics/][Linguistics]] (Cognitive Linguistics, Concept Linguistics, Semantic Linguistics, Linguistic Mapping)

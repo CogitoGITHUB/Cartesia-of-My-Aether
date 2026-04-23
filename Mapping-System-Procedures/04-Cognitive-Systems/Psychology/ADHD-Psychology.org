@@ -1,0 +1,26 @@
+#+TITLE: ADHD Psychology
+#+CATEGORY: Psychology > ADHD Psychology
+
+* Definition
+ADHD psychology studies the behavioral, emotional, and cognitive patterns of Attention-Deficit/Hyperactivity Disorder, including inattention, hyperactivity, impulsivity, and associated comorbidities.
+
+* ADHD/Hyperfocus/Russian Doll Compatibility
+Core field for understanding ADHD hyperfocus: explains psychological mechanisms of hyperfocus, executive function deficits. Russian doll layers: symptoms → cognitive processes → psychological theories.
+
+* Research Papers
+- Working memory and inhibitory control deficits in children with ADHD (2024) Frontiers in Psychiatry | Summary: Experimental study showing working memory deficits drive inhibitory failures in ADHD. | https://www.frontiersin.org/articles/10.3389/fpsyt.2024.1277583/full
+- The impacts associated with having ADHD: an umbrella review (2024) Frontiers in Psychiatry | Summary: Synthesizes mental, physical, social risks linked to ADHD. | https://www.frontiersin.org/journals/psychiatry/articles/10.3389/fpsyt.2024.1343314/full
+
+* Sources
+- NIMH ADHD page | https://www.nimh.nih.gov/health/topics/attention-deficit-hyperactivity-disorder-adhd | Overview of ADHD symptoms and treatment.
+- Attention network characteristics in adults with high ADHD traits (2024) Frontiers in Psychology | https://www.frontiersin.org/journals/psychology/articles/10.3389/fpsyg.2024.1477581/full
+
+* Books
+- Driven to Distraction by Edward M. Hallowell & John J. Ratey (1994) ISBN: 9780684824106 | Foundational ADHD psychology resource.
+
+* Related Fields
+- Mapping Methods: [[file:/home/aoeu/Mapping-System-Procedures/01-Mapping-Methods/][Mapping Methods]]
+- Organization Structures: [[file:/home/aoeu/Mapping-System-Procedures/02-Organization-Structures/][Organization Structures]]
+- TODO Systems: [[file:/home/aoeu/Mapping-System-Procedures/03-TODO-Systems/][TODO Systems]]
+- Cognitive Systems: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/][Cognitive Systems]]
+- Execution Layer: [[file:/home/aoeu/Mapping-System-Procedures/05-Execution-Layer/][Execution Layer]]

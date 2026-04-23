@@ -1,0 +1,24 @@
+#+TITLE: Systems Thinking Methodology
+#+CATEGORY: Scientific Methods Info Mapping > Systems Thinking
+
+* Definition
+Systems thinking methodology examines complex systems as wholes, focusing on interconnections, feedback loops, and emergent properties, often using causal loop diagrams and qualitative mapping.
+
+* ADHD/Hyperfocus/Russian Doll Compatibility
+Layered subsystems (Russian dolls) align with systems thinking. Concept-centric modeling of system components suits hyperfocus deep dives.
+
+* Research Papers
+- A Systems Thinking Methodology for Studying Prevention Efforts in Communities (2020) Springer | Summary: Applies systems tools and systemic inquiry to community prevention. | https://link.springer.com/article/10.1007/s11213-020-09544-7
+- Systems thinking methods: a worked example (2023) Health Research Policy | Summary: Worked example of systems thinking for emergency medical services. | https://link.springer.com/article/10.1186/s12961-023-00982-y
+
+* Sources
+- Methodological Framework for Systems Thinking and Modelling (2000) Semantic Scholar | https://www.semanticscholar.org/paper/A-Methodological-Framework-for-Systems-Thinking-and-Cavana-Maani/7398e7728357fe641baa13a27c6d32e6dbdb1fdc | Framework for ST&M interventions.
+- Methodological Flexibility in Systems Thinking (2023) Springer | https://link.springer.com/content/pdf/10.1007/s11213-022-09597-w.pdf | Discusses flexible application of systems methodologies.
+
+* Books
+- Thinking in Systems: A Primer by Donella Meadows (2008) ISBN: 978-1603580557 | Classic introduction to systems thinking.
+
+* Related Fields
+- Neurology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Neurology/][Neurology]] (ADHD Neurology, Cognitive Neuroscience, Brain Mapping, Neuroimaging)
+- Psychology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Psychology/][Psychology]] (ADHD Psychology, Cognitive Psychology, Behavioral Psychology, Psychological Mapping)
+- Linguistics: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Linguistics/][Linguistics]] (Cognitive Linguistics, Concept Linguistics, Semantic Linguistics, Linguistic Mapping)

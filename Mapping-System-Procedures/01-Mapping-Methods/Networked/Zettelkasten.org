@@ -1,0 +1,24 @@
+#+TITLE: Zettelkasten
+#+CATEGORY: Information Mapping Methods > Networked Methods
+
+* Definition
+Zettelkasten (slip-box) is a method of personal knowledge management where notes (slips) are assigned unique IDs and linked conceptually, forming a networked, self-organizing knowledge base.
+
+* ADHD/Hyperfocus/Russian Doll Compatibility
+Networked concept links align with concept-centric thinking; can create nested structure by linking notes hierarchically. Hyperfocus can be maintained by following a single note thread deeply.
+
+* Research Papers
+- Kommunikation mit Zettelkästen (1981) Niklas Luhmann | Summary: Foundational paper on using slip-boxes for sociological research. | https://link.springer.com/chapter/10.1007/978-3-322-87749-9_19
+- Academic Toolbox: The Zettelkasten Method (2026) Graduate Institute Library | Summary: Overview of Zettelkasten method for academic research. | https://libguides.graduateinstitute.ch/toolbox/zettelkasten
+
+* Sources
+- Zettelkasten online paper by Niklas Luhmann (revised) | English translation of Luhmann's original. | https://www.scottscheper.com/zettelkasten/
+- What is Zettelkasten? Europe PMC | Brief description of method. | https://europepmc.org/article/ppr/ppr622232
+
+* Books
+- How to Take Smart Notes by Sönke Ahrens (2017) ISBN: 978-1542866507 | Definitive guide to Zettelkasten method for students and academics.
+
+* Related Fields
+- Neurology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Neurology/][Neurology]] (ADHD Neurology, Cognitive Neuroscience, Brain Mapping, Neuroimaging)
+- Psychology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Psychology/][Psychology]] (ADHD Psychology, Cognitive Psychology, Behavioral Psychology, Psychological Mapping)
+- Linguistics: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Linguistics/][Linguistics]] (Cognitive Linguistics, Concept Linguistics, Semantic Linguistics, Linguistic Mapping)

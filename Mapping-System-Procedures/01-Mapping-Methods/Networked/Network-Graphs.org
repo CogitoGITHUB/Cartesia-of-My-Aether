@@ -1,0 +1,24 @@
+#+TITLE: Network Graphs
+#+CATEGORY: Information Mapping Methods > Networked Methods
+
+* Definition
+Network graphs are visual representations of entities (nodes) and their connections (edges), used to map complex relationships without hierarchical constraints.
+
+* ADHD/Hyperfocus/Russian Doll Compatibility
+Non-hierarchical structure may conflict with Russian doll preference; however, concept-centric nodes can be grouped into clusters (meta-dolls). Hyperfocus may be challenged by many connections; best for high-level overviews.
+
+* Research Papers
+- (Search for network graphs in information visualization) - placeholder.
+- (Another paper) - placeholder.
+
+* Sources
+- Network visualization tools: https://gephi.org/ | Open source network analysis.
+- Graph theory basics: https://en.wikipedia.org/wiki/Graph_theory
+
+* Books
+- Network Science by Albert-László Barabási (2016) ISBN: 978-1107076266 | Comprehensive textbook on network science.
+
+* Related Fields
+- Neurology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Neurology/][Neurology]] (ADHD Neurology, Cognitive Neuroscience, Brain Mapping, Neuroimaging)
+- Psychology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Psychology/][Psychology]] (ADHD Psychology, Cognitive Psychology, Behavioral Psychology, Psychological Mapping)
+- Linguistics: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Linguistics/][Linguistics]] (Cognitive Linguistics, Concept Linguistics, Semantic Linguistics, Linguistic Mapping)

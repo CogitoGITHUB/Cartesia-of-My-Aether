@@ -1,0 +1,24 @@
+#+TITLE: Semantic Networks
+#+CATEGORY: Information Mapping Methods > Networked Methods
+
+* Definition
+Semantic networks are knowledge representation structures where concepts are nodes and relationships are labeled edges, forming a graph that supports inference and semantic querying.
+
+* ADHD/Hyperfocus/Russian Doll Compatibility
+Concept nodes with relationships suit concept-centric thinking; can be layered by abstraction (more abstract concepts as outer dolls). Hyperfocus can be maintained by exploring a single node's connections in depth.
+
+* Research Papers
+- Topological properties and organizing principles of semantic networks (2023) Scientific Reports | Summary: Analyzes structure of semantic networks across languages and relation types. | https://www.nature.com/articles/s41598-023-37294-8
+- Semantic networks (1992) Computers & Mathematics with Applications | Summary: Foundational review of semantic network systems and their applications in AI. | https://www.sciencedirect.com/science/article/pii/0898122192901355
+
+* Sources
+- Semantic Networks in Knowledge Systems Authority | Overview of semantic networks in knowledge management. | https://knowledgesystemsauthority.com/semantic-networks.html
+- Mapping Research Trends with CoLiRa Framework (2026) MDPI | Discusses semantic enrichment and knowledge graphs. | https://www.mdpi.com/2078-2489/17/4/367
+
+* Books
+- Knowledge Representation and Semantic Networks (not a single book). Perhaps "Semantic Networks in Artificial Intelligence" by Fritz Lehmann (1992) as article. Could use "Knowledge Graphs" by Hogan et al. (2021) ISBN: 978-3030672718.
+
+* Related Fields
+- Neurology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Neurology/][Neurology]] (ADHD Neurology, Cognitive Neuroscience, Brain Mapping, Neuroimaging)
+- Psychology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Psychology/][Psychology]] (ADHD Psychology, Cognitive Psychology, Behavioral Psychology, Psychological Mapping)
+- Linguistics: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Linguistics/][Linguistics]] (Cognitive Linguistics, Concept Linguistics, Semantic Linguistics, Linguistic Mapping)

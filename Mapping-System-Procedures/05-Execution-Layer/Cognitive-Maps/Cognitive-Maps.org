@@ -1,0 +1,24 @@
+#+TITLE: Cognitive Maps
+#+CATEGORY: Information Mapping Methods > ADHD-Optimized Methods
+
+* Definition
+Cognitive maps are mental representations of physical or conceptual spaces, often externalized as graphs of nodes (concepts) and edges (relationships). They help understand spatial and abstract relationships.
+
+* ADHD/Hyperfocus/Russian Doll Compatibility
+Concept-centric nodes align with concept thinking; maps can be layered by abstraction (outer doll = broad space, inner = details). Hyperfocus can be applied to mapping a single cognitive domain deeply.
+
+* Research Papers
+- Cognitive Maps in the Prefrontal Cortex (2025) Journal of Neuroscience | Summary: Reviews PFC representations of cognitive maps supporting flexible behavior. | https://www.jneurosci.org/content/45/46/e1358252025.full.pdf
+- Link Between Topographic Memory and ADHD (2021) Frontiers in Psychiatry | Summary: Studies topographic memory impairments in ADHD children, relevant to cognitive mapping. | https://www.frontiersin.org/journals/psychiatry/articles/10.3389/fpsyt.2021.647243/full
+
+* Sources
+- Cognitive mapping in ADHD: https://www.frontiersin.org/journals/psychiatry/articles/10.3389/fpsyt.2021.647243/full | Research on topographic memory.
+- Virtual City Paradigm for ADHD: https://www.frontiersin.org/articles/10.3389/fpsyt.2021.708434/full | Navigation and cognitive strategies in ADHD.
+
+* Books
+- Cognitive Mapping: Past, Present and Future by Robert M. Kitchin (1994) ISBN: 978-0415101863 | Comprehensive overview of cognitive mapping theories.
+
+* Related Fields
+- Neurology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Neurology/][Neurology]] (ADHD Neurology, Cognitive Neuroscience, Brain Mapping, Neuroimaging)
+- Psychology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Psychology/][Psychology]] (ADHD Psychology, Cognitive Psychology, Behavioral Psychology, Psychological Mapping)
+- Linguistics: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Linguistics/][Linguistics]] (Cognitive Linguistics, Concept Linguistics, Semantic Linguistics, Linguistic Mapping)

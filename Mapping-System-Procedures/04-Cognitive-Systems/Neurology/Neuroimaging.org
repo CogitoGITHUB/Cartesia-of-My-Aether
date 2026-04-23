@@ -1,0 +1,26 @@
+#+TITLE: Neuroimaging Techniques
+#+CATEGORY: Neurology > Neuroimaging Techniques
+
+* Definition
+Neuroimaging techniques are tools to visualize brain structure (sMRI, CT) and function (fMRI, PET, EEG, MEG) for research and clinical applications, including ADHD diagnosis.
+
+* ADHD/Hyperfocus/Russian Doll Compatibility
+Key for ADHD diagnosis and hyperfocus research: fMRI shows default mode network alterations during hyperfocus. Russian doll layers: scan → region → network → diagnosis.
+
+* Research Papers
+- Cortical alterations associated with lower MPH response in ADHD (2024) Nature | Summary: Structural MRI predicts methylphenidate treatment response in adult ADHD. | https://www.nature.com/articles/s44220-024-00228-y
+- Glutamate imbalance in default mode network in ADHD (2024) Springer | Summary: MRS study showing lower glutamate in posterior cingulate in ADHD. | https://link.springer.com/article/10.1007/s00406-024-01805-z
+
+* Sources
+- Brain mapping Wikipedia | https://en.wikipedia.org/wiki/Brain_mapping | Lists major neuroimaging modalities.
+- Functional MRI Methods PMC | https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4565730/ | Detailed fMRI methodology.
+
+* Books
+- Research Methods for Cognitive Neuroscience by Aaron Newman (2019) ISBN: 9781446296504 | Covers all major neuroimaging techniques.
+
+* Related Fields
+- Mapping Methods: [[file:/home/aoeu/Mapping-System-Procedures/01-Mapping-Methods/][Mapping Methods]]
+- Organization Structures: [[file:/home/aoeu/Mapping-System-Procedures/02-Organization-Structures/][Organization Structures]]
+- TODO Systems: [[file:/home/aoeu/Mapping-System-Procedures/03-TODO-Systems/][TODO Systems]]
+- Cognitive Systems: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/][Cognitive Systems]]
+- Execution Layer: [[file:/home/aoeu/Mapping-System-Procedures/05-Execution-Layer/][Execution Layer]]

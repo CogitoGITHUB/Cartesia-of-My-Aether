@@ -1,0 +1,24 @@
+#+TITLE: DIKW Pyramid
+#+CATEGORY: Information Mapping Methods > Layered Abstraction Methods
+
+* Definition
+The DIKW (Data-Information-Knowledge-Wisdom) pyramid is a hierarchical model where each level builds upon the previous: data → information → knowledge → wisdom, forming nested layers of abstraction.
+
+* ADHD/Hyperfocus/Russian Doll Compatibility
+Perfect Russian doll layering: each layer is a doll nested inside the previous. Concept-centric abstraction aligns with concept thinking. Hyperfocus can be applied to a single layer's refinement.
+
+* Research Papers
+- The Knowledge Pyramid: the DIKW Hierarchy (2019) Martin Frické, Knowledge Organization | Summary: Critically examines DIKW hierarchy and its role in knowledge organization. | https://www.imrpress.com/journal/KO/46/1/10.5771/0943-7444-2019-1-33
+- The DIKW Pyramid and the Process of Conducting an Advanced Review (2024) UNL | Summary: Discusses DIKW framework for literature reviews. | https://researchmoment.unl.edu/the-dikw-pyramid-and-the-process-of-conducting-an-advanced-review/
+
+* Sources
+- DIKW hierarchy PDF: https://www.coengineers.com/wp-content/uploads/2020/06/DIKW.pdf | Detailed paper revisiting DIKW model.
+- ResearchGate summary: https://www.researchgate.net/publication/331390784_The_Knowledge_Pyramid_the_DIKW_Hierarchy | Overview of DIKW pyramid.
+
+* Books
+- Knowledge Management: An Integrated Approach by Nathan Turner (2016) ISBN: 978-1510422894 | Includes DIKW model in knowledge management contexts.
+
+* Related Fields
+- Neurology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Neurology/][Neurology]] (ADHD Neurology, Cognitive Neuroscience, Brain Mapping, Neuroimaging)
+- Psychology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Psychology/][Psychology]] (ADHD Psychology, Cognitive Psychology, Behavioral Psychology, Psychological Mapping)
+- Linguistics: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Linguistics/][Linguistics]] (Cognitive Linguistics, Concept Linguistics, Semantic Linguistics, Linguistic Mapping)

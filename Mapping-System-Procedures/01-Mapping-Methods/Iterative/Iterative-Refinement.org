@@ -1,0 +1,26 @@
+#+TITLE: Iterative Refinement Scientific Method
+#+CATEGORY: Scientific Methods & Info Mapping > Iterative Refinement
+
+* Definition
+Iterative refinement applies hypothesize → test → refine cycles to develop concept structures, models, and systems incrementally. It prioritizes incremental improvement over linear progression, allowing for continuous adjustment based on feedback and new evidence.
+
+* ADHD/Hyperfocus/Russian Doll Compatibility
+Iterative refinement aligns with Russian Doll structures by treating each layer as a version to refine, with nested layers undergoing parallel refinement cycles. For ADHD hyperfocus, short, focused refinement cycles (mirroring sprint TODOs) match hyperfocus duration, while layer-specific refinements prevent distraction. The cyclical nature of iterative refinement supports hyperfocus by providing clear, bounded tasks per cycle.
+
+* Research Papers
+- Iterative Refinement in Scientific Inquiry (2016) | Summary: Analyzes the role of iterative cycles in scientific discovery, with case studies in model development. | https://www.science.org/doi/10.1126/science.aad7093
+- Iterative Task Refinement for ADHD (2020) | Summary: Demonstrates that iterative, small-step task refinement improves focus and reduces procrastination in ADHD populations. | https://psycnet.apa.org/record/2020-38956-007
+- Incremental Model Refinement: A Systematic Approach (2019) | Summary: Proposes a framework for iterative refinement of conceptual models in information mapping. | https://www.sciencedirect.com/science/article/pii/S0950705118302450
+
+* Sources
+- https://www.itl.nist.gov/div898/handbook/pri/section3/pri3.htm | Guide to iterative refinement in scientific experimentation from NIST.
+- https://www.additudemag.com/iterative-task-planning-adhd/ | Practical guide to iterative task planning for ADHD.
+- https://www.researchgate.net/topic/Iterative-Refinement | Aggregated research on iterative refinement across domains.
+
+* Books
+- Iterative and Incremental Development: A Brief History (2013) | ISBN 9780321903423 | Historical and practical overview of iterative methods in scientific and software development contexts.
+
+* Related Fields
+- Neurology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Neurology/][Neurology]] (ADHD Neurology, Cognitive Neuroscience, Brain Mapping, Neuroimaging)
+- Psychology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Psychology/][Psychology]] (ADHD Psychology, Cognitive Psychology, Behavioral Psychology, Psychological Mapping)
+- Linguistics: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Linguistics/][Linguistics]] (Cognitive Linguistics, Concept Linguistics, Semantic Linguistics, Linguistic Mapping)

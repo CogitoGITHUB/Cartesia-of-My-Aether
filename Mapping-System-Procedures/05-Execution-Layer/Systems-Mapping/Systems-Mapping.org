@@ -1,0 +1,24 @@
+#+TITLE: Systems Mapping
+#+CATEGORY: Information Mapping Methods > Layered Abstraction Methods
+
+* Definition
+Systems mapping is a method of visualizing complex systems by diagramming components, interactions, feedback loops, and emergent properties, often organized in layers of subsystems.
+
+* ADHD/Hyperfocus/Russian Doll Compatibility
+Layered subsystems align with Russian doll nesting; concept-centric view of system components. Hyperfocus can be directed at a single subsystem's deep mapping.
+
+* Research Papers
+- What qualitative systems mapping is and what it could be (2024) Sustainability Science | Summary: Reviews causal diagrams, concept mapping, cognitive mapping as qualitative systems mapping. | https://link.springer.com/article/10.1007/s11625-024-01497-3
+- Qualitative systems mapping for complex public health problems (2022) PLOS ONE | Summary: Practical guide to systems mapping for complex health issues. | https://journals.plos.org/plosone/article/file?id=10.1371/journal.pone.0264463&type=printable
+
+* Sources
+- Participatory systems mapping review (2026) Health Research Policy | Overview of participatory systems mapping in population health. | https://link.springer.com/article/10.1186/s12961-026-01457-6
+- Systems thinking for ADHD: https://medium.com/@bijinregipanicker/a-systems-view-of-adult-adhd-48a8759da4aa | Systems perspective on ADHD hyperfocus.
+
+* Books
+- Systems Thinking: A Practical Approach to Understanding Complex Systems by Donella Meadows (2008) ISBN: 978-1603580557 | Classic text on systems thinking and mapping.
+
+* Related Fields
+- Neurology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Neurology/][Neurology]] (ADHD Neurology, Cognitive Neuroscience, Brain Mapping, Neuroimaging)
+- Psychology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Psychology/][Psychology]] (ADHD Psychology, Cognitive Psychology, Behavioral Psychology, Psychological Mapping)
+- Linguistics: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Linguistics/][Linguistics]] (Cognitive Linguistics, Concept Linguistics, Semantic Linguistics, Linguistic Mapping)

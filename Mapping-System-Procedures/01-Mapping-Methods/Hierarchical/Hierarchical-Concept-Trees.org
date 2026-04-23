@@ -1,0 +1,24 @@
+#+TITLE: Hierarchical Concept Trees
+#+CATEGORY: Information Mapping Methods > Hierarchical Methods
+
+* Definition
+Hierarchical concept trees are structured representations of knowledge where concepts are organized in a tree-like hierarchy, with broader concepts at the top and more specific sub-concepts branching downward, resembling a Russian doll nesting structure.
+
+* ADHD/Hyperfocus/Russian Doll Compatibility
+Perfect match for Russian doll layering: outer doll = broad concept, inner dolls = sub-concepts. Concept-centric thinking aligns with ADHD hyperfocus as you can drill down into a single branch without distraction.
+
+* Research Papers
+- COCO-Tree: Compositional Hierarchical Concept Trees for Enhanced Reasoning in Vision Language Models (2025) arXiv:2510.11012 | Summary: Introduces neurosymbolic concept trees to improve compositional reasoning in vision-language models. | https://arxiv.org/abs/2510.11012
+- A dynamic approach for visualizing and exploring concept hierarchies from textbooks (2024) Frontiers in AI, DOI:10.3389/frai.2024.1285026 | Summary: Presents a visualization technique for exploring hierarchical concept structures from textbooks. | https://www.frontiersin.org/articles/10.3389/frai.2024.1285026
+
+* Sources
+- Concept mapping effectiveness systematic review: https://pubmed.ncbi.nlm.nih.gov/37980607/ | PubMed systematic review on concept mapping in education.
+- Linnaean taxonomic hierarchy explanation: https://uen.pressbooks.pub/biology1010sp2023/chapter/organizing-life-on-earth/ | Describes hierarchical classification system.
+
+* Books
+- Biological Systematics: Principles and Applications by Randall T. Schuh and Andrew V. Z. Brower (2021) ISBN: 9781501752797 | Definitive text on taxonomic hierarchies and classification.
+
+* Related Fields
+- Neurology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Neurology/][Neurology]] (ADHD Neurology, Cognitive Neuroscience, Brain Mapping, Neuroimaging)
+- Psychology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Psychology/][Psychology]] (ADHD Psychology, Cognitive Psychology, Behavioral Psychology, Psychological Mapping)
+- Linguistics: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Linguistics/][Linguistics]] (Cognitive Linguistics, Concept Linguistics, Semantic Linguistics, Linguistic Mapping)

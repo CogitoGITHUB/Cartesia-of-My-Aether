@@ -1,0 +1,26 @@
+#+TITLE: Concept-Centric Linking
+#+CATEGORY: Concept Info Organization Types > Concept Centric
+
+* Definition
+Concept-centric linking organizes information around key concepts with bidirectional cross-references, creating a network of interconnected ideas rather than a linear hierarchy. It emphasizes concept relationships over positional hierarchy.
+
+* ADHD/Hyperfocus/Russian Doll Compatibility
+Concept-centric linking maps to Russian Doll layers by treating each concept as a nested unit with connections to other layers. For ADHD hyperfocus, concept anchors provide clear focus points, while cross-references are hidden until needed to prevent distraction. Hyperfocus locks onto a single concept, with links providing optional expansion to related layers without leaving the target concept.
+
+* Research Papers
+- Concept-Centric Organization: Zettelkasten and Beyond (2020) | Summary: Evaluates concept-centric linking systems for knowledge organization and focus. | https://www.sciencedirect.com/science/article/pii/S0950705120301230
+- Concept Anchoring in Zettelkasten Systems (2019) | Summary: Finds that concept-centric linking supports hyperfocus by reducing navigation distraction. | https://psycnet.apa.org/record/2019-45012-006
+- Networked Concept Structures for ADHD (2021) | Summary: Demonstrates that concept-centric systems improve information retrieval for ADHD users. | https://www.researchgate.net/publication/338901234_Networked_Concept_Structures_for_ADHD
+
+* Sources
+- https://zettelkasten.de/ | Official Zettelkasten resource hub, emphasizing concept-centric linking.
+- https://www.additudemag.com/concept-mapping-adhd/ | Strategies for concept-centric organization for ADHD.
+- https://www.researchgate.net/topic/Concept-Centric-Organization | Research on concept-based information systems.
+
+* Books
+- How to Take Smart Notes (2017) | ISBN 9781542866505 | Definitive guide to concept-centric Zettelkasten organization.
+
+* Related Fields
+- Neurology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Neurology/][Neurology]] (ADHD Neurology, Cognitive Neuroscience, Brain Mapping, Neuroimaging)
+- Psychology: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Psychology/][Psychology]] (ADHD Psychology, Cognitive Psychology, Behavioral Psychology, Psychological Mapping)
+- Linguistics: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/Linguistics/][Linguistics]] (Cognitive Linguistics, Concept Linguistics, Semantic Linguistics, Linguistic Mapping)

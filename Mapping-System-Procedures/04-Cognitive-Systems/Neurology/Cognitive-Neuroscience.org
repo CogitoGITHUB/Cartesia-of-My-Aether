@@ -1,0 +1,26 @@
+#+TITLE: Cognitive Neuroscience
+#+CATEGORY: Neurology > Cognitive Neuroscience
+
+* Definition
+Cognitive neuroscience examines the neural mechanisms underlying cognitive processes such as attention, memory, executive function, and language using neuroimaging and electrophysiological methods.
+
+* ADHD/Hyperfocus/Russian Doll Compatibility
+Central to understanding ADHD hyperfocus: studies executive function networks (frontal cortex) and dopamine systems. Russian doll layers: molecules → synapses → networks → cognition.
+
+* Research Papers
+- The Neurobiology of ADHD (2024) Nature Reviews Neuroscience | Summary: Global brain network view of ADHD beyond localized regions. | https://www.nature.com/articles/s41583-024-00869-z
+- Mapping cortical brain asymmetry in 17,141 individuals (2018) PNAS | Summary: Large-scale brain mapping study of structural asymmetry relevant to cognitive neuroscience. | https://www.pnas.org/doi/10.1073/pnas.1718418115
+
+* Sources
+- Cognitive Neuroscience 2025 MIT Press | https://mitpress.mit.edu/cns2025/ | Overview of current cognitive neuroscience research.
+- Brain mapping Wikipedia | https://en.wikipedia.org/wiki/Brain_mapping | Overview of brain mapping techniques.
+
+* Books
+- The New Cognitive Neurosciences 2nd Edition by Michael S. Gazzaniga (2000) ISBN: 9780262071958 | Foundational comprehensive text on cognitive neuroscience.
+
+* Related Fields
+- Mapping Methods: [[file:/home/aoeu/Mapping-System-Procedures/01-Mapping-Methods/][Mapping Methods]]
+- Organization Structures: [[file:/home/aoeu/Mapping-System-Procedures/02-Organization-Structures/][Organization Structures]]
+- TODO Systems: [[file:/home/aoeu/Mapping-System-Procedures/03-TODO-Systems/][TODO Systems]]
+- Cognitive Systems: [[file:/home/aoeu/Mapping-System-Procedures/04-Cognitive-Systems/][Cognitive Systems]]
+- Execution Layer: [[file:/home/aoeu/Mapping-System-Procedures/05-Execution-Layer/][Execution Layer]]
