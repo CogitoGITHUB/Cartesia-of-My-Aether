@@ -1,1 +1,77 @@
 #+TITLE: Agents
+#+CATEGORY: System Core > Agents
+
+* Agents Overview
+
+Agents are autonomous or semi-autonomous entities that perceive, reason, and act in the world. In this system, agents represent the active components that execute mapping, planning, and execution functions.
+
+* Agent Architecture Types
+
+** Reactive Agents
+- Respond directly to environmental stimuli
+- Simple stimulus-response patterns
+- Fast but limited reasoning capacity
+
+** Deliberative Agents
+- Maintain internal models of world state
+- Plan courses of action
+- More sophisticated but computationally expensive
+
+** Hybrid Agents
+- Combine reactive and deliberative approaches
+- Fast response for routine situations
+- Deep reasoning for complex decisions
+
+* Belief-Desire-Intention (BDI) Model
+
+The BDI model is a foundational agent architecture:
+
+| Component | Description | Example |
+|-----------|-------------|---------|
+| Beliefs | Information about the world | "The project deadline is Friday" |
+| Desires | Goals to achieve | "Complete all documentation" |
+| Intentions | Committed plans | "Work on docs 2hrs daily" |
+
+Research Source: Rao & Georgeff (1995) - [[https://www.cs.ox.ac.uk/people/michael.wooldridge/pubs/atal98b.pdf][The Belief-Desire-Intention Model of Agency]]
+
+** BDI Practical Reasoning Cycle
+
+1. Observe environment
+2. Update beliefs
+3. Deliberate: select which desires to pursue
+4. Plan: develop intention
+5. Execute intention
+6. Monitor and revise
+
+* Multi-Agent Systems
+
+When multiple agents interact:
+
+| Pattern | Description | Use Case |
+|---------|-------------|----------|
+| Centralized | One coordinator | Task scheduling |
+| Decentralized | Peer-to-peer | Distributed mapping |
+| Hierarchical | Leader-follower | Priority execution |
+
+Research Source: [[https://arxiv.org/abs/2601.01743][AI Agent Systems: Architectures, Applications, and Evaluation]] (arXiv, 2026)
+
+* Agent Taxonomy in This System
+
+| Agent Type | Role | Authority Level |
+|-----------|------|---------------|
+| Architect | Designs and commands | Highest |
+| ShapeShifter | Executes deployed masks | Medium |
+| Self | Observer and root | Absolute |
+
+* Implementation Guidelines
+
+1. Each agent must have clear boundaries
+2. Authority flows from The Self
+3. Agents communicate through defined protocols
+4. Resources are bounded (time, attention, memory)
+
+* References
+
+- Bratman, M. (1987). Intention, Plans, and Practical Reason
+- Rao, A. & Georgeff, M. (1995). BDI Agents: From Theory to Practice
+- Wooldridge, M. (2009). An Introduction to MultiAgent Systems

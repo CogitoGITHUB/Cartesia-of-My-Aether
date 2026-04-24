@@ -1,1 +1,37 @@
 #+TITLE: TODO
+#+CATEGORY: Top-Level > TODO
+
+* TODO Overview
+
+This is the master TODO tracking file for Mapping-System-Procedures. It tracks the overall system development and coordinates across all layers.
+
+* Layer-Level TODOs
+
+| Layer | Status | Focus |
+|-------|--------|-------|
+| 00-Core | In Progress | Foundation files with research |
+| 01-Mapping-Methods | Pending | Mapping methodologies |
+| 02-Organization-Structures | Pending | Taxonomies and structures |
+| 03-TODO-Systems | Pending | Task management methods |
+| 04-Cognitive-Systems | Pending | Mental operations |
+| 05-Execution-Layer | Pending | Action and deployment |
+
+* Project TODOs
+
+** Complete System Documentation
+- [X] 00-Core files researched and populated
+- [ ] 01-Mapping-Methods populated
+- [ ] 02-Organization-Structures populated
+- [ ] 03-TODO-Systems populated
+- [ ] 04-Cognitive-Systems populated
+- [ ] 05-Execution-Layer populated
+
+* Backburner
+
+- Explore ShapeShifter-Modules (33)
+- Develop Internal-Structures (34)
+- Design External-Structures (35)
+
+* Notes
+
+See [[file:00-Core/TODO.org][00-Core/TODO.org]] for system-level tracking

@@ -1,1 +1,70 @@
 #+TITLE: Rules
+#+CATEGORY: System Core > Rules
+
+* Rules Overview
+
+The Rules define the constraints, boundaries, and operating principles that govern all system behavior. Rules are explicit constraints that guide decision-making and action.
+
+* Rule Categories
+
+| Category | Description | Priority |
+|----------|------------|----------|
+| Core Rules | Fundamental constraints | Absolute |
+| Operational Rules | Daily operation guidelines | High |
+| Tactical Rules | Specific situation guidelines | Medium |
+| Adaptive Rules | Context-dependent rules | Lower |
+
+* Core Rules
+
+** The Self
+- The Self is the unchanging center
+- The Self does not act; The Architect acts
+- Return to The Self when uncertain
+
+** Authority Flow
+- Authority flows from The Self through Architect
+- Decisions cascade downward
+- Escalate when boundaries violated
+
+** Layer Hierarchy
+- Higher layers override lower layers
+- Explicit override required
+- Document all overrides
+
+* Operational Rules
+
+** Hyperfocus Guidelines
+- Use sprint-based work (1-4 hours max)
+- Predefine exit times
+- Maintain backburner for distractions
+
+** Decision-Making
+- Choose before acting
+- Document rationale
+- Review outcomes
+
+** Resource Bounds
+- Time: 24 hours/day (fixed)
+- Attention: limited resource
+- Memory:有限
+
+* Rule Implementation
+
+** Activation Conditions
+Each rule has:
+- Trigger: when rule applies
+- Constraint: what is limited
+- Exception: when rule can be broken
+
+** Override Protocol
+1. Identify rule
+2. Document reason for override
+3. Get Architect approval
+4. Implement with time limit
+5. Review and either restore or modify rule
+
+* Reference
+
+- Hyperfocus Guidelines: [[file:Hyperfocus-Guidelines.org][Hyperfocus-Guidelines.org]]
+- Architect Role: [[file:Architect/Architect-Role.org][Architect-Role.org]]
+- TODO: [[file:TODO.org][TODO.org]]

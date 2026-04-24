@@ -1,18 +1,72 @@
 #+TITLE: Root of Consciousness
+#+CATEGORY: The Self > Root of Consciousness
 
 * Root of Consciousness
 
-The Self is the root of consciousness.
+The Self is the root of consciousness - the unchanging axis from which all awareness emerges. This document maps consciousness from its root.
 
-** Consciousness Layers
-- Surface: ShapeShifter projections
-- Middle: Internal/External realms
-- Root: The Self (unchanging)
+* Consciousness Architecture
 
-** Mapping Approach
-- Trace all consciousness back to root
-- Map how Architect builds from root
-- Document consciousness flow
+| Layer | Description | Characteristics |
+|-------|-------------|-----------------|
+| Surface | ShapeShifter | Projected, changing |
+| Middle | Internal/External | Realm-specific |
+| Root | The Self | Unchanging, constant |
 
-** Integration
-Links to Cognitive-Systems directories.
+* Consciousness Research
+
+** The Observing Self
+Research shows that mindfulness and meditation activate the "observing self" - a part of consciousness that can step back from immediate experience.
+
+Research Source: [[https://ahead-app.com/blog/Mindfulness/silent-observation-how-to-enhance-self-awareness-without-judgment][Ahead App - Silent Observation Research]]
+
+** Buddhist Meditation and Consciousness
+Recent neuroscience and psychology studies show Buddhist meditation techniques (Samatha, Vipassana, Metta) influence consciousness through:
+- Strengthening attentional stability
+- Reshaping self-referential thinking
+- Reorganizing emotional patterns
+
+Research Source: [[https://www.frontiersin.org/articles/10.3389/fpsyg.2025.1649564][Frontiers in Psychology - Buddhist Meditation and Consciousness]]
+
+** Non-Dual Awareness
+Advanced consciousness states involve "non-dual awareness" where subject/object dichotomy dissolves.
+
+Research: [[https://meditation.mgh.harvard.edu/files/Ehmann_24_OSF.pdf][Harvard Meditation Research - Non-Dual Awareness]]
+
+* Mapping Consciousness
+
+** From Root to Surface
+1. The Self (root consciousness)
+2. Architect (designing consciousness)
+3. ShapeShifter (projected consciousness)
+4. World (tested consciousness)
+
+** Observing Consciousness
+- Witness without judgment
+- Note changes without attachment
+- Return to root when lost
+
+* Consciousness and the Self
+
+** Self-Awareness
+Research from Harvard Medical School shows 8 minutes of silent observation daily can significantly enhance self-awareness by increasing gray matter density in regions associated with introspection.
+
+** The Hard Problem
+Philosopher David Chalmers articulated the "hard problem of consciousness" - why physical processes give rise to subjective experience. This remains unsolved in science.
+
+Research: [[https://www.sciencenewstoday.org/free-will-the-self-and-consciousness-what-science-says-today][Science News Today - Consciousness Research]]
+
+* Consciousness Practices
+
+| Practice | Effect | Research |
+|----------|--------|----------|
+| Silent Observation | Enhanced self-awareness | Harvard Medical School |
+| Mindfulness | Reduced amygdala activity | Multiple studies |
+| Non-dual meditation | Dissolved subject/object | Chowdhury (2023) |
+| Buddhist meditation | Default-mode network changes | Frontiers (2025) |
+
+* Integration Points
+
+- [[file:../Definition.org][Definition]]
+- [[file:../Silent-Observer/Observer-Protocols.org][Observer Protocols]]
+- [[file:../../../04-Cognitive-Systems/][04-Cognitive-Systems]]

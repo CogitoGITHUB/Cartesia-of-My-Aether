@@ -1,18 +1,51 @@
 #+TITLE: Fixed Point Mapping
+#+CATEGORY: Mapping Methods > Architect Mapping
 
 * Architect Fixed Point Mapping
 
-The Architect remains fixed at center — unchanging, unmoved, sovereign.
+The Architect remains fixed at center — unchanging, unmoved, sovereign. This is a foundational mapping method where all design decisions radiate from a fixed point.
 
-** Fixed Point Properties
-- Unchanging center
-- Sovereign position
-- Design authority
+* Fixed Point Properties
 
-** Mapping Methods
-- Map from fixed center
-- Document design decisions
-- Track mask deployments
+| Property | Description |
+|-----------|-------------|
+| Unchanging | Design origin never moves |
+| Sovereign | Full design authority |
+| Fixed | Reference point for all mapping |
 
-** Integration
-Links to 00-Core/Architect/
+* The Fixed Point Principle
+
+In system design and mathematics, a "fixed point" is a point that maps to itself under a transformation. In this system:
+
+- The Architect is the fixed point for all design
+- The Self is the fixed point for all being
+- Methods, organizations, TODOs radiate from these centers
+
+* Research on Fixed Points
+
+** In Design Systems
+Fixed points in design systems provide:
+- Reference stability
+- Unchanging benchmarks
+- Origin for coordinate systems
+
+** In Mathematics
+A fixed point x satisfies f(x) = x. This concept from:
+- Banach fixed-point theorem
+- Contraction mappings
+- Dynamic systems stability
+
+Source: [[https://en.wikipedia.org/wiki/Fixed_point_(mathematics)][Wikipedia - Fixed Point Mathematics]]
+
+* Mapping Protocol
+
+1. Identify the fixed point (Architect or Self)
+2. Map outward from fixed point
+3. Return to fixed point to verify
+4. Use fixed point as coordinate origin
+
+* Integration
+
+- [[file:../Self-Mapping/Single-Point-Mapping.org][Single Point Mapping]] - The Self as fixed point
+- [[file:../../00-Core/Architect/Architect-Role.org][Architect Role]] - Architect definition
+- [[file:../../00-Core/Blueprint.org][Blueprint]] - System design

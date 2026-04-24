@@ -1,18 +1,64 @@
 #+TITLE: Origin of Will
+#+CATEGORY: The Self > Origin of Will
 
 * Origin of Will
 
-The Self is the origin of will.
+The will originates from The Self - the unchanging center of consciousness. This document maps how will flows from its origin through the system.
 
-** Will Properties
-- Flows from The Self
-- Directed by the Architect
-- Executed through ShapeShifter
+* The Will Pathway
 
-** Will Mapping
-- Source: The Self (unchanging)
-- Channel: Architect (designer)
-- Instrument: ShapeShifter (executor)
+| Stage | Source | Description |
+|-------|--------|-------------|
+| Origin | The Self | Unchanging root; pure volitional potential |
+| Direction | Architect | Designer of intention and purpose |
+| Execution | ShapeShifter | Deployed instrument of will |
 
-** Integration
-Links to Execution-Layer directories.
+* Will Properties
+
+** Autonomy
+Will flows from internal determination, not external compulsion.
+Research: [[https://plato.stanford.edu/entries/freewill/][Stanford Encyclopedia of Philosophy - Free Will]]
+
+** Direction
+Will is directed toward something - a goal, object, or state.
+Research: Bratman (1987) on intention as committed desire
+
+** Persistence
+Will persists over time despite obstacles.
+Research: [[https://www.sciencenewstoday.org/is-free-will-an-illusion-what-psychology-and-neuroscience-suggest][Science News Today - Free Will Research]]
+
+* Will in the BDI Model
+
+From philosophy and AI research:
+
+| Component | Will Relationship |
+|-----------|------------------|
+| Beliefs | What is (informational) |
+| Desires | What we want (motivational) |
+| Intentions | What we commit to (volitional) |
+
+Intentions represent will in action - committed desires that persist.
+
+Research Source: [[https://en.wikipedia.org/wiki/Belief%E2%80%93desire%E2%80%93intention_software_model][BDI Software Model - Wikipedia]]
+
+* Integrating Will
+
+1. Identify the will source - is it Self-derived or external?
+2. Trace through Architect - is it properly designed?
+3. Check ShapeShifter alignment - is the instrument ready?
+4. Execute with monitoring - watch for drift
+5. Return to source if uncertain
+
+* Research Notes
+
+** Libet's Research (1983)
+Benjamin Libet found "readiness potential" precedes conscious will by ~350ms, suggesting unconscious origins of willing action. This does not negate will but suggests the will is shaped by pre-conscious processes.
+
+** Compatibilism
+Many philosophers argue free will is compatible with determinism - that freedom consists not in absence of causation but in acting according to one's own desires and reasoning (Hume, Dennett).
+
+* Links
+
+- [[file:../Sacred-Function.org][Sacred Function]] - The Self's role
+- [[file:../Two-Branches/README.org][Two Branches]] - Internal/External
+- [[file:../../../05-Execution-Layer/][05-Execution-Layer]]

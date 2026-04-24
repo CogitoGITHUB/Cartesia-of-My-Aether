@@ -1,18 +1,56 @@
 #+TITLE: Internal Realm Shifts
+#+CATEGORY: System Core > Internal Realm
 
 * Internal Realm
 
-While the Internal realm shifts and evolves — The Self remains still.
+While the Internal realm shifts and evolves — The Self remains still. The Internal realm is the domain of mind, thought, emotion, philosophy, and hidden truth.
 
-** Realm Components
-- Mind, Thought, Emotion
-- Philosophy, Hidden Truth
-- Constant evolution
+* Realm Components
 
-** Mapping Internal Shifts
-- Track evolution patterns
-- Document philosophy changes
-- Map hidden truth access
+| Component | Description | Mapping Focus |
+|-----------|-------------|----------------|
+| Mind | Cognitive apparatus | [[file:../../../04-Cognitive-Systems/][04-Cognitive-Systems]] |
+| Thought | Mental content | [[file:../../../29-Thought-Projection/][29-Thought-Projection]] |
+| Emotion | Affective states | [[file:../../../27-Emotion-Projection/][27-Emotion-Projection]] |
+| Philosophy | Worldview | [[file:../../../28-Philosophy-Projection/][28-Philosophy-Projection]] |
+| Hidden Truth | Internal knowledge | [[file:../../../46-Truth-Reality/][46-Truth-Reality]] |
 
-** Integration
-Links to 04-Cognitive-Systems/Internal-Facets/
+* Internal Shifts Mapping
+
+** What Shifts
+- Beliefs about self and world
+- Emotional states
+- Philosophical positions
+- Value hierarchies
+
+** What Remains (The Self)
+- Observer at the center
+- Will origin
+- Consciousness root
+
+* Research on Self-Observation
+
+** Detached Self-Observation
+Recent research frames the observing self as a "developmentally important competence" that can be cultivated through practice.
+
+Research: [[https://www.frontiersin.org/articles/10.3389/fpsyg.2025.1659774/full][Frontiers - Detached Self-Observation as Developmental Catalyst]]
+
+** Cognitive-Affective Flexibility
+Studies show self-observation fosters:
+- Cognitive-afflective flexibility
+- Reflective wisdom
+- Prosocial behavior
+- Reduced automaticity
+
+* Mapping Protocol
+
+1. Track what shifts (symptoms)
+2. Identify what remains (root)
+3. Map the relationship
+4. Document the pattern
+5. Return to center
+
+* Integration
+
+- [[file:../The-Self/Two-Branches/Internal.org][Internal Branch]]
+- [[file:../../../04-Cognitive-Systems/][04-Cognitive-Systems]]

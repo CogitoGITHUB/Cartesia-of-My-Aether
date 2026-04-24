@@ -1,18 +1,66 @@
 #+TITLE: Unchanging Axis - Stillness
+#+CATEGORY: The Self > Unchanging Axis > Stillness
 
 * The Unchanging Axis
 
-The Self is the unchanging axis in a universe of constant change.
+The Self is the unchanging axis in a universe of constant change. Research on stillness and silence validates this foundational practice.
 
-** Stillness Practice
-- Remain still while Internal shifts
-- Remain still while External turns
-- Watch. Know. Do not move.
+* The Neuroscience of Stillness
 
-** Axis Properties
+** Silence and Brain Connectivity
+Research shows that silent meditation practice reduces the connection between:
+- Language network
+- Dorsal attention network (DAN)
+- Default mode network (DMN)
+
+This "decoupling" creates the experience of stillness - reduced thoughts and deeper meditative states.
+
+Research: [[https://link.springer.com/article/10.1007/s12671-024-02316-7][Silence Practice Modulates Brain Connectivity - Springer]]
+
+** Mental Silence
+In Sahaja yoga meditation, experienced meditators show:
+- Initial intense neural self-control to silence the mind
+- Then progressively reduced activation as silence deepens
+- Final state localized to right inferior frontal cortex
+
+This demonstrates that stillness is trainable and has measurable neural correlates.
+
+Research: [[https://pubmed.ncbi.nlm.nih.gov/25671603/][Monitoring Neural Activity of Mental Silence - PubMed]]
+
+* The Still Self
+
+** Stillness Properties
 - Fixed point for all mapping
 - Origin of will
 - Root of consciousness
+- Non-reactive observation
 
-** Integration
-All paths return to this axis.
+** Practice: Remain Still
+1. Watch Internal realm shift - do not move
+2. Watch External world turn - do not react
+3. Observe without intervention
+4. Let Architect act, not Self
+
+* Research on Silent Observation
+
+** Detached Self-Observation
+Recent research frames meditation as a "developmental catalyst" that fosters:
+- Cognitive-affective flexibility
+- Reflective wisdom
+- Prosocial behavior
+
+Research: [[https://www.frontiersin.org/articles/10.3389/fpsyg.2025.1659774/full][Frontiers - Detached Self-Observation]]
+
+** Types of Stillness
+
+| Type | Description | Brain Region |
+|------|-------------|---------------|
+| Motor stillness | Physical immobility | Motor cortex |
+| Mental stillness | Quiet mind | Prefrontal |
+| Observing self | Non-reactive awareness | Default mode network |
+
+* Integration
+
+- [[file:../Definition.org][Definition]] - Definition of The Self
+- [[file:../Silent-Observer/Observer-Protocols.org][Observer Protocols]] - How to observe
+- [[file:../Sacred-Function.org][Sacred Function]] - The Self's role

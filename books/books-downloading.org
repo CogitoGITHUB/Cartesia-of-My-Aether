@@ -1,0 +1,195 @@
+#+TITLE: Books Downloading Guide
+#+AUTHOR: opencode
+#+YEAR: 2026
+#+LANGUAGE: en
+#+INFO: Remember: ALWAYS keep downloaded books as .org files for Emacs!
+
+* Overview
+
+This file documents the workflow for downloading free public domain books
+and converting them to org-mode format for Emacs.
+
+* Workflow
+
+** 1. Search for the book
+
+Use =websearch= to find if a book is freely available.
+
+Common free book sources:
+- [[https://gutenberg.org][Project Gutenberg]] — 75,000+ public domain ebooks
+- [[https://openlibrary.org][Open Library]] — millions of titles
+- [[https://standardebooks.org][Standard Ebooks]] — 2,000+ curated editions
+- [[https://archive.org][Internet Archive]] — 30 million+ texts
+- [[https://librivox.org][LibriVox]] — free audiobooks
+- [[https://openculture.com/free-philosophy-ebooks][Open Culture — 135 Free Philosophy Ebooks]]
+
+Search query pattern:
+: free [genre] books PDF download [author/topic] public domain
+
+Example:
+: websearch query="free philosophy books PDF Nietzsche Plato Stoicism public domain"
+
+** 2. Download from Project Gutenberg
+
+Project Gutenberg provides direct file URLs for each book:
+
+: https://gutenberg.org/files/[EBOOK_ID]/[EBOOK_ID].txt       (plain text)
+: https://gutenberg.org/files/[EBOOK_ID]/[EBOOK_ID].html      (HTML)
+: https://gutenberg.org/files/[EBOOK_ID]/[EBOOK_ID]-0.txt    (alternate text)
+: https://gutenberg.org/ebooks/[EBOOK_ID]                      (catalog page)
+
+Download with curl:
+: curl -sL "[URL]" -o "[output-filename]"
+
+** 3. Inspect the text structure
+
+Find chapter boundaries and structure:
+: grep -n "CHAPTER\|PREAMBLE\|Part [A-Z]" "[file]"
+
+Find aphorism/section numbering:
+: grep -n "[0-9]\+\. " "[file]"
+
+Find ebook metadata:
+: grep -n "Title:\|Author:\|Release Date:" "[file]"
+
+** 4. Convert plain text to org-mode
+
+Use pandoc (preferred, supports org output):
+: pandoc -f html -t org "[input.html]" -o "[output.org]"
+
+Use pandoc (plain text):
+: pandoc -f plain -t org "[input.txt]" -o "[output.org]"
+
+Alternative: Node.js script for custom parsing.
+
+* Tool Availability (Guix System)
+
+| Tool        | Status       | Use                          |
+|-------------|--------------|------------------------------|
+| curl        | Available    | Download files                |
+| pandoc      | Installed    | Format conversion            |
+| node        | Available    | Custom text processing       |
+| python      | Not available| —                            |
+| wkhtmltopdf | Not available| —                            |
+
+Install pandoc:
+: guix package -i pandoc
+
+* Step-by-Step Example: Beyond Good and Evil
+
+** Step 1: Search
+: websearch query="free philosophy books PDF Nietzsche Beyond Good and Evil public domain"
+
+** Step 2: Find Gutenberg ID
+Result: EBook #4363 on gutenberg.org
+
+** Step 3: Download plain text
+: curl -sL "https://www.gutenberg.org/files/4363/4363.txt" \
+    -o "Beyond-Good-and-Evil-Nietzsche.txt"
+
+** Step 4: Inspect structure
+: grep -n "CHAPTER" "Beyond-Good-and-Evil-Nietzsche.txt"
+# Output:
+# 149: CHAPTER I. PREJUDICES OF PHILOSOPHERS
+# 841: CHAPTER II. THE FREE SPIRIT
+# 1456: CHAPTER III. THE RELIGIOUS MOOD
+# ...
+
+** Step 5: Extract body
+Find start of main content (after header):
+: grep -n "CHAPTER I. PREJUDICES" "[file]"
+
+Find end marker:
+: grep -n "END OF THIS PROJECT" "[file]"
+
+** Step 6: Convert with Node.js
+#+begin_src javascript
+const fs = require('fs');
+
+let data = fs.readFileSync('input.txt', 'utf8');
+
+// Extract body between start and end markers
+let start = data.indexOf('START_MARKER');
+let end = data.lastIndexOf('END_MARKER');
+data = data.substring(start, end);
+
+const lines = data.split('\n');
+let output = [];
+
+// Add org-mode headers
+output.push('#+TITLE: Book Title');
+output.push('#+AUTHOR: Author Name');
+output.push('');
+
+// Parse chapters and content
+lines.forEach((line) => {
+  // Detect chapter headers
+  const chapterMatch = line.match(/^CHAPTER\s+[IVX]+\.\s+(.+)$/);
+  if (chapterMatch) {
+    if (output.length) output.push('');
+    output.push('* ' + chapterMatch[1].trim());
+    output.push('');
+    return;
+  }
+  // Buffer paragraphs, flush on blank lines
+  if (line.trim().length < 3) {
+    if (paragraphBuffer.length) {
+      output.push(paragraphBuffer.join(' ').trim());
+      paragraphBuffer = [];
+    }
+    return;
+  }
+  paragraphBuffer.push(line);
+});
+
+fs.writeFileSync('output.org', output.join('\n'));
+#+end_src
+
+** Step 7: Verify output
+: wc -l "output.org"
+: ls -lh "output.org"
+
+* Common Book Formats on Gutenberg
+
+| Extension | Format    | Best For                          |
+|-----------|-----------|-----------------------------------|
+| .txt      | Plain text| Direct conversion, cleanest       |
+| .html     | HTML      | Pandoc conversion                 |
+| .epub     | EPUB      | E-readers, pandoc                 |
+| .pdf      | PDF       | Direct reading (limited)           |
+| .kf8      | Kindle    | Amazon devices                   |
+
+* Tips
+
+1. Always prefer plain text (.txt) over HTML — fewer artifacts
+2. Check both =[ebook-id].txt= and =[ebook-id]-0.txt= variants
+3. Strip Gutenberg header/footer before converting
+4. Pandoc with =--wrap=none= prevents line wrapping
+5. For complex structures, use Node.js script for custom parsing
+
+* Error Handling
+
+If pandoc is not installed:
+: guix package -i pandoc
+
+If Node.js not found:
+: which node
+: ls /home/*/.guix-profile/bin/node
+
+Reload Guix profile:
+: GUIX_PROFILE="/home/aoeu/.guix-profile"
+: . "$GUIX_PROFILE/etc/profile"
+
+* IMPORTANT: Output Format
+
+=ALWAYS= convert downloaded books to =.org= format for Emacs.
+
+Never keep =.txt=, =.html=, =.pdf= as the primary format.
+The =.org= file is the final deliverable.
+
+Why .org?
+- Native Emacs format with outline structure
+- Headings, folding, and navigation
+- Annotations, org-capture, and org-agenda integration
+- Full-text search within Emacs
+- Portable, plain-text, and future-proof

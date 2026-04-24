@@ -1,18 +1,41 @@
 #+TITLE: External World Turns
+#+CATEGORY: System Core > External World
 
 * External World
 
-While the External world turns and tests me — The Self remains still.
+While the External world turns and tests me — The Self remains still. The External realm is the domain of reality, systems, people, power, and the physical world.
 
-** World Components
-- Reality, Systems, People
-- Power, Physical World
-- Constant testing
+* World Components
 
-** Mapping External Turns
-- Track system changes
-- Document power shifts
-- Map physical world changes
+| Component | Description | Mapping Focus |
+|-----------|-------------|----------------|
+| Reality | Actual states of affairs | [[file:../../../41-Physical-Reality/][41-Physical-Reality]] |
+| Systems | Organizations and structures | [[file:../../../25-Systems-Projection/][25-Systems-Projection]] |
+| People | Social actors | [[file:../../../24-People-Projection/][24-People-Projection]] |
+| Power | Influence and force | [[file:../../../23-Power-Projection/][23-Power-Projection]] |
+| Physical World | Material reality | [[file:../../../30-Physical-Projection/][30-Physical-Projection]] |
 
-** Integration
-Links to 04-Cognitive-Systems/External-Facets/
+* External Turns Mapping
+
+** What Turns
+- System states
+- Power structures
+- People relations
+- Physical conditions
+
+** What Remains (The Self)
+- Observer at the center
+- Unchanging axis
+
+* Mapping Protocol
+
+1. Document external state
+2. Track changes over time
+3. Map causes and effects
+4. Identify patterns
+5. Maintain center while world turns
+
+* Integration
+
+- [[file:../The-Self/Two-Branches/External.org][External Branch]]
+- [[file:../../../21-Reality-Projection/][21-Reality-Projection]]

@@ -1,18 +1,45 @@
 #+TITLE: Single Point Mapping
+#+CATEGORY: Mapping Methods > Self Mapping
 
 * Single Point Mapping
 
-Everything radiates outward from this singular point: The Self.
+Everything radiates outward from this singular point: The Self. This is the most fundamental mapping method in the system — all paths start here and all paths return here.
 
-** Single Point Properties
-- Origin of all mapping
-- Unchanging axis
-- Silent observer
+* Single Point Properties
 
-** Mapping Methods
-- All paths start here
-- All paths return here
-- Radial mapping from Self
+| Property | Description |
+|-----------|-------------|
+| Origin | All mapping begins here |
+| Unchanging | The axis never moves |
+| Silent Observer | Non-reactive center |
 
-** Integration
-Links to 00-Core/The-Self/
+* The Self as Origin
+
+In the DIKW model and in system theory, having a single origin point provides:
+- Coordinate system origin
+- Reference frame stability
+- Transformation invariance
+
+Research: [[https://en.wikipedia.org/wiki/DIKW_pyramid][Wikipedia - DIKW Pyramid]]
+
+* Mapping Protocol
+
+1. Start at The Self (origin)
+2. Map concepts outward radially
+3. All paths return to origin
+4. Use origin as verification point
+
+* Radial Mapping
+
+| Layer | Direction | Example |
+|-------|------------|----------|
+| 00-Core | At origin | The Self |
+| 01-Mapping-Methods | Outward | Methods from self |
+| 02-Organization-Structures | Outward | Structures from self |
+| 21-50 | Projection | External maps |
+
+* Integration
+
+- [[file:../Architect-Mapping/Fixed-Point-Mapping.org][Fixed Point Mapping]] - Architect as fixed point
+- [[file:../../00-Core/The-Self/Definition.org][Self Definition]] - Complete definition
+- [[file:../../00-Core/The-Self/Sacred-Function.org][Sacred Function]]

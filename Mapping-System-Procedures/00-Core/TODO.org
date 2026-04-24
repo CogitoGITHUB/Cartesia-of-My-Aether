@@ -1,1 +1,54 @@
 #+TITLE: TODO
+#+CATEGORY: System Core > TODO
+
+* TODO System Overview
+
+The TODO system tracks tasks, projects, and tracking mechanisms across all system layers.
+
+* TODO Framework
+
+| Category | Description | Example |
+|----------|-------------|---------|
+| Backburner | Low priority | Future exploration |
+| Sprint | Time-boxed | 1-4 hour focus blocks |
+| Project | Multi-day | Major undertaking |
+| Archive | Completed | Past success |
+
+* Hyperfocus-Safe TODO
+
+** Sprint Protocol
+1. Define sprint goal BEFORE starting
+2. Set time limit (max 4 hours)
+3. Pre-define exit trigger (alarm, timer)
+4. Keep backburner list visible for distractions
+5. Return to main task after backburner exploration
+
+** Why Hyperfocus Needs Structure
+
+Research shows hyperfocus differs from flow:
+- Flow: chosen, controllable
+- Hyperfocus: involuntary, difficult to exit
+
+Source: [[https://www.additudemag.com/flow-state-vs-hyperfocus-adhd/][Additude Magazine - Flow vs Hyperfocus]]
+
+* TODO Organization
+
+** Layer Alignment
+- Each TODO tagged with layer (00-50)
+- Only view current layer + ancestors
+- Children hidden during focus
+
+** Priority System
+1. P1: Self-return (absolute)
+2. P2: Architect decisions
+3. P3: System operations
+4. P4: Backburner items
+
+* Implementation
+
+See: [[file:../Hyperfocus-Guidelines.org][Hyperfocus Guidelines]]
+
+* References
+
+- Csikszentmihalyi, M. (1990). Flow: The Psychology of Optimal Experience
+- [[https://link.springer.com/article/10.1007/s12402-018-0272-y][Shah (2018) - Adult Hyperfocus Questionnaire]]

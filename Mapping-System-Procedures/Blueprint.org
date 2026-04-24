@@ -1,1 +1,23 @@
 #+TITLE: Blueprint
+#+CATEGORY: Top-Level > Blueprint
+
+* Blueprint Overview
+
+The Blueprint is the master design document for the entire Mapping-System-Procedures system.
+
+* System Layers
+
+00-Core/ :: Foundation (Self, Architect, Rules, Blueprint)
+01-Mapping-Methods/ :: Methodologies
+02-Organization-Structures/ :: Taxonomies
+03-TODO-Systems/ :: Task management
+04-Cognitive-Systems/ :: Mental operations
+05-Execution-Layer/ :: Deployment and execution
+21-50 :: Projections and reality mappings
+
+Key Design Principles:
+- Layered architecture with explicit hierarchy
+- Internal (mind) and External (world) domains
+- Projection-based reality mapping
+
+See: [[file:00-Core/Blueprint.org][00-Core/Blueprint.org]]

@@ -1,1 +1,17 @@
 #+TITLE: Agents
+#+CATEGORY: Top-Level > Agents
+
+* Agents Overview
+
+This file documents the agent types and roles within the Mapping-System-Procedures.
+
+* Agent Hierarchy
+
+| Agent | Category | Function |
+|-------|----------|----------|
+| Self | Root | Unchanging observer at center |
+| Architect | Core | Active designer and commander |
+| ShapeShifter | Deployed | Execution instrument |
+| Various Modules | Projections | Task-specific agents |
+
+See more: [[file:00-Core/Agents.org][00-Core/Agents.org]]
