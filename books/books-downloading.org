@@ -2,46 +2,102 @@
 #+AUTHOR: opencode
 #+YEAR: 2026
 #+LANGUAGE: en
-#+INFO: Remember: ALWAYS keep downloaded books as .org files for Emacs!
+#+INFO: Remember: ALWAYS keep downloaded books as .org files for Emacs! Delete non-English books immediately!
 
 * Overview
 
 This file documents the workflow for downloading free public domain books
 and converting them to org-mode format for Emacs.
 
-* Workflow
+* MANDATORY Workflow (ONE STEP AT A TIME)
 
-** 1. Search for the book
+ALWAYS follow these steps in order. NEVER skip a step.
 
-Use =websearch= to find if a book is freely available.
+** Step 1: SEARCH
+- Use websearch to find books from MULTIPLE sources
+- Check Gutenberg, Internet Archive, Standard Ebooks, Open Library
+- NEVER use only one source
 
-Common free book sources:
-- [[https://gutenberg.org][Project Gutenberg]] — 75,000+ public domain ebooks
-- [[https://openlibrary.org][Open Library]] — millions of titles
-- [[https://standardebooks.org][Standard Ebooks]] — 2,000+ curated editions
-- [[https://archive.org][Internet Archive]] — 30 million+ texts
-- [[https://librivox.org][LibriVox]] — free audiobooks
-- [[https://openculture.com/free-philosophy-ebooks][Open Culture — 135 Free Philosophy Ebooks]]
+** Step 2: DOWNLOAD
+- Get the direct URL for the book
+- Verify language is English BEFORE downloading
+- Use curl to download to .txt format
 
-Search query pattern:
-: free [genre] books PDF download [author/topic] public domain
+** Step 3: CONVERT
+- Use pandoc to convert .txt to .org format
+- Command: cat "[file].txt" | pandoc -f markdown -t org -o "[file].org"
+- Delete the .txt file AFTER conversion
 
-Example:
-: websearch query="free philosophy books PDF Nietzsche Plato Stoicism public domain"
+** Step 4: RENAME
+- Rename the .org file with proper book title
+- Format: Title-Author.org
+- Example: The-Republic-Plato.org
 
-** 2. Download from Project Gutenberg
+** Step 5: VERIFY (CRITICAL)
+- ALWAYS verify after each step completes
+- Check: head -20 "[file].org" (should have real content, not HTML)
+- Check: wc -l "[file].org" (should be thousands of lines, not <10)
+- Check: tail -10 "[file].org" (should have end content)
+
+IF ANY CHECK FAILS:
+- Delete the file
+- Go back to Step 1 (different source) or Step 2 (different URL)
+
+** Step 2 (continued): Download from Project Gutenberg
 
 Project Gutenberg provides direct file URLs for each book:
 
 : https://gutenberg.org/files/[EBOOK_ID]/[EBOOK_ID].txt       (plain text)
 : https://gutenberg.org/files/[EBOOK_ID]/[EBOOK_ID].html      (HTML)
 : https://gutenberg.org/files/[EBOOK_ID]/[EBOOK_ID]-0.txt    (alternate text)
-: https://gutenberg.org/ebooks/[EBOOK_ID]                      (catalog page)
+: https://www.gutenberg.org/ebooks/[EBOOK_ID].txt.utf-8    (UTF-8 text)
 
 Download with curl:
 : curl -sL "[URL]" -o "[output-filename]"
 
-** 3. Inspect the text structure
+** Step 2b: Download from Internet Archive (archive.org)
+
+Internet Archive has millions of texts not on Gutenberg. Use the =_djvu.txt= file:
+
+: curl -sL "https://archive.org/download/[ITEM_ID]/[ITEM_ID]_djvu.txt" -o "output.txt"
+
+Getting the ITEM_ID:
+1. Search archive.org for the book
+2. Note the ID from the URL: archive.org/details/[ITEM_ID]
+3. Check available files via API:
+: curl -s "https://archive.org/metadata/[ITEM_ID]" | grep -o '"name":"[^"]*"'
+
+Common patterns:
+: [ITEM_ID]_djvu.txt          (most reliable)
+: [ITEM_ID]_text.txt          (sometimes available)
+: [ITEM_ID].txt              (rare)
+: [ITEM_ID].pdf             (fallback, not convertible)
+
+Download example:
+: curl -sL "https://archive.org/download/lecturesonjurisp11aust/lecturesonjurisp11aust_djvu.txt" -o "book.txt"
+
+** Step 2c: Download from Standard Ebooks
+
+Standard Ebooks has curated, well-formatted editions but requires different approach:
+
+1. Search: https://standardebooks.org/ebooks
+2. Use their OPDS/API or download via website
+3. Extract text from epub:
+: unzip -p "book.epub" *.xhtml | pandoc -f html -t org -o "book.org"
+
+Alternative - download all via bulk:
+: curl -sL "https://standardebooks.org/ebooks?format=epub" -o "catalog.xml"
+
+** Step 2d: Download from Open Library
+
+Open Library redirects to Internet Archive or other sources:
+
+1. Find book at https://openlibrary.org
+2. Check "Download options" section
+3. Use curl with the direct URL:
+: curl -sL "[DIRECT_URL]" -o "book.txt"
+
+** Step 3: Inspect the text structure
 
 Find chapter boundaries and structure:
 : grep -n "CHAPTER\|PREAMBLE\|Part [A-Z]" "[file]"
@@ -52,7 +108,7 @@ Find aphorism/section numbering:
 Find ebook metadata:
 : grep -n "Title:\|Author:\|Release Date:" "[file]"
 
-** 4. Convert plain text to org-mode
+** Step 4: Convert plain text to org-mode
 
 Use pandoc (preferred, supports org output):
 : pandoc -f html -t org "[input.html]" -o "[output.org]"
@@ -149,23 +205,112 @@ fs.writeFileSync('output.org', output.join('\n'));
 : wc -l "output.org"
 : ls -lh "output.org"
 
-* Common Book Formats on Gutenberg
+** HARD RULE: Delete Non-English Books
 
-| Extension | Format    | Best For                          |
-|-----------|-----------|-----------------------------------|
-| .txt      | Plain text| Direct conversion, cleanest       |
-| .html     | HTML      | Pandoc conversion                 |
-| .epub     | EPUB      | E-readers, pandoc                 |
-| .pdf      | PDF       | Direct reading (limited)           |
-| .kf8      | Kindle    | Amazon devices                   |
+If any downloaded book is not in English, delete it immediately.
+
+Do not convert. Do not save. Delete the file.
+
+Example of a book to DELETE:
+- German-language Nietzsche (Sprache: Deutsch)
+- French philosophy texts
+- Any book where =Language:= is not =English= or =English,en=
+
+* Psychology Books — Catalog
+
+All books in =books/Psychology/=, English only.
+
+** Freud
+
+| Book | EBook ID | TXT URL |
+|------|----------|---------|
+| The Interpretation of Dreams | 66048 | [[https://www.gutenberg.org/ebooks/66048.txt.utf-8][Download]] |
+| Psychopathology of Everyday Life | 67332 | [[https://www.gutenberg.org/ebooks/67332.txt.utf-8][Download]] |
+| A General Introduction to Psychoanalysis | 38219 | [[https://www.gutenberg.org/ebooks/38219.txt.utf-8][Download]] |
+| History of the Psychoanalytic Movement | 76298 | [[https://www.gutenberg.org/ebooks/76298.txt.utf-8][Download]] |
+
+** Jung
+
+| Book | EBook ID | TXT URL |
+|------|----------|---------|
+| Psychology of the Unconscious | 65903 | [[https://www.gutenberg.org/ebooks/65903.txt.utf-8][Download]] |
+| The Theory of Psychoanalysis | 66041 | [[https://www.gutenberg.org/ebooks/66041.txt.utf-8][Download]] |
+| Collected Papers on Analytical Psychology | 48225 | [[https://www.gutenberg.org/ebooks/48225.txt.utf-8][Download]] |
+| The Psychology of Jung | 77864 | [[https://www.gutenberg.org/ebooks/77864.txt.utf-8][Download]] |
+
+** James
+
+| Book | EBook ID | TXT URL |
+|------|----------|---------|
+| Principles of Psychology Vol 1 | 57628 | [[https://www.gutenberg.org/ebooks/57628.txt.utf-8][Download]] |
+| Principles of Psychology Vol 2 | 57634 | [[https://www.gutenberg.org/ebooks/57634.txt.utf-8][Download]] |
+| Psychology: Briefer Course | 55262 | [[https://www.gutenberg.org/ebooks/55262.txt.utf-8][Download]] |
+
+** Other
+
+| Book | EBook ID | TXT URL |
+|------|----------|---------|
+| Human Nature and Conduct | 41386 | [[https://www.gutenberg.org/ebooks/41386.txt.utf-8][Download]] |
+| A Beginners Psychology | 51442 | [[https://www.gutenberg.org/ebooks/51442.txt.utf-8][Download]] |
+| Analysis of the Human Mind | 56441 | [[https://www.gutenberg.org/ebooks/56441.txt.utf-8][Download]] |
+| The Foundations of Personality | 1575 | [[https://www.gutenberg.org/ebooks/1575.txt.utf-8][Download]] |
+| Your Mind and How to Use It | 42055 | [[https://www.gutenberg.org/ebooks/42055.txt.utf-8][Download]] |
+| An Introduction to Psychology | 46677 | [[https://www.gutenberg.org/ebooks/46677.txt.utf-8][Download]] |
+
+* Common Book Formats (All Sources)
+
+| Source | Extension | Format    | Best For                          |
+|--------|-----------|-----------|-----------------------------------|
+| Gutenberg | .txt      | Plain text| Direct conversion, cleanest       |
+| Gutenberg | .html     | HTML      | Pandoc conversion                 |
+| Gutenberg | .epub     | EPUB      | E-readers, pandoc                 |
+| Archive.org | .djvu.txt | OCR text | IA primary format           |
+| Archive.org | .pdf      | PDF       | Fallback only (not convertible) |
+| Archive.org | .hocr.html | HTML     | Sometimes available             |
+| StdEbooks | .epub     | EPUB      | Best quality, requires unzip  |
+
+** Source Priority
+
+1. Project Gutenberg (=.txt=) — cleanest, most reliable
+2. Internet Archive (=_djvu.txt=) — for books not on Gutenberg
+3. Standard Ebooks (=.epub=) — best formatting, requires extraction
+4. Open Library — redirects to other sources
 
 * Tips
 
-1. Always prefer plain text (.txt) over HTML — fewer artifacts
-2. Check both =[ebook-id].txt= and =[ebook-id]-0.txt= variants
-3. Strip Gutenberg header/footer before converting
-4. Pandoc with =--wrap=none= prevents line wrapping
-5. For complex structures, use Node.js script for custom parsing
+1. Always prefer multiple sources — don't just use Gutenberg
+2. For texts, prefer plain text (=.txt=) over HTML — fewer artifacts
+3. On Archive.org, always try =_djvu.txt= first (most reliable IA format)
+4. Check both =[ebook-id].txt= and =[ebook-id]-0.txt= variants on Gutenberg
+5. Strip Gutenberg/IA header/footer before converting
+6. Pandoc with =--wrap=none= prevents line wrapping
+7. For complex structures, use Node.js script for custom parsing
+8. If Archive.org rate-limits, use a different mirror or wait
+
+** ALWAYS Verify Conversion (CRITICAL)
+
+After converting, ALWAYS check the output:
+
+: head -20 "[file].org"     # Check header/title/author lines
+: wc -l "[file].org"      # Should have substantial content
+: tail -10 "[file].org"   # Check end is not truncated
+
+If conversion failed:
+- Output shows HTML 404/redirect errors
+- File is tiny (<1KB) or empty
+- Output contains =<html>= tags instead of text
+
+FIX: Delete the file and try a different source:
+- On Gutenberg: try =.txt.utf-8= instead of =[id].txt=
+- On Archive.org: try =_djvu.txt= instead of =_text.txt=
+- Try a different source entirely
+
+** Archive.org Rate Limiting Workarounds
+
+- Use CDN URLs directly: =dn000000.ca.archive.org=
+- Wait between requests if 403/429 errors
+- Try different item IDs from search results
+- Don't spam downloads — space them out
 
 * Error Handling
 
