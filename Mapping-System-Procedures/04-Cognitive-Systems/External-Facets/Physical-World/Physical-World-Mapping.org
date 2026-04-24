@@ -1,0 +1,18 @@
+#+TITLE: Physical World Mapping - External Facet
+
+* Physical World - External Facet
+
+The Physical World facet of the External realm encompasses:
+
+** Components
+- Tangible objects
+- Spatial arrangements
+- Material resources
+
+** Mapping Approaches
+- DIKW-Pyramid for layered reality
+- Scientific mapping methods
+- Alpha-Taxonomy for classification
+
+** Integration
+Links to Reality and Systems facets.

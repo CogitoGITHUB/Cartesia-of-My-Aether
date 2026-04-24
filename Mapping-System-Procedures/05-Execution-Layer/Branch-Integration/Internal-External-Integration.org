@@ -1,0 +1,20 @@
+#+TITLE: Branch Integration
+
+* Branch Integration
+
+Integrate Internal and External branches.
+
+** Integration Points
+- Mind ↔ Reality
+- Thought ↔ Systems
+- Emotion ↔ People
+- Philosophy ↔ Power
+- Hidden Truth ↔ Physical World
+
+** Methods
+- Interface-Design
+- Systems-Mapping
+- Network-Graphs
+
+** Integration
+Links to 00-Core/The-Self/Two-Branches/

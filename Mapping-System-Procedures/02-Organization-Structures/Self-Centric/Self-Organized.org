@@ -1,0 +1,18 @@
+#+TITLE: Self-Centric Organization
+
+* Self-Centric Organization
+
+All organization starts from The Self.
+
+** Principles
+- Self at center of all structures
+- Branches radiate outward
+- Return paths to Self
+
+** Structure Types
+- Radial organization
+- Branch-aligned structures
+- Return-path hierarchies
+
+** Integration
+Links to 00-Core/The-Self/

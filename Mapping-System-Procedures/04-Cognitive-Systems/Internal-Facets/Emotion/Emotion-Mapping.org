@@ -1,0 +1,18 @@
+#+TITLE: Emotion Mapping - Internal Facet
+
+* Emotion - Internal Facet
+
+The Emotion facet of the Internal realm encompasses:
+
+** Components
+- Emotional states
+- Feeling patterns
+- Emotional intelligence
+
+** Mapping Approaches
+- Behavioral-Psychology
+- Cognitive-Psychology
+- Psychological-Mapping
+
+** Integration
+Links to Mind and Hidden Truth facets.

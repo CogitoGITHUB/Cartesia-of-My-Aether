@@ -1,0 +1,18 @@
+#+TITLE: Architect Cognition
+
+* Architect Cognition
+
+Cognitive processes of the Architect.
+
+** Cognitive Properties
+- Design thinking
+- Strategic planning
+- Mask creation
+
+** Mapping Methods
+- Cognitive-Maps for design
+- Systems-Thinking for strategy
+- Task-Analysis for planning
+
+** Integration
+Links to 00-Core/Architect/

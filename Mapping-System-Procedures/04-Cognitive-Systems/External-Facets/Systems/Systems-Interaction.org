@@ -1,0 +1,18 @@
+#+TITLE: Systems Interaction - External Facet
+
+* Systems - External Facet
+
+The Systems facet of the External realm encompasses:
+
+** Components
+- Technical systems
+- Organizational structures
+- Process flows
+
+** Mapping Approaches
+- Systems-Mapping
+- Task-Analysis
+- Gantt-Kanban layered methods
+
+** Integration
+Links to Reality and People facets.

@@ -1,0 +1,18 @@
+#+TITLE: Fixed Point Mapping
+
+* Architect Fixed Point Mapping
+
+The Architect remains fixed at center — unchanging, unmoved, sovereign.
+
+** Fixed Point Properties
+- Unchanging center
+- Sovereign position
+- Design authority
+
+** Mapping Methods
+- Map from fixed center
+- Document design decisions
+- Track mask deployments
+
+** Integration
+Links to 00-Core/Architect/

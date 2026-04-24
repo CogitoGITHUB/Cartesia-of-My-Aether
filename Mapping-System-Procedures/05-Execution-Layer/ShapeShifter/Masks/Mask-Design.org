@@ -1,0 +1,18 @@
+#+TITLE: Mask Design
+
+* Mask Design
+
+The ShapeShifter deploys masks — strategic projections for specific situations.
+
+** Design Principles
+- Masks are tools, not identity
+- Each mask serves a purpose
+- Masks are created and discarded at will
+
+** Types of Masks
+- Fear masks (command respect)
+- Respect masks (build alliances)
+- Obedience masks (control outcomes)
+
+** Integration
+Masks link to External-Facets mapping (People, Power, Systems).

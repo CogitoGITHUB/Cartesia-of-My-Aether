@@ -1,0 +1,20 @@
+#+TITLE: External Mapping Methods
+
+* External Mapping
+
+Mapping the External realm requires methods that address:
+
+** Reality Systems
+- Physical world documentation
+- Systems interaction mapping
+- Power structure analysis
+
+** People and Power
+- Social network mapping
+- Power dynamic documentation
+- Reality-based execution layers
+
+** Methods
+- Systems-Thinking for complex systems
+- Network-Graphs for people/systems
+- DIKW-Pyramid for layered reality

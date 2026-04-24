@@ -1,0 +1,18 @@
+#+TITLE: Thought Patterns - Internal Facet
+
+* Thought - Internal Facet
+
+The Thought facet of the Internal realm encompasses:
+
+** Components
+- Thought generation
+- Pattern recognition
+- Conceptual linking
+
+** Mapping Approaches
+- Zettelkasten for thought networks
+- Concept-Centric linking
+- Semantic-Linguistics
+
+** Integration
+Links to Mind and Philosophy facets.

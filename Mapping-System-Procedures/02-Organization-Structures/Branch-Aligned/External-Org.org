@@ -1,0 +1,17 @@
+#+TITLE: Branch-Aligned Organization - External
+
+* External Branch Organization
+
+Organization aligned with External branch.
+
+** External Components
+- Reality, Systems, People
+- Power, Physical World
+
+** Org Structures
+- Systems-Mapping
+- Network-Graphs
+- Hierarchical trees
+
+** Integration
+Links to 04-Cognitive-Systems/External-Facets/

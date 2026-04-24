@@ -1,0 +1,18 @@
+#+TITLE: Self Execution
+
+* Self Execution Layer
+
+Return and rule from The Self.
+
+** Execution Flows
+- Deploy → Execute → Return
+- ShapeShifter retracts to Architect
+- Architect returns to Self
+
+** Methods
+- Return-path hierarchies
+- Single-Point-Mapping
+- Stillness protocols
+
+** Integration
+Links to 00-Core/The-Self/

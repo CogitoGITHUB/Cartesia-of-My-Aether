@@ -1,0 +1,17 @@
+#+TITLE: Branch-Aligned Organization - Internal
+
+* Internal Branch Organization
+
+Organization aligned with Internal branch.
+
+** Internal Components
+- Mind, Thought, Emotion
+- Philosophy, Hidden Truth
+
+** Org Structures
+- Concept-Centric linking
+- Nested hierarchies
+- Taxonomic classification
+
+** Integration
+Links to 04-Cognitive-Systems/Internal-Facets/

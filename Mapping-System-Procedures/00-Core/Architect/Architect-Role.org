@@ -1,0 +1,19 @@
+#+TITLE: Architect Role
+
+* The Architect
+
+I am the Architect of the ShapeShifter.
+
+** Role Definition
+- Design, build, command the ShapeShifter
+- Remain fixed at center
+- Deploy strategic masks
+- Redesign interfaces
+
+** Architect vs Self
+- The Self: unchanging observer
+- The Architect: active designer
+- The ShapeShifter: deployed instrument
+
+** Integration
+The Architect builds from The Self.

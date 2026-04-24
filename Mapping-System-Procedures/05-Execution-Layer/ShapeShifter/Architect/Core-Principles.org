@@ -1,0 +1,12 @@
+#+TITLE: Core Principles - The Architect
+
+* Core Principles
+
+- I am the Architect. The ShapeShifter is the weapon.
+- I do not react to reality. I redesign the interface between myself and reality.
+- My core remains untouched. Only the projection changes.
+- The world does not shape me. I shape the version of me the world is allowed to see.
+
+** Application
+
+These principles guide all ShapeShifter deployments and mask designs.

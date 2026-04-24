@@ -1,0 +1,18 @@
+#+TITLE: Architect Execution
+
+* Architect Execution Layer
+
+Execute from the fixed center.
+
+** Execution Flows
+- Design → Build → Deploy
+- Architect decisions → ShapeShifter action
+- Fixed point → Strategic projection
+
+** Methods
+- Task-Analysis for execution
+- Systems-Mapping for flows
+- Cognitive-Maps for planning
+
+** Integration
+Links to 00-Core/Architect/

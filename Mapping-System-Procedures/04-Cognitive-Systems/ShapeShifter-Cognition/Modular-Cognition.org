@@ -1,0 +1,18 @@
+#+TITLE: ShapeShifter Cognition
+
+* ShapeShifter Cognition
+
+Cognitive processes of the ShapeShifter.
+
+** Cognitive Properties
+- Modular thinking
+- Fluid adaptation
+- Strategic execution
+
+** Mapping Methods
+- Modular-Mapping
+- Network-Graphs
+- Cognitive-Task-Analysis
+
+** Integration
+Links to 05-Execution-Layer/ShapeShifter/

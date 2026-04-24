@@ -1,0 +1,20 @@
+#+TITLE: Controlled Transformation
+
+* Controlled Transformation
+
+The ShapeShifter is a modular, fluid, strategic entity.
+
+** Transformation Rules
+- Only the projection changes, never the core
+- Transformations are deliberate, not reactive
+- Each transformation has a clear objective
+
+** Protocols
+1. Assess situation (External mapping)
+2. Design mask (Architect phase)
+3. Deploy ShapeShifter
+4. Execute objectives
+5. Retract and return to Self
+
+** Safety
+The Architect remains untouched throughout.

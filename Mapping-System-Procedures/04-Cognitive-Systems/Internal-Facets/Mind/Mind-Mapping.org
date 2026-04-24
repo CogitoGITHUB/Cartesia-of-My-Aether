@@ -1,0 +1,18 @@
+#+TITLE: Mind Mapping - Internal Facet
+
+* Mind - Internal Facet
+
+The Mind facet of the Internal realm encompasses:
+
+** Components
+- Cognitive structures
+- Mental models
+- Thought generators
+
+** Mapping Approaches
+- Cognitive-Maps from 05-Execution-Layer
+- Brain-Mapping from Neurology
+- Mind-Maps from Mapping-Methods
+
+** Integration
+Links to Philosophy and Hidden Truth facets.

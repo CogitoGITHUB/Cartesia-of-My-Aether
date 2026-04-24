@@ -1,0 +1,18 @@
+#+TITLE: Reality Mapping - External Facet
+
+* Reality - External Facet
+
+The Reality facet of the External realm encompasses:
+
+** Components
+- Physical laws
+- Environmental factors
+- Material conditions
+
+** Mapping Approaches
+- Systems-Thinking
+- DIKW-Methodology
+- Systems-Mapping from Execution-Layer
+
+** Integration
+Links to Physical-World and Systems facets.

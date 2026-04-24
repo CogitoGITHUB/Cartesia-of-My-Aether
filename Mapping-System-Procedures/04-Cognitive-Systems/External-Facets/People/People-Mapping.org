@@ -1,0 +1,18 @@
+#+TITLE: People Mapping - External Facet
+
+* People - External Facet
+
+The People facet of the External realm encompasses:
+
+** Components
+- Social dynamics
+- Individual personalities
+- Group behaviors
+
+** Mapping Approaches
+- Network-Graphs
+- Behavioral-Psychology
+- Cognitive-Maps
+
+** Integration
+Links to Power and Systems facets.

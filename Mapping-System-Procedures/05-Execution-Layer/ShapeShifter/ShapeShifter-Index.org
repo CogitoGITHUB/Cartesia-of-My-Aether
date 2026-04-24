@@ -1,0 +1,16 @@
+#+TITLE: ShapeShifter Index
+
+* ShapeShifter Overview
+
+I am not the ShapeShifter. I am the Architect of the ShapeShifter.
+
+** Structure
+
+- [[file:Architect/Philosophy.org][Architect/Philosophy]]
+- [[file:Architect/Core-Principles.org][Architect/Core-Principles]]
+- [[file:Architect/Eternal-Truth.org][Architect/Eternal-Truth]]
+- [[file:Masks/Mask-Design.org][Masks/Mask-Design]]
+- [[file:Interface-Design/Interface-Redesign.org][Interface-Design]]
+- [[file:Controlled-Transformation/Transformation-Protocols.org][Controlled-Transformation]]
+
+The ShapeShifter is the ultimate instrument of controlled transformation.

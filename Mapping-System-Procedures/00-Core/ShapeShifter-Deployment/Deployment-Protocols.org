@@ -1,0 +1,20 @@
+#+TITLE: ShapeShifter Deployment
+
+* ShapeShifter Deployment
+
+Deploy the ShapeShifter into the world.
+
+** Deployment Phases
+1. Architect designs the mask
+2. ShapeShifter is built
+3. Deployment to External realm
+4. Execution of objectives
+5. Retraction to Architect
+
+** Deployment Types
+- Fear masks
+- Respect masks  
+- Obedience masks
+
+** Integration
+Links to 05-Execution-Layer/ShapeShifter/

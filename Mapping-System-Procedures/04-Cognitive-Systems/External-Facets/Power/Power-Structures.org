@@ -1,0 +1,18 @@
+#+TITLE: Power Structures - External Facet
+
+* Power - External Facet
+
+The Power facet of the External realm encompasses:
+
+** Components
+- Authority hierarchies
+- Influence networks
+- Control mechanisms
+
+** Mapping Approaches
+- Network-Graphs for power dynamics
+- Systems-Thinking for structures
+- Taxonomic-Classification for levels
+
+** Integration
+Links to People and Reality facets.

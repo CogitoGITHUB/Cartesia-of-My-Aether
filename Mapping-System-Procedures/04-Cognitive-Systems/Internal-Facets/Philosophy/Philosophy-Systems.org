@@ -1,0 +1,18 @@
+#+TITLE: Philosophy Systems - Internal Facet
+
+* Philosophy - Internal Facet
+
+The Philosophy facet of the Internal realm encompasses:
+
+** Components
+- Philosophical frameworks
+- Ethical systems
+- Worldview structures
+
+** Mapping Approaches
+- Concept-Linguistics
+- Taxonomic-Classification
+- Hierarchical-Concept-Trees
+
+** Integration
+Links to Thought and Hidden Truth facets.

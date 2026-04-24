@@ -1,0 +1,18 @@
+#+TITLE: Interface Redesign
+
+* Interface Redesign
+
+I do not react to reality. I redesign the interface between myself and reality.
+
+** Interface Components
+- Input processing (External → Internal)
+- Output projection (Internal → External)
+- Boundary management
+
+** Redesign Methods
+- Systems-Mapping for interface points
+- Task-Analysis for flow optimization
+- Cognitive-Maps for mental models
+
+** Implementation
+Interfaces are deployed via the ShapeShifter.
