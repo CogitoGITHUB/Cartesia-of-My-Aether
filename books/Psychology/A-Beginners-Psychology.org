@@ -4,27 +4,7 @@
 #+YEAR: 1915
 #+LANGUAGE: en
 
-TRANSCRIBER’S NOTES:
-—Obvious print and punctuation errors were corrected.
-—Bold text has been rendered as =bold text=.
-—Subscripts have been rendered as in this chemical formula: H_{2}O
-A BEGINNER’S PSYCHOLOGY
-[Illustration: LOGO]
-THE MACMILLAN COMPANY
-NEW YORK · BOSTON · CHICAGO · DALLAS ATLANTA · SAN FRANCISCO
-MACMILLAN & CO., LIMITED
-LONDON · BOMBAY · CALCUTTA MELBOURNE
-THE MACMILLAN CO. OF CANADA, LTD.
-TORONTO
-A BEGINNER’S PSYCHOLOGY
-EDWARD BRADFORD TITCHENER
-New York THE MACMILLAN COMPANY 1915 _All rights reserved_
-COPYRIGHT, 1915,
-BY THE MACMILLAN COMPANY.
-Set up and electrotyped. Published December, 1915.
-Norwood Press J. S. Cushing Co.—Berwick & Smith Co. Norwood, Mass., U.S.A.
-THE MEMORY OF THOMAS HENRY HUXLEY
-PREFACE
+
 It is an acknowledged fact that we perceive errors in the work of others more readily than in our own.—LEONARDO DA VINCI
 IN this Beginner’s Psychology I have tried to write, as nearly as might be, the kind of book that I should have found useful when I was beginning my own study of psychology. That was nearly thirty years ago; and I read Bain, and the Mills, and Spencer, and Rabier, and as much of Wundt as a struggling acquaintance with German would allow. Curiously enough, it was a paragraph in James Mill, most unpsychological of psychologists, that set me on the introspective track,—though many years had to pass before I properly understood what had put him off it. A book like this would have saved me a great deal of labour and vexation of spirit. Nowadays, of course, there are many introductions to psychology, and the beginner has a whole library of text-books to choose from. Still, they are of varying merit; and, what is perhaps more important, their temperamental appeal is diverse.
 I do not find it easy to relate this new book to the older Primer,—which will not be further revised. There is change all through; every paragraph has been rewritten. The greatest change is, however, a shift of attitude; I now lay less stress than I did upon knowledge and more upon point of view. The beginner in any science is oppressed and sometimes disheartened by the amount he has to learn; so many men have written, and so many are writing; the books say such different things, and the magazine articles are so upsetting! Enviable is the senior who can reply, when some scientific question is on the carpet,—There are three main views, A’s and B’s and C’s, and you will find them here and there and otherwhere! But as time goes by this erstwhile beginner comes to see that knowledge is, after all, a matter of time itself. If he keeps on working, knowledge is added unto him; and not only knowledge, but also what is just as valuable as knowledge, the power of expert assimilation; so that presently, when some special point is in debate, he is not ashamed of the plea of ignorance. He has learned that one man cannot compass the full range of a science, and he is assured that so-many hours of expert attention will make him master of the new matter. He comes in this way not, surely, to underestimate knowledge, but to be less anxious about it; and as that preoccupation goes, the point of view seems to be more and more important. Why is it that beginners in science are so often disjointed in their thinking, so often superficial, unable to correlate what they know, logically all at sea? There is no doubt that they are, whether they study physics or chemistry, biology or psychology. I think the main reason is that they have never got the scientific point of view; they are taught Physics or Biology, but not Science. Hence I have, in this book, written an inordinately long introduction, and have kept continually harping on the difference between fact and meaning. I try to make the reader see clearly what I take Science to be. It does not matter whether he agrees with me; that is a detail; I shall be fully satisfied if he learns to be clear and definite in his objections, realizes his own point of view, and sticks to it in working out later his own psychological system. Muddlement is the enemy; and there is a good deal of muddled thinking even in modern books.

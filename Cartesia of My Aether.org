@@ -1,5 +1,5 @@
 #+TITLE: Cartesia of My Aether
-This file follows Concept Logic — the same path my mind takes from pure idea to execution.
+
 Cartesia is the concept.
 Everything below it are the translation layers in the exact order I interact with them.
 
