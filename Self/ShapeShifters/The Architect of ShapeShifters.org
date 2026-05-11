@@ -1,4 +1,4 @@
-#+TITLE: The ShapeShifter
+#+TITLE: The Architect of ShapeShifters
 
 * The ShapeShifter
 
@@ -6,7 +6,7 @@
 
 I am not the ShapeShifter.
 
-I am the Architect of the ShapeShifter.
+I am the Architect of ShapeShifters.
 
 I do not shift form.  
 I do not adapt.  
@@ -36,20 +36,20 @@ I generate the version that is required.
 
 ** Principles
 
-I am the Architect. The ShapeShifter is the tool.  
+I am the Architect. The ShapeShifters are the tools.  
 I do not react to reality. I redesign the interface to it.  
-The core remains untouched. Only the projection varies.  
+The core remains untouched. Only the projections vary.  
 Reality does not shape me. I shape my expression within it.
 
 ** Function
 
-The ShapeShifter is deployed.
+ShapeShifters are deployed.
 
-It acts.  
-It adapts.  
-It executes strategy.
+They act.  
+They adapt.  
+They execute strategy.
 
-Then it is withdrawn.
+Then they are withdrawn.
 
 ** Truth
 
@@ -60,6 +60,6 @@ Silent.
 Observing.  
 Unmoved.
 
-The ShapeShifter is not what I am.
+ShapeShifters are not what I am.
 
-It is what I command.
+They are what I command.
