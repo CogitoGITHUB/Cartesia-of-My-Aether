@@ -1,0 +1,31 @@
+#+TITLE: Self Map
+
+* Self
+
+** Internal
+Cognition
+Physiology
+Emotion
+Memory
+Attention
+
+** External
+Tools
+Systems
+Environments
+People
+Constraints
+
+** Substrates
+
+*** Skills
+Writing
+Mathematics
+Combat
+Coding
+
+*** Sciences
+Physics
+Biology
+Security
+Economics
