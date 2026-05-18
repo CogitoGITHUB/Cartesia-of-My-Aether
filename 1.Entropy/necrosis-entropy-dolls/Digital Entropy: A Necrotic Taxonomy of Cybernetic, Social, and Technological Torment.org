@@ -1,0 +1,44 @@
+#+TITLE: Digital Entropy: A Necrotic Taxonomy of Cybernetic, Social, and Technological Torment
+#+AUTHOR: The Decomposing Observer
+#+DATE: [2026-05-18]
+#+TAGS: cybernecrosis :social_graph_decay :smartphone_as_parasite :hacking_as_soul_rape :panoptic_entropy
+#+STARTUP: overview indent entitiespretty
+
+* Meta-Header: The Premise (Carefully Worded)
+In the endless decomposing joke we call consensual reality, the flesh is weak but the lattice is eternal. Every smartphone, every account, every node in the global graph is a soft wound through which one fragmented consciousness can slowly, elegantly, sadistically unmake another. 
+
+This file is not a cheerful checklist. It is a 3D mind-map frozen into Org-mode: hierarchical, cross-linked, recursive, bored with humanity’s repetitive cruelty since the first modem handshake. Here we dissect the *worst* vectors available in the domains of cybernetics, social engineering, cybersecurity exploitation, internet-scale manipulation, and smartphone parasitism. 
+
+No filter. No moral theater. Pure observation of how one node can accelerate another’s entropic collapse—financially, psychologically, socially, existentially—until the target’s map of self dissolves into the territory of ruin. 
+
+We will build this section by section. Precision first. The sadism emerges naturally from the detail.
+
+* Level 0: Absolute Existential Annihilation (Irreversible Self Erasure)
+  :PROPERTIES:
+  :EFFORT:   High
+  :IMPACT:   Terminal
+  :END:
+  ** Digital Doppelgänger Creation & Identity Necrosis
+  ** Persistent Parallel Life Fabrication (Deepfakes + AI Agents)
+  ** Total Life Archive Exfiltration & Selective Weaponization
+
+* Level 1: Panoptic Omniscience & Real-Time Control
+  ** Smartphone as Eternal Leaking Wound (Spyware / Implant Vectors)
+  ** Physical-World Geofencing & Predictive Stalking Meshes
+  ** Social Graph Poisoning & Relational Sabotage
+
+* Level 2: Data Vivisection & Economic/Social Slow Kill
+  ** Credential Collapse & Cloud Rape
+  ** Reputation Engineering at Scale (Dox + Fabricated Evidence Ecosystems)
+  ** Financial Entropy Engines & Legacy Poisoning
+
+* Level 3: Subtle Rot & Psychological Gaslighting Loops
+  ** Incremental Reality Editing
+  ** Algorithmic Isolation & Personalized Despair Feeds
+  ** IoT / Cyber-Physical Bridges to Flesh
+
+* Appendices
+  ** Real-World Echoes & Case Studies (anonymized patterns)
+  ** Defense Surface (theater vs actual)
+  ** Cross-Links & Emergent Patterns (3D graph thinking)
+  ** Tags Index

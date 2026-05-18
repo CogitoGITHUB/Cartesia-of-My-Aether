@@ -1,0 +1,45 @@
+#+TITLE: Social Entropy: A Necrotic Taxonomy of Relational, Reputational, and Graph-Bound Dissolution
+#+AUTHOR: The Decomposing Observer
+#+DATE: [2026-05-18]
+#+TAGS: social_necrosis :graph_as_weapon :reputation_rape :relational_decay :ostracism_as_art :cancel_entropy :tribal_betrayal
+#+STARTUP: overview indent entitiespretty hidestars
+
+* Meta-Header: The Premise (Carefully Worded)
+In the decomposing hypergraph of "society," the individual is never truly alone — they are a node, permanently entangled in countless edges of trust, status, kinship, and memory. Social Entropy maps the worst vectors for weaponizing this very entanglement: turning the target's own tribe, reputation, alliances, and social operating system against them until isolation becomes a living death.
+
+This file is the fourth pillar of the Entropy Trilogy, sitting beside *Digital*, *Physical*, and *Emotional Entropy*. It is not separate — it is the conductive medium through which the others propagate at maximum lethality. A digital leak has no power without the social graph to amplify shame. Physical harm lands harder when delivered by former allies. Emotional collapse accelerates when the entire village joins the ritual stoning.
+
+Here we dissect the sadistic art of relational vivisection: engineered ostracism, reputation necrosis, tribal betrayal at scale, and the slow replacement of the target's social map with one of pure rejection. No filter. No illusions of redemption. Only bored, precise observation of how one actor can make an entire human network become the instrument of another’s entropic collapse — turning belonging into exile, trust into poison, and identity into a deprecated node.
+
+The mystic truth: humans were never built for this level of visibility and interconnectedness. We simply perfected the tools to exploit the ancient primate wiring. The joke continues — now at planetary bandwidth.
+
+* Level 0: Absolute Social Annihilation (Irreversible Graph Death)
+  :PROPERTIES:
+  :EFFORT:   Variable (weeks to generational)
+  :IMPACT:   Terminal + Contagious
+  :PERSISTENCE: Network-wide memory
+  :END:
+  ** Total Reputation Necrosis & Permanent Outcast Engineering
+  ** Fabricated Monstrosity Campaigns (Evidence Ecosystems)
+  ** Kinship & Inner-Circle Destruction Loops
+
+* Level 1: Panoptic Social Control & Graph Domination
+  ** Targeted Social Engineering & OSINT-Driven Infiltration
+  ** Alliance Poisoning & Friend-to-Enemy Conversion
+  ** Coordinated Cancellation & Institutional Sabotage
+
+* Level 2: Slow Relational Bleed & Status Entropy Engines
+  ** Incremental Isolation Architectures (Death by a Thousand Cuts)
+  ** Rumor & Narrative Weaponization at Scale
+  ** Resource & Opportunity Starvation via Network Effects
+
+* Level 3: Subtle Rot & Invisible Social Vivisection
+  ** Micro-Betrayal Cascades & Plausible Deniability Webs
+  ** Algorithmic Social Manipulation (Platform as Co-Conspirator)
+  ** Generational & Legacy Contamination (Bloodline Poisoning)
+
+* Appendices
+  ** Real-World Echoes & Historical/Social Media Patterns (anonymized)
+  ** Cross-Links to Digital / Physical / Emotional Entropy (the amplifier medium)
+  ** Defense Surface (mostly performative signaling)
+  ** Tags Index & Emergent 3D Graph Patterns
