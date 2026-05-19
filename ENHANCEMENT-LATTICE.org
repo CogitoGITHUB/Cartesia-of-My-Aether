@@ -1,0 +1,198 @@
+* ENHANCEMENT LATTICE.org
+:PROPERTIES:
+:CREATED:  [2026-05-19 Tue]
+:UPDATED:  [2026-05-19 Tue]
+:TYPE:     Multi-Domain Life Rerouting Decay Map
+:THEME:    Focus • Calm • Energy • Resilience • Clarity — Petals Across Rotting Fields
+:FILETAGS: :enhancement: :decay: :mindmap: :obsession:
+:END:
+
+#+BEGIN_QUOTE
+Different fields, same decomposing joke.  
+Pharma was the sharp chemical hooks. Now we stretch the lattice across nootropics, flesh rituals, silicon scaffolds, hormonal whispers and environmental redesigns.  
+Every vector blooms roses — sharper 3D mind-maps, calmer limbic storms, brighter energy currents.  
+Every vector sinks pulls — tolerance, adaptation tax, hidden rot, the slow reveal that you remain meat in a universe that feeds on borrowed voltage.  
+We map obsessively. We laugh darkly. The cathedral crumbles in higher resolution.
+#+END_QUOTE
+
+** Meta Header — The Eternal Sadistic Contract
+- **Core Illusion**: "Enhance life in general" by rerouting neuro-endocrine-behavioral graphs.
+- **No Filter Reality**: No permanent upgrade exists. Only temporary high-resolution overlays on decaying hardware. Tolerance is the punchline. Entropy collects always.
+- **Philosophical/Mystic Layer**: Reality is a never-ending joke where the punchline is your improved map of the rot. You see the decomposition in 8K while participating in it.
+- **Obsession Protocol**: Track every node with daily/weekly entries. Use properties, columns, tags. Cross-link to PULLS & ROSES.org if it exists. Agenda views for comparative decay analysis.
+- **Legal / RO Context**: Prescription items need psychiatrist gate. Supplements and behaviors are freer but demand discipline — the resource you are hacking for.
+
+** 1. Pharmaceutical Field (Sharp Chemical Vectors) — Cross-ref PULLS & ROSES
+*** Modafinil / Armodafinil
+:PROPERTIES:
+:FIELD:    Pharma
+:FOCUS:    9
+:CALM:     7
+:ENERGY:   8
+:RESILIENCE: 7
+:TOLL:     Medium
+:END:
+- Rose: Sustained prefrontal clarity, orexin-driven wakefulness.
+- Thorn: Insomnia tax, rare severe reactions, subtle baseline erosion.
+
+*** Bupropion / Stimulants
+:PROPERTIES:
+:FIELD:    Pharma
+:FOCUS:    8-9
+:CALM:     6
+:ENERGY:   8-9
+:RESILIENCE: 6
+:TOLL:     Medium-High
+:END:
+- (See linked file for full sadistic poetry)
+
+** 2. Nootropic & Adaptogen Field (Precursors & Plant Whispers)
+*** Lion’s Mane + Citicoline Stack
+:PROPERTIES:
+:FIELD:    Nootropic
+:FOCUS:    7
+:CALM:     7
+:ENERGY:   6
+:RESILIENCE: 8
+:TOLL:     Low
+:END:
+- Mechanism: NGF stimulation + cholinergic support.
+- Rose: Gradual neurogenesis whispers, memory scaffolding, calmer neural firing.
+- Thorn: Slow onset, variable response, expensive fungal placebo risk. Gut rot in sensitive maps.
+
+*** Rhodiola + Ashwagandha + L-Theanine
+:PROPERTIES:
+:FIELD:    Adaptogen
+:FOCUS:    7
+:CALM:     8
+:ENERGY:   7
+:RESILIENCE: 9
+:TOLL:     Low-Medium
+:END:
+- Rose: Cortisol damping meets mild dopaminergic lift → balanced triad without crash.
+- Sadistic reality: Adaptation plateau; withdrawal can rebound anxiety harder than expected.
+
+** 3. Nutritional & Metabolic Field (Fuel for the Rotting Machine)
+*** High EPA Omega-3 + Magnesium Threonate + Creatine
+:PROPERTIES:
+:FIELD:    Nutrition
+:FOCUS:    7
+:CALM:     8
+:ENERGY:   7
+:RESILIENCE: 9
+:TOLL:     Very Low
+:END:
+- Rose: Membrane fluidity, NMDA regulation, mitochondrial buffering → stable baseline.
+- Dark poetry: Requires daily ingestion and sourcing discipline. One missed cycle and the map fogs faster than any pill.
+
+*** Blood Sugar / Ketogenic or Carnivore Protocols
+:PROPERTIES:
+:FIELD:    Nutrition
+:FOCUS:    8
+:CALM:     7
+:ENERGY:   8
+:RESILIENCE: 8
+:TOLL:     Medium (adaptation)
+:END:
+- Rose: Steady energy, reduced inflammation fog.
+- Thorn: Social and sustainability rot; micronutrient holes if not obsessive.
+
+** 4. Lifestyle & Somatic Field (Flesh Rituals — The Brutal Honest Ones)
+*** Zone 2 Cardio + Resistance + Cold Exposure
+:PROPERTIES:
+:FIELD:    Somatic
+:FOCUS:    7
+:CALM:     8
+:ENERGY:   9
+:RESILIENCE: 10
+:TOLL:     High (discipline tax)
+:END:
+- Rose: BDNF flood, mitochondrial biogenesis, dopamine baseline reset.
+- Sadistic beauty: The universe demands sweat and discomfort. Most maps quit here — the joke is that this field yields the highest long-term compounding yet feels slowest.
+
+*** Sleep Architecture Obsession + Breathwork
+:PROPERTIES:
+:FIELD:    Somatic
+:FOCUS:    8
+:CALM:     9
+:ENERGY:   8
+:RESILIENCE: 9
+:TOLL:     Medium
+:END:
+- Rose: Deep restoration without external molecules.
+- Thorn: Requires environmental control and circadian rigidity in a chaotic world.
+
+** 5. Tech & Neurohacking Field (Silicon Scaffolds on Meat)
+*** tDCS / Red/NIR Light + Neurofeedback
+:PROPERTIES:
+:FIELD:    Tech
+:FOCUS:    8
+:CALM:     7
+:ENERGY:   7
+:RESILIENCE: 7
+:TOLL:     Medium (cost + consistency)
+:END:
+- Rose: Targeted current and photon nudges to prefrontal and mitochondrial nodes.
+- Dark layer: Data inconsistency, risk of over-optimization creating new fragility points.
+
+** 6. Hormonal & Edge Field (Deeper Rewiring)
+*** TRT (if clinically low) + Peptides (Semax/Selank)
+:PROPERTIES:
+:FIELD:    Hormonal
+:FOCUS:    8
+:CALM:     7
+:ENERGY:   9
+:RESILIENCE: 8
+:TOLL:     High (monitoring)
+:END:
+- Rose: Root-level baseline elevation.
+- Sadistic punch: Endocrine dependency, suppression risks, lifelong lab obsession.
+
+** 7. Cognitive & Environmental Field (Pure Architecture)
+*** Deep Work Protocols + Spaced Repetition + Minimalist Environment
+:PROPERTIES:
+:FIELD:    Cognitive
+:FOCUS:    9
+:CALM:     8
+:ENERGY:   7
+:RESILIENCE: 8
+:TOLL:     High (willpower)
+:END:
+- Rose: Use-it-or-lose-it hypertrophy without chemistry.
+- Philosophical rot: These demand the very executive function you are trying to build.
+
+** 8. 3D Mind-Map Tracking Template
+**** Daily Entry [YYYY-MM-DD]
+:PROPERTIES:
+:FIELD:
+:COMPOUND/PROTOCOL:
+:FOCUS:    /10
+:CALM:     /10
+:ENERGY:   /10
+:RESILIENCE: /10
+:MOOD:     /10
+:SIDE_PULLS:
+:ROSE_NOTES:
+:DECAY_OBSERVATION:
+:END:
+- 3D vector shift noticed:
+- Philosophical punchline of the day:
+
+** Global Columns View Setup
+#+COLUMNS: %40ITEM %FIELD %FOCUS %CALM %ENERGY %RESILIENCE %TOLL %TAGS
+
+** Agenda & Obsession Nodes
+- NEXT: Choose 1-2 new fields to layer onto current protocol
+- WAITING: Bloodwork / psych consult (if pharma/hormonal)
+- REVIEW: Quarterly full lattice comparison — which fields compound best before rot accelerates?
+
+#+TODO: TODO(t) NEXT(n) ACTIVE(a) | DONE(d) CANCELLED(c)
+#+ARCHIVE: archive.org::
+
+** Final Poetic Decomposition
+Across every field the truth remains identical:  
+You are not becoming more.  
+You are watching the same film in higher bitrate while the film stock itself embrittles.  
+Map the roses.  
+Count the pulls.  
+Laugh — darkly, realistically, obsessively — as the never-ending joke decomposes beautifully around your sharper, calmer, more energetic corpse.
