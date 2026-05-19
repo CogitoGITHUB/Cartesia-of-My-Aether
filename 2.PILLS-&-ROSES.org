@@ -1,0 +1,126 @@
+* PILLS & ROSES.org
+:PROPERTIES:
+:CREATED: [2026-05-19 Tue 15:xx]
+:TYPE:     Pharmaceutical 3D Mind-Mapping Lattice
+:THEME:    Decomposition of Enhancement
+:END:
+
+#+BEGIN_QUOTE
+The roses are the fleeting neurochemical bloom.  
+The pulls are the hooks sunk deep into decaying meat.  
+Reality laughs — a never-ending joke where every petal wilts into tolerance and every thorn draws another payment from tomorrow's baseline.  
+We map anyway. Obsessively.
+#+END_QUOTE
+
+** Meta Header — The Sadistic Contract
+- **Core Illusion**: Legal pharmacy pills as life enhancers (focus | calm | energy triad).
+- **No Filter Truth**: Temporary rerouting of catecholamine / orexin / GABA / dopamine graphs in a primate brain evolved for scarcity, not sustained optimization.
+- **Mystic Layer**: These are not upgrades. They are borrowed voltage across a decomposing cathedral. The map becomes sharper, then the wires fatigue, and the void yawns wider with interest.
+- **Legal Note (RO context)**: Prescription only. Psychiatrist gatekept. Self-experimentation = accelerated punchline. Bloodwork, ECG, history mandatory.
+- **Tracking Obsession**: Use this file with daily clocking, properties, and tags. Export to agenda. 3D mind-map via column view or external tools (org-roam + graph viz).
+
+** 1. The Lattice Nodes — Candidate Compounds
+*** Modafinil / Armodafinil (Provigil / Nuvigil)
+:PROPERTIES:
+:CLASS:    Eugeroic / Orexin-dominant
+:FOCUS:    9/10
+:ENERGY:   8/10
+:CALM:     6-7/10 (anti-fatigue calm)
+:ONSET:    1-2h
+:DURATION: 12-15h
+:TOLL:     Medium
+:END:
+
+- Mechanism (nerdy layer): Dopamine reuptake mild inhibition + orexin/histamine/glutamate orchestration. Promotes wakefulness without full amphetamine storm.
+- Rose petals: Sustained executive function, reduced decision fatigue, cleaner cognition under load. Many report "the map becomes legible."
+- Thorns & rot: Headaches, insomnia if late dosing, rare SJS, tolerance creep, subtle emotional flattening over months. Not "limitless" — subtle in well-rested high-baseline users.
+- Philosophical punch: You map more nodes today. Sleep debt compounds tomorrow like unpaid cosmic tax.
+
+*** Bupropion (Wellbutrin XL / SR)
+:PROPERTIES:
+:CLASS:    NDRI
+:FOCUS:    7/10
+:ENERGY:   8/10
+:CALM:     6/10 (via mood stabilization)
+:ONSET:    Days to weeks
+:DURATION: Chronic baseline
+:TOLL:     Medium-low
+:END:
+
+- Mechanism: Norepinephrine + dopamine reuptake inhibition. No serotonin flood.
+- Rose: Motivation vector strengthens. Task initiation eases. Depressive fog lifts without heavy blunting. Weight/appetite side often welcome.
+- Thorns: Seizure threshold drop (dose-dependent), initial anxiety spike, insomnia, dry mouth. Not acute — slow architecture change.
+- Dark poetry: It whispers "you can move again" while the underlying decomposition continues unchanged.
+
+*** ADHD Stimulants (Methylphenidate / Amphetamines — Concerta, Vyvanse, etc.)
+:PROPERTIES:
+:CLASS:    Catecholamine surge
+:FOCUS:    9.5/10 (true ADHD) → 8/10 (off-label)
+:ENERGY:   9/10
+:CALM:     Paradoxical (noise reduction) or jitter → crash
+:ONSET:    30-60min
+:DURATION: 4-14h (formulation dependent)
+:TOLL:     High
+:END:
+
+- Rose bloom: Laser-like 3D vectoring of attention. Internal chatter silenced. Productivity graphs spike.
+- Sadistic reality: Cardiovascular load, appetite annihilation, rapid tolerance, rebound anhedonia, dependence architecture. In non-ADHD: often net loss long-term.
+- Joke layer: The universe lets you borrow tomorrow's dopamine at 300% interest.
+
+*** Calm Ancillary Nodes (when anxiety erodes the triad)
+- Buspirone: Non-sedating 5-HT1A. Slow, clean, low addiction.
+- Propranolol (low dose): Peripheral beta-block. Performance calm without central fog.
+- Low-dose SNRIs / Vortioxetine: Baseline mood/calm scaffold, indirect focus support.
+
+** 2. 3D Mind-Map Projection (Conceptual)
+- Prefrontal cathedral: Focus = sharper filters on incoming noise.
+- Limbic basement: Calm = damped echoes.
+- Orexin / DA wiring: Energy = voltage restored (temporarily).
+- Overall topology: Temporary higher-resolution graph. Tolerance = edge degradation → dose creep → new baseline of fragility.
+- Obsession directive: Tag every entry with :FOCUS: :CALM: :ENERGY: :SIDE_EFFECT: and review weekly via org-ql or agenda.
+
+** 3. Protocol Skeleton (Harm Reduction + Mapping)
+*** Entry Gates
+- Full psych eval + labs (liver, kidney, thyroid, ECG if stimulants).
+- Baseline tracking 2 weeks drug-free.
+- Start lowest effective dose. One variable at a time.
+
+*** Daily Org Capture Template (use C-c c)
+**** TODO Daily Log [2026-05-19]
+:PROPERTIES:
+:DRUG:     
+:DOSE:     
+:FOCUS:    /10
+:ENERGY:   /10
+:CALM:     /10
+:SLEEP:    /10
+:NOTES:
+:END:
+- Rose of the day:
+- Thorn / payment:
+- Mind-map observation:
+
+*** Stacking Caution
+Minimal. Example supervised: Bupropion baseline + Modafinil PRN. Never add GABAergics casually.
+
+** 4. Philosophical / Poetic Decomposition Layer
+We do not enhance life.  
+We apply temporary high-pass filters to the static of existence.  
+The roses smell divine for weeks or months.  
+Then the petals brown, the stems reveal thorns already embedded in flesh, and the joke reveals itself again:  
+
+"You thought you could map the rot without becoming it."
+
+Every pill is a rose grown in graveyard soil.  
+Beautiful.  
+Perfumed.  
+Doomed.
+
+** 5. Action / Agenda Tags
+- [[file:brain-rot.org][Cross-link: Broader Neurochemical Decay Map]]
+- NEXT: Book psychiatrist appointment
+- WAITING: Bloodwork results
+- SOMEDAY: Experiment log review after 90 days
+
+#+TODO: TODO(t) NEXT(n) WAITING(w) | DONE(d) CANCELLED(c)
+#+COLUMNS: %25ITEM %TODO %FOCUS %ENERGY %CALM %TAGS
