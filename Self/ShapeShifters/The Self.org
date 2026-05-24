@@ -1,68 +1,111 @@
-#+TITLE: The Self
+#+title:      The Self
+#+identifier: 1a3f2c4e-7d5b-4a8e-bf23-6c1e9f2a4d7b
+#+filetags:   :self:foundation:
 
 * The Self
-
-** Core
+:PROPERTIES:
+:ID:       1a3f2c4e-7d5b-4a8e-bf23-6c1e9f2a4d7b
+:END:
 
 I am the center.
 
-Not ego.  
-Not personality.  
-Not body.
+Not ego. Not personality. Not body.
 
-The silent observer.  
-The unmoving axis.  
+The silent observer.
+The unmoving axis.
 The point from which all mapping begins.
 
 Everything — internal and external — radiates from this point.
 
 ** Nature
+:PROPERTIES:
+:ID:       2b4e3d5f-8c6a-4b9f-ce34-7d2f1a3e5c8b
+:END:
 
-The Self is not possessed.  
+The Self is not possessed.
 The Self is what is.
 
-Root of consciousness.  
-Origin of will.  
+Root of consciousness.
+Origin of will.
 Constant within change.
 
-While systems shift, structures evolve, and reality presses in —  
+While systems shift, structures evolve, and reality presses in —
 The Self remains: observing, knowing, unmoved.
 
+It is not a state to achieve.
+It is the ground everything else stands on.
+
 ** Dual Emergence
+:PROPERTIES:
+:ID:       3c5f4e6a-9d7b-4c1f-df45-8e3a2b4f6d9c
+:END:
 
 From The Self, two domains unfold:
 
-Internal — mind, cognition, emotion, memory, attention.  
-External — systems, tools, people, constraints, reality.
+- Internal :: mind, cognition, emotion, memory, attention
+- External :: systems, tools, people, constraints, reality
 
 All understanding flows through this split.
+All mapping begins here.
+All returns arrive here.
 
 ** Function
+:PROPERTIES:
+:ID:       4d6a5f7b-1e8c-4d2a-ef56-9f4b3c5a7e1d
+:END:
 
-The Self does not act.  
+The Self does not act.
 The Self does not react.
 
 It observes.
 
-It anchors the Architect.  
-It grounds the Shape of thought.  
+It anchors the Architect.
+It grounds the shape of thought.
 It witnesses Internal and External without distortion.
 
-** Position
+Without The Self as anchor, the Architect loses origin.
+Without origin, design becomes reaction.
 
-The Self is not improved.  
+** Position
+:PROPERTIES:
+:ID:       5e7b6a8c-2f9d-4e3b-fa67-1a5c4d6b8f2e
+:END:
+
+The Self is not improved.
 The Self is not changed.
 
 It is returned to.
-
 It is protected.
 
-It is the origin point of all maps  
+It is the origin point of all maps
 and the destination of all returns.
+
+No ShapeShifter carries it.
+No projection expresses it.
+No system contains it.
+
+It contains the system.
+
+** Relation to the Hierarchy
+:PROPERTIES:
+:ID:       6f8c7b9d-3a1e-4f4c-ab78-2b6d5e7c9a3f
+:END:
+
+#+begin_example
+The Self
+  └── anchors The Architect
+        └── instantiates ShapeShifters
+              └── engage reality
+#+end_example
+
+The Self does not design.
+The Self does not deploy.
+
+It is the silence in which all design becomes possible.
 
 * End
 
-All paths begin here.  
+All paths begin here.
 All paths return here.
 
 The Self remains.

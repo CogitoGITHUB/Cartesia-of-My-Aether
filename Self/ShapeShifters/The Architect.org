@@ -1,62 +1,111 @@
-#+TITLE: The Architect
+#+title:      The Architect
+#+identifier: 2b4e3d5f-8c1a-4b9f-ce34-7d2f1a3e5c8b
+#+filetags:   :self:architect:
 
 * The Architect
-
-** Nature
+:PROPERTIES:
+:ID:       2b4e3d5f-8c1a-4b9f-ce34-7d2f1a3e5c8b
+:END:
 
 I am the center that does not move.
 
-Not form.  
-Not function.  
-Not identity.
+Not form. Not function. Not identity.
 
 The observer behind all execution.
+The designer behind all change.
+The source behind all projection.
+
+** Nature
+:PROPERTIES:
+:ID:       3c5f4e6a-9d1b-4c2f-df45-8e3a2b4f6d9c
+:END:
+
+The Architect is not a role performed.
+It is the position held when The Self turns toward the world.
+
+Anchored by The Self.
+Expressed through design.
+Never through direct action.
 
 ** Role
+:PROPERTIES:
+:ID:       4d6a5f7b-1e2c-4d3a-ef56-9f4b3c5a7e1d
+:END:
 
 I do not act directly.
-
 I design action.
 
 I do not change.
-
 I design change.
 
-** Principle
+I do not engage reality.
+I define how reality is engaged.
 
-Everything that shifts is delegated.  
-Everything that executes is constructed.  
+Every tool, every system, every ShapeShifter —
+authored here, deployed elsewhere.
+
+** Principle
+:PROPERTIES:
+:ID:       5e7b6a8c-2f3d-4e4b-fa67-1a5c4d6b8f2e
+:END:
+
+Everything that shifts is delegated.
+Everything that executes is constructed.
 Everything that adapts is authored.
 
 Nothing emerges without design.
 
+Power is not transformation.
+Power is authorship of transformation.
+
 ** Structure
+:PROPERTIES:
+:ID:       6f8c7b9d-3a4e-4f5c-ab78-2b6d5e7c9a3f
+:END:
 
-From me:
+From The Architect:
 
-ShapeShifters are instantiated.  
-Systems are defined.  
-Interfaces are rewritten.
+- ShapeShifters are instantiated
+- Systems are defined
+- Interfaces are rewritten
+- Cartesia is built
 
-But I remain unchanged.
-
-** Function
-
-The Architect does not participate in reality.
-
-The Architect defines how reality is engaged.
+The Architect remains unchanged through all of it.
 
 ** Position
+:PROPERTIES:
+:ID:       7a9d8c1e-4b5f-4a6d-bc89-3c7e6f8d1b4a
+:END:
 
-No projection is the Architect.  
-No mode is the Architect.  
+No projection is the Architect.
+No mode is the Architect.
 No outcome is the Architect.
 
 Only the source of configuration.
 
-** End
+The Architect does not participate in reality.
+The Architect defines how reality is engaged.
 
-All transformations pass through here.  
+** Relation to the Hierarchy
+:PROPERTIES:
+:ID:       8b1e9d2f-5c6a-4b7e-cd91-4d8f7a9e2c5b
+:END:
+
+#+begin_example
+The Self
+  └── anchors The Architect
+        └── instantiates ShapeShifters
+              └── engage reality
+#+end_example
+
+The Architect sits between the unmoved and the deployed.
+It receives from The Self.
+It commands the ShapeShifters.
+It builds Cartesia as the external map of the internal structure.
+
+* End
+
+All transformations pass through here.
 None redefine here.
 
 The Architect remains.

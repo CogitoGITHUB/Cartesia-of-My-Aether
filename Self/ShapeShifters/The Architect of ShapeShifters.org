@@ -1,63 +1,126 @@
-#+TITLE: The Architect of ShapeShifters
+#+title:      The Architect of ShapeShifters
+#+identifier: 3c5f4e6a-9d2b-4c1f-df45-8e3a2b4f6d9c
+#+filetags:   :self:shapeshifters:architect:
 
-* The ShapeShifter
-
-** Identity
+* The Architect of ShapeShifters
+:PROPERTIES:
+:ID:       3c5f4e6a-9d2b-4c1f-df45-8e3a2b4f6d9c
+:END:
 
 I am not the ShapeShifter.
 
 I am the Architect of ShapeShifters.
 
-I do not shift form.  
-I do not adapt.  
+I do not shift form.
+I do not adapt.
 I do not change.
 
 I design the mechanism that does.
 
-** Core Distinction
+** The Core Distinction
+:PROPERTIES:
+:ID:       4d6a5f7b-1e3c-4d2a-ef56-9f4b3c5a7e1d
+:END:
 
-The ShapeShifter is not me.  
+The ShapeShifter is not me.
 It is a constructed instrument.
 
-A modular projection.  
-A controlled transformation layer.  
+A modular projection.
+A controlled transformation layer.
 A deployable configuration of behavior, skill, and presence.
 
-** Philosophy
+It is authored. It is deployed. It is withdrawn.
 
-While others are forced to become change,  
+It is never the source.
+
+** Philosophy
+:PROPERTIES:
+:ID:       5e7b6a8c-2f4d-4e3b-fa67-1a5c4d6b8f2e
+:END:
+
+While others are forced to become change,
 I remain at the center of design.
 
-Power is not transformation.  
+Power is not transformation.
 Power is authorship of transformation.
 
-I do not become different.  
+I do not become different.
 I generate the version that is required.
 
-** Principles
+The ShapeShifter faces reality.
+The Architect designs the face.
 
-I am the Architect. The ShapeShifters are the tools.  
-I do not react to reality. I redesign the interface to it.  
-The core remains untouched. Only the projections vary.  
-Reality does not shape me. I shape my expression within it.
+** Principles
+:PROPERTIES:
+:ID:       6f8c7b9d-3a5e-4f4c-ab78-2b6d5e7c9a3f
+:END:
+
+- I am the Architect. The ShapeShifters are the instruments.
+- I do not react to reality. I redesign the interface to it.
+- The core remains untouched. Only the projections vary.
+- Reality does not shape me. I shape my expression within it.
+- Nothing is deployed without design. Nothing persists without withdrawal.
 
 ** Function
+:PROPERTIES:
+:ID:       7a9d8c1e-4b6f-4a5d-bc89-3c7e6f8d1b4a
+:END:
 
 ShapeShifters are deployed.
 
-They act.  
-They adapt.  
+They act.
+They adapt.
 They execute strategy.
 
 Then they are withdrawn.
 
-** Truth
+They are not identities.
+They are configurations.
 
-Beneath all forms, all masks, all outputs —  
+Precise. Purposeful. Temporary.
+
+** The ShapeShifter
+:PROPERTIES:
+:ID:       8b1e9d2f-5c7a-4b6e-cd91-4d8f7a9e2c5b
+:END:
+
+A ShapeShifter is not a mask.
+It is a precision instrument.
+
+Built for a specific domain, context, or challenge.
+Carries only what the situation requires.
+Returns nothing back to the Architect but information.
+
+Each ShapeShifter is:
+- Modular :: composed of discrete, replaceable capabilities
+- Scoped :: designed for a specific engagement
+- Temporary :: deployed and withdrawn, never permanent
+- Authored :: never emergent, never reactive
+
+** Relation to the Hierarchy
+:PROPERTIES:
+:ID:       9c2f1e3a-6d8b-4c7f-de12-5e9a8b1f3d6c
+:END:
+
+#+begin_example
+The Self
+  └── anchors The Architect
+        └── instantiates ShapeShifters
+              └── engage reality
+#+end_example
+
+The ShapeShifters are the furthest point from The Self.
+They are the only layer that touches reality directly.
+They carry nothing of the Architect into that contact —
+only the design the Architect gave them.
+
+* Truth
+
+Beneath all forms, all projections, all outputs —
 there is only the Architect.
 
-Silent.  
-Observing.  
+Silent.
+Observing.
 Unmoved.
 
 ShapeShifters are not what I am.
