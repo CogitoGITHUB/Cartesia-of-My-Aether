@@ -19,27 +19,35 @@ This is a single growing loop.
 :ID:       4d2e9f1a-3c7b-4e2a-af34-5b1c8e2d4f6a
 :END:
 
-The entire ecosystem exists to support and sustain my modularized mindset,
-the architecture of the ShapeShifter.
-This loop is the only structure capable of holding the way my mind operates.
+The entire ecosystem radiates from a single origin: The Self.
+Not ego. Not personality. The silent, unmoving axis from which all mapping begins.
 
-This is not a notes system. Not a productivity setup. It is cognitive
-infrastructure — designed from the ground up to match the way the mind
-actually moves. Every tool earns its place or gets cut. Every layer
-serves exactly one purpose. Every decision traces back to the same
-philosophy: one consistent contract, all the way down.
+From The Self, three layers unfold:
+
+- The Self :: The center. Does not act. Does not react. Observes and anchors everything.
+- The Architect :: Does not shift. Designs the mechanism that does. Authors transformation without undergoing it.
+- The ShapeShifters :: Constructed instruments. Modular projections deployed into reality, then withdrawn. They act. They adapt. They execute. They are not what the Architect is — they are what the Architect commands.
+
+Cartesia is not a notes system. Not a productivity setup.
+It is the living map the Architect builds — the external structure that matches
+the internal one. Every tool earns its place or gets cut. Every layer serves
+exactly one purpose. Every decision traces back to the same origin.
 
 The consistency is not aesthetic. Modal Hyprland, modal Emacs, Dvorak —
-the same interaction model runs from the window manager to the cursor.
+the same interaction contract from the window manager to the cursor.
 The hands never context-switch because the mind never should either.
 
-The scale is real. Millions of pages. Skills and science. A living map
-where every addition reshapes the whole and every connection reveals
-something that was already true but not yet visible.
+The scale is real. Millions of pages. Skills and science. A map where
+every addition reshapes the whole and every connection reveals something
+that was already true but not yet visible.
 
-The hardest piece — and the one not yet built — is the CLI. One command
-that triggers the entire workflow. That is where the vision becomes
-the system.
+The hardest piece — and the one not yet built — is the CLI.
+One command that triggers the entire workflow.
+That is where the vision becomes the system.
+
+Reality does not shape the Architect.
+The Architect shapes the expression within it.
+Cartesia is that expression.
 
 *** Cartesia
 :PROPERTIES:
