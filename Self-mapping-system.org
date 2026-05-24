@@ -1,31 +1,117 @@
-#+TITLE: Self Map
+#+title:      Self Map
+#+identifier: 6f1e3a2c-8d4b-4f7e-bf23-5c2e9f1a4d8b
+#+filetags:   :self:map:cartesia:
+
+The Self is the origin point of all maps.
+This is the map of the Self itself.
+
+Everything radiates from the center outward.
+Everything observed flows back inward.
 
 * Self
+:PROPERTIES:
+:ID:       7a2f4c1e-3b8d-4e9a-cf34-6d5e1f2a3c8b
+:END:
+
+The unmoving axis. The silent observer.
+Not ego. Not personality. Not body.
+
+The point from which Internal and External are distinguished.
+The point to which all understanding returns.
 
 ** Internal
-Cognition
-Physiology
-Emotion
-Memory
-Attention
+:PROPERTIES:
+:ID:       8b3a5d2f-4c9e-4b1f-df45-7e6f2a3b4c9d
+:END:
+
+What moves within.
+
+- Cognition :: The shape of thought. How patterns form, compress, and expand.
+- Physiology :: The body as instrument. Energy, capacity, rhythm, limits.
+- Emotion :: Signal, not noise. The feedback system of the deeper Self.
+- Memory :: The archive. What persists, what fades, what gets indexed.
+- Attention :: The most finite resource. Where it goes, reality follows.
 
 ** External
-Tools
-Systems
-Environments
-People
-Constraints
+:PROPERTIES:
+:ID:       9c4b6e3a-5d1f-4c2a-ef56-8f7a3b4c5d1e
+:END:
+
+What exists outside the center and must be engaged.
+
+- Tools :: Extensions of the Architect's will. Earned their place or cut.
+- Systems :: Structures that persist beyond individual action. Designed, not inherited.
+- Environments :: The context in which ShapeShifters are deployed.
+- People :: External nodes. Sources of signal, constraint, and collaboration.
+- Constraints :: The boundaries that define the shape of possible action.
 
 ** Substrates
+:PROPERTIES:
+:ID:       1d5c7f4b-6e2a-4d3b-fa67-9a8b4c5d6e2f
+:END:
+
+The domains through which the Self develops capability and maps reality.
+Each substrate is both a skill to be built and a science to be understood.
+They are not separate — they overlap, reinforce, and reveal each other.
 
 *** Skills
-Writing
-Mathematics
-Combat
-Coding
+:PROPERTIES:
+:ID:       2e6d8a5c-7f3b-4e4c-ab78-1b9c5d6e7f3a
+:END:
+
+Practical capabilities. Built through repetition, pressure, and reflection.
+
+- Writing :: The primary instrument of thought externalization and knowledge mapping.
+- Mathematics :: The language of structure, pattern, and formal reasoning.
+- Combat :: Presence under pressure. The body as a fully trained instrument.
+- Coding :: The construction of systems. Logic made executable.
 
 *** Sciences
-Physics
-Biology
-Security
-Economics
+:PROPERTIES:
+:ID:       3f7e9b6d-8a4c-4f5d-bc89-2c1d6e7f8a4b
+:END:
+
+Formal knowledge domains. Mapped, not merely studied.
+
+- Physics :: The rules of reality at every scale.
+- Biology :: The architecture of living systems. Including this one.
+- Security :: Adversarial thinking. Systems under attack and under stress.
+- Economics :: The logic of resource flow, incentive, and constraint.
+
+* Relation to the Hierarchy
+:PROPERTIES:
+:ID:       4a8f1c7e-9b5d-4a6e-cd91-3d2e7f8a9b5c
+:END:
+
+#+begin_example
+The Self
+  ├── Internal
+  │     ├── Cognition
+  │     ├── Physiology
+  │     ├── Emotion
+  │     ├── Memory
+  │     └── Attention
+  ├── External
+  │     ├── Tools
+  │     ├── Systems
+  │     ├── Environments
+  │     ├── People
+  │     └── Constraints
+  └── Substrates
+        ├── Skills
+        │     ├── Writing
+        │     ├── Mathematics
+        │     ├── Combat
+        │     └── Coding
+        └── Sciences
+              ├── Physics
+              ├── Biology
+              ├── Security
+              └── Economics
+#+end_example
+
+The Substrates are where the Architect deploys ShapeShifters.
+Each skill, each science — a domain in which a version is configured,
+deployed, and refined.
+
+Cartesia is the living map of all of this in motion.
