@@ -1,0 +1,870 @@
+#+TITLE: The Grand Manifold
+#+STARTUP: overview
+
+* UNIVERSE
+
+The Universe is the root of the physical manifold. It represents the largest
+scale currently being mapped and therefore provides the ultimate context for
+every subsequent level. Everything below this point exists within the
+Universe, but the Universe is not merely a container: it is also the first
+territory investigated by the observing Self.
+
+The manifold begins here because the Self is not an isolated starting point.
+The Self is a consequence of a much larger chain of physical, chemical,
+biological, evolutionary, and social processes. Beginning with the Universe
+allows the map to preserve that continuity.
+
+The sciences at this level investigate the Universe as a whole, its origin,
+structure, fundamental constituents, physical laws, evolution, and largest
+observable phenomena.
+
+** Cosmology
+** Astrophysics
+** Astronomy
+** Theoretical Physics
+** Mathematical Physics
+** Particle Physics
+** High-Energy Physics
+** Nuclear Physics
+** Quantum Physics
+** Relativistic Physics
+** Gravitational Physics
+** Plasma Physics
+** Astroparticle Physics
+** Cosmic Ray Physics
+** Dark Matter Physics
+** Dark Energy Physics
+** Quantum Gravity
+** String Theory
+** Computational Physics
+** Space Science
+** Astrochemistry
+** Astrobiology
+** Observational Astronomy
+** Theoretical Astronomy
+
+
+* GALAXY
+
+The Galaxy is the first major resolution of the Universe.
+
+The manifold moves from the totality of cosmic reality toward a particular
+galactic system. The Milky Way becomes the relevant branch because it contains
+the Solar System and therefore provides the astronomical route toward Earth
+and eventually the Self.
+
+The Galaxy remains part of the Universe while simultaneously becoming a
+manifold of its own. It contains stars, stellar systems, gas, dust, magnetic
+fields, radiation, dark matter, black holes, and complex gravitational
+structures.
+
+The important principle is that descending into a smaller scale does not
+erase the larger scale. The Galaxy is a more detailed representation of one
+region of the Universe.
+
+** Galactic Astronomy
+** Galactic Astrophysics
+** Stellar Astronomy
+** Stellar Astrophysics
+** Stellar Physics
+** Stellar Evolution
+** Galactic Dynamics
+** Galactic Structure
+** Galactic Archaeology
+** Galactic Chemistry
+** Interstellar Medium Studies
+** Interstellar Astrophysics
+** Cosmic Magnetism
+** Cosmic Ray Physics
+** High-Energy Astrophysics
+** Gravitational-Wave Astronomy
+** Radio Astronomy
+** Optical Astronomy
+** Infrared Astronomy
+** Ultraviolet Astronomy
+** X-Ray Astronomy
+** Gamma-Ray Astronomy
+** Extragalactic Astronomy
+** Galactic Ecology
+** Computational Astrophysics
+
+
+* SOLAR SYSTEM
+
+The Solar System is the next resolution of the manifold.
+
+The map narrows from the Milky Way to one particular stellar system. The Sun,
+planets, moons, asteroids, comets, dust, plasma, radiation, magnetic fields,
+and gravitational relationships form the local astronomical environment.
+
+This is the bridge between galactic reality and Earth.
+
+The Solar System demonstrates that a smaller field can contain an enormous
+number of interacting systems while remaining embedded in larger systems.
+
+** Planetary Science
+** Planetary Astronomy
+** Planetary Astrophysics
+** Planetary Geology
+** Planetary Geophysics
+** Planetary Geochemistry
+** Planetary Chemistry
+** Planetary Mineralogy
+** Planetary Physics
+** Planetary Atmospheres
+** Planetary Climatology
+** Planetary Meteorology
+** Planetary Oceanography
+** Planetary Hydrology
+** Planetary Magnetospheric Science
+** Planetary Plasma Physics
+** Planetary Seismology
+** Planetary Volcanology
+** Planetary Tectonics
+** Planet Formation
+** Planetary Evolution
+** Planetary System Science
+** Exoplanet Science
+** Exoplanetology
+** Small-Body Science
+** Asteroid Science
+** Cometary Science
+** Meteoritics
+** Lunar Science
+** Solar Physics
+** Heliophysics
+** Solar-Terrestrial Physics
+** Space Plasma Physics
+** Space Weather Science
+** Heliospheric Science
+** Magnetospheric Physics
+** Ionospheric Physics
+** Solar Wind Physics
+** Solar Energetic Particle Physics
+** Astrobiology
+** Exobiology
+
+
+* EARTH
+
+Earth is the planetary manifold through which the map transitions from
+primarily astronomical structures into an extraordinarily interconnected
+terrestrial system.
+
+Earth is not treated as a single object. It contains geological, atmospheric,
+hydrological, oceanic, climatic, chemical, physical, and biological systems.
+
+Every one of these systems interacts with the others.
+
+The Earth therefore demonstrates another central manifolding principle:
+a field can be simultaneously a single entity and an enormous collection of
+nested systems.
+
+** Earth Science
+** Geology
+** Geophysics
+** Geochemistry
+** Physical Geography
+** Geomorphology
+** Mineralogy
+** Petrology
+** Sedimentology
+** Stratigraphy
+** Tectonics
+** Structural Geology
+** Historical Geology
+** Economic Geology
+** Engineering Geology
+** Environmental Geology
+** Hydrogeology
+** Seismology
+** Volcanology
+** Paleontology
+** Paleoclimatology
+** Paleoecology
+** Geochronology
+** Geodesy
+** Geomagnetism
+** Geodynamics
+** Atmospheric Science
+** Meteorology
+** Climatology
+** Atmospheric Chemistry
+** Atmospheric Physics
+** Atmospheric Dynamics
+** Atmospheric Electricity
+** Aeronomy
+** Ionospheric Science
+** Oceanography
+** Physical Oceanography
+** Chemical Oceanography
+** Biological Oceanography
+** Geological Oceanography
+** Marine Geophysics
+** Marine Geology
+** Hydrology
+** Hydroclimatology
+** Limnology
+** Glaciology
+** Cryospheric Science
+** Soil Science
+** Pedology
+** Environmental Science
+** Environmental Chemistry
+** Environmental Physics
+** Environmental Geoscience
+** Biogeochemistry
+** Ecology
+** Landscape Ecology
+** Ecosystem Science
+** Biogeography
+** Conservation Science
+** Climate Science
+** Earth System Science
+
+
+* LIFE
+
+Life represents the transition from planetary systems into living systems.
+
+Life does not replace Earth. Life exists within Earth and remains dependent
+upon physical, chemical, climatic, geological, and ecological conditions.
+
+The Life manifold contains molecular systems, cells, organisms, populations,
+communities, ecosystems, genetic systems, evolutionary processes, and
+information flows.
+
+The sciences therefore become increasingly concerned with organization,
+reproduction, inheritance, metabolism, adaptation, evolution, interaction,
+and emergence.
+
+** Biology
+** Biochemistry
+** Molecular Biology
+** Cell Biology
+** Structural Biology
+** Systems Biology
+** Synthetic Biology
+** Computational Biology
+** Theoretical Biology
+** Mathematical Biology
+** Biophysics
+** Genetics
+** Genomics
+** Epigenetics
+** Population Genetics
+** Quantitative Genetics
+** Evolutionary Biology
+** Evolutionary Genetics
+** Developmental Biology
+** Evolutionary Developmental Biology
+** Ecology
+** Population Ecology
+** Community Ecology
+** Ecosystem Ecology
+** Landscape Ecology
+** Behavioral Ecology
+** Microbial Ecology
+** Marine Ecology
+** Freshwater Ecology
+** Conservation Biology
+** Biodiversity Science
+** Microbiology
+** Bacteriology
+** Archaeal Biology
+** Virology
+** Mycology
+** Botany
+** Plant Biology
+** Plant Physiology
+** Plant Ecology
+** Plant Pathology
+** Phycology
+** Zoology
+** Animal Biology
+** Animal Physiology
+** Animal Ecology
+** Animal Behavior
+** Ethology
+** Comparative Biology
+** Comparative Physiology
+** Comparative Anatomy
+** Immunology
+** Parasitology
+** Pathobiology
+** Bioinformatics
+** Biostatistics
+** Biotechnology
+** Bioengineering
+** Biomaterials Science
+** Marine Biology
+** Freshwater Biology
+** Reproductive Biology
+** Regenerative Biology
+** Chronobiology
+** Aging Biology
+** Nutrition Science
+** Metabolomics
+** Proteomics
+** Transcriptomics
+
+
+* TREE OF LIFE
+
+The Tree of Life is the evolutionary manifold within Life.
+
+Unlike the astronomical hierarchy, which primarily describes nested physical
+systems, this structure describes ancestry, divergence, relatedness, and
+evolutionary history.
+
+The Tree of Life therefore introduces lineage into the Grand Manifold.
+
+An organism can belong simultaneously to a biological lineage, an ecosystem,
+a geographical environment, and multiple scientific relationships.
+
+The tree provides the evolutionary backbone while the manifold preserves the
+relationships that cannot be represented by a single branching hierarchy.
+
+** Taxonomy
+** Systematics
+** Phylogenetics
+** Phylogenomics
+** Evolutionary Biology
+** Comparative Biology
+** Evolutionary Genetics
+** Evolutionary Developmental Biology
+** Molecular Evolution
+** Population Biology
+** Population Genetics
+** Biodiversity Science
+** Biogeography
+** Cladistics
+** Paleobiology
+** Paleontology
+** Macroevolution
+** Microevolution
+
+
+* ANIMALS
+
+Animals represent one major branch of the Tree of Life and establish the
+biological lineage through which the human organism becomes increasingly
+understandable.
+
+The human is not mapped in isolation. Animal biology provides comparative
+contexts for understanding nervous systems, movement, sensory systems,
+behavior, cognition, reproduction, sociality, development, and evolution.
+
+The closer the manifold moves toward humans, the more useful comparative
+science becomes.
+
+** Zoology
+** Animal Biology
+** Comparative Zoology
+** Comparative Anatomy
+** Comparative Physiology
+** Animal Physiology
+** Animal Behavior
+** Ethology
+** Behavioral Ecology
+** Evolutionary Zoology
+** Animal Ecology
+** Wildlife Biology
+** Conservation Biology
+** Neuroethology
+** Parasitology
+** Entomology
+** Arachnology
+** Ichthyology
+** Herpetology
+** Ornithology
+** Mammalogy
+** Marine Zoology
+** Invertebrate Zoology
+** Vertebrate Zoology
+
+
+* MAMMALS
+
+Mammals narrow the biological manifold toward the lineage containing primates
+and humans.
+
+This level provides increasingly relevant comparative systems involving
+physiology, anatomy, nervous systems, behavior, reproduction, development,
+ecology, genetics, and evolution.
+
+The manifold is becoming more specific without abandoning the wider animal
+context.
+
+** Mammalogy
+** Comparative Mammalogy
+** Mammalian Biology
+** Mammalian Anatomy
+** Mammalian Physiology
+** Mammalian Ecology
+** Mammalian Behavior
+** Mammalian Evolution
+** Mammalian Genetics
+** Mammalian Genomics
+** Mammalian Neurobiology
+** Mammalian Reproductive Biology
+** Mammalian Developmental Biology
+** Wildlife Biology
+** Conservation Biology
+
+
+* PRIMATES
+
+Primates represent the evolutionary field immediately surrounding humans.
+
+This level concentrates increasingly on sensory integration, grasping,
+manipulation, vision, cognition, communication, learning, social behavior,
+development, and flexible behavior.
+
+The human organism is approached through both continuity and divergence from
+other primates.
+
+** Primatology
+** Primate Biology
+** Primate Anatomy
+** Primate Physiology
+** Primate Genetics
+** Primate Genomics
+** Primate Evolution
+** Primate Ecology
+** Primate Behavior
+** Primate Psychology
+** Primate Cognition
+** Comparative Psychology
+** Comparative Neurobiology
+** Comparative Neuroscience
+** Comparative Anthropology
+** Primate Conservation
+** Primate Reproductive Biology
+** Primate Developmental Biology
+
+
+* HOMINIDS
+
+Hominids represent the evolutionary field containing the great-ape lineage
+relevant to human evolution.
+
+The manifold now approaches the emergence of specifically human biological,
+behavioral, technological, and cognitive characteristics.
+
+** Paleoanthropology
+** Biological Anthropology
+** Human Evolution
+** Hominin Evolution
+** Hominin Paleontology
+** Hominin Archaeology
+** Hominin Anatomy
+** Hominin Physiology
+** Hominin Genetics
+** Hominin Genomics
+** Hominin Ecology
+** Hominin Behavior
+** Hominin Cognition
+** Comparative Anthropology
+** Evolutionary Anthropology
+
+
+* HOMO
+
+Homo represents the genus containing modern humans and extinct close human
+relatives.
+
+At this level biological evolution begins to intersect strongly with
+technology, archaeology, behavior, cognition, ecology, and culture.
+
+The manifold approaches the specifically human condition.
+
+** Paleoanthropology
+** Human Evolution
+** Human Paleontology
+** Human Biology
+** Human Genetics
+** Human Genomics
+** Human Anatomy
+** Human Physiology
+** Human Ecology
+** Human Evolutionary Biology
+** Evolutionary Anthropology
+** Biological Anthropology
+** Archaeology
+** Prehistory
+** Evolutionary Psychology
+** Cognitive Evolution
+** Human Behavioral Ecology
+
+
+* HOMO SAPIENS
+
+Homo sapiens is the biological position immediately preceding SELF.
+
+This distinction is fundamental.
+
+Homo sapiens describes the organism as a species.
+
+SELF describes the particular observing, experiencing, learning, modeling,
+and acting entity.
+
+At this level the sciences increasingly converge because the human organism
+cannot be adequately understood through one discipline alone.
+
+** Human Biology
+** Human Anatomy
+** Human Physiology
+** Human Genetics
+** Human Genomics
+** Human Epigenetics
+** Human Developmental Biology
+** Human Evolutionary Biology
+** Human Ecology
+** Human Reproductive Biology
+** Human Neurobiology
+** Neuroscience
+** Neuroanatomy
+** Neurophysiology
+** Cognitive Neuroscience
+** Computational Neuroscience
+** Molecular Neuroscience
+** Cellular Neuroscience
+** Systems Neuroscience
+** Behavioral Neuroscience
+** Social Neuroscience
+** Affective Neuroscience
+** Developmental Neuroscience
+** Clinical Neuroscience
+** Psychology
+** Cognitive Psychology
+** Developmental Psychology
+** Social Psychology
+** Personality Psychology
+** Biological Psychology
+** Behavioral Psychology
+** Evolutionary Psychology
+** Comparative Psychology
+** Experimental Psychology
+** Neuropsychology
+** Psychophysiology
+** Psychometrics
+** Linguistics
+** Psycholinguistics
+** Neurolinguistics
+** Sociolinguistics
+** Cognitive Linguistics
+** Computational Linguistics
+** Anthropology
+** Biological Anthropology
+** Cultural Anthropology
+** Social Anthropology
+** Archaeology
+** Sociology
+** Economics
+** Political Science
+** Law
+** Geography
+** Human Geography
+** Cultural Geography
+** Economic Geography
+** Social Geography
+** History
+** Philosophy
+** Ethics
+** Logic
+** Education Science
+** Communication Science
+** Information Science
+** Computer Science
+** Data Science
+** Statistics
+** Mathematics
+** Engineering
+** Medicine
+** Medical Science
+** Public Health
+** Epidemiology
+** Immunology
+** Pathology
+** Pharmacology
+** Toxicology
+** Nutrition Science
+** Kinesiology
+** Exercise Science
+** Biomechanics
+** Rehabilitation Science
+** Occupational Science
+** Sleep Science
+
+
+* SELF
+
+SELF is the turning point of the Grand Manifold.
+
+Everything above describes the nested conditions from which the Self emerges:
+
+Universe
+→ Galaxy
+→ Solar System
+→ Earth
+→ Life
+→ Tree of Life
+→ Animals
+→ Mammals
+→ Primates
+→ Hominids
+→ Homo
+→ Homo sapiens
+→ SELF
+
+But SELF is not the bottom of the map.
+
+The direction now reverses.
+
+The Self observes the Universe.
+
+The Self studies the Galaxy.
+
+The Self studies the Solar System.
+
+The Self studies Earth.
+
+The Self studies Life.
+
+The Self studies evolution.
+
+The Self studies humanity.
+
+The Self studies itself.
+
+Therefore the Self is simultaneously a product of the manifold and an
+observer of the manifold.
+
+The descending path represents increasing biological and physical
+specificity.
+
+The ascending path represents observation, knowledge, modeling, action, and
+transformation.
+
+This creates the central loop:
+
+REALITY
+→ SELF
+→ OBSERVATION
+→ KNOWLEDGE
+→ MODEL
+→ ACTION
+→ ENVIRONMENT
+→ REALITY
+
+SELF therefore becomes the recursive center of the entire map.
+
+
+** SELF-INTERNAL
+
+SELF-INTERNAL represents the inward-facing manifold of the Self.
+
+It concerns the organism's internal organization, internal processes,
+cognition, perception, physiology, biological regulation, subjective
+experience, learning, memory, attention, emotion, identity, and internally
+directed development.
+
+"Internal" does not mean simply "physically inside the body."
+
+It describes the direction of the relationship: the Self examining,
+understanding, regulating, developing, and transforming itself.
+
+The sciences here investigate the Self as an organism, cognitive system,
+psychological system, and experiencing entity.
+
+** Neuroscience
+** Neurobiology
+** Cognitive Neuroscience
+** Behavioral Neuroscience
+** Affective Neuroscience
+** Psychophysiology
+** Psychology
+** Cognitive Psychology
+** Developmental Psychology
+** Personality Psychology
+** Behavioral Psychology
+** Evolutionary Psychology
+** Experimental Psychology
+** Neuropsychology
+** Psychometrics
+** Consciousness Science
+** Cognitive Science
+** Learning Science
+** Memory Science
+** Perception Science
+** Attention Science
+** Decision Science
+** Behavioral Economics
+** Physiology
+** Exercise Physiology
+** Anatomy
+** Neuroanatomy
+** Genetics
+** Epigenetics
+** Immunology
+** Endocrinology
+** Metabolism
+** Nutrition Science
+** Sleep Science
+** Chronobiology
+** Reproductive Biology
+** Developmental Biology
+** Biomechanics
+** Kinesiology
+** Motor Control
+** Movement Science
+** Health Science
+** Medicine
+** Preventive Medicine
+** Sports Medicine
+** Pharmacology
+** Toxicology
+** Pathology
+
+
+** SELF-EXTERNAL
+
+SELF-EXTERNAL represents the outward-facing manifold of the Self.
+
+It concerns the Self as an entity embedded within and interacting with a world
+containing other organisms, people, societies, cultures, institutions,
+technology, environments, information systems, and civilization.
+
+"External" does not mean merely "physically outside the body."
+
+It describes the direction of relationship: the Self perceiving, interpreting,
+communicating with, influencing, modifying, and being influenced by the world
+around it.
+
+The boundary between SELF-INTERNAL and SELF-EXTERNAL is therefore permeable.
+
+The Self changes its environment.
+
+The environment changes the Self.
+
+The Self produces information.
+
+Information changes the Self.
+
+The Self learns from society.
+
+Society changes through the actions of individuals.
+
+** Social Psychology
+** Sociology
+** Anthropology
+** Cultural Anthropology
+** Social Anthropology
+** Human Geography
+** Cultural Geography
+** Economics
+** Political Science
+** Law
+** History
+** Linguistics
+** Sociolinguistics
+** Communication Science
+** Media Studies
+** Education Science
+** Information Science
+** Computer Science
+** Human-Computer Interaction
+** Data Science
+** Systems Science
+** Systems Engineering
+** Network Science
+** Complexity Science
+** Decision Science
+** Behavioral Economics
+** Organizational Science
+** Management Science
+** Environmental Science
+** Ecology
+** Geography
+** Architecture
+** Urban Science
+** Transportation Science
+** Political Economy
+** International Relations
+** Security Studies
+** Technology Studies
+** Science and Technology Studies
+** Engineering
+** Materials Science
+** Energy Science
+** Environmental Engineering
+** Civil Engineering
+** Electrical Engineering
+** Mechanical Engineering
+** Chemical Engineering
+** Software Engineering
+** Aerospace Engineering
+** Biomedical Engineering
+
+
+* THE MANIFOLDING LOOP
+
+The complete structure is therefore:
+
+UNIVERSE
+→ GALAXY
+→ SOLAR SYSTEM
+→ EARTH
+→ LIFE
+→ TREE OF LIFE
+→ ANIMALS
+→ MAMMALS
+→ PRIMATES
+→ HOMINIDS
+→ HOMO
+→ HOMO SAPIENS
+→ SELF
+→ SELF-INTERNAL
+→ SELF-EXTERNAL
+
+But this is not a terminal hierarchy.
+
+The Self can move outward again:
+
+SELF
+→ observes
+→ investigates
+→ learns
+→ models
+→ acts
+→ changes environment
+→ observes consequences
+→ updates itself
+→ investigates the larger system again
+
+The manifold is therefore both hierarchical and recursive.
+
+The hierarchy answers:
+
+"Where am I?"
+
+The sciences answer:
+
+"How can I investigate this?"
+
+The Self answers:
+
+"Who is doing the investigating?"
+
+The skills answer:
+
+"What can the investigator do?"
+
+The links answer:
+
+"How is this connected to everything else?"
+
+The map therefore does not end at SELF.
+
+SELF is where the map becomes conscious of itself.
