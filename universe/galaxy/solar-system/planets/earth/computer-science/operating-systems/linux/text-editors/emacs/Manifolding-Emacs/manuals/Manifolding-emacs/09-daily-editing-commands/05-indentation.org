@@ -1,0 +1,167 @@
+#+manifold-source: ../manuals.org
+#+manifold-lines: 8682-8844
+#+manifold-stage: 08-rituals
+#+manifold-date: 2026-09-15
+
+* Indentation
+
+Indentation refers to inserting or adjusting whitespace characters (space and/or tab characters) at the beginning of a line of text. This chapter documents indentation commands and options which are common to Text mode and related modes, as well as programming language modes. See Indentation for Programs, for additional documentation about indenting in programming modes.
+
+The simplest way to perform indentation is the TAB key. In most major modes, this runs the command indent-for-tab-command. (In C and related modes, TAB runs the command c-indent-line-or-region, which behaves similarly, see Commands for C Indentation).
+
+TAB
+Insert whitespace, or indent the current line, in a mode-appropriate way (indent-for-tab-command). If the region is active, indent all the lines within it.
+
+The exact behavior of TAB depends on the major mode. In Text mode and related major modes, TAB normally inserts some combination of space and tab characters to advance point to the next tab stop (see Tab Stops). For this purpose, the position of the first non-whitespace character on the preceding line is treated as an additional tab stop, so you can use TAB to align point with the preceding line. If the region is active (see Operating on the Region), TAB acts specially: it indents each line in the region so that its first non-whitespace character is aligned with the preceding line.
+
+In programming modes, TAB indents the current line of code in a way that makes sense given the code in the preceding lines. If the region is active, all the lines in the region are indented this way. If point was initially within the current line’s indentation, it is repositioned to the first non-whitespace character on the line.
+
+If you just want to insert a tab character in the buffer, type C-q TAB (see Inserting Text).
+
+** Indentation Commands
+
+Apart from the TAB (indent-for-tab-command) command, Emacs provides a variety of commands to perform indentation in other ways.
+
+C-M-o ¶
+Split the current line at point (split-line). The text on the line after point becomes a new line, indented to the same column where point is located. This command first moves point forward over any spaces and tabs. Afterward, point is positioned before the inserted newline.
+
+M-m
+Move (forward or back) to the first non-whitespace character on the current line (back-to-indentation). If there are no non-whitespace characters on the line, move to the end of the line.
+
+M-i ¶
+Indent whitespace at point, up to the next tab stop (tab-to-tab-stop). See Tab Stops.
+
+M-x indent-relative
+Insert whitespace at point, until point is aligned with the first non-whitespace character on the previous line (actually, the last non-blank line). If point is already farther right than that, run tab-to-tab-stop instead—unless called with a numeric argument, in which case do nothing.
+
+M-^ ¶
+Merge the previous and the current line (delete-indentation). This joins the two lines cleanly, by replacing any indentation at the front of the current line, together with the line boundary, with a single space.
+
+As a special case (useful for Lisp code), the single space is omitted if the characters to be joined are consecutive opening and closing parentheses, or if the junction follows another newline.
+
+If there is a fill prefix, M-^ deletes the fill prefix if it appears after the newline that is deleted. See The Fill Prefix.
+
+With a prefix argument, join the current line to the following line. If the region is active, and no prefix argument is given, join all lines in the region instead.
+
+C-M-\ ¶
+Indent all the lines in the region, as though you had typed TAB at the beginning of each line (indent-region).
+
+If a numeric argument is supplied, indent every line in the region to that column number.
+
+C-x TAB ¶
+Indent all lines that begin in the region, moving the affected lines as a rigid unit (indent-rigidly).
+
+If called with no argument, this command activates a transient mode for adjusting the indentation of the affected lines interactively. While this transient mode is active, typing LEFT or RIGHT indents leftward and rightward, respectively, by one space. You can also type S-LEFT or S-RIGHT to indent leftward or rightward to the next tab stop (see Tab Stops). Typing any other key disables the transient mode, and this key is then acted upon as normally.
+
+If called with a prefix argument n, this command indents the lines forward by n spaces (without enabling the transient mode). Negative values of n indent backward, so you can remove all indentation from the lines in the region using a large negative argument, like this:
+
+C-u -999 C-x TAB
+
+
+** Tab Stops
+
+Emacs defines certain column numbers to be tab stops. These are used as stopping points by TAB when inserting whitespace in Text mode and related modes (see Indentation), and by commands like M-i (see Indentation Commands). The variable tab-stop-list controls these positions. The default value is nil, which means a tab stop every 8 columns. The value can also be a list of zero-based column numbers (in increasing order) at which to place tab stops. Emacs extends the list forever by repeating the difference between the last and next-to-last elements.
+
+Instead of customizing the variable tab-stop-list directly, a convenient way to view and set tab stops is via the command M-x edit-tab-stops. This switches to a buffer containing a description of the tab stop settings, which looks like this:
+
+        :       :       :       :       :       :
+0         1         2         3         4
+0123456789012345678901234567890123456789012345678
+To install changes, type C-c C-c
+The first line contains a colon at each tab stop. The numbers on the next two lines are present just to indicate where the colons are. If the value of tab-stop-list is nil, as it is by default, no colons are displayed initially.
+
+You can edit this buffer to specify different tab stops by placing colons on the desired columns. The buffer uses Overwrite mode (see Minor Modes). Remember that Emacs will extend the list of tab stops forever by repeating the difference between the last two explicit stops that you place. When you are done, type C-c C-c to make the new tab stops take effect. Normally, the new tab stop settings apply to all buffers. However, if you have made the tab-stop-list variable local to the buffer where you called M-x edit-tab-stops (see Local Variables), then the new tab stop settings apply only to that buffer. To save the tab stop settings for future Emacs sessions, use the Customize interface to save the value of tab-stop-list (see Easy Customization Interface).
+
+Note that the tab stops discussed in this section have nothing to do with how tab characters are displayed in the buffer. Tab characters are always displayed as empty spaces extending to the next display tab stop. See How Text Is Displayed.
+
+
+** Tabs vs. Spaces
+
+Normally, indentation commands insert (or remove) the shortest possible series of tab and space characters so as to align to the desired column. Tab characters are displayed as a stretch of empty space extending to the next display tab stop. By default, there is one display tab stop every tab-width columns (the default is 8). See How Text Is Displayed.
+
+If you prefer, all indentation can be made from spaces only. To request this, set the buffer-local variable indent-tabs-mode to nil. See Local Variables, for information about setting buffer-local variables. Note, however, that C-q TAB always inserts a tab character, regardless of the value of indent-tabs-mode.
+
+One reason to set indent-tabs-mode to nil is that not all editors display tab characters in the same way. Emacs users, too, may have different customized values of tab-width. By using spaces only, you can make sure that your file always looks the same. If you only care about how it looks within Emacs, another way to tackle this problem is to set the tab-width variable in a file-local variable (see Local Variables in Files).
+
+There are also commands to convert tabs to spaces or vice versa, always preserving the columns of all non-whitespace text. M-x tabify scans the region for sequences of spaces, and converts sequences of at least two spaces to tabs if that can be done without changing indentation. M-x untabify changes all tabs in the region to appropriate numbers of spaces.
+
+
+** Convenience Features for Indentation
+
+The variable tab-always-indent tweaks the behavior of the TAB (indent-for-tab-command) command. The default value, t, gives the behavior described in Indentation. If you change the value to the symbol complete, then TAB first tries to indent the current line, and if the line was already indented, it tries to complete the text at point (see Completion for Symbol Names). If the value is nil, then TAB indents the current line only if point is at the left margin or in the line’s indentation; otherwise, it inserts a tab character.
+
+If tab-always-indent is complete, whether to expand or indent can be further customized via the tab-first-completion variable. For instance, if that variable is eol, only complete if point is at the end of a line. See Mode-Specific Indent in The Emacs Lisp Reference Manual, for further details.
+
+Electric Indent mode is a global minor mode that automatically indents the line after every RET you type. This mode is enabled by default. To toggle this minor mode, type M-x electric-indent-mode. To toggle the mode in a single buffer, use M-x electric-indent-local-mode.
+
+
+** Code Alignment
+
+Alignment is the process of adjusting whitespace in a sequence of lines in the region such that in all lines certain parts begin at the same column. This is usually something you do to enhance readability of a piece of text or code. The classic example is aligning a series of assignments in C-like programming languages:
+
+int a = 1;
+short foo = 2;
+double blah = 4;
+is commonly aligned to:
+
+int    a    = 1;
+short  foo  = 2;
+double blah = 4;
+You can use the command M-x align to align lines in the current region. This command knows about common alignment patterns across many markup and programming languages. It encodes these patterns as a set of alignment rules, that say how to align different kinds of text in different contexts.
+
+The user option align-rules-list says which alignment rules M-x align should consult. The value of this option is a list with elements describing alignment rules. Each element is a cons cell (title . attributes), where title is the name of the alignment rule as a symbol, and attributes is a list of rule attributes that define when the rule should apply and how it partitions and aligns lines. Each rule attribute is a cons cell (attribute . value), where attribute is the name of attribute and value is its value. The only required attribute is regexp, whose value is a regular expression with sub-expressions matching the parts of each line where M-x align should expand or contract whitespace (see Backslash in Regular Expressions). See the documentation string of align-rules-list (C-h v align-rules-list RET) for a full description of possible alignment rule attributes. By default, this option is set to a long list of alignment rules for many languages that Emacs supports. The default rules use the modes rule attribute to specify major modes in which M-x align should apply them. Major modes can also override align-rules-list by setting the buffer-local variable align-mode-rules-list to a non-nil list of alignment rules. When align-mode-rules-list is non-nil, M-x align consults it instead of align-rules-list.
+
+Besides alignment rules, M-x align uses another kind of rules called exclusion rules. The exclusion rules say which parts in the region M-x align should not align and instead leave them intact. The user option align-exclude-rules-list specifies these exclusion rules. Similarly to align-rules-list, the value of align-exclude-rules-list is also a list of cons cells that describe the exclusion rules. By default, align-exclude-rules-list includes rules that exclude alignment in quoted strings and comments in Lisp, C and other languages. Beyond the default exclusion rules in align-exclude-rules-list, major modes can define bespoke exclusion rules by setting align-mode-exclude-rules-list to a non-nil list of rules, this overrides align-exclude-rules-list just like align-mode-rules-list overrides align-rules-list.
+
+M-x align splits the region into a series of sections, usually sequences of non-blank lines, and aligns each section according to all matching alignment rule by expanding or contracting stretches of whitespace. M-x align consistently aligns all lines inside a single section, but it may align different sections in the region differently. The user option align-region-separate specifies how M-x align separates the region to sections. This option can be one of the symbols entire, group, or a regular expression. If align-region-separate is entire, Emacs aligns the entire region as a single section. If this option is group, Emacs aligns each group of consecutive non-blank lines in the region as a separate section. If align-region-separate is a regular expression, M-x align scans the region for matches to that regular expression and treats them as section separators. By default align-region-separate is set to a regular expression that matches blank lines and lines that contains only whitespace and a single curly brace (‘{’ or ‘}’). For special cases where regular expressions are not accurate enough, you can also set align-region-separate to a function that says how to separate the region to alignment sections. See the documentation string of align-region-separate for more details. Specific alignment rules can override the value of align-region-separate and define their own section separator by specifying the separate rule attribute.
+
+If you call M-x align with a prefix argument (C-u), it enables more alignment rules that are often useful but may sometimes be too intrusive. For example, in a Lisp buffer with the following form:
+
+(set-face-attribute 'mode-line-inactive nil
+:box nil
+                    :background nil
+                    :underline "black")
+Typing (C-u M-x align) yields:
+
+(set-face-attribute 'mode-line-inactive nil
+                    :box                nil
+                    :background         nil
+                    :underline          "black")
+In most cases, you should try M-x align without a prefix argument first, and if that doesn’t produce the right result you can undo with C-/ and try again with C-u M-x align.
+
+You can use the command M-x align-highlight-rule to visualize the effect of a specific alignment or exclusion rule in the current region. This command prompts you for the title of a rule and highlights the parts on the region that this rule affects. For alignment rules, this command highlights the whitespace that M-x align would expand or contract, and for exclusion this command highlights the parts that M-x align would exclude from alignment. To remove the highlighting that this command creates, type M-x align-unhighlight-rule.
+
+The command M-x align-current is similar to M-x align, except that it operates only on the alignment section that contains point regardless of the current region. This command determines the boundaries of the current section according to the section separators that align-region-separate define. M-x align-entire is another variant of M-x align, that disregards align-region-separate and aligns the entire region as a single alignment section with consistent alignment. If you set align-region-separate to entire, M-x align behaves like M-x align-entire by default. To illustrate the effect of aligning the entire region as a single alignment section, consider the following code:
+
+one = 1;
+foobarbaz = 2;
+
+spam = 3;
+emacs = 4;
+when the region covers all of these lines, typing M-x align yields:
+
+one       = 1;
+foobarbaz = 2;
+
+spam  = 3;
+emacs = 4;
+On the other hand, M-x align-entire aligns all of the lines as a single section, so the ‘=’ appears at the same column in all lines:
+
+one       = 1;
+foobarbaz = 2;
+
+spam      = 3;
+emacs     = 4;
+The command M-x align-regexp lets you align the current region with an alignment rule that you define ad-hoc, instead of using the predefined rules in align-rules-list. M-x align-regexp prompts you for a regular expression and uses that expression as the regexp attribute for an ad-hoc alignment rule that this command uses to align the current region. By default, this command adjusts the whitespace that matches the first sub-expression of the regular expression you specify. If you call M-x align-regexp with a prefix argument, it also prompts you for the sub-expression to use and lets you specify the amount of whitespace to use as padding, as well as whether to apply the rule repeatedly to all matches of the regular expression in each line. See Backslash in Regular Expressions, for more information about regular expressions and their sub-expressions.
+
+If the user option align-indent-before-aligning is non-nil, Emacs indents the region before aligning it with M-x align. See Indentation. By default align-indent-before-aligning is set to nil.
+
+The user option align-to-tab-stop says whether aligned parts should start at a tab stop (see Tab Stops). If this option is nil, M-x align uses just enough whitespace for alignment, disregarding tab stops. If this is a non-nil symbol, M-x align checks the value of that symbol, and if this value is non-nil, M-x align aligns to tab stops. By default, this option is set to indent-tabs-mode, so alignment respects tab stops in buffers that use tabs for indentation. See Tabs vs. Spaces.
+
+The user option align-default-spacing specifies the default amount of whitespace that M-x align and its related commands use for padding between the different parts of each line when aligning it. When align-to-tab-stop is nil, the value of align-default-spacing is the number of spaces to use for padding; when align-to-tab-stop is non-nil, the value of align-default-spacing is instead the number of tab stops to use. Each alignment rule can override the default that align-default-spacing specifies with the spacing attribute rule.
+
+
+
+
+
+

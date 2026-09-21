@@ -1,0 +1,58 @@
+#+manifold-source: ../manuals.org
+#+manifold-lines: 38927-38980
+#+manifold-stage: 06-forge
+#+manifold-date: 2026-09-15
+
+* Universal Launcher
+#+begin_src emacs-lisp
+;; ───────────────────────────────────────────────────────────────
+;; CONSULT — the high-precision jump engine
+;; ───────────────────────────────────────────────────────────────
+(leaf consult
+  :straight (consult
+             :type git
+             :host github
+             :repo "minad/consult")
+  :bind
+  (("C-s"     . consult-line)              ;; search inside buffer
+   ("C-c f"   . consult-find)              ;; find files
+   ("C-c g"   . consult-git-grep)          ;; ripgrep
+   ("C-x b"   . consult-buffer)            ;; buffer switcher
+   ("C-x r b" . consult-bookmark)          ;; bookmarks
+   ))
+
+;; ───────────────────────────────────────────────────────────────
+;; EMBARK — the action layer (right-click for the keyboard age)
+;; ───────────────────────────────────────────────────────────────
+(leaf embark
+  :straight (embark
+             :type git
+             :host github
+             :repo "oantolin/embark")
+  :bind
+  (("C-." . embark-act)         ;; think: context menu, immediate action
+   ("C-;" . embark-dwim)        ;; run best action automatically
+   ("C-h B" . embark-bindings)) ;; see keymaps
+
+  :config
+  ;; nicer popups
+  (setq embark-prompter 'embark-keymap-prompter))
+
+;; live annotations for consult
+(leaf embark-consult
+  :straight (embark-consult
+             :type git
+             :host github
+             :repo "oantolin/embark")
+  :after (embark consult)
+  :config
+  (embark-consult-mode 1))
+(with-eval-after-load 'consult
+  (define-key shapeshifter-leader-map (kbd "u") #'consult-buffer)
+  (define-key shapeshifter-leader-map (kbd "f") #'consult-find)
+  (define-key shapeshifter-leader-map (kbd "b") #'consult-buffer)
+  (define-key shapeshifter-leader-map (kbd "s") #'consult-ripgrep)
+  (define-key shapeshifter-leader-map (kbd "l") #'consult-line))
+
+#+end_src
+

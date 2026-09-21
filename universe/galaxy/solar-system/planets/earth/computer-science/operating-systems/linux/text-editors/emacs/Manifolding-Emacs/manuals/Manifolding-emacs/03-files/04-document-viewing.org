@@ -1,0 +1,67 @@
+#+manifold-source: ../manuals.org
+#+manifold-lines: 4840-4902
+#+manifold-stage: 09-archives
+#+manifold-date: 2026-09-15
+
+* Document Viewing
+
+DocView mode is a major mode for viewing DVI, PostScript (PS), PDF, OpenDocument, Microsoft Office, EPUB, CBZ, FB2, XPS and OXPS documents. It provides features such as slicing, zooming, and searching inside documents. It works by converting the document to a set of images using the gs (GhostScript) or pdfdraw/mutool draw (MuPDF) commands and other external tools, and then displays those converted images.
+
+When you visit a document file that can be displayed with DocView mode, Emacs automatically uses that mode 21. As an exception, when you visit a PostScript file, Emacs switches to PS mode, a major mode for editing PostScript files as text; however, it also enables DocView minor mode, so you can type C-c C-c to view the document with DocView. In either DocView mode or DocView minor mode, repeating C-c C-c (doc-view-toggle-display) toggles between DocView and the underlying file contents.
+
+When you visit a file which would normally be handled by DocView mode but some requirement is not met (e.g., you operate in a terminal frame or Emacs has no PNG support), you are queried if you want to view the document’s contents as plain text. If you confirm, the buffer is put in text mode and DocView minor mode is activated. Thus, by typing C-c C-c you switch to the fallback mode. With another C-c C-c you return to DocView mode. The plain text contents can also be displayed from within DocView mode by typing C-c C-t (doc-view-open-text).
+
+You can explicitly enable DocView mode with the command M-x doc-view-mode. You can toggle DocView minor mode with M-x doc-view-minor-mode.
+
+When DocView mode starts, it displays a welcome screen and begins formatting the file, page by page. It displays the first page once that has been formatted.
+
+To kill the DocView buffer, type k (doc-view-kill-proc-and-buffer). To bury it, type q (quit-window).
+
+
+** DocView Navigation
+
+In DocView mode, you can scroll the current page using the usual Emacs movement keys: C-p, C-n, C-b, C-f, and the arrow keys.
+
+By default, the line-motion keys C-p and C-n stop scrolling at the beginning and end of the current page, respectively. However, if you change the variable doc-view-continuous to a non-nil value, then C-p displays the previous page if you are already at the beginning of the current page, and C-n displays the next page if you are at the end of the current page.
+
+You can also display the next page by typing n, PageDown, next or C-x ] (doc-view-next-page). To display the previous page, type p, PageUp, prior or C-x [ (doc-view-previous-page).
+
+SPC (doc-view-scroll-up-or-next-page) is a convenient way to advance through the document. It scrolls within the current page or advances to the next. DEL moves backwards in a similar way (doc-view-scroll-down-or-previous-page).
+
+To go to the first page, type M-< (doc-view-first-page); to go to the last one, type M-> (doc-view-last-page). To jump to a page by its number, type M-g M-g or M-g g (doc-view-goto-page).
+
+You can enlarge or shrink the document with + (doc-view-enlarge) and - (doc-view-shrink). By default, these commands just rescale the already-rendered image. If you instead want the image to be re-rendered at the new size, set doc-view-scale-internally to nil. To specify the default size for DocView, customize the variable doc-view-resolution.
+
+When the mutool program is available, DocView will use it to generate entries for an outline menu, making it accessible via the imenu facility (see Imenu). To disable this functionality even when mutool can be found on your system, customize the variable doc-view-imenu-enabled to the nil value. You can further customize how imenu items are formatted and displayed using the variables doc-view-imenu-format and doc-view-flatten.
+
+
+** DocView Searching
+
+In DocView mode, you can search the file’s text for a regular expression (see Syntax of Regular Expressions). The interface for searching is inspired by isearch (see Incremental Search).
+
+To begin a search, type C-s (doc-view-search) or C-r (doc-view-search-backward). This reads a regular expression using a minibuffer, then echoes the number of matches found within the document. You can move forward and back among the matches by typing C-s and C-r. DocView mode has no way to show the match inside the page image; instead, it displays a tooltip (at the mouse position) listing all matching lines in the current page. To force display of this tooltip, type C-t (doc-view-show-tooltip).
+
+To start a new search, use the search command with a prefix argument; i.e., C-u C-s for a forward search or C-u C-r for a backward search.
+
+
+** DocView Slicing
+
+Documents often have wide margins for printing. They are annoying when reading the document on the screen, because they use up screen space and can cause inconvenient scrolling.
+
+With DocView you can hide these margins by selecting a slice of pages to display. A slice is a rectangle within the page area; once you specify a slice in DocView, it applies to whichever page you look at.
+
+To specify the slice numerically, type c s (doc-view-set-slice); then enter the top left pixel position and the slice’s width and height.
+
+A more convenient graphical way to specify the slice is with c m (doc-view-set-slice-using-mouse), where you use the mouse to select the slice. Simply press and hold the left mouse button at the upper-left corner of the region you want to have in the slice, then move the mouse pointer to the lower-right corner and release the button.
+
+The most convenient way is to set the optimal slice by using BoundingBox information automatically determined from the document by typing c b (doc-view-set-slice-from-bounding-box).
+
+To cancel the selected slice, type c r (doc-view-reset-slice). Then DocView shows the entire page including its entire margins.
+
+
+** DocView Conversion
+
+For efficiency, DocView caches the images produced by gs. The name of the directory where it caches images is given by the variable doc-view-cache-directory. You can clear the cache directory by typing M-x doc-view-clear-cache.
+
+To force reconversion of the currently viewed document, type r or g (revert-buffer). To kill the converter process associated with the current buffer, type K (doc-view-kill-proc). The command k (doc-view-kill-proc-and-buffer) kills the converter process and the DocView buffer.
+

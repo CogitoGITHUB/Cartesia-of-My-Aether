@@ -1,0 +1,125 @@
+#+manifold-source: ../manuals.org
+#+manifold-lines: 25501-25621
+#+manifold-stage: 05-world
+#+manifold-date: 2026-09-15
+
+* Hyperlinking and Web Navigation (maybe even add nyxt on here)
+
+The following subsections describe convenience features for handling URLs and other types of links occurring in Emacs buffer text.
+
+*** Web Browsing with EWW
+
+EWW, the Emacs Web Wowser, is a web browser package for Emacs. It allows browsing URLs within an Emacs buffer. The command M-x eww will open a URL or search the web. You can open a file using the command M-x eww-open-file. You can use EWW as the web browser for browse-url, see Following URLs. For full details, see EWW in The Emacs Web Wowser Manual.
+
+
+*** Embedded WebKit Widgets
+
+If Emacs was compiled with the appropriate support packages, it is able to show browser widgets in its buffers. The command M-x xwidget-webkit-browse-url asks for a URL to display in the browser widget. The URL normally defaults to the URL at or before point, but if there is an active region (see The Mark and the Region), the default URL comes from the region instead, after removing any whitespace from it. The command then creates a new buffer with the embedded browser showing the specified URL. The buffer is put in the Xwidget-WebKit mode (similar to Image mode, see Viewing Image Files), which provides one-key commands for scrolling the widget, changing its size, and reloading it. Type C-h b in that buffer to see the key bindings.
+
+By default, typing a self-inserting character inside an xwidget webkit buffer will do nothing, or trigger some special action. To make those characters and other common editing keys insert themselves when pressed, you can enable xwidget-webkit-edit-mode, which redefines them to be passed through to the WebKit xwidget.
+
+You can also enable xwidget-webkit-edit-mode by typing e inside the xwidget webkit buffer.
+
+xwidget-webkit-isearch-mode is a minor mode that behaves similarly to incremental search (see Incremental Search), but operates on the contents of a WebKit widget instead of the current buffer. It is bound to C-s and C-r inside xwidget-webkit buffers. When it is invoked by C-r, the initial search will be performed in reverse direction.
+
+Typing any self-inserting character will cause the character to be inserted into the current search query. Typing C-s will cause the WebKit widget to display the next search result, while typing C-r will cause it to display the previous one.
+
+To leave incremental search, you can type C-g.
+
+The command xwidget-webkit-browse-history displays a buffer containing a list of pages previously loaded by the current WebKit buffer, and lets you navigate to those pages by hitting RET.
+
+It is bound to H.
+
+
+*** Following URLs
+
+M-x browse-url RET url RET
+Load a URL into a Web browser.
+
+The Browse-URL package allows you to easily follow URLs from within Emacs. Most URLs are followed by invoking a web browser; ‘mailto:’ URLs are followed by invoking the compose-mail Emacs command to send mail to the specified address (see Sending Mail).
+
+The command M-x browse-url prompts for a URL, and follows it. If point is located near a plausible URL, that URL is offered as the default. The Browse-URL package also provides other commands which you might like to bind to keys, such as browse-url-at-point and browse-url-at-mouse.
+
+You can customize Browse-URL’s behavior via various options in the browse-url Customize group. In particular, the option browse-url-mailto-function lets you define how to follow ‘mailto:’ URLs, while browse-url-browser-function specifies your default browser.
+
+You can define that certain URLs are browsed with other functions by customizing browse-url-handlers, an alist of regular expressions or predicates paired with functions to browse matching URLs.
+
+For more information, view the package commentary by typing C-h P browse-url RET.
+
+Emacs also has a minor mode that has some support for handling URLs as if they were files. url-handler-mode is a global minor mode that affects most of the Emacs commands and primitives that deal with file names. After switching on this mode, you can say, for instance, C-x C-f https://www.gnu.org/ RET to see the HTML for that web page, and you can then edit it and save it to a local file, for instance.
+
+
+*** Activating URLs
+
+M-x goto-address-mode
+Activate URLs and e-mail addresses in the current buffer.
+
+M-x global-goto-address-mode
+Activate goto-address-mode in all buffers.
+
+You can make Emacs mark out URLs specially in the current buffer, by typing M-x goto-address-mode. When this buffer-local minor mode is enabled, it finds all the URLs in the buffer, highlights them, and turns them into clickable buttons. You can follow the URL by typing C-c RET (goto-address-at-point) while point is on its text; or by clicking with mouse-2, or by clicking mouse-1 quickly (see Following References with the Mouse). Following a URL is done by calling browse-url as a subroutine (see Following URLs).
+
+It can be useful to add goto-address-mode to mode hooks and hooks for displaying an incoming message (e.g., rmail-show-message-hook for Rmail). This is not needed for Gnus or MH-E, which have similar features of their own.
+
+
+*** Finding Files and URLs at Point
+
+The FFAP package replaces certain key bindings for finding files, such as C-x C-f, with commands that provide more sensible defaults. These commands behave like the ordinary ones when given a prefix argument. Otherwise, they get the default file name or URL from the text around point. If what is found in the buffer has the form of a URL rather than a file name, the commands use browse-url to view it (see Following URLs).
+
+This feature is useful for following references in mail or news buffers, README files, MANIFEST files, and so on. For more information, view the package commentary by typing C-h P ffap RET.
+
+To enable FFAP, type M-x ffap-bindings. This makes the following key bindings, and also installs hooks for additional FFAP functionality in Rmail, Gnus and VM article buffers.
+
+C-x C-f filename RET ¶
+Find filename, guessing a default from text around point (find-file-at-point).
+
+C-x C-r filename RET ¶
+ffap-read-only, analogous to find-file-read-only.
+
+C-x C-v filename RET ¶
+ffap-alternate-file, analogous to find-alternate-file.
+
+C-x d directory RET ¶
+Start Dired on directory, defaulting to the directory at point (dired-at-point).
+
+C-x C-d directory RET
+ffap-list-directory, analogous to list-directory.
+
+C-x 4 f filename RET ¶
+ffap-other-window, analogous to find-file-other-window.
+
+C-x 4 r filename RET
+ffap-read-only-other-window, analogous to find-file-read-only-other-window.
+
+C-x 4 d directory RET
+ffap-dired-other-window, like dired-other-window.
+
+C-x 5 f filename RET ¶
+ffap-other-frame, analogous to find-file-other-frame.
+
+C-x 5 r filename RET
+ffap-read-only-other-frame, analogous to find-file-read-only-other-frame.
+
+C-x 5 d directory RET
+ffap-dired-other-frame, analogous to dired-other-frame.
+
+C-x t C-f filename return
+ffap-other-tab, analogous to find-file-other-tab.
+
+C-x t C-r filename return
+ffap-read-only-other-tab, analogous to find-file-read-only-other-tab.
+
+M-x ffap-next
+Search buffer for next file name or URL, then find that file or URL.
+
+S-mouse-3 ¶
+ffap-at-mouse finds the file guessed from text around the position of a mouse click.
+
+C-S-mouse-3 ¶
+Display a menu of files and URLs mentioned in current buffer, then find the one you select (ffap-menu).
+
+
+
+
+
+

@@ -1,0 +1,34 @@
+#+manifold-source: ../manuals.org
+#+manifold-lines: 9800-9829
+#+manifold-stage: 09-archives
+#+manifold-date: 2026-09-15
+
+* Desktop Session Persistence
+
++begin_src emacs-lisp
+;;──────────────────────────────────────────────────────────
+;; Desktop save location setup
+;;──────────────────────────────────────────────────────────
+(setq desktop-dirname "~/.config/emacs/desktop/"
+      desktop-path   '("~/.config/emacs/desktop/")
+      desktop-base-file-name "emacs-desktop")
+
+(make-directory desktop-dirname t) ;; ensure directory exists
+
+
+;;──────────────────────────────────────────────────────────
+;; Desktop Mode
+;;──────────────────────────────────────────────────────────
+(leaf desktop
+  :require t
+  :config
+  ;; auto-save session when closing Emacs
+  (add-hook 'kill-emacs-hook #'desktop-save-in-desktop-dir)
+
+  ;; restore behavior tuning
+  (setq desktop-restore-eager 8
+        desktop-lazy-idle-delay 0.5
+        desktop-load-locked-desktop t)
+
+  (desktop-save-mode 1))
++end_src

@@ -1,0 +1,960 @@
+#+manifold-source: ../manuals.org
+#+manifold-lines: 4903-5858
+#+manifold-stage: 09-archives
+#+manifold-date: 2026-09-15
+
+* Parsing Program Source
+
+Emacs provides various ways to parse program source text and produce a syntax tree. In a syntax tree, text is no longer considered a one-dimensional stream of characters, but a structured tree of nodes, where each node represents a piece of text. Thus, a syntax tree can enable interesting features like precise fontification, indentation, navigation, structured editing, etc.
+
+Emacs has a simple facility for parsing balanced expressions (see Parsing Expressions). There is also the SMIE library for generic navigation and indentation (see Simple Minded Indentation Engine).
+
+In addition to those, Emacs also provides integration with the tree-sitter library if support for it was compiled in. The tree-sitter library implements an incremental parser and has support for a wide range of programming languages.
+
+Function: treesit-available-p ¶
+This function returns non-nil if tree-sitter features are available for the current Emacs session.
+
+To be able to parse the program source using the tree-sitter library and access the syntax tree of the program, a Lisp program needs to load a language grammar library, and create a parser for that language and the current buffer. After that, the Lisp program can query the parser about specific nodes of the syntax tree. Then, it can access various kinds of information about each node, and search for nodes using a powerful pattern-matching syntax. This chapter explains how to do all this, and also how a Lisp program can work with source files that mix multiple programming languages.
+
+*** Tree-sitter Language Grammar
+
+Loading a language grammar
+Tree-sitter relies on language grammar to parse text in that language. In Emacs, a language grammar is represented by a symbol. For example, the C language grammar is represented as the symbol c, and c can be passed to tree-sitter functions as the language argument.
+
+Tree-sitter language grammars are distributed as dynamic libraries. In order to use a language grammar in Emacs, you need to make sure that the dynamic library is installed on the system. Emacs looks for language grammars in several places, in the following order:
+
+first, in the list of directories specified by the variable treesit-extra-load-path;
+then, in the tree-sitter subdirectory of the directory specified by user-emacs-directory (see The Init File);
+and finally, in the system’s default locations for dynamic libraries.
+In each of these directories, Emacs looks for a file with file-name extensions specified by the variable dynamic-library-suffixes.
+
+If Emacs cannot find the library or has problems loading it, Emacs signals the treesit-load-language-error error. The data of that signal could be one of the following:
+
+(not-found error-msg …)
+This means that Emacs could not find the language grammar library.
+
+(symbol-error error-msg)
+This means that Emacs could not find in the library the expected function that every language grammar library should export.
+
+(version-mismatch error-msg)
+This means that the version of the language grammar library is incompatible with that of the tree-sitter library.
+
+In all of these cases, error-msg might provide additional details about the failure.
+
+Function: treesit-language-available-p language &optional detail ¶
+This function returns non-nil if the language grammar for language exists and can be loaded.
+
+If detail is non-nil, return (t . nil) when language is available, and (nil . data) when it’s unavailable. data is the signal data of treesit-load-language-error.
+
+By convention, the file name of the dynamic library for language is libtree-sitter-language.ext, where ext is the system-specific extension for dynamic libraries. Also by convention, the function provided by that library is named tree_sitter_language. If a language grammar library doesn’t follow this convention, you should add an entry
+
+(language library-base-name function-name)
+to the list in the variable treesit-load-name-override-list, where library-base-name is the basename of the dynamic library’s file name (usually, libtree-sitter-language), and function-name is the function provided by the library (usually, tree_sitter_language). For example,
+
+(cool-lang "libtree-sitter-coool" "tree_sitter_cooool")
+for a language that considers itself too “cool” to abide by conventions.
+
+Function: treesit-library-abi-version &optional min-compatible ¶
+This function returns the version of the language grammar Application Binary Interface (ABI) supported by the tree-sitter library. By default, it returns the latest ABI version supported by the library, but if min-compatible is non-nil, it returns the oldest ABI version which the library still can support. Language grammar libraries must be built for ABI versions between the oldest and the latest versions supported by the tree-sitter library, otherwise the library will be unable to load them.
+
+Function: treesit-language-abi-version language ¶
+This function returns the ABI version of the language grammar library loaded by Emacs for language. If language is unavailable, this function returns nil.
+
+Concrete syntax tree
+A syntax tree is what a parser generates. In a syntax tree, each node represents a piece of text, and is connected to each other by a parent-child relationship. For example, if the source text is
+
+1 + 2
+its syntax tree could be
+
+                  +--------------+
+                  | root "1 + 2" |
+                  +--------------+
+                         |
+        +--------------------------------+
+        |       expression "1 + 2"       |
+        +--------------------------------+
+           |             |            |
++------------+   +--------------+   +------------+
+| number "1" |   | operator "+" |   | number "2" |
++------------+   +--------------+   +------------+
+We can also represent it as an s-expression:
+
+(root (expression (number) (operator) (number)))
+Node types
+Names like root, expression, number, and operator specify the type of the nodes. However, not all nodes in a syntax tree have a type. Nodes that don’t have a type are known as anonymous nodes, and nodes with a type are named nodes. Anonymous nodes are tokens with fixed spellings, including punctuation characters like bracket ‘]’, and keywords like return.
+
+Field names
+To make the syntax tree easier to analyze, many language grammar assign field names to child nodes. For example, a function_definition node could have a declarator and a body:
+
+(function_definition
+ declarator: (declaration)
+ body: (compound_statement))
+Exploring the syntax tree
+To aid in understanding the syntax of a language and in debugging Lisp programs that use the syntax tree, Emacs provides an “explore” mode, which displays the syntax tree of the source in the current buffer in real time. Emacs also comes with an “inspect mode”, which displays information of the nodes at point in the mode-line.
+
+Command: treesit-explore-mode ¶
+This mode pops up a window displaying the syntax tree of the source in the current buffer. Selecting text in the source buffer highlights the corresponding nodes in the syntax tree display. Clicking on nodes in the syntax tree highlights the corresponding text in the source buffer.
+
+Command: treesit-inspect-mode ¶
+This minor mode displays on the mode-line the node that starts at point. For example, the mode-line can display
+
+parent field: (node (child (…)))
+where node, child, etc., are nodes which begin at point. parent is the parent of node. node is displayed in a bold typeface. field-names are field names of node and of child, etc.
+
+If no node starts at point, i.e., point is in the middle of a node, then the mode line displays the earliest node that spans point, and its immediate parent.
+
+This minor mode doesn’t create parsers on its own. It uses the first parser in (treesit-parser-list) (see Using Tree-sitter Parser).
+
+Reading the grammar definition
+Authors of language grammars define the grammar of a programming language, which determines how a parser constructs a concrete syntax tree out of the program text. In order to use the syntax tree effectively, you need to consult the grammar file.
+
+The grammar file is usually grammar.js in a language grammar’s project repository. The link to a language grammar’s home page can be found on tree-sitter’s homepage.
+
+The grammar definition is written in JavaScript. For example, the rule matching a function_definition node may look like
+
+function_definition: $ => seq(
+  $.declaration_specifiers,
+  field('declarator', $.declaration),
+  field('body', $.compound_statement)
+)
+The rules are represented by functions that take a single argument $, representing the whole grammar. The function itself is constructed by other functions: the seq function puts together a sequence of children; the field function annotates a child with a field name. If we write the above definition in the so-called Backus-Naur Form (BNF) syntax, it would look like
+
+function_definition :=
+  <declaration_specifiers> <declaration> <compound_statement>
+and the node returned by the parser would look like
+
+(function_definition
+  (declaration_specifier)
+  declarator: (declaration)
+  body: (compound_statement))
+Below is a list of functions that one can see in a grammar definition. Each function takes other rules as arguments and returns a new rule.
+
+seq(rule1, rule2, …)
+matches each rule one after another.
+
+choice(rule1, rule2, …)
+matches one of the rules in its arguments.
+
+repeat(rule)
+matches rule zero or more times. This is like the ‘*’ operator in regular expressions.
+
+repeat1(rule)
+matches rule one or more times. This is like the ‘+’ operator in regular expressions.
+
+optional(rule)
+matches rule zero or one times. This is like the ‘?’ operator in regular expressions.
+
+field(name, rule)
+assigns field name name to the child node matched by rule.
+
+alias(rule, alias)
+makes nodes matched by rule appear as alias in the syntax tree generated by the parser. For example,
+
+alias(preprocessor_call_exp, call_expression)
+makes any node matched by preprocessor_call_exp appear as call_expression.
+
+Below are grammar functions of lesser importance for reading a language grammar.
+
+token(rule)
+marks rule to produce a single leaf node. That is, instead of generating a parent node with individual child nodes under it, everything is combined into a single leaf node. See Retrieving Nodes.
+
+token.immediate(rule)
+Normally, grammar rules ignore preceding whitespace; this changes rule to match only when there is no preceding whitespace.
+
+prec(n, rule)
+gives rule the level-n precedence.
+
+prec.left([n,] rule)
+marks rule as left-associative, optionally with level n.
+
+prec.right([n,] rule)
+marks rule as right-associative, optionally with level n.
+
+prec.dynamic(n, rule)
+this is like prec, but the precedence is applied at runtime instead.
+
+The documentation of the tree-sitter project has more about writing a grammar. Read especially “The Grammar DSL” section.
+
+
+*** Using Tree-sitter Parser
+
+This section describes how to create and configure a tree-sitter parser. In Emacs, each tree-sitter parser is associated with a buffer. As the user edits the buffer, the associated parser and syntax tree are automatically kept up-to-date.
+
+Variable: treesit-max-buffer-size ¶
+This variable contains the maximum size of buffers in which tree-sitter can be activated. Major modes should check this value when deciding whether to enable tree-sitter features.
+
+Function: treesit-parser-create language &optional buffer no-reuse ¶
+Create a parser for the specified buffer and language (see Tree-sitter Language Grammar). If buffer is omitted or nil, it stands for the current buffer.
+
+By default, this function reuses a parser if one already exists for language in buffer, but if no-reuse is non-nil, this function always creates a new parser.
+
+If that buffer is an indirect buffer, its base buffer is used instead. That is, indirect buffers use their base buffer’s parsers. If the base buffer is narrowed, an indirect buffer might not be able to retrieve information of the portion of the buffer text that is invisible in the base buffer. Lisp programs should widen as necessary should they want to use a parser in an indirect buffer.
+
+Given a parser, we can query information about it.
+
+Function: treesit-parser-buffer parser ¶
+This function returns the buffer associated with parser.
+
+Function: treesit-parser-language parser ¶
+This function returns the language used by parser.
+
+Function: treesit-parser-p object ¶
+This function checks if object is a tree-sitter parser, and returns non-nil if it is, and nil otherwise.
+
+There is no need to explicitly parse a buffer, because parsing is done automatically and lazily. A parser only parses when a Lisp program queries for a node in its syntax tree. Therefore, when a parser is first created, it doesn’t parse the buffer; it waits until the Lisp program queries for a node for the first time. Similarly, when some change is made in the buffer, a parser doesn’t re-parse immediately.
+
+When a parser does parse, it checks for the size of the buffer. Tree-sitter can only handle buffers no larger than about 4GB. If the size exceeds that, Emacs signals the treesit-buffer-too-large error with signal data being the buffer size.
+
+Once a parser is created, Emacs automatically adds it to the internal parser list. Every time a change is made to the buffer, Emacs updates parsers in this list so they can update their syntax tree incrementally.
+
+Function: treesit-parser-list &optional buffer ¶
+This function returns the parser list of buffer. If buffer is nil or omitted, it defaults to the current buffer. If that buffer is an indirect buffer, its base buffer is used instead. That is, indirect buffers use their base buffer’s parsers.
+
+Function: treesit-parser-delete parser ¶
+This function deletes parser.
+
+Normally, a parser “sees” the whole buffer, but when the buffer is narrowed (see Narrowing), the parser will only see the accessible portion of the buffer. As far as the parser can tell, the hidden region was deleted. When the buffer is later widened, the parser thinks text is inserted at the beginning and at the end. Although parsers respect narrowing, modes should not use narrowing as a means to handle a multi-language buffer; instead, set the ranges in which the parser should operate. See Parsing Text in Multiple Languages.
+
+Because a parser parses lazily, when the user or a Lisp program narrows the buffer, the parser is not affected immediately; as long as the mode doesn’t query for a node while the buffer is narrowed, the parser is oblivious of the narrowing.
+
+Besides creating a parser for a buffer, a Lisp program can also parse a string. Unlike a buffer, parsing a string is a one-off operation, and there is no way to update the result.
+
+Function: treesit-parse-string string language ¶
+This function parses string using language, and returns the root node of the generated syntax tree.
+
+Be notified by changes to the parse tree
+A Lisp program might want to be notified of text affected by incremental parsing. For example, inserting a comment-closing token converts text before that token into a comment. Even though the text is not directly edited, it is deemed to be “changed” nevertheless.
+
+Emacs lets a Lisp program register callback functions (a.k.a. notifiers) for these kinds of changes. A notifier function takes two arguments: ranges and parser. ranges is a list of cons cells of the form (start . end), where start and end mark the start and the end positions of a range. parser is the parser issuing the notification.
+
+Every time a parser reparses a buffer, it compares the old and new parse-tree, computes the ranges in which nodes have changed, and passes the ranges to notifier functions. Note that the initial parse is also considered a “change”, so notifier functions are called on the initial parse, with range being the whole buffer.
+
+Function: treesit-parser-add-notifier parser function ¶
+This function adds function to parser’s list of after-change notifier functions. function must be a function symbol, not a lambda function (see Anonymous Functions).
+
+Function: treesit-parser-remove-notifier parser function ¶
+This function removes function from the list of parser’s after-change notifier functions. function must be a function symbol, rather than a lambda function.
+
+Function: treesit-parser-notifiers parser ¶
+This function returns the list of parser’s notifier functions.
+
+
+*** Retrieving Nodes
+
+Here are some terms and conventions we use when documenting tree-sitter functions.
+
+A node in a syntax tree spans some portion of the program text in the buffer. We say that a node is “smaller” or “larger” than another if it spans, respectively, a smaller or larger portion of buffer text than the other node. Since nodes that are deeper (“lower”) in the tree are children of the nodes that are “higher” in the tree, it follows that a lower node will always be smaller than a node that is higher in the node hierarchy. A node that is higher up in the syntax tree contains one or more smaller nodes as its children, and therefore spans a larger portion of buffer text.
+
+When a function cannot find a node, it returns nil. For convenience, all functions that take a node as argument and return a node, also accept the node argument of nil and in that case just return nil.
+
+Nodes are not automatically updated when the associated buffer is modified, and there is no way to update a node once it is retrieved. Using an outdated node signals the treesit-node-outdated error.
+
+Retrieving nodes from syntax tree
+Function: treesit-node-at pos &optional parser-or-lang named ¶
+This function returns a leaf node at buffer position pos. A leaf node is a node that doesn’t have any child nodes.
+
+This function tries to return a node whose span covers pos: the node’s beginning position is less than or equal to pos, and the node’s end position is greater than or equal to pos.
+
+If no leaf node’s span covers pos (e.g., pos is in the whitespace between two leaf nodes), this function returns the first leaf node after pos.
+
+Finally, if there is no leaf node after pos, return the first leaf node before pos.
+
+If parser-or-lang is a parser object, this function uses that parser; if parser-or-lang is a language, this function uses the first parser for that language in the current buffer, or creates one if none exists; if parser-or-lang is nil, this function tries to guess the language at pos by calling treesit-language-at (see Parsing Text in Multiple Languages).
+
+If this function cannot find a suitable node to return, it returns nil.
+
+If named is non-nil, this function looks only for named nodes (see named node).
+
+Example:
+
+;; Find the node at point in a C parser's syntax tree.
+(treesit-node-at (point) 'c)
+  ⇒ #<treesit-node (primitive_type) in 23-27>
+Function: treesit-node-on beg end &optional parser-or-lang named ¶
+This function returns the smallest node that covers the region of buffer text between beg and end. In other words, the start of the node is before or at beg, and the end of the node is at or after end.
+
+Beware: calling this function on an empty line that is not inside any top-level construct (function definition, etc.) most probably will give you the root node, because the root node is the smallest node that covers that empty line. Most of the time, you want to use treesit-node-at instead.
+
+If parser-or-lang is a parser object, this function uses that parser; if parser-or-lang is a language, this function uses the first parser for that language in the current buffer, or creates one if none exists; if parser-or-lang is nil, this function tries to guess the language at beg by calling treesit-language-at.
+
+If named is non-nil, this function looks for a named node only (see named node).
+
+Function: treesit-parser-root-node parser ¶
+This function returns the root node of the syntax tree generated by parser.
+
+Function: treesit-buffer-root-node &optional language ¶
+This function finds the first parser for language in the current buffer, or creates one if none exists, and returns the root node generated by that parser. If language is omitted, it uses the first parser in the parser list. If it cannot find an appropriate parser, it returns nil.
+
+Given a node, a Lisp program can retrieve other nodes starting from it, or query for information about this node.
+
+Retrieving nodes from other nodes
+By kinship
+Function: treesit-node-parent node ¶
+This function returns the immediate parent of node.
+
+If node is more than 1000 levels deep in a parse tree, the return value is undefined. Currently it returns nil, but that could change in the future.
+
+Function: treesit-node-child node n &optional named ¶
+This function returns the n’th child of node. If named is non-nil, it counts only named nodes (see named node).
+
+For example, in a node that represents a string "text", there are three children nodes: the opening quote ", the string text text, and the closing quote ". Among these nodes, the first child is the opening quote ", and the first named child is the string text.
+
+This function returns nil if there is no n’th child. n could be negative, e.g., −1 represents the last child.
+
+Function: treesit-node-children node &optional named ¶
+This function returns all of node’s children as a list. If named is non-nil, it retrieves only named nodes.
+
+Function: treesit-node-next-sibling node &optional named ¶
+This function finds the next sibling of node. If named is non-nil, it finds the next named sibling.
+
+Function: treesit-node-prev-sibling node &optional named ¶
+This function finds the previous sibling of node. If named is non-nil, it finds the previous named sibling.
+
+By field name
+To make the syntax tree easier to analyze, many language grammars assign field names to child nodes (see field name). For example, a function_definition node could have a declarator node and a body node.
+
+Function: treesit-node-child-by-field-name node field-name ¶
+This function finds the child of node whose field name is field-name, a string.
+
+;; Get the child that has "body" as its field name.
+(treesit-node-child-by-field-name node "body")
+  ⇒ #<treesit-node (compound_statement) in 45-89>
+By position
+Function: treesit-node-first-child-for-pos node pos &optional named ¶
+This function finds the first child of node that extends beyond buffer position pos. “Extends beyond” means the end of the child node is greater or equal to pos. This function only looks for immediate children of node, and doesn’t look in its grandchildren. If named is non-nil, it looks for the first named child (see named node).
+
+Function: treesit-node-descendant-for-range node beg end &optional named ¶
+This function finds the smallest descendant node of node that spans the region of text between positions beg and end. It is similar to treesit-node-at. If named is non-nil, it looks for the smallest named child.
+
+Searching for node
+Function: treesit-search-subtree node predicate &optional backward all depth ¶
+This function traverses the subtree of node (including node itself), looking for a node for which predicate returns non-nil. predicate is a regexp that is matched against each node’s type, or a predicate function that takes a node and returns non-nil if the node matches. The function returns the first node that matches, or nil if none does.
+
+By default, this function only traverses named nodes, but if all is non-nil, it traverses all the nodes. If backward is non-nil, it traverses backwards (i.e., it visits the last child first when traversing down the tree). If depth is non-nil, it must be a number that limits the tree traversal to that many levels down the tree. If depth is nil, it defaults to 1000.
+
+Function: treesit-search-forward start predicate &optional backward all ¶
+Like treesit-search-subtree, this function also traverses the parse tree and matches each node with predicate (except for start), where predicate can be a regexp or a function. For a tree like the one below where start is marked ‘S’, this function traverses as numbered from 1 to 12:
+
+              12
+              |
+     S--------3----------11
+     |        |          |
+o--o-+--o  1--+--2    6--+-----10
+|  |                  |        |
+o  o                +-+-+   +--+--+
+                    |   |   |  |  |
+                    4   5   7  8  9
+Note that this function doesn’t traverse the subtree of start, and it always traverses leaf nodes first, before moving upwards.
+
+Like treesit-search-subtree, this function only searches for named nodes by default, but if all is non-nil, it searches for all nodes. If backward is non-nil, it searches backwards.
+
+While treesit-search-subtree traverses the subtree of a node, this function starts with node start and traverses every node that comes after it in the buffer position order, i.e., nodes with start positions greater than the end position of start.
+
+In the tree shown above, treesit-search-subtree traverses node ‘S’ (start) and nodes marked with o, where this function traverses the nodes marked with numbers. This function is useful for answering questions like “what is the first node after start in the buffer that satisfies some condition?”
+
+Function: treesit-search-forward-goto node predicate &optional start backward all ¶
+This function moves point to the start or end of the next node after node in the buffer that matches predicate. If start is non-nil, stop at the beginning rather than the end of a node.
+
+This function guarantees that the matched node it returns makes progress in terms of buffer position: the start/end position of the returned node is always greater than that of node.
+
+Arguments predicate, backward, and all are the same as in treesit-search-forward.
+
+Function: treesit-induce-sparse-tree root predicate &optional process-fn depth ¶
+This function creates a sparse tree from root’s subtree.
+
+It takes the subtree under root, and combs it so only the nodes that match predicate are left. Like previous functions, the predicate can be a regexp string that matches against each node’s type, or a function that takes a node and returns non-nil if it matches.
+
+For example, given the subtree on the left that consists of both numbers and letters, if predicate is “letter only”, the returned tree is the one on the right.
+
+    a                 a              a
+    |                 |              |
++---+---+         +---+---+      +---+---+
+|   |   |         |   |   |      |   |   |
+b   1   2         b   |   |      b   c   d
+    |   |     =>      |   |  =>      |
+    c   +--+          c   +          e
+    |   |  |          |   |
+ +--+   d  4       +--+   d
+ |  |              |
+ e  5              e
+If process-fn is non-nil, instead of returning the matched nodes, this function passes each node to process-fn and uses the returned value instead. If non-nil, depth limits the number of levels to go down from root. If depth is nil, it defaults to 1000.
+
+Each node in the returned tree looks like (tree-sitter-node . (child …)). The tree-sitter-node of the root of this tree will be nil if root doesn’t match predicate. If no node matches predicate, the function returns nil.
+
+More convenience functions
+Function: treesit-filter-child node predicate &optional named ¶
+This function finds immediate children of node that satisfy predicate.
+
+The predicate function takes a node as argument and should return non-nil to indicate that the node should be kept. If named is non-nil, this function only examines named nodes.
+
+Function: treesit-parent-until node predicate &optional include-node ¶
+This function repeatedly finds the parents of node, and returns the parent that satisfies pred, a function that takes a node as argument and returns a boolean that indicates a match. If no parent satisfies pred, this function returns nil.
+
+Normally this function only looks at the parents of node but not node itself. But if include-node is non-nil, this function returns node if node satisfies pred.
+
+Function: treesit-parent-while node pred ¶
+This function goes up the tree starting from node, and keeps doing so as long as the nodes satisfy pred, a function that takes a node as argument. That is, this function returns the highest parent of node that still satisfies pred. Note that if node satisfies pred but its immediate parent doesn’t, node itself is returned.
+
+Function: treesit-node-top-level node &optional type ¶
+This function returns the highest parent of node that has the same type as node. If no such parent exists, it returns nil. Therefore this function is also useful for testing whether node is top-level.
+
+If type is non-nil, this function matches each parent’s type with type as a regexp, rather than using node’s type.
+
+
+*** Accessing Node Information
+
+Basic information of Node
+Every node is associated with a parser, and that parser is associated with a buffer. The following functions retrieve them.
+
+Function: treesit-node-parser node ¶
+This function returns node’s associated parser.
+
+Function: treesit-node-buffer node ¶
+This function returns node’s parser’s associated buffer.
+
+Function: treesit-node-language node ¶
+This function returns node’s parser’s associated language.
+
+Each node represents a portion of text in the buffer. Functions below find relevant information about that text.
+
+Function: treesit-node-start node ¶
+Return the start position of node.
+
+Function: treesit-node-end node ¶
+Return the end position of node.
+
+Function: treesit-node-text node &optional object ¶
+Return the buffer text that node represents, as a string. (If node is retrieved from parsing a string, it will be the text from that string.)
+
+Here are some predicates on tree-sitter nodes:
+
+Function: treesit-node-p object ¶
+Checks if object is a tree-sitter syntax node.
+
+Function: treesit-node-eq node1 node2 ¶
+Checks if node1 and node2 refer to the same node in a tree-sitter syntax tree. This function uses the same equivalence metric as equal. You can also compare nodes using equal (see Equality Predicates).
+
+Property information
+In general, nodes in a concrete syntax tree fall into two categories: named nodes and anonymous nodes. Whether a node is named or anonymous is determined by the language grammar (see named node).
+
+Apart from being named or anonymous, a node can have other properties. A node can be “missing”: such nodes are inserted by the parser in order to recover from certain kinds of syntax errors, i.e., something should probably be there according to the grammar, but is not there. This can happen during editing of the program source, when the source is not yet in its final form.
+
+A node can be “extra”: such nodes represent things like comments, which can appear anywhere in the text.
+
+A node can be “outdated”, if its parser has reparsed at least once after the node was created.
+
+A node “has error” if the text it spans contains a syntax error. It can be that the node itself has an error, or one of its descendants has an error.
+
+A node is considered live if its parser is not deleted, and the buffer to which it belongs is a live buffer (see Killing Buffers).
+
+Function: treesit-node-check node property ¶
+This function returns non-nil if node has the specified property. property can be named, missing, extra, outdated, has-error, or live.
+
+Function: treesit-node-type node ¶
+Named nodes have “types” (see node type). For example, a named node can be a string_literal node, where string_literal is its type. The type of an anonymous node is just the text that the node represents; e.g., the type of a ‘,’ node is just ‘,’.
+
+This function returns node’s type as a string.
+
+Information as a child or parent
+Function: treesit-node-index node &optional named ¶
+This function returns the index of node as a child node of its parent. If named is non-nil, it only counts named nodes (see named node).
+
+Function: treesit-node-field-name node ¶
+A child of a parent node could have a field name (see field name). This function returns the field name of node as a child of its parent.
+
+Function: treesit-node-field-name-for-child node n ¶
+This function returns the field name of the n’th child of node. It returns nil if there is no n’th child, or the n’th child doesn’t have a field name.
+
+Note that n counts both named and anonymous children, and n can be negative, e.g., −1 represents the last child.
+
+Function: treesit-node-child-count node &optional named ¶
+This function returns the number of children of node. If named is non-nil, it only counts named children (see named node).
+
+
+*** Pattern Matching Tree-sitter Nodes
+
+Tree-sitter lets Lisp programs match patterns using a small declarative language. This pattern matching consists of two steps: first tree-sitter matches a pattern against nodes in the syntax tree, then it captures specific nodes that matched the pattern and returns the captured nodes.
+
+We describe first how to write the most basic query pattern and how to capture nodes in a pattern, then the pattern-matching function, and finally the more advanced pattern syntax.
+
+Basic query syntax
+A query consists of multiple patterns. Each pattern is an s-expression that matches a certain node in the syntax node. A pattern has the form (type (child…)).
+
+For example, a pattern that matches a binary_expression node that contains number_literal child nodes would look like
+
+(binary_expression (number_literal))
+To capture a node using the query pattern above, append @capture-name after the node pattern you want to capture. For example,
+
+(binary_expression (number_literal) @number-in-exp)
+captures number_literal nodes that are inside a binary_expression node with the capture name number-in-exp.
+
+We can capture the binary_expression node as well, with, for example, the capture name biexp:
+
+(binary_expression
+ (number_literal) @number-in-exp) @biexp
+Query function
+Now we can introduce the query functions.
+
+Function: treesit-query-capture node query &optional beg end node-only ¶
+This function matches patterns in query within node. The argument query can be either an s-expression, a string, or a compiled query object. For now, we focus on the s-expression syntax; string syntax and compiled queries are described at the end of the section.
+
+The argument node can also be a parser or a language symbol. A parser means use its root node, a language symbol means find or create a parser for that language in the current buffer, and use the root node.
+
+The function returns all the captured nodes in an alist with elements of the form (capture_name . node). If node-only is non-nil, it returns the list of nodes instead. By default the entire text of node is searched, but if beg and end are both non-nil, they specify the region of buffer text where this function should match nodes. Any matching node whose span overlaps with the region between beg and end is captured; it doesn’t have to be completely contained in the region.
+
+This function raises the treesit-query-error error if query is malformed. The signal data contains a description of the specific error. You can use treesit-query-validate to validate and debug the query.
+
+For example, suppose node’s text is 1 + 2, and query is
+
+(setq query
+      '((binary_expression
+         (number_literal) @number-in-exp) @biexp)
+Matching that query would return
+
+(treesit-query-capture node query)
+    ⇒ ((biexp . <node for "1 + 2">)
+       (number-in-exp . <node for "1">)
+       (number-in-exp . <node for "2">))
+As mentioned earlier, query could contain multiple patterns. For example, it could have two top-level patterns:
+
+(setq query
+      '((binary_expression) @biexp
+        (number_literal) @number @biexp)
+Function: treesit-query-string string query language ¶
+This function parses string as language, matches its root node with query, and returns the result.
+
+More query syntax
+Besides node type and capture name, tree-sitter’s pattern syntax can express anonymous node, field name, wildcard, quantification, grouping, alternation, anchor, and predicate.
+
+Anonymous node
+An anonymous node is written verbatim, surrounded by quotes. A pattern matching (and capturing) keyword return would be
+
+"return" @keyword
+Wild card
+In a pattern, ‘(_)’ matches any named node, and ‘_’ matches any named or anonymous node. For example, to capture any named child of a binary_expression node, the pattern would be
+
+(binary_expression (_) @in-biexp)
+Field name
+It is possible to capture child nodes that have specific field names. In the pattern below, declarator and body are field names, indicated by the colon following them.
+
+(function_definition
+  declarator: (_) @func-declarator
+  body: (_) @func-body)
+It is also possible to capture a node that doesn’t have a certain field, say, a function_definition without a body field:
+
+(function_definition !body) @func-no-body
+Quantify node
+Tree-sitter recognizes quantification operators ‘:*’, ‘:+’, and ‘:?’. Their meanings are the same as in regular expressions: ‘:*’ matches the preceding pattern zero or more times, ‘:+’ matches one or more times, and ‘:?’ matches zero or one times.
+
+For example, the following pattern matches type_declaration nodes that have zero or more long keywords.
+
+(type_declaration "long" :*) @long-type
+The following pattern matches a type declaration that may or may not have a long keyword:
+
+(type_declaration "long" :?) @long-type
+Grouping
+Similar to groups in regular expressions, we can bundle patterns into groups and apply quantification operators to them. For example, to express a comma-separated list of identifiers, one could write
+
+(identifier) ("," (identifier)) :*
+Alternation
+Again, similar to regular expressions, we can express “match any one of these patterns” in a pattern. The syntax is a vector of patterns. For example, to capture some keywords in C, the pattern would be
+
+[
+  "return"
+  "break"
+  "if"
+  "else"
+] @keyword
+Anchor
+The anchor operator :anchor can be used to enforce juxtaposition, i.e., to enforce two things to be directly next to each other. The two “things” can be two nodes, or a child and the end of its parent. For example, to capture the first child, the last child, or two adjacent children:
+
+;; Anchor the child with the end of its parent.
+(compound_expression (_) @last-child :anchor)
+
+;; Anchor the child with the beginning of its parent.
+(compound_expression :anchor (_) @first-child)
+
+;; Anchor two adjacent children.
+(compound_expression
+ (_) @prev-child
+ :anchor
+ (_) @next-child)
+Note that the enforcement of juxtaposition ignores any anonymous nodes.
+
+Predicate
+It is possible to add predicate constraints to a pattern. For example, with the following pattern:
+
+(
+ (array :anchor (_) @first (_) @last :anchor)
+ (:equal @first @last)
+)
+tree-sitter only matches arrays where the first element is equal to the last element. To attach a predicate to a pattern, we need to group them together. Currently there are three predicates: :equal, :match, and :pred.
+
+Predicate: :equal arg1 arg2 ¶
+Matches if arg1 is equal to arg2. Arguments can be either strings or capture names. Capture names represent the text that the captured node spans in the buffer.
+
+Predicate: :match regexp capture-name ¶
+Matches if the text that capture-name’s node spans in the buffer matches regular expression regexp, given as a string literal. Matching is case-sensitive.
+
+Predicate: :pred fn &rest nodes ¶
+Matches if function fn returns non-nil when passed each node in nodes as arguments.
+
+Note that a predicate can only refer to capture names that appear in the same pattern. Indeed, it makes little sense to refer to capture names in other patterns.
+
+String patterns
+Besides s-expressions, Emacs allows the tree-sitter’s native query syntax to be used by writing them as strings. It largely resembles the s-expression syntax. For example, the following query
+
+(treesit-query-capture
+ node '((addition_expression
+         left: (_) @left
+         "+" @plus-sign
+         right: (_) @right) @addition
+
+         ["return" "break"] @keyword))
+is equivalent to
+
+(treesit-query-capture
+ node "(addition_expression
+        left: (_) @left
+        \"+\" @plus-sign
+        right: (_) @right) @addition
+
+        [\"return\" \"break\"] @keyword")
+Most patterns can be written directly as s-expressions inside a string. Only a few of them need modification:
+
+Anchor :anchor is written as ‘.’.
+‘:?’ is written as ‘?’.
+‘:*’ is written as ‘*’.
+‘:+’ is written as ‘+’.
+:equal, :match and :pred are written as #equal, #match and #pred, respectively. In general, predicates change their ‘:’ to ‘#’.
+For example,
+
+'((
+   (compound_expression :anchor (_) @first (_) :* @rest)
+   (:match "love" @first)
+   ))
+is written in string form as
+
+"(
+  (compound_expression . (_) @first (_)* @rest)
+  (#match \"love\" @first)
+  )"
+Compiling queries
+If a query is intended to be used repeatedly, especially in tight loops, it is important to compile that query, because a compiled query is much faster than an uncompiled one. A compiled query can be used anywhere a query is accepted.
+
+Function: treesit-query-compile language query ¶
+This function compiles query for language into a compiled query object and returns it.
+
+This function raises the treesit-query-error error if query is malformed. The signal data contains a description of the specific error. You can use treesit-query-validate to validate and debug the query.
+
+Function: treesit-query-language query ¶
+This function returns the language of query.
+
+Function: treesit-query-expand query ¶
+This function converts the s-expression query into the string format.
+
+Function: treesit-pattern-expand pattern ¶
+This function converts the s-expression pattern into the string format.
+
+For more details, read the tree-sitter project’s documentation about pattern-matching, which can be found at https://tree-sitter.github.io/tree-sitter/using-parsers#pattern-matching-with-queries.
+
+
+*** Parsing Text in Multiple Languages
+
+Sometimes, the source of a programming language could contain snippets of other languages; HTML + CSS + JavaScript is one example. In that case, text segments written in different languages need to be assigned different parsers. Traditionally, this is achieved by using narrowing. While tree-sitter works with narrowing (see narrowing), the recommended way is instead to specify regions of buffer text (i.e., ranges) in which a parser will operate. This section describes functions for setting and getting ranges for a parser.
+
+Lisp programs should call treesit-update-ranges to make sure the ranges for each parser are correct before using parsers in a buffer, and call treesit-language-at to figure out the language responsible for the text at some position. These two functions don’t work by themselves, they need major modes to set treesit-range-settings and treesit-language-at-point-function, which do the actual work. These functions and variables are explained in more detail towards the end of the section.
+
+Getting and setting ranges
+Function: treesit-parser-set-included-ranges parser ranges ¶
+This function sets up parser to operate on ranges. The parser will only read the text of the specified ranges. Each range in ranges is a pair of the form (beg . end).
+
+The ranges in ranges must come in order and must not overlap. That is, in pseudo code:
+
+(cl-loop for idx from 1 to (1- (length ranges))
+         for prev = (nth (1- idx) ranges)
+         for next = (nth idx ranges)
+         should (<= (car prev) (cdr prev)
+                    (car next) (cdr next)))
+If ranges violates this constraint, or something else went wrong, this function signals the treesit-range-invalid error. The signal data contains a specific error message and the ranges we are trying to set.
+
+This function can also be used for disabling ranges. If ranges is nil, the parser is set to parse the whole buffer.
+
+Example:
+
+(treesit-parser-set-included-ranges
+ parser '((1 . 9) (16 . 24) (24 . 25)))
+Function: treesit-parser-included-ranges parser ¶
+This function returns the ranges set for parser. The return value is the same as the ranges argument of treesit-parser-included-ranges: a list of cons cells of the form (beg . end). If parser doesn’t have any ranges, the return value is nil.
+
+(treesit-parser-included-ranges parser)
+    ⇒ ((1 . 9) (16 . 24) (24 . 25))
+Function: treesit-query-range source query &optional beg end ¶
+This function matches source with query and returns the ranges of captured nodes. The return value is a list of cons cells of the form (beg . end), where beg and end specify the beginning and the end of a region of text.
+
+For convenience, source can be a language symbol, a parser, or a node. If it’s a language symbol, this function matches in the root node of the first parser using that language; if a parser, this function matches in the root node of that parser; if a node, this function matches in that node.
+
+The argument query is the query used to capture nodes (see Pattern Matching Tree-sitter Nodes). The capture names don’t matter. The arguments beg and end, if both non-nil, limit the range in which this function queries.
+
+Like other query functions, this function raises the treesit-query-error error if query is malformed.
+
+Supporting multiple languages in Lisp programs
+It should suffice for general Lisp programs to call the following two functions in order to support program sources that mix multiple languages.
+
+Function: treesit-update-ranges &optional beg end ¶
+This function updates ranges for parsers in the buffer. It makes sure the parsers’ ranges are set correctly between beg and end, according to treesit-range-settings. If omitted, beg defaults to the beginning of the buffer, and end defaults to the end of the buffer.
+
+For example, fontification functions use this function before querying for nodes in a region.
+
+Function: treesit-language-at pos ¶
+This function returns the language of the text at buffer position pos. Under the hood it calls treesit-language-at-point-function and returns its return value. If treesit-language-at-point-function is nil, this function returns the language of the first parser in the returned value of treesit-parser-list. If there is no parser in the buffer, it returns nil.
+
+Supporting multiple languages in major modes
+Normally, in a set of languages that can be mixed together, there is a host language and one or more embedded languages. A Lisp program usually first parses the whole document with the host language’s parser, retrieves some information, sets ranges for the embedded languages with that information, and then parses the embedded languages.
+
+Take a buffer containing HTML, CSS, and JavaScript as an example. A Lisp program will first parse the whole buffer with an HTML parser, then query the parser for style_element and script_element nodes, which correspond to CSS and JavaScript text, respectively. Then it sets the range of the CSS and JavaScript parsers to the range which their corresponding nodes span.
+
+Given a simple HTML document:
+
+<html>
+  <script>1 + 2</script>
+  <style>body { color: "blue"; }</style>
+</html>
+a Lisp program will first parse with a HTML parser, then set ranges for CSS and JavaScript parsers:
+
+;; Create parsers.
+(setq html (treesit-parser-create 'html))
+(setq css (treesit-parser-create 'css))
+(setq js (treesit-parser-create 'javascript))
+
+;; Set CSS ranges.
+(setq css-range
+      (treesit-query-range
+       'html
+       '((style_element (raw_text) @capture))))
+(treesit-parser-set-included-ranges css css-range)
+
+;; Set JavaScript ranges.
+(setq js-range
+      (treesit-query-range
+       'html
+       '((script_element (raw_text) @capture))))
+(treesit-parser-set-included-ranges js js-range)
+Emacs automates this process in treesit-update-ranges. A multi-language major mode should set treesit-range-settings so that treesit-update-ranges knows how to perform this process automatically. Major modes should use the helper function treesit-range-rules to generate a value that can be assigned to treesit-range-settings. The settings in the following example directly translate into operations shown above.
+
+(setq treesit-range-settings
+      (treesit-range-rules
+       :embed 'javascript
+       :host 'html
+       '((script_element (raw_text) @capture))
+
+       :embed 'css
+       :host 'html
+       '((style_element (raw_text) @capture))))
+Function: treesit-range-rules &rest query-specs ¶
+This function is used to set treesit-range-settings. It takes care of compiling queries and other post-processing, and outputs a value that treesit-range-settings can have.
+
+It takes a series of query-specs, where each query-spec is a query preceded by zero or more keyword/value pairs. Each query is a tree-sitter query in either the string, s-expression, or compiled form, or a function.
+
+If query is a tree-sitter query, it should be preceded by two keyword/value pairs, where the :embed keyword specifies the embedded language, and the :host keyword specifies the host language.
+
+treesit-update-ranges uses query to figure out how to set the ranges for parsers for the embedded language. It queries query in a host language parser, computes the ranges which the captured nodes span, and applies these ranges to embedded language parsers.
+
+If query is a function, it doesn’t need any keyword and value pair. It should be a function that takes 2 arguments, start and end, and sets the ranges for parsers in the current buffer in the region between start and end. It is fine for this function to set ranges in a larger region that encompasses the region between start and end.
+
+Variable: treesit-range-settings ¶
+This variable helps treesit-update-ranges in updating the ranges for parsers in the buffer. It is a list of settings where the exact format of a setting is considered internal. You should use treesit-range-rules to generate a value that this variable can have.
+
+Variable: treesit-language-at-point-function ¶
+This variable’s value should be a function that takes a single argument, pos, which is a buffer position, and returns the language of the buffer text at pos. This variable is used by treesit-language-at.
+
+
+*** Developing major modes with tree-sitter
+
+This section covers some general guidelines on developing tree-sitter integration for a major mode.
+
+A major mode supporting tree-sitter features should roughly follow this pattern:
+
+(define-derived-mode woomy-mode prog-mode "Woomy"
+  "A mode for Woomy programming language."
+  (when (treesit-ready-p 'woomy)
+    (setq-local treesit-variables ...)
+    ...
+    (treesit-major-mode-setup)))
+treesit-ready-p automatically emits a warning if conditions for enabling tree-sitter aren’t met.
+
+If a tree-sitter major mode shares setup with its “native” counterpart, one can create a “base mode” that contains the common setup, like this:
+
+(define-derived-mode woomy--base-mode prog-mode "Woomy"
+  "An internal mode for Woomy programming language."
+  (common-setup)
+  ...)
+
+(define-derived-mode woomy-mode woomy--base-mode "Woomy"
+  "A mode for Woomy programming language."
+  (native-setup)
+  ...)
+
+(define-derived-mode woomy-ts-mode woomy--base-mode "Woomy"
+  "A mode for Woomy programming language."
+  (when (treesit-ready-p 'woomy)
+    (setq-local treesit-variables ...)
+    ...
+    (treesit-major-mode-setup)))
+Function: treesit-ready-p language &optional quiet ¶
+This function checks for conditions for activating tree-sitter. It checks whether Emacs was built with tree-sitter, whether the buffer’s size is not too large for tree-sitter to handle, and whether the grammar for language is available on the system (see Tree-sitter Language Grammar).
+
+This function emits a warning if tree-sitter cannot be activated. If quiet is message, the warning is turned into a message; if quiet is t, no warning or message is displayed.
+
+If all the necessary conditions are met, this function returns non-nil; otherwise it returns nil.
+
+Function: treesit-major-mode-setup ¶
+This function activates some tree-sitter features for a major mode.
+
+Currently, it sets up the following features:
+
+If treesit-font-lock-settings (see Parser-based Font Lock) is non-nil, it sets up fontification.
+If treesit-simple-indent-rules (see Parser-based Indentation) is non-nil, it sets up indentation.
+If treesit-defun-type-regexp is non-nil, it sets up navigation functions for beginning-of-defun and end-of-defun.
+If treesit-defun-name-function is non-nil, it sets up add-log functions used by add-log-current-defun.
+If treesit-simple-imenu-settings (see Imenu) is non-nil, it sets up Imenu.
+For more information on these built-in tree-sitter features, see Parser-based Font Lock, see Parser-based Indentation, and see Moving over Balanced Expressions.
+
+For supporting mixing of multiple languages in a major mode, see Parsing Text in Multiple Languages.
+
+Besides beginning-of-defun and end-of-defun, Emacs provides some additional functions for working with defuns: treesit-defun-at-point returns the defun node at point, and treesit-defun-name returns the name of a defun node.
+
+Function: treesit-defun-at-point ¶
+This function returns the defun node at point, or nil if none is found. It respects treesit-defun-tactic: if its value is top-level, this function returns the top-level defun, and if its value is nested, it returns the immediate enclosing defun.
+
+This function requires treesit-defun-type-regexp to work. If it is nil, this function simply returns nil.
+
+Function: treesit-defun-name node ¶
+This function returns the defun name of node. It returns nil if there is no defun name for node, or if node is not a defun node, or if node is nil.
+
+Depending on the language and major mode, the defun names are names like function name, class name, struct name, etc.
+
+If treesit-defun-name-function is nil, this function always returns nil.
+
+Variable: treesit-defun-name-function ¶
+If non-nil, this variable’s value should be a function that is called with a node as its argument, and returns the defun name of the node. The function should have the same semantics as treesit-defun-name: if the node is not a defun node, or the node is a defun node but doesn’t have a name, or the node is nil, it should return nil.
+
+
+*** Tree-sitter C API Correspondence
+
+Emacs’ tree-sitter integration doesn’t expose every feature provided by tree-sitter’s C API. Missing features include:
+
+Creating a tree cursor and navigating the syntax tree with it.
+Setting timeout and cancellation flag for a parser.
+Setting the logger for a parser.
+Printing a DOT graph of the syntax tree to a file.
+Copying and modifying a syntax tree. (Emacs doesn’t expose a tree object.)
+Using (row, column) coordinates as position.
+Updating a node with changes. (In Emacs, retrieve a new node instead of updating the existing one.)
+Querying statics of a language grammar.
+In addition, Emacs makes some changes to the C API to make the API more convenient and idiomatic:
+
+Instead of using byte positions, the Emacs Lisp API uses character positions.
+Null nodes are converted to nil.
+Below is the correspondence between all C API functions and their ELisp counterparts. Sometimes one ELisp function corresponds to multiple C functions, and many C functions don’t have an ELisp counterpart.
+
+ts_parser_new                           treesit-parser-create
+ts_parser_delete
+ts_parser_set_language
+ts_parser_language                      treesit-parser-language
+ts_parser_set_included_ranges           treesit-parser-set-included-ranges
+ts_parser_included_ranges               treesit-parser-included-ranges
+ts_parser_parse
+ts_parser_parse_string                  treesit-parse-string
+ts_parser_parse_string_encoding
+ts_parser_reset
+ts_parser_set_timeout_micros
+ts_parser_timeout_micros
+ts_parser_set_cancellation_flag
+ts_parser_cancellation_flag
+ts_parser_set_logger
+ts_parser_logger
+ts_parser_print_dot_graphs
+ts_tree_copy
+ts_tree_delete
+ts_tree_root_node
+ts_tree_language
+ts_tree_edit
+ts_tree_get_changed_ranges
+ts_tree_print_dot_graph
+ts_node_type                            treesit-node-type
+ts_node_symbol
+ts_node_start_byte                      treesit-node-start
+ts_node_start_point
+ts_node_end_byte                        treesit-node-end
+ts_node_end_point
+ts_node_string                          treesit-node-string
+ts_node_is_null
+ts_node_is_named                        treesit-node-check
+ts_node_is_missing                      treesit-node-check
+ts_node_is_extra                        treesit-node-check
+ts_node_has_changes
+ts_node_has_error                       treesit-node-check
+ts_node_parent                          treesit-node-parent
+ts_node_child                           treesit-node-child
+ts_node_field_name_for_child            treesit-node-field-name-for-child
+ts_node_child_count                     treesit-node-child-count
+ts_node_named_child                     treesit-node-child
+ts_node_named_child_count               treesit-node-child-count
+ts_node_child_by_field_name             treesit-node-child-by-field-name
+ts_node_child_by_field_id
+ts_node_next_sibling                    treesit-node-next-sibling
+ts_node_prev_sibling                    treesit-node-prev-sibling
+ts_node_next_named_sibling              treesit-node-next-sibling
+ts_node_prev_named_sibling              treesit-node-prev-sibling
+ts_node_first_child_for_byte            treesit-node-first-child-for-pos
+ts_node_first_named_child_for_byte      treesit-node-first-child-for-pos
+ts_node_descendant_for_byte_range       treesit-node-descendant-for-range
+ts_node_descendant_for_point_range
+ts_node_named_descendant_for_byte_range treesit-node-descendant-for-range
+ts_node_named_descendant_for_point_range
+ts_node_edit
+ts_node_eq                              treesit-node-eq
+ts_tree_cursor_new
+ts_tree_cursor_delete
+ts_tree_cursor_reset
+ts_tree_cursor_current_node
+ts_tree_cursor_current_field_name
+ts_tree_cursor_current_field_id
+ts_tree_cursor_goto_parent
+ts_tree_cursor_goto_next_sibling
+ts_tree_cursor_goto_first_child
+ts_tree_cursor_goto_first_child_for_byte
+ts_tree_cursor_goto_first_child_for_point
+ts_tree_cursor_copy
+ts_query_new
+ts_query_delete
+ts_query_pattern_count
+ts_query_capture_count
+ts_query_string_count
+ts_query_start_byte_for_pattern
+ts_query_predicates_for_pattern
+ts_query_step_is_definite
+ts_query_capture_name_for_id
+ts_query_string_value_for_id
+ts_query_disable_capture
+ts_query_disable_pattern
+ts_query_cursor_new
+ts_query_cursor_delete
+ts_query_cursor_exec                    treesit-query-capture
+ts_query_cursor_did_exceed_match_limit
+ts_query_cursor_match_limit
+ts_query_cursor_set_match_limit
+ts_query_cursor_set_byte_range
+ts_query_cursor_set_point_range
+ts_query_cursor_next_match
+ts_query_cursor_remove_match
+ts_query_cursor_next_capture
+ts_language_symbol_count
+ts_language_symbol_name
+ts_language_symbol_for_name
+ts_language_field_count
+ts_language_field_name_for_id
+ts_language_field_id_for_name
+ts_language_symbol_type
+ts_language_version

@@ -1,0 +1,1513 @@
+#+manifold-source: ../manuals.org
+#+manifold-lines: 2842-4350
+#+manifold-stage: 04-mind
+#+manifold-date: 2026-09-15
+
+* Keys
+
+
+
+Emacs utilizes a flexible system of key sequences, allowing commands to be invoked by a series of key inputs. Some commands are triggered by a single input event (e.g., C-f), while others require a sequence of two or more input events (e.g., C-x C-f or C-x 4 C-f). The key sequence system includes complete keys and prefix keys, each playing an essential role in Emacs' command structure.
+
+The command bindings of input events are recorded in data structures called keymaps. Each entry in a keymap associates (or binds) an individual event type, either to another keymap or to a command. When an event type is bound to a keymap, that keymap is used to look up the next input event; this continues until a command is found. The whole process is called key lookup.
+
+** Keymap Basics
+
+A keymap is a Lisp data structure that specifies key bindings for various key sequences.
+
+A single keymap directly specifies definitions for individual events. When a key sequence consists of a single event, its binding in a keymap is the keymap’s definition for that event. The binding of a longer key sequence is found by an iterative process: first find the definition of the first event (which must itself be a keymap); then find the second event’s definition in that keymap, and so on until all the events in the key sequence have been processed.
+
+If the binding of a key sequence is a keymap, we call the key sequence a prefix key. Otherwise, we call it a complete key (because no more events can be added to it). If the binding is nil, we call the key undefined. Examples of prefix keys are C-c, C-x, and C-x 4. Examples of defined complete keys are X, RET, and C-x 4 C-f. Examples of undefined complete keys are C-x C-g, and C-c 3. See Prefix Keys, for more details.
+
+The rule for finding the binding of a key sequence assumes that the intermediate bindings (found for the events before the last) are all keymaps; if this is not so, the sequence of events does not form a unit—it is not really one key sequence. In other words, removing one or more events from the end of any valid key sequence must always yield a prefix key. For example, C-f C-n is not a key sequence; C-f is not a prefix key, so a longer sequence starting with C-f cannot be a key sequence.
+
+The set of possible multi-event key sequences depends on the bindings for prefix keys; therefore, it can be different for different keymaps, and can change when bindings are changed. However, a one-event sequence is always a key sequence, because it does not depend on any prefix keys for its well-formedness.
+
+At any time, several primary keymaps are active—that is, in use for finding key bindings. These are the global map, which is shared by all buffers; the local keymap, which is usually associated with a specific major mode; and zero or more minor mode keymaps, which belong to currently enabled minor modes. (Not all minor modes have keymaps.) The local keymap bindings shadow (i.e., take precedence over) the corresponding global bindings. The minor mode keymaps shadow both local and global keymaps. See Active Keymaps, for details.
+
+
+** Format of Keymaps
+
+Each keymap is a list whose CAR is the symbol keymap. The remaining elements of the list define the key bindings of the keymap. A symbol whose function definition is a keymap is also a keymap. Use the function keymapp (see below) to test whether an object is a keymap.
+
+Several kinds of elements may appear in a keymap, after the symbol keymap that begins it:
+
+(type . binding)
+This specifies one binding, for events of type type. Each ordinary binding applies to events of a particular event type, which is always a character or a symbol. See Classifying Events. In this kind of binding, binding is a command.
+
+(type item-name . binding)
+This specifies a binding which is also a simple menu item that displays as item-name in the menu. See Simple Menu Items.
+
+(type item-name help-string . binding)
+This is a simple menu item with help string help-string.
+
+(type menu-item . details)
+This specifies a binding which is also an extended menu item. This allows use of other features. See Extended Menu Items.
+
+(t . binding) ¶
+This specifies a default key binding; any event not bound by other elements of the keymap is given binding as its binding. Default bindings allow a keymap to bind all possible event types without having to enumerate all of them. A keymap that has a default binding completely masks any lower-precedence keymap, except for events explicitly bound to nil (see below).
+
+char-table
+If an element of a keymap is a char-table, it counts as holding bindings for all character events with no modifier bits (see modifier bits): the element whose index is c is the binding for the character c. This is a compact way to record lots of bindings. A keymap with such a char-table is called a full keymap. Other keymaps are called sparse keymaps.
+
+vector
+This kind of element is similar to a char-table: the element whose index is c is the binding for the character c. Since the range of characters that can be bound this way is limited by the vector size, and vector creation allocates space for all character codes from 0 up, this format should not be used except for creating menu keymaps (see Menu Keymaps), where the bindings themselves don’t matter.
+
+string ¶
+Aside from elements that specify bindings for keys, a keymap can also have a string as an element. This is called the overall prompt string and makes it possible to use the keymap as a menu. See Defining Menus.
+
+(keymap …)
+If an element of a keymap is itself a keymap, it counts as if this inner keymap were inlined in the outer keymap. This is used for multiple-inheritance, such as in make-composed-keymap.
+
+When the binding is nil, it doesn’t constitute a definition but it does take precedence over a default binding or a binding in the parent keymap. On the other hand, a binding of nil does not override lower-precedence keymaps; thus, if the local map gives a binding of nil, Emacs uses the binding from the global map.
+
+Keymaps do not directly record bindings for the meta characters. Instead, meta characters are regarded for purposes of key lookup as sequences of two characters, the first of which is ESC (or whatever is currently the value of meta-prefix-char). Thus, the key M-a is internally represented as ESC a, and its global binding is found at the slot for a in esc-map (see Prefix Keys).
+
+This conversion applies only to characters, not to function keys or other input events; thus, M-end has nothing to do with ESC end.
+
+Here as an example is the local keymap for Lisp mode, a sparse keymap. It defines bindings for DEL, C-c C-z, C-M-q, and C-M-x (the actual value also contains a menu binding, which is omitted here for the sake of brevity).
+
+lisp-mode-map
+⇒
+(keymap
+ (3 keymap
+    ;; C-c C-z
+    (26 . run-lisp))
+ (27 keymap
+     ;; C-M-x, treated as ESC C-x
+     (24 . lisp-send-defun))
+ ;; This part is inherited from lisp-mode-shared-map.
+ keymap
+ ;; DEL
+ (127 . backward-delete-char-untabify)
+ (27 keymap
+     ;; C-M-q, treated as ESC C-q
+     (17 . indent-sexp)))
+Function: keymapp object ¶
+This function returns t if object is a keymap, nil otherwise. More precisely, this function tests for a list whose CAR is keymap, or for a symbol whose function definition satisfies keymapp.
+
+(keymapp '(keymap))
+    ⇒ t
+(fset 'foo '(keymap))
+(keymapp 'foo)
+    ⇒ t
+(keymapp (current-global-map))
+    ⇒ t
+
+** Creating Keymaps
+
+Here we describe the functions for creating keymaps.
+
+Function: make-sparse-keymap &optional prompt ¶
+This function creates and returns a new sparse keymap with no entries. (A sparse keymap is the kind of keymap you usually want.) The new keymap does not contain a char-table, unlike make-keymap, and does not bind any events.
+
+(make-sparse-keymap)
+    ⇒ (keymap)
+If you specify prompt, that becomes the overall prompt string for the keymap. You should specify this only for menu keymaps (see Defining Menus). A keymap with an overall prompt string will always present a mouse menu or a keyboard menu if it is active for looking up the next input event. Don’t specify an overall prompt string for the main map of a major or minor mode, because that would cause the command loop to present a keyboard menu every time.
+
+Function: make-keymap &optional prompt ¶
+This function creates and returns a new full keymap. That keymap contains a char-table (see Char-Tables) with slots for all characters without modifiers. The new keymap initially binds all these characters to nil, and does not bind any other kind of event. The argument prompt specifies a prompt string, as in make-sparse-keymap.
+
+(make-keymap)
+    ⇒ (keymap #^[nil nil keymap nil nil nil …])
+A full keymap is more efficient than a sparse keymap when it holds lots of bindings; for just a few, the sparse keymap is better.
+
+Function: define-keymap &key options... &rest pairs... ¶
+You can create a keymap with the functions described above, and then use keymap-set (see Changing Key Bindings) to specify key bindings in that map. When writing modes, however, you frequently have to bind a large number of keys at once, and using keymap-set on them all can be tedious and error-prone. Instead you can use define-keymap, which creates a keymap and binds a number of keys. Here’s a very basic example:
+
+(define-keymap
+  "n" #'forward-line
+  "f" #'previous-line
+  "C-c C-c" #'quit-window)
+This function creates a new sparse keymap, defines the keystrokes in pairs, and returns the new keymap. It signals an error if there are duplicate key bindings in pairs.
+
+pairs is a list of alternating key bindings and key definitions, as accepted by keymap-set. In addition, the key can be the special symbol :menu, in which case the definition should be a menu definition as accepted by easy-menu-define (see Easy Menu). Here’s a brief example of this usage:
+
+(define-keymap :full t
+  "g" #'eww-reload
+  :menu '("Eww"
+          ["Exit" quit-window t]
+          ["Reload" eww-reload t]))
+A number of keywords can be used before the key/definition pairs to change features of the new keymap. If any of the feature keywords is missing from the define-keymap call, the default value for that feature is nil. Here’s a list of the available feature keywords:
+
+:full
+If non-nil, create a char-table keymap (as from make-keymap) instead of a sparse keymap (as from make-sparse-keymap (see Creating Keymaps). A sparse keymap is the default.
+
+:parent
+If non-nil, the value should be a keymap to use as the parent (see Inheritance and Keymaps).
+
+:keymap
+If non-nil, the value should be a keymap. Instead of creating a new keymap, the specified keymap is modified instead.
+
+:suppress
+If non-nil, the keymap will be suppressed with suppress-keymap (see Changing Key Bindings). By default, digits and the minus sign are exempt from suppressing, but if the value is nodigits, this suppresses digits and minus-sign like it does with other characters.
+
+:name
+If non-nil, the value should be a string to use as the menu for the keymap if you use it as a menu with x-popup-menu (see Pop-Up Menus).
+
+:prefix
+If non-nil, the value should be a symbol to be used as a prefix command (see Prefix Keys). If this is the case, this symbol is returned by define-keymap instead of the map itself.
+
+Macro: defvar-keymap name &key options... &rest pairs... ¶
+By far, the most common thing to do with a keymap is to bind it to a variable. This is what virtually all modes do—a mode called foo almost always has a variable called foo-mode-map.
+
+This macro defines name as a variable, passes options and pairs to define-keymap, and uses the result as the default value for the variable. It signals an error if there are duplicate key bindings in pairs.
+
+options is like the keywords in define-keymap, but there’s an additional :doc keyword that provides the doc string for the defined variable.
+
+Here’s an example:
+
+(defvar-keymap eww-textarea-map
+  :parent text-mode-map
+  :doc "Keymap for the eww text area."
+  "RET" #'forward-line
+  "TAB" #'shr-next-link)
+Each command in the keymap can be marked as ‘repeatable’, i.e. usable in repeat-mode, by putting a repeat-map property on it, e.g.
+
+(put 'undo 'repeat-map 'undo-repeat-map)
+where the value of the property is the map to be used by repeat-mode.
+
+To avoid repetitive invocations of put, defvar-keymap also has a :repeat keyword, which can be used to specify which commands in the keymap are usable by repeat-mode. The following values are available:
+
+t
+This means all the commands in the keymap are repeatable, and is the most common usage.
+
+(:enter (commands ...) :exit (commands ...))
+This specifies that the commands in the :enter list enter repeat-mode, and the commands in the :exit list exit repeat mode.
+
+If the :enter list is empty, then all commands in the map enter repeat-mode. Specifying one or more commands in this list is useful if there is a command which doesn’t exist in the map being defined, but which should have the repeat-map property.
+
+If the :exit list is empty then no commands in the map exit repeat-mode. Specifying one or more commands in this list is useful if the keymap being defined contains a command that should not have the repeat-map property.
+
+In order to make e.g. u repeat the undo command, the following two stanzas are equivalent:
+
+(defvar-keymap undo-repeat-map
+  "u" #'undo)
+(put 'undo 'repeat-map 'undo-repeat-map)
+and
+
+(defvar-keymap undo-repeat-map
+  :repeat t
+  "u" #'undo)
+The latter is preferred when there are many commands in the map, all of which should be repeatable.
+
+Function: copy-keymap keymap ¶
+This function returns a copy of keymap. This is almost never needed. If you want a keymap that’s like another yet with a few changes, you should use map inheritance rather than copying. I.e., something like:
+
+(let ((map (make-sparse-keymap)))
+  (set-keymap-parent map <theirmap>)
+  (keymap-set map ...)
+  ...)
+When performing copy-keymap, any keymaps that appear directly as bindings in keymap are also copied recursively, and so on to any number of levels. However, recursive copying does not take place when the definition of a character is a symbol whose function definition is a keymap; the same symbol appears in the new copy.
+
+(setq map (copy-keymap (current-local-map)))
+⇒ (keymap
+     ;; (This implements meta characters.)
+     (27 keymap
+         (83 . center-paragraph)
+         (115 . center-line))
+     (9 . tab-to-tab-stop))
+
+(eq map (current-local-map))
+    ⇒ nil
+(equal map (current-local-map))
+    ⇒ t
+
+** Inheritance and Keymaps
+
+A keymap can inherit the bindings of another keymap, which we call the parent keymap. Such a keymap looks like this:
+
+(keymap elements… . parent-keymap)
+The effect is that this keymap inherits all the bindings of parent-keymap, whatever they may be at the time a key is looked up, but can add to them or override them with elements.
+
+If you change the bindings in parent-keymap using keymap-set or other key-binding functions, these changed bindings are visible in the inheriting keymap, unless shadowed by the bindings made by elements. The converse is not true: if you use keymap-set to change bindings in the inheriting keymap, these changes are recorded in elements, but have no effect on parent-keymap.
+
+The proper way to construct a keymap with a parent is to use set-keymap-parent; if you have code that directly constructs a keymap with a parent, please convert the program to use set-keymap-parent instead.
+
+Function: keymap-parent keymap ¶
+This returns the parent keymap of keymap. If keymap has no parent, keymap-parent returns nil.
+
+Function: set-keymap-parent keymap parent ¶
+This sets the parent keymap of keymap to parent, and returns parent. If parent is nil, this function gives keymap no parent at all.
+
+If keymap has submaps (bindings for prefix keys), they too receive new parent keymaps that reflect what parent specifies for those prefix keys.
+
+Here is an example showing how to make a keymap that inherits from text-mode-map:
+
+(let ((map (make-sparse-keymap)))
+  (set-keymap-parent map text-mode-map)
+  map)
+A non-sparse keymap can have a parent too, but this is not very useful. A non-sparse keymap always specifies something as the binding for every numeric character code without modifier bits, even if it is nil, so these character’s bindings are never inherited from the parent keymap.
+
+Sometimes you want to make a keymap that inherits from more than one map. You can use the function make-composed-keymap for this.
+
+Function: make-composed-keymap maps &optional parent ¶
+This function returns a new keymap composed of the existing keymap(s) maps, and optionally inheriting from a parent keymap parent. maps can be a single keymap or a list of more than one. When looking up a key in the resulting new map, Emacs searches in each of the maps in turn, and then in parent, stopping at the first match. A nil binding in any one of maps overrides any binding in parent, but it does not override any non-nil binding in any other of the maps.
+
+For example, here is how Emacs sets the parent of help-mode-map, such that it inherits from both button-buffer-map and special-mode-map:
+
+(defvar-keymap help-mode-map
+  :parent (make-composed-keymap button-buffer-map
+                                special-mode-map)
+  ...)
+
+** Prefix Keys
+
+A prefix key is a key sequence whose binding is a keymap. The keymap defines what to do with key sequences that extend the prefix key. For example, C-x is a prefix key, and it uses a keymap that is also stored in the variable ctl-x-map. This keymap defines bindings for key sequences starting with C-x.
+
+Some of the standard Emacs prefix keys use keymaps that are also found in Lisp variables:
+
+esc-map is the global keymap for the ESC prefix key. Thus, the global definitions of all meta characters are actually found here. This map is also the function definition of ESC-prefix.
+help-map is the global keymap for the C-h prefix key.
+mode-specific-map is the global keymap for the prefix key C-c. This map is actually global, not mode-specific, but its name provides useful information about C-c in the output of C-h b (display-bindings), since the main use of this prefix key is for mode-specific bindings.
+ctl-x-map is the global keymap used for the C-x prefix key. This map is found via the function cell of the symbol Control-X-prefix.
+mule-keymap is the global keymap used for the C-x RET prefix key.
+ctl-x-4-map is the global keymap used for the C-x 4 prefix key.
+ctl-x-5-map is the global keymap used for the C-x 5 prefix key.
+2C-mode-map is the global keymap used for the C-x 6 prefix key.
+tab-prefix-map is the global keymap used for the C-x t prefix key.
+vc-prefix-map is the global keymap used for the C-x v prefix key.
+goto-map is the global keymap used for the M-g prefix key.
+search-map is the global keymap used for the M-s prefix key.
+The other Emacs prefix keys are C-x @, C-x a i, C-x ESC and ESC ESC. They use keymaps that have no special names.
+The keymap binding of a prefix key is used for looking up the event that follows the prefix key. (It may instead be a symbol whose function definition is a keymap. The effect is the same, but the symbol serves as a name for the prefix key.) Thus, the binding of C-x is the symbol Control-X-prefix, whose function cell holds the keymap for C-x commands. (The same keymap is also the value of ctl-x-map.)
+
+Prefix key definitions can appear in any active keymap. The definitions of C-c, C-x, C-h and ESC as prefix keys appear in the global map, so these prefix keys are always available. Major and minor modes can redefine a key as a prefix by putting a prefix key definition for it in the local map or the minor mode’s map. See Active Keymaps.
+
+If a key is defined as a prefix in more than one active map, then its various definitions are in effect merged: the commands defined in the minor mode keymaps come first, followed by those in the local map’s prefix definition, and then by those from the global map.
+
+In the following example, we make C-p a prefix key in the local keymap, in such a way that C-p is identical to C-x. Then the binding for C-p C-f is the function find-file, just like C-x C-f. By contrast, the key sequence C-p 9 is not found in any active keymap.
+
+(use-local-map (make-sparse-keymap))
+    ⇒ nil
+(keymap-local-set "C-p" ctl-x-map)
+    ⇒ (keymap #^[nil nil keymap …
+(keymap-lookup nil "C-p C-f")
+    ⇒ find-file
+(keymap-lookup nil "C-p 9")
+    ⇒ nil
+Function: define-prefix-command symbol &optional mapvar prompt ¶
+This function prepares symbol for use as a prefix key’s binding: it creates a sparse keymap and stores it as symbol’s function definition. Subsequently binding a key sequence to symbol will make that key sequence into a prefix key. The return value is symbol.
+
+This function also sets symbol as a variable, with the keymap as its value. But if mapvar is non-nil, it sets mapvar as a variable instead.
+
+If prompt is non-nil, that becomes the overall prompt string for the keymap. The prompt string should be given for menu keymaps (see Defining Menus).
+
+
+
+** Key Prefix
+
+A prefix key is an incomplete sequence that needs to be followed by additional input to form a valid command. Typing just the prefix does not trigger any action on its own; Emacs waits for further input.
+
+Example: C-x is a prefix key. Typing C-x alone doesn’t invoke a command but instead waits for additional input, such as C-x C-f or C-x 4.
+
+When a prefix key is typed, Emacs will often display the key sequence in the echo area if you pause before continuing the sequence.
+
+Common prefix keys include: C-x, C-c, ESC, C-h, and F1.
+
+
+** Key Sequence
+
+A key sequence is a series of one or more input events that forms a complete command. This sequence may involve a prefix key, but once the entire sequence is entered, it triggers a specific function.
+
+Complete Key: A sequence that directly invokes a command.
+
+Example: C-f moves the cursor forward by one character in the buffer.
+
+Example: C-x C-f opens a file.
+
+
+Prefix Key Sequence: A key sequence that begins with a prefix key, requiring additional input to form a valid command.
+
+Example: C-x 4 C-f opens a file in another window, with C-x 4 being the prefix.
+
+
+** Key Sequences
+
+A key sequence, or key for short, is a sequence of one or more input events that form a unit. Input events include characters, function keys, mouse actions, or system events external to Emacs, such as iconify-frame (see Input Events). The Emacs Lisp representation for a key sequence is a string or vector. Unless otherwise stated, any Emacs Lisp function that accepts a key sequence as an argument can handle both representations.
+
+In the string representation, alphanumeric characters ordinarily stand for themselves; for example, "a" represents a and "2" represents 2. Control character events are prefixed by the substring "\C-", and meta characters by "\M-"; for example, "\C-x" represents the key C-x. In addition, the TAB, RET, ESC, and DEL events are represented by "\t", "\r", "\e", and "\d" respectively. The string representation of a complete key sequence is the concatenation of the string representations of the constituent events; thus, "\C-xl" represents the key sequence C-x l.
+
+Key sequences containing function keys, mouse button events, system events, or non-ASCII characters such as C-= or H-a cannot be represented as strings; they have to be represented as vectors.
+
+In the vector representation, each element of the vector represents an input event, in its Lisp form. See Input Events. For example, the vector [?\C-x ?l] represents the key sequence C-x l.
+
+For examples of key sequences written in string and vector representations, Init Rebinding in The GNU Emacs Manual.
+
+Function: kbd keyseq-text ¶
+This function converts the text keyseq-text (a string constant) into a key sequence (a string or vector constant). The contents of keyseq-text should use the same syntax as in the buffer invoked by the C-x C-k RET (kmacro-edit-macro) command; in particular, you must surround function key names with ‘<…>’. See Edit Keyboard Macro in The GNU Emacs Manual.
+
+(kbd "C-x") ⇒ "\C-x"
+(kbd "C-x C-f") ⇒ "\C-x\C-f"
+(kbd "C-x 4 C-f") ⇒ "\C-x4\C-f"
+(kbd "X") ⇒ "X"
+(kbd "RET") ⇒ "^M"
+(kbd "C-c SPC") ⇒ "\C-c "
+(kbd "<f1> SPC") ⇒ [f1 32]
+(kbd "C-M-<down>") ⇒ [C-M-down]
+The kbd function is very permissive, and will try to return something sensible even if the syntax used isn’t completely conforming. To check whether the syntax is actually valid, use the key-valid-p function.
+
+
+
+** Combined Keys (Prefix + Sequence)
+
+Combined keys refer to a key sequence where a prefix key is combined with one or more input events to form a longer sequence that triggers a command.
+
+A key sequence involving a prefix, like C-x, requires you to combine it with subsequent keys to make it a complete command.
+
+Example: C-x C-f is a combined key sequence where C-x is the prefix and C-f is the final key that forms the complete command for opening a file.
+
+The flexibility of the system allows for chains of prefixes and sequences (e.g., C-x 4 C-f or ESC C-h).
+
+
+** Keys and Commands
+
+
+This manual is full of passages that tell you what particular keys do. But Emacs does not assign meanings to keys directly. Instead, Emacs assigns meanings to named commands, and then gives keys their meanings by binding them to commands.
+
+Every command has a name chosen by a programmer. The name is usually made of a few English words separated by dashes; for example, next-line or forward-word. Internally, each command is a special type of Lisp function, and the actions associated with the command are performed by running the function. See What Is a Function in The Emacs Lisp Reference Manual.
+
+The bindings between keys and commands are recorded in tables called keymaps. See Keymaps.
+
+When we say that “C-n moves down vertically one line” we are glossing over a subtle distinction that is irrelevant in ordinary use, but vital for Emacs customization. The command next-line does a vertical move downward. C-n has this effect because it is bound to next-line. If you rebind C-n to the command forward-word, C-n will move forward one word instead.
+
+In this manual, we will often speak of keys like C-n as commands, even though strictly speaking the key is bound to a command. Usually, we state the name of the command which really does the work in parentheses after mentioning the key that runs it. For example, we will say that “The command C-n (next-line) moves point vertically down”, meaning that the command next-line moves vertically down, and the key C-n is normally bound to it.
+
+Since we are discussing customization, we should tell you about variables. Often the description of a command will say, “To change this, set the variable mumble-foo.” A variable is a name used to store a value. Most of the variables documented in this manual are meant for customization: some command or other part of Emacs examines the variable and behaves differently according to the value that you set. You can ignore the information about variables until you are interested in customizing them. Then read the basic information on variables (see Variables) and the information about specific variables will make sense.
+
+
+** Active Keymaps
+
+Emacs contains many keymaps, but at any time only a few keymaps are active. When Emacs receives user input, it translates the input event (see Keymaps for Translating Sequences of Events), and looks for a key binding in the active keymaps.
+
+Usually, the active keymaps are: (i) the keymap specified by the keymap property, (ii) the keymaps of enabled minor modes, (iii) the current buffer’s local keymap, and (iv) the global keymap, in that order. Emacs searches for each input key sequence in all these keymaps.
+
+Of these usual keymaps, the highest-precedence one is specified by the keymap text or overlay property at point, if any. (For a mouse input event, Emacs uses the event position instead of point; see Searching the Active Keymaps.)
+
+Next in precedence are keymaps specified by enabled minor modes. These keymaps, if any, are specified by the variables emulation-mode-map-alists, minor-mode-overriding-map-alist, and minor-mode-map-alist. See Controlling the Active Keymaps.
+
+Next in precedence is the buffer’s local keymap, containing key bindings specific to the buffer. The minibuffer also has a local keymap (see Introduction to Minibuffers). If there is a local-map text or overlay property at point, that specifies the local keymap to use, in place of the buffer’s default local keymap.
+
+The local keymap is normally set by the buffer’s major mode, and every buffer with the same major mode shares the same local keymap. Hence, if you call keymap-local-set (see Commands for Binding Keys) to change the local keymap in one buffer, that also affects the local keymaps in other buffers with the same major mode.
+
+Finally, the global keymap contains key bindings that are defined regardless of the current buffer, such as C-f. It is always active, and is bound to the variable global-map.
+
+Apart from the above usual keymaps, Emacs provides special ways for programs to make other keymaps active. Firstly, the variable overriding-local-map specifies a keymap that replaces the usual active keymaps, except for the global keymap. Secondly, the terminal-local variable overriding-terminal-local-map specifies a keymap that takes precedence over all other keymaps (including overriding-local-map); this is normally used for modal/transient key bindings (the function set-transient-map provides a convenient interface for this). See Controlling the Active Keymaps, for details.
+
+Making keymaps active is not the only way to use them. Keymaps are also used in other ways, such as for translating events within read-key-sequence. See Keymaps for Translating Sequences of Events.
+
+See Standard Keymaps, for a list of some standard keymaps.
+
+Function: current-active-maps &optional olp position ¶
+This returns the list of active keymaps that would be used by the command loop in the current circumstances to look up a key sequence. Normally it ignores overriding-local-map and overriding-terminal-local-map, but if olp is non-nil then it pays attention to them. position can optionally be either an event position as returned by event-start or a buffer position, and may change the keymaps as described for keymap-lookup (see keymap-lookup).
+
+
+** Searching the Active Keymaps
+
+Here is a pseudo-Lisp summary of how Emacs searches the active keymaps:
+
+(or (if overriding-terminal-local-map
+        (find-in overriding-terminal-local-map))
+    (if overriding-local-map
+        (find-in overriding-local-map)
+      (or (find-in (get-char-property (point) 'keymap))
+          (find-in-any emulation-mode-map-alists)
+          (find-in-any minor-mode-overriding-map-alist)
+          (find-in-any minor-mode-map-alist)
+          (if (get-char-property (point) 'local-map)
+              (find-in (get-char-property (point) 'local-map))
+            (find-in (current-local-map)))))
+    (find-in (current-global-map)))
+Here, find-in and find-in-any are pseudo functions that search in one keymap and in an alist of keymaps, respectively. Note that the set-transient-map function works by setting overriding-terminal-local-map (see Controlling the Active Keymaps).
+
+In the above pseudo-code, if a key sequence starts with a mouse event (see Mouse Events), that event’s position is used instead of point, and the event’s buffer is used instead of the current buffer. In particular, this affects how the keymap and local-map properties are looked up. If a mouse event occurs on a string embedded with a display, before-string, or after-string property (see Properties with Special Meanings), and the string has a non-nil keymap or local-map property, that overrides the corresponding property in the underlying buffer text (i.e., the property specified by the underlying text is ignored).
+
+When a key binding is found in one of the active keymaps, and that binding is a command, the search is over—the command is executed. However, if the binding is a symbol with a value or a string, Emacs replaces the input key sequences with the variable’s value or the string, and restarts the search of the active keymaps. See Key Lookup.
+
+The command which is finally found might also be remapped. See Remapping Commands.
+
+
+** Controlling the Active Keymaps
+
+Variable: global-map ¶
+This variable contains the default global keymap that maps Emacs keyboard input to commands. The global keymap is normally this keymap. The default global keymap is a full keymap that binds self-insert-command to all of the printing characters.
+
+It is normal practice to change the bindings in the global keymap, but you should not assign this variable any value other than the keymap it starts out with.
+
+Function: current-global-map ¶
+This function returns the current global keymap. This is the same as the value of global-map unless you change one or the other. The return value is a reference, not a copy; if you use keymap-set or other functions on it you will alter global bindings.
+
+(current-global-map)
+⇒ (keymap [set-mark-command beginning-of-line …
+            delete-backward-char])
+Function: current-local-map ¶
+This function returns the current buffer’s local keymap, or nil if it has none. In the following example, the keymap for the *scratch* buffer (using Lisp Interaction mode) is a sparse keymap in which the entry for ESC, ASCII code 27, is another sparse keymap.
+
+(current-local-map)
+⇒ (keymap
+    (10 . eval-print-last-sexp)
+    (9 . lisp-indent-line)
+    (127 . backward-delete-char-untabify)
+    (27 keymap
+        (24 . eval-defun)
+        (17 . indent-sexp)))
+current-local-map returns a reference to the local keymap, not a copy of it; if you use keymap-set or other functions on it you will alter local bindings.
+
+Function: current-minor-mode-maps ¶
+This function returns a list of the keymaps of currently enabled minor modes.
+
+Function: use-global-map keymap ¶
+This function makes keymap the new current global keymap. It returns nil.
+
+It is very unusual to change the global keymap.
+
+Function: use-local-map keymap ¶
+This function makes keymap the new local keymap of the current buffer. If keymap is nil, then the buffer has no local keymap. use-local-map returns nil. Most major mode commands use this function.
+
+Variable: minor-mode-map-alist ¶
+This variable is an alist describing keymaps that may or may not be active according to the values of certain variables. Its elements look like this:
+
+(variable . keymap)
+The keymap keymap is active whenever variable has a non-nil value. Typically variable is the variable that enables or disables a minor mode. See Keymaps and Minor Modes.
+
+Note that elements of minor-mode-map-alist do not have the same structure as elements of minor-mode-alist. The map must be the CDR of the element; a list with the map as the second element will not do. The CDR can be either a keymap (a list) or a symbol whose function definition is a keymap.
+
+When more than one minor mode keymap is active, the earlier one in minor-mode-map-alist takes priority. But you should design minor modes so that they don’t interfere with each other. If you do this properly, the order will not matter.
+
+See Keymaps and Minor Modes, for more information about minor modes. See also minor-mode-key-binding (see Functions for Key Lookup).
+
+Variable: minor-mode-overriding-map-alist ¶
+This variable allows major modes to override the key bindings for particular minor modes. The elements of this alist look like the elements of minor-mode-map-alist: (variable . keymap).
+
+If a variable appears as an element of minor-mode-overriding-map-alist, the map specified by that element totally replaces any map specified for the same variable in minor-mode-map-alist.
+
+minor-mode-overriding-map-alist is automatically buffer-local in all buffers.
+
+Variable: overriding-local-map ¶
+If non-nil, this variable holds a keymap to use instead of the buffer’s local keymap, any text property or overlay keymaps, and any minor mode keymaps. This keymap, if specified, overrides all other maps that would have been active, except for the current global map.
+
+Variable: overriding-terminal-local-map ¶
+If non-nil, this variable holds a keymap to use instead of overriding-local-map, the buffer’s local keymap, text property or overlay keymaps, and all the minor mode keymaps.
+
+This variable is always local to the current terminal and cannot be buffer-local. See Multiple Terminals. It is used to implement incremental search mode.
+
+Variable: overriding-local-map-menu-flag ¶
+If this variable is non-nil, the value of overriding-local-map or overriding-terminal-local-map can affect the display of the menu bar. The default value is nil, so those map variables have no effect on the menu bar.
+
+Note that these two map variables do affect the execution of key sequences entered using the menu bar, even if they do not affect the menu bar display. So if a menu bar key sequence comes in, you should clear the variables before looking up and executing that key sequence. Modes that use the variables would typically do this anyway; normally they respond to events that they do not handle by “unreading” them and exiting.
+
+Variable: special-event-map ¶
+This variable holds a keymap for special events. If an event type has a binding in this keymap, then it is special, and the binding for the event is run directly by read-event. See Special Events.
+
+Variable: emulation-mode-map-alists ¶
+This variable holds a list of keymap alists to use for emulation modes. It is intended for modes or packages using multiple minor-mode keymaps. Each element is a keymap alist which has the same format and meaning as minor-mode-map-alist, or a symbol with a variable binding which is such an alist. The active keymaps in each alist are used before minor-mode-map-alist and minor-mode-overriding-map-alist.
+
+Function: set-transient-map keymap &optional keep-pred on-exit ¶
+This function adds keymap as a transient keymap, which takes precedence over other keymaps for one (or more) subsequent keys.
+
+Normally, keymap is used just once, to look up the very next key. If the optional argument keep-pred is t, the map stays active as long as the user types keys defined in keymap; when the user types a key that is not in keymap, the transient keymap is deactivated and normal key lookup continues for that key.
+
+The keep-pred argument can also be a function. In that case, the function is called with no arguments, prior to running each command, while keymap is active; it should return non-nil if keymap should stay active.
+
+The optional argument on-exit, if non-nil, specifies a function that is called, with no arguments, after keymap is deactivated.
+
+The optional argument message specifies the message to display after activating the transient map. If message is a string, it is the format string for the message, and any ‘%k’ specifier in that string is replaced with the list of keys from the transient map. Any other non-nil value of message stands for the default message format ‘Repeat with %k’.
+
+If the optional argument timeout is non-nil, it should be a number that specifies how many seconds of idle time to wait before deactivating keymap. The value of the variable set-transient-map-timeout, if non-nil, overrides the value of this argument.
+
+This function works by adding and removing keymap from the variable overriding-terminal-local-map, which takes precedence over all other active keymaps (see Searching the Active Keymaps).
+
+
+** Key Lookup
+
+Key lookup is the process of finding the binding of a key sequence from a given keymap. The execution or use of the binding is not part of key lookup.
+
+Key lookup uses just the event type of each event in the key sequence; the rest of the event is ignored. In fact, a key sequence used for key lookup may designate a mouse event with just its types (a symbol) instead of the entire event (a list). See Input Events. Such a key sequence is insufficient for command-execute to run, but it is sufficient for looking up or rebinding a key.
+
+When the key sequence consists of multiple events, key lookup processes the events sequentially: the binding of the first event is found, and must be a keymap; then the second event’s binding is found in that keymap, and so on until all the events in the key sequence are used up. (The binding thus found for the last event may or may not be a keymap.) Thus, the process of key lookup is defined in terms of a simpler process for looking up a single event in a keymap. How that is done depends on the type of object associated with the event in that keymap.
+
+Let’s use the term keymap entry to describe the value found by looking up an event type in a keymap. (This doesn’t include the item string and other extra elements in a keymap element for a menu item, because keymap-lookup and other key lookup functions don’t include them in the returned value.) While any Lisp object may be stored in a keymap as a keymap entry, not all make sense for key lookup. Here is a table of the meaningful types of keymap entries:
+
+nil ¶
+nil means that the events used so far in the lookup form an undefined key. When a keymap fails to mention an event type at all, and has no default binding, that is equivalent to a binding of nil for that event type.
+
+command ¶
+The events used so far in the lookup form a complete key, and command is its binding. See What Is a Function?.
+
+array ¶
+The array (either a string or a vector) is a keyboard macro. The events used so far in the lookup form a complete key, and the array is its binding. See Keyboard Macros, for more information.
+
+keymap ¶
+The events used so far in the lookup form a prefix key. The next event of the key sequence is looked up in keymap.
+
+list ¶
+The meaning of a list depends on what it contains:
+
+If the CAR of list is the symbol keymap, then the list is a keymap, and is treated as a keymap (see above).
+If the CAR of list is lambda, then the list is a lambda expression. This is presumed to be a function, and is treated as such (see above). In order to execute properly as a key binding, this function must be a command—it must have an interactive specification. See Defining Commands.
+symbol ¶
+The function definition of symbol is used in place of symbol. If that too is a symbol, then this process is repeated, any number of times. Ultimately this should lead to an object that is a keymap, a command, or a keyboard macro.
+
+Note that keymaps and keyboard macros (strings and vectors) are not valid functions, so a symbol with a keymap, string, or vector as its function definition is invalid as a function. It is, however, valid as a key binding. If the definition is a keyboard macro, then the symbol is also valid as an argument to command-execute (see Interactive Call).
+
+The symbol undefined is worth special mention: it means to treat the key as undefined. Strictly speaking, the key is defined, and its binding is the command undefined; but that command does the same thing that is done automatically for an undefined key: it rings the bell (by calling ding) but does not signal an error.
+
+undefined is used in local keymaps to override a global key binding and make the key undefined locally. A local binding of nil would fail to do this because it would not override the global binding.
+
+anything else
+If any other type of object is found, the events used so far in the lookup form a complete key, and the object is its binding, but the binding is not executable as a command.
+
+In short, a keymap entry may be a keymap, a command, a keyboard macro, a symbol that leads to one of them, or nil.
+
+
+** Functions for Key Lookup
+
+Here are the functions and variables pertaining to key lookup.
+
+Function: keymap-lookup keymap key &optional accept-defaults no-remap position ¶
+This function returns the definition of key in keymap. All the other functions described in this chapter that look up keys use keymap-lookup. Here are examples:
+
+(keymap-lookup (current-global-map) "C-x C-f")
+    ⇒ find-file
+(keymap-lookup (current-global-map) "C-x C-f 1 2 3 4 5")
+    ⇒ 2
+If the string or vector key is not a valid key sequence according to the prefix keys specified in keymap, it must be too long and have extra events at the end that do not fit into a single key sequence. Then the value is a number, the number of events at the front of key that compose a complete key.
+
+If accept-defaults is non-nil, then keymap-lookup considers default bindings as well as bindings for the specific events in key. Otherwise, keymap-lookup reports only bindings for the specific sequence key, ignoring default bindings except when you explicitly ask about them. (To do this, supply t as an element of key; see Format of Keymaps.)
+
+If key contains a meta character (not a function key), that character is implicitly replaced by a two-character sequence: the value of meta-prefix-char, followed by the corresponding non-meta character. Thus, the first example below is handled by conversion into the second example.
+
+(keymap-lookup (current-global-map) "M-f")
+    ⇒ forward-word
+(keymap-lookup (current-global-map) "ESC f")
+    ⇒ forward-word
+The keymap argument can be nil, meaning to look up key in the current keymaps (as returned by current-active-maps, see Active Keymaps); or it can be a keymap or a list of keymaps, meaning to look up key only in the specified keymaps.
+
+Unlike read-key-sequence, this function does not modify the specified events in ways that discard information (see Key Sequence Input). In particular, it does not convert letters to lower case and it does not change drag events to clicks.
+
+Like the normal command loop, keymap-lookup will remap the command resulting from looking up key by looking up the command in the current keymaps. However, if the optional third argument no-remap is non-nil, keymap-lookup returns the command without remapping.
+
+If the optional argument position is non-nil, it specifies a mouse position as returned by event-start and event-end, and the lookup occurs in the keymaps associated with that position, instead of in keymap. position can also be a number or a marker, in which case it is interpreted as a buffer position, and the function uses the keymap properties at that position instead of at point.
+
+Command: undefined ¶
+Used in keymaps to undefine keys. It calls ding, but does not cause an error.
+
+Function: keymap-local-lookup key &optional accept-defaults ¶
+This function returns the binding for key in the current local keymap, or nil if it is undefined there.
+
+The argument accept-defaults controls checking for default bindings, as in keymap-lookup (above).
+
+Function: keymap-global-lookup key &optional accept-defaults ¶
+This function returns the binding for command key in the current global keymap, or nil if it is undefined there.
+
+The argument accept-defaults controls checking for default bindings, as in keymap-lookup (above).
+
+Function: minor-mode-key-binding key &optional accept-defaults ¶
+This function returns a list of all the active minor mode bindings of key. More precisely, it returns an alist of pairs (modename . binding), where modename is the variable that enables the minor mode, and binding is key’s binding in that mode. If key has no minor-mode bindings, the value is nil.
+
+If the first binding found is not a prefix definition (a keymap or a symbol defined as a keymap), all subsequent bindings from other minor modes are omitted, since they would be completely shadowed. Similarly, the list omits non-prefix bindings that follow prefix bindings.
+
+The argument accept-defaults controls checking for default bindings, as in keymap-lookup (above).
+
+User Option: meta-prefix-char ¶
+This variable is the meta-prefix character code. It is used for translating a meta character to a two-character sequence so it can be looked up in a keymap. For useful results, the value should be a prefix event (see Prefix Keys). The default value is 27, which is the ASCII code for ESC.
+
+As long as the value of meta-prefix-char remains 27, key lookup translates M-b into ESC b, which is normally defined as the backward-word command. However, if you were to set meta-prefix-char to 24, the code for C-x, then Emacs will translate M-b into C-x b, whose standard binding is the switch-to-buffer command. (Don’t actually do this!) Here is an illustration of what would happen:
+
+meta-prefix-char                    ; The default value.
+     ⇒ 27
+(key-binding "\M-b")
+     ⇒ backward-word
+?\C-x                               ; The print representation
+     ⇒ 24                          ;   of a character.
+(setq meta-prefix-char 24)
+     ⇒ 24
+(key-binding "\M-b")
+     ⇒ switch-to-buffer            ; Now, typing M-b is
+                                    ;   like typing C-x b.
+
+(setq meta-prefix-char 27)          ; Avoid confusion!
+     ⇒ 27                          ; Restore the default value!
+This translation of one event into two happens only for characters, not for other kinds of input events. Thus, M-F1, a function key, is not converted into ESC F1.
+
+
+** Changing Key Bindings
+
+The way to rebind a key is to change its entry in a keymap. If you change a binding in the global keymap, the change is effective in all buffers (though it has no direct effect in buffers that shadow the global binding with a local one). If you change the current buffer’s local map, that usually affects all buffers using the same major mode. The keymap-global-set and keymap-local-set functions are convenient interfaces for these operations (see Commands for Binding Keys). You can also use keymap-set, a more general function; then you must explicitly specify the map to change.
+
+When choosing the key sequences for Lisp programs to rebind, please follow the Emacs conventions for use of various keys (see Key Binding Conventions).
+
+The functions below signal an error if keymap is not a keymap, or if key is not a valid key.
+
+key is a string representing a single key or a series of key strokes, and must satisfy key-valid-p. Key strokes are separated by a single space character.
+
+Each key stroke is either a single character, or the name of an event, surrounded by angle brackets. In addition, any key stroke may be preceded by one or more modifier keys. Finally, a limited number of characters have a special shorthand syntax. Here’s some example key sequences:
+
+f
+The key f.
+
+S o m
+A three key sequence of the keys S, o and m.
+
+C-c o
+A two key sequence of the keys c with the control modifier and then the key o
+
+H-<left>
+The key named left with the hyper modifier.
+
+M-RET
+The return key with a meta modifier.
+
+C-M-<space>
+The space key with both the control and meta modifiers.
+
+The only keys that have a special shorthand syntax are NUL, RET, TAB, LFD, ESC, SPC and DEL.
+
+The modifiers have to be specified in alphabetical order: ‘A-C-H-M-S-s’, which is ‘Alt-Control-Hyper-Meta-Shift-super’.
+
+Function: keymap-set keymap key binding ¶
+This function sets the binding for key in keymap. (If key is more than one event long, the change is actually made in another keymap reached from keymap.) The argument binding can be any Lisp object, but only certain types are meaningful. (For a list of meaningful types, see Key Lookup.) The value returned by keymap-set is binding.
+
+If key is <t>, this sets the default binding in keymap. When an event has no binding of its own, the Emacs command loop uses the keymap’s default binding, if there is one.
+
+Every prefix of key must be a prefix key (i.e., bound to a keymap) or undefined; otherwise an error is signaled. If some prefix of key is undefined, then keymap-set defines it as a prefix key so that the rest of key can be defined as specified.
+
+If there was previously no binding for key in keymap, the new binding is added at the beginning of keymap. The order of bindings in a keymap makes no difference for keyboard input, but it does matter for menu keymaps (see Menu Keymaps).
+
+Function: keymap-unset keymap key &optional remove ¶
+This function is the inverse of keymap-set, it unsets the binding for key in keymap, which is the same as setting the binding to nil. In order to instead remove the binding completely, specify remove as non-nil. This only makes a difference if keymap has a parent keymap: if you just unset a key in a child map, it will still shadow the same key in the parent keymap; using remove instead will allow the key in the parent keymap to be used.
+
+Note: using keymap-unset with remove non-nil is intended for users to put in their init file; Emacs packages should avoid using it if possible, since they have complete control over their own keymaps anyway, and they should not be altering other packages’ keymaps.
+
+This example creates a sparse keymap and makes a number of bindings in it:
+
+(setq map (make-sparse-keymap))
+    ⇒ (keymap)
+(keymap-set map "C-f" 'forward-char)
+    ⇒ forward-char
+map
+    ⇒ (keymap (6 . forward-char))
+
+;; Build sparse submap for C-x and bind f in that.
+(keymap-set map "C-x f" 'forward-word)
+    ⇒ forward-word
+map
+⇒ (keymap
+    (24 keymap                ; C-x
+        (102 . forward-word)) ;      f
+    (6 . forward-char))       ; C-f
+
+;; Bind C-p to the ctl-x-map.
+(keymap-set map "C-p" ctl-x-map)
+;; ctl-x-map
+⇒ [nil … find-file … backward-kill-sentence]
+
+;; Bind C-f to foo in the ctl-x-map.
+(keymap-set map "C-p C-f" 'foo)
+⇒ 'foo
+map
+⇒ (keymap     ; Note foo in ctl-x-map.
+    (16 keymap [nil … foo … backward-kill-sentence])
+    (24 keymap
+        (102 . forward-word))
+    (6 . forward-char))
+Note that storing a new binding for C-p C-f actually works by changing an entry in ctl-x-map, and this has the effect of changing the bindings of both C-p C-f and C-x C-f in the default global map.
+
+keymap-set is the general work horse for defining a key in a keymap. When writing modes, however, you frequently have to bind a large number of keys at once, and using keymap-set on them all can be tedious and error-prone. Instead you can use define-keymap, which creates a keymap and binds a number of keys. See Creating Keymaps, for details.
+
+The function substitute-key-definition scans a keymap for keys that have a certain binding and rebinds them with a different binding. Another feature which is cleaner and can often produce the same results is to remap one command into another (see Remapping Commands).
+
+Function: substitute-key-definition olddef newdef keymap &optional oldmap ¶
+This function replaces olddef with newdef for any keys in keymap that were bound to olddef. In other words, olddef is replaced with newdef wherever it appears. The function returns nil.
+
+For example, this redefines C-x C-f, if you do it in an Emacs with standard bindings:
+
+(substitute-key-definition
+ 'find-file 'find-file-read-only (current-global-map))
+If oldmap is non-nil, that changes the behavior of substitute-key-definition: the bindings in oldmap determine which keys to rebind. The rebindings still happen in keymap, not in oldmap. Thus, you can change one map under the control of the bindings in another. For example,
+
+(substitute-key-definition
+  'delete-backward-char 'my-funny-delete
+  my-map global-map)
+puts the special deletion command in my-map for whichever keys are globally bound to the standard deletion command.
+
+Here is an example showing a keymap before and after substitution:
+
+(setq map (list 'keymap
+                (cons ?1 olddef-1)
+                (cons ?2 olddef-2)
+                (cons ?3 olddef-1)))
+⇒ (keymap (49 . olddef-1) (50 . olddef-2) (51 . olddef-1))
+
+(substitute-key-definition 'olddef-1 'newdef map)
+⇒ nil
+map
+⇒ (keymap (49 . newdef) (50 . olddef-2) (51 . newdef))
+Function: suppress-keymap keymap &optional nodigits ¶
+This function changes the contents of the full keymap keymap by remapping self-insert-command to the command undefined (see Remapping Commands). This has the effect of undefining all printing characters, thus making ordinary insertion of text impossible. suppress-keymap returns nil.
+
+If nodigits is nil, then suppress-keymap defines digits to run digit-argument, and - to run negative-argument. Otherwise it makes them undefined like the rest of the printing characters.
+
+The suppress-keymap function does not make it impossible to modify a buffer, as it does not suppress commands such as yank and quoted-insert. To prevent any modification of a buffer, make it read-only (see Read-Only Buffers).
+
+Since this function modifies keymap, you would normally use it on a newly created keymap. Operating on an existing keymap that is used for some other purpose is likely to cause trouble; for example, suppressing global-map would make it impossible to use most of Emacs.
+
+This function can be used to initialize the local keymap of a major mode for which insertion of text is not desirable. But usually such a mode should be derived from special-mode (see Basic Major Modes); then its keymap will automatically inherit from special-mode-map, which is already suppressed. Here is how special-mode-map is defined:
+
+(defvar special-mode-map
+  (let ((map (make-sparse-keymap)))
+    (suppress-keymap map)
+    (keymap-set map "q" 'quit-window)
+    …
+    map))
+
+** Low-Level Key Binding
+
+Historically, Emacs has supported a number of different syntaxes for defining keys. The documented way to bind a key today is to use the syntax supported by key-valid-p, which is what all the functions like keymap-set and keymap-lookup supports. This section documents the old-style syntax and interface functions; they should not be used in new code.
+
+define-key (and other low-level functions that are used to rebind keys) understand a number of different syntaxes for the keys.
+
+A vector containing lists of keys.
+You can use a list containing modifier names plus one base event (a character or function key name). For example, [(control ?a) (meta b)] is equivalent to C-a M-b and [(hyper control left)] is equivalent to C-H-left.
+
+A string of characters with modifiers
+Internally, key sequences are often represented as strings using the special escape sequences for shift, control and meta modifiers (see String Type), but this representation can also be used by users when rebinding keys. A string like "\M-x" is read as containing a single M-x, "\C-f" is read as containing a single C-f, and "\M-\C-x" and "\C-\M-x" are both read as containing a single C-M-x.
+
+A vector of characters and key symbols
+This is the other internal representation of key sequences. It supports a fuller range of modifiers than the string representation, and also support function keys. An example is ‘[?\C-\H-x home]’, which represents the C-H-x home key sequence. See Character Type.
+
+Function: define-key keymap key binding &optional remove ¶
+This function is like keymap-set (see Changing Key Bindings, but understands only the legacy key syntaxes.
+
+In addition, this function also has a remove argument. If it is non-nil, the definition will be removed. This is almost the same as setting the definition to nil, but makes a difference if the keymap has a parent, and key is shadowing the same binding in the parent. With remove, subsequent lookups will return the binding in the parent, whereas with a nil definition the lookups will return nil.
+
+Here are other legacy key definition functions and commands, with the equivalent modern function to use instead in new code.
+
+Command: global-set-key key binding ¶
+This function sets the binding of key in the current global map to binding. Use keymap-global-set instead.
+
+Command: global-unset-key key ¶
+This function removes the binding of key from the current global map. Use keymap-global-unset instead.
+
+Command: local-set-key key binding ¶
+This function sets the binding of key in the current local keymap to binding. Use keymap-local-set instead.
+
+Command: local-unset-key key ¶
+This function removes the binding of key from the current local map. Use keymap-local-unset instead.
+
+Function: substitute-key-definition olddef newdef keymap &optional oldmap ¶
+This function replaces olddef with newdef for any keys in keymap that were bound to olddef. In other words, olddef is replaced with newdef wherever it appears. The function returns nil. Use keymap-substitute instead.
+
+Function: define-key-after map key binding &optional after ¶
+Define a binding in map for key, with value binding, just like define-key, but position the binding in map after the binding for the event after. The argument key should be of length one—a vector or string with just one element. But after should be a single event type—a symbol or a character, not a sequence. The new binding goes after the binding for after. If after is t or is omitted, then the new binding goes last, at the end of the keymap. However, new bindings are added before any inherited keymap. Use keymap-set-after instead of this function.
+
+Function: keyboard-translate from to ¶
+This function modifies keyboard-translate-table to translate character code from into character code to. It creates the keyboard translate table if necessary. Use key-translate instead.
+
+Function: key-binding key &optional accept-defaults no-remap position ¶
+This function returns the binding for key according to the current active keymaps. The result is nil if key is undefined in the keymaps. The argument accept-defaults controls checking for default bindings, as in lookup-key (see Functions for Key Lookup). If no-remap is non-nil, key-binding ignores command remappings (see Remapping Commands) and returns the binding directly specified for key. The optional argument position should be either a buffer position or an event position like the value of event-start; it tells the function to consult the maps determined based on that position.
+
+Emacs signals an error if key is not a string or a vector.
+
+Use keymap-lookup instead of this function.
+
+Function: lookup-key keymap key &optional accept-defaults ¶
+This function returns the definition of key in keymap. If the string or vector key is not a valid key sequence according to the prefix keys specified in keymap, it must be too long and have extra events at the end that do not fit into a single key sequence. Then the value is a number, the number of events at the front of key that compose a complete key.
+
+If accept-defaults is non-nil, then lookup-key considers default bindings as well as bindings for the specific events in key. Otherwise, lookup-key reports only bindings for the specific sequence key, ignoring default bindings except when you explicitly ask about them.
+
+Use keymap-lookup instead of this function.
+
+Function: local-key-binding key &optional accept-defaults ¶
+This function returns the binding for key in the current local keymap, or nil if it is undefined there.
+
+The argument accept-defaults controls checking for default bindings, as in lookup-key (above).
+
+Function: global-key-binding key &optional accept-defaults ¶
+This function returns the binding for command key in the current global keymap, or nil if it is undefined there.
+
+The argument accept-defaults controls checking for default bindings, as in lookup-key (above).
+
+Function: event-convert-list list ¶
+This function converts a list of modifier names and a basic event type to an event type which specifies all of them. The basic event type must be the last element of the list. For example,
+
+(event-convert-list '(control ?a))
+     ⇒ 1
+(event-convert-list '(control meta ?a))
+     ⇒ -134217727
+(event-convert-list '(control super f1))
+     ⇒ C-s-f1
+
+
+** Remapping Commands
+
+A special kind of key binding can be used to remap one command to another, without having to refer to the key sequence(s) bound to the original command. To use this feature, make a key binding for a key sequence that starts with the dummy event remap, followed by the command name you want to remap; for the binding, specify the new definition (usually a command name, but possibly any other valid definition for a key binding).
+
+For example, suppose My mode provides a special command my-kill-line, which should be invoked instead of kill-line. To establish this, its mode keymap should contain the following remapping:
+
+(keymap-set my-mode-map "<remap> <kill-line>" 'my-kill-line)
+Then, whenever my-mode-map is active, if the user types C-k (the default global key sequence for kill-line) Emacs will instead run my-kill-line.
+
+Note that remapping only takes place through active keymaps; for example, putting a remapping in a prefix keymap like ctl-x-map typically has no effect, as such keymaps are not themselves active. In addition, remapping only works through a single level; in the following example,
+
+(keymap-set my-mode-map "<remap> <kill-line>" 'my-kill-line)
+(keymap-set my-mode-map "<remap> <my-kill-line>" 'my-other-kill-line)
+kill-line is not remapped to my-other-kill-line. Instead, if an ordinary key binding specifies kill-line, it is remapped to my-kill-line; if an ordinary binding specifies my-kill-line, it is remapped to my-other-kill-line.
+
+To undo the remapping of a command, remap it to nil; e.g.,
+
+(keymap-set my-mode-map "<remap> <kill-line>" nil)
+Function: command-remapping command &optional position keymaps ¶
+This function returns the remapping for command (a symbol), given the current active keymaps. If command is not remapped (which is the usual situation), or not a symbol, the function returns nil. position can optionally specify a buffer position or an event position to determine the keymaps to use, as in key-binding.
+
+If the optional argument keymaps is non-nil, it specifies a list of keymaps to search in. This argument is ignored if position is non-nil.
+
+
+** Keymaps for Translating Sequences of Events
+
+When the read-key-sequence function reads a key sequence (see Key Sequence Input), it uses translation keymaps to translate certain event sequences into others. The translation keymaps are input-decode-map, local-function-key-map, and key-translation-map (in order of priority).
+
+Translation keymaps have the same structure as other keymaps, but are used differently: they specify translations to make while reading key sequences, rather than bindings for complete key sequences. As each key sequence is read, it is checked against each translation keymap. If one of the translation keymaps binds k to a vector v, then whenever k appears as a sub-sequence anywhere in a key sequence, that sub-sequence is replaced with the events in v.
+
+For example, VT100 terminals send ESC O P when the keypad key PF1 is pressed. On such terminals, Emacs must translate that sequence of events into a single event pf1. This is done by binding ESC O P to [pf1] in input-decode-map. Thus, when you type C-c PF1 on the terminal, the terminal emits the character sequence C-c ESC O P, and read-key-sequence translates this back into C-c PF1 and returns it as the vector [?\C-c pf1].
+
+Translation keymaps take effect only after Emacs has decoded the keyboard input (via the input coding system specified by keyboard-coding-system). See Terminal I/O Encoding.
+
+Variable: input-decode-map ¶
+This variable holds a keymap that describes the character sequences sent by function keys on an ordinary character terminal.
+
+The value of input-decode-map is usually set up automatically according to the terminal’s Terminfo or Termcap entry, but sometimes those need help from terminal-specific Lisp files. Emacs comes with terminal-specific files for many common terminals; their main purpose is to make entries in input-decode-map beyond those that can be deduced from Termcap and Terminfo. See Terminal-Specific Initialization.
+
+Variable: local-function-key-map ¶
+This variable holds a keymap similar to input-decode-map except that it describes key sequences which should be translated to alternative interpretations that are usually preferred. It applies after input-decode-map and before key-translation-map.
+
+Entries in local-function-key-map are ignored if they conflict with bindings made in the minor mode, local, or global keymaps. I.e., the remapping only applies if the original key sequence would otherwise not have any binding.
+
+local-function-key-map inherits from function-key-map. The latter should only be altered if you want the binding to apply in all terminals, so using the former is almost always preferred.
+
+Variable: key-translation-map ¶
+This variable is another keymap used just like input-decode-map to translate input events into other events. It differs from input-decode-map in that it goes to work after local-function-key-map is finished rather than before; it receives the results of translation by local-function-key-map.
+
+Just like input-decode-map, but unlike local-function-key-map, this keymap is applied regardless of whether the input key-sequence has a normal binding. Note however that actual key bindings can have an effect on key-translation-map, even though they are overridden by it. Indeed, actual key bindings override local-function-key-map and thus may alter the key sequence that key-translation-map receives. Clearly, it is better to avoid this type of situation.
+
+The intent of key-translation-map is for users to map one character set to another, including ordinary characters normally bound to self-insert-command.
+
+You can use input-decode-map, local-function-key-map, and key-translation-map for more than simple aliases, by using a function, instead of a key sequence, as the translation of a key. Then this function is called to compute the translation of that key.
+
+The key translation function receives one argument, which is the prompt that was specified in read-key-sequence—or nil if the key sequence is being read by the editor command loop. In most cases you can ignore the prompt value.
+
+If the function reads input itself, it can have the effect of altering the event that follows. For example, here’s how to define C-c h to turn the character that follows into a Hyper character:
+
+(defun hyperify (prompt)
+  (let ((e (read-event)))
+    (vector (if (numberp e)
+                (logior (ash 1 24) e)
+              (if (memq 'hyper (event-modifiers e))
+                  e
+                (add-event-modifier "H-" e))))))
+
+(defun add-event-modifier (string e)
+  (let ((symbol (if (symbolp e) e (car e))))
+    (setq symbol (intern (concat string
+                                 (symbol-name symbol))))
+    (if (symbolp e)
+        symbol
+      (cons symbol (cdr e)))))
+
+(keymap-set local-function-key-map "C-c h" 'hyperify)
+
+**** Interaction with normal keymaps
+
+The end of a key sequence is detected when that key sequence either is bound to a command, or when Emacs determines that no additional event can lead to a sequence that is bound to a command.
+
+This means that, while input-decode-map and key-translation-map apply regardless of whether the original key sequence would have a binding, the presence of such a binding can still prevent translation from taking place. For example, let us return to our VT100 example above and add a binding for C-c ESC to the global map; now when the user hits C-c PF1 Emacs will fail to decode C-c ESC O P into C-c PF1 because it will stop reading keys right after C-c ESC, leaving O P for later. This is in case the user really hit C-c ESC, in which case Emacs should not sit there waiting for the next key to decide whether the user really pressed ESC or PF1.
+
+For that reason, it is better to avoid binding commands to key sequences where the end of the key sequence is a prefix of a key translation. The main such problematic suffixes/prefixes are ESC, M-O (which is really ESC O) and M-[ (which is really ESC [).
+
+
+** Commands for Binding Keys
+
+This section describes some convenient interactive interfaces for changing key bindings. They work by calling keymap-set (see Changing Key Bindings). In interactive use, these commands prompt for the argument key and expect the user to type a valid key sequence; they also prompt for the binding of the key sequence, and expect the name of a command (i.e., a symbol that satisfies commandp, see Interactive Call). When called from Lisp, these commands expect key to be a string that satisfies key-valid-p (see Key Sequences), and binding to be any Lisp object that is meaningful in a keymap (see Key Lookup).
+
+People often use keymap-global-set in their init files (see The Init File) for simple customization. For example,
+
+(keymap-global-set "C-x C-\\" 'next-line)
+redefines C-x C-\ to move down a line.
+
+(keymap-global-set "M-<mouse-1>" 'mouse-set-point)
+redefines the first (leftmost) mouse button, entered with the Meta key, to set point where you click.
+
+Be careful when using non-ASCII text characters in Lisp specifications of keys to bind. If these are read as multibyte text, as they usually will be in a Lisp file (see Loading Non-ASCII Characters), you must type the keys as multibyte too. For instance, if you use this:
+
+(keymap-global-set "ö" 'my-function) ; bind o-umlaut
+and your language environment is multibyte Latin-1, these commands actually bind the multibyte character with code 246, not the byte code 246 (M-v) sent by a Latin-1 terminal. In order to use this binding, you need to teach Emacs how to decode the keyboard by using an appropriate input method (see Input Methods in The GNU Emacs Manual).
+
+Command: keymap-global-set key binding ¶
+This function sets the binding of key in the current global map to binding.
+
+(keymap-global-set key binding)
+≡
+(keymap-set (current-global-map) key binding)
+Command: keymap-global-unset key ¶
+This function removes the binding of key from the current global map.
+
+One use of this function is in preparation for defining a longer key that uses key as a prefix—which would not be allowed if key has a non-prefix binding. For example:
+
+(keymap-global-unset "C-l")
+    ⇒ nil
+(keymap-global-set "C-l C-l" 'redraw-display)
+    ⇒ nil
+Command: keymap-local-set key binding ¶
+This function sets the binding of key in the current local keymap to binding.
+
+(keymap-local-set key binding)
+≡
+(keymap-set (current-local-map) key binding)
+Command: keymap-local-unset key ¶
+This function removes the binding of key from the current local map.
+
+
+** Scanning Keymaps
+
+This section describes functions used to scan all the current keymaps for the sake of printing help information. To display the bindings in a particular keymap, you can use the describe-keymap command (see Other Help Commands in The GNU Emacs Manual)
+
+Function: accessible-keymaps keymap &optional prefix ¶
+This function returns a list of all the keymaps that can be reached (via zero or more prefix keys) from keymap. The value is an association list with elements of the form (key . map), where key is a prefix key whose definition in keymap is map.
+
+The elements of the alist are ordered so that the key increases in length. The first element is always ([] . keymap), because the specified keymap is accessible from itself with a prefix of no events.
+
+If prefix is given, it should be a prefix key sequence; then accessible-keymaps includes only the submaps whose prefixes start with prefix. These elements look just as they do in the value of (accessible-keymaps); the only difference is that some elements are omitted.
+
+In the example below, the returned alist indicates that the key ESC, which is displayed as ‘^[’, is a prefix key whose definition is the sparse keymap (keymap (83 . center-paragraph) (115 . foo)).
+
+(accessible-keymaps (current-local-map))
+⇒(([] keymap
+      (27 keymap   ; Note this keymap for ESC is repeated below.
+          (83 . center-paragraph)
+          (115 . center-line))
+      (9 . tab-to-tab-stop))
+
+   ("^[" keymap
+    (83 . center-paragraph)
+    (115 . foo)))
+In the following example, C-h is a prefix key that uses a sparse keymap starting with (keymap (118 . describe-variable)…). Another prefix, C-x 4, uses a keymap which is also the value of the variable ctl-x-4-map. The event mode-line is one of several dummy events used as prefixes for mouse actions in special parts of a window.
+
+(accessible-keymaps (current-global-map))
+⇒ (([] keymap [set-mark-command beginning-of-line …
+                   delete-backward-char])
+    ("^H" keymap (118 . describe-variable) …
+     (8 . help-for-help))
+    ("^X" keymap [x-flush-mouse-queue …
+     backward-kill-sentence])
+    ("^[" keymap [mark-sexp backward-sexp …
+     backward-kill-word])
+    ("^X4" keymap (15 . display-buffer) …)
+    ([mode-line] keymap
+     (S-mouse-2 . mouse-split-window-horizontally) …))
+These are not all the keymaps you would see in actuality.
+
+Function: map-keymap function keymap ¶
+The function map-keymap calls function once for each binding in keymap. It passes two arguments, the event type and the value of the binding. If keymap has a parent, the parent’s bindings are included as well. This works recursively: if the parent has itself a parent, then the grandparent’s bindings are also included and so on.
+
+This function is the cleanest way to examine all the bindings in a keymap.
+
+Function: where-is-internal command &optional keymap firstonly noindirect no-remap ¶
+This function is a subroutine used by the where-is command (see Help in The GNU Emacs Manual). It returns a list of all key sequences (of any length) that are bound to command in a set of keymaps.
+
+The argument command can be any object; it is compared with all keymap entries using eq.
+
+If keymap is nil, then the maps used are the current active keymaps, disregarding overriding-local-map (that is, pretending its value is nil). If keymap is a keymap, then the maps searched are keymap and the global keymap. If keymap is a list of keymaps, only those keymaps are searched.
+
+Usually it’s best to use overriding-local-map as the expression for keymap. Then where-is-internal searches precisely the keymaps that are active. To search only the global map, pass the value (keymap) (an empty keymap) as keymap.
+
+If firstonly is non-ascii, then the value is a single vector representing the first key sequence found, rather than a list of all possible key sequences. If firstonly is t, then the value is the first key sequence, except that key sequences consisting entirely of ASCII characters (or meta variants of ASCII characters) are preferred to all other key sequences and that the return value can never be a menu binding.
+
+If noindirect is non-nil, where-is-internal doesn’t look inside menu-items to find their commands. This makes it possible to search for a menu-item itself.
+
+The fifth argument, no-remap, determines how this function treats command remappings (see Remapping Commands). There are two cases of interest:
+
+If a command other-command is remapped to command:
+If no-remap is nil, find the bindings for other-command and treat them as though they are also bindings for command. If no-remap is non-nil, include the vector [remap other-command] in the list of possible key sequences, instead of finding those bindings.
+
+If command is remapped to other-command:
+If no-remap is nil, return the bindings for other-command rather than command. If no-remap is non-nil, return the bindings for command, ignoring the fact that it is remapped.
+
+If a command maps to a key binding like [some-event], and some-event has a symbol plist containing a non-nil non-key-event property, then that binding is ignored by where-is-internal.
+
+Command: describe-bindings &optional prefix buffer-or-name ¶
+This function creates a listing of all current key bindings, and displays it in a buffer named *Help*. The text is grouped by modes—minor modes first, then the major mode, then global bindings.
+
+If prefix is non-nil, it should be a prefix key; then the listing includes only keys that start with prefix.
+
+When several characters with consecutive ASCII codes have the same definition, they are shown together, as ‘firstchar..lastchar’. In this instance, you need to know the ASCII codes to understand which characters this means. For example, in the default global map, the characters ‘SPC .. ~’ are described by a single line. SPC is ASCII 32, ~ is ASCII 126, and the characters between them include all the normal printing characters, (e.g., letters, digits, punctuation, etc.); all these characters are bound to self-insert-command.
+
+If buffer-or-name is non-nil, it should be a buffer or a buffer name. Then describe-bindings lists that buffer’s bindings, instead of the current buffer’s.
+
+
+** Menu Keymaps
+
+A keymap can operate as a menu as well as defining bindings for keyboard keys and mouse buttons. Menus are usually actuated with the mouse, but they can function with the keyboard also. If a menu keymap is active for the next input event, that activates the keyboard menu feature.
+
+**** Defining Menus
+
+A keymap acts as a menu if it has an overall prompt string, which is a string that appears as an element of the keymap. (See Format of Keymaps.) The string should describe the purpose of the menu’s commands. Emacs displays the overall prompt string as the menu title in some cases, depending on the toolkit (if any) used for displaying menus.18 Keyboard menus also display the overall prompt string.
+
+The easiest way to construct a keymap with a prompt string is to specify the string as an argument when you call make-keymap, make-sparse-keymap (see Creating Keymaps), or define-prefix-command (see Definition of define-prefix-command). If you do not want the keymap to operate as a menu, don’t specify a prompt string for it.
+
+Function: keymap-prompt keymap ¶
+This function returns the overall prompt string of keymap, or nil if it has none.
+
+The menu’s items are the bindings in the keymap. Each binding associates an event type to a definition, but the event types have no significance for the menu appearance. (Usually we use pseudo-events, symbols that the keyboard cannot generate, as the event types for menu item bindings.) The menu is generated entirely from the bindings that correspond in the keymap to these events.
+
+The order of items in the menu is the same as the order of bindings in the keymap. Since define-key puts new bindings at the front, you should define the menu items starting at the bottom of the menu and moving to the top, if you care about the order. When you add an item to an existing menu, you can specify its position in the menu using keymap-set-after (see Modifying Menus).
+
+Footnotes
+(18)
+It is required for menus which do not use a toolkit, e.g., on a text terminal.
+
+
+***** Simple Menu Items
+
+The simpler (and original) way to define a menu item is to bind some event type (it doesn’t matter what event type) to a binding like this:
+
+(item-string . real-binding)
+The CAR, item-string, is the string to be displayed in the menu. It should be short—preferably one to three words. It should describe the action of the command it corresponds to. Note that not all graphical toolkits can display non-ASCII text in menus (it will work for keyboard menus and will work to a large extent with the GTK+ toolkit).
+
+You can also supply a second string, called the help string, as follows:
+
+(item-string help . real-binding)
+help specifies a help-echo string to display while the mouse is on that item in the same way as help-echo text properties (see Help display).
+
+As far as define-key is concerned, item-string and help-string are part of the event’s binding. However, lookup-key returns just real-binding, and only real-binding is used for executing the key.
+
+If real-binding is nil, then item-string appears in the menu but cannot be selected.
+
+If real-binding is a symbol and has a non-nil menu-enable property, that property is an expression that controls whether the menu item is enabled. Every time the keymap is used to display a menu, Emacs evaluates the expression, and it enables the menu item only if the expression’s value is non-nil. When a menu item is disabled, it is displayed in a fuzzy fashion, and cannot be selected.
+
+The menu bar does not recalculate which items are enabled every time you look at a menu. This is because the X toolkit requires the whole tree of menus in advance. To force recalculation of the menu bar, call force-mode-line-update (see Mode Line Format).
+
+
+***** Extended Menu Items
+
+An extended-format menu item is a more flexible and also cleaner alternative to the simple format. You define an event type with a binding that’s a list starting with the symbol menu-item. For a non-selectable string, the binding looks like this:
+
+(menu-item item-name)
+A string starting with two or more dashes specifies a separator line; see Menu Separators.
+
+To define a real menu item which can be selected, the extended format binding looks like this:
+
+(menu-item item-name real-binding
+    . item-property-list)
+Here, item-name is an expression which evaluates to the menu item string. Thus, the string need not be a constant.
+
+The third element, real-binding, can be the command to execute (in which case you get a normal menu item). It can also be a keymap, which will result in a submenu, and item-name is used as the submenu name. Finally, it can be nil, in which case you will get a non-selectable menu item. This is mostly useful when creating separator lines and the like.
+
+The tail of the list, item-property-list, has the form of a property list (see Property Lists) which contains other information.
+
+Here is a table of the properties that are supported:
+
+:enable form
+The result of evaluating form determines whether the item is enabled (non-nil means yes). If the item is not enabled, you can’t really click on it.
+
+:visible form
+The result of evaluating form determines whether the item should actually appear in the menu (non-nil means yes). If the item does not appear, then the menu is displayed as if this item were not defined at all.
+
+:help help
+The value of this property, help, specifies a help-echo string to display while the mouse is on that item. This is displayed in the same way as help-echo text properties (see Help display). Note that this must be a constant string, unlike the help-echo property for text and overlays.
+
+:button (type . selected)
+This property provides a way to define radio buttons and toggle buttons. The CAR, type, says which: it should be :toggle or :radio. The CDR, selected, should be a form; the result of evaluating it says whether this button is currently selected.
+
+A toggle is a menu item which is labeled as either on or off according to the value of selected. The command itself should toggle selected, setting it to t if it is nil, and to nil if it is t. Here is how the menu item to toggle the debug-on-error flag is defined:
+
+(menu-item "Debug on Error" toggle-debug-on-error
+           :button (:toggle
+                    . (and (boundp 'debug-on-error)
+                           debug-on-error)))
+This works because toggle-debug-on-error is defined as a command which toggles the variable debug-on-error.
+
+Radio buttons are a group of menu items, in which at any time one and only one is selected. There should be a variable whose value says which one is selected at any time. The selected form for each radio button in the group should check whether the variable has the right value for selecting that button. Clicking on the button should set the variable so that the button you clicked on becomes selected.
+
+:key-sequence key-sequence
+This property specifies which key sequence to display as keyboard equivalent. Before Emacs displays key-sequence in the menu, it verifies that key-sequence is really equivalent to this menu item, so it only has an effect if you specify a correct key sequence. Specifying nil for key-sequence is equivalent to the :key-sequence attribute being absent.
+
+:keys string
+This property specifies that string is the string to display as the keyboard equivalent for this menu item. You can use the ‘\\[...]’ documentation construct in string.
+
+This property can also be a function (which will be called with no arguments). This function should return a string. This function will be called every time the menu is computed, so using a function that takes a lot of time to compute is not a good idea, and it should expect to be called from any context.
+
+:filter filter-fn
+This property provides a way to compute the menu item dynamically. The property value filter-fn should be a function of one argument; when it is called, its argument will be real-binding. The function should return the binding to use instead.
+
+Emacs can call this function at any time that it does redisplay or operates on menu data structures, so you should write it so it can safely be called at any time.
+
+
+***** Menu Separators
+
+A menu separator is a kind of menu item that doesn’t display any text—instead, it divides the menu into subparts with a horizontal line. A separator looks like this in the menu keymap:
+
+(menu-item separator-type)
+where separator-type is a string starting with two or more dashes.
+
+In the simplest case, separator-type consists of only dashes. That specifies the default kind of separator. (For compatibility, "" and - also count as separators.)
+
+Certain other values of separator-type specify a different style of separator. Here is a table of them:
+
+"--no-line"
+"--space"
+An extra vertical space, with no actual line.
+
+"--single-line"
+A single line in the menu’s foreground color.
+
+"--double-line"
+A double line in the menu’s foreground color.
+
+"--single-dashed-line"
+A single dashed line in the menu’s foreground color.
+
+"--double-dashed-line"
+A double dashed line in the menu’s foreground color.
+
+"--shadow-etched-in"
+A single line with a 3D sunken appearance. This is the default, used separators consisting of dashes only.
+
+"--shadow-etched-out"
+A single line with a 3D raised appearance.
+
+"--shadow-etched-in-dash"
+A single dashed line with a 3D sunken appearance.
+
+"--shadow-etched-out-dash"
+A single dashed line with a 3D raised appearance.
+
+"--shadow-double-etched-in"
+Two lines with a 3D sunken appearance.
+
+"--shadow-double-etched-out"
+Two lines with a 3D raised appearance.
+
+"--shadow-double-etched-in-dash"
+Two dashed lines with a 3D sunken appearance.
+
+"--shadow-double-etched-out-dash"
+Two dashed lines with a 3D raised appearance.
+
+You can also give these names in another style, adding a colon after the double-dash and replacing each single dash with capitalization of the following word. Thus, "--:singleLine", is equivalent to "--single-line".
+
+You can use a longer form to specify keywords such as :enable and :visible for a menu separator:
+
+(menu-item separator-type nil . item-property-list)
+
+For example:
+
+(menu-item "--" nil :visible (boundp 'foo))
+Some systems and display toolkits don’t really handle all of these separator types. If you use a type that isn’t supported, the menu displays a similar kind of separator that is supported.
+
+
+***** Alias Menu Items
+
+Sometimes it is useful to make menu items that use the same command but with different enable conditions. The best way to do this in Emacs now is with extended menu items; before that feature existed, it could be done by defining alias commands and using them in menu items. Here’s an example that makes two aliases for read-only-mode and gives them different enable conditions:
+
+(defalias 'make-read-only 'read-only-mode)
+(put 'make-read-only 'menu-enable '(not buffer-read-only))
+(defalias 'make-writable 'read-only-mode)
+(put 'make-writable 'menu-enable 'buffer-read-only)
+When using aliases in menus, often it is useful to display the equivalent key bindings for the real command name, not the aliases (which typically don’t have any key bindings except for the menu itself). To request this, give the alias symbol a non-nil menu-alias property. Thus,
+
+(put 'make-read-only 'menu-alias t)
+(put 'make-writable 'menu-alias t)
+causes menu items for make-read-only and make-writable to show the keyboard bindings for read-only-mode.
+
+
+**** Menus and the Mouse
+
+The usual way to make a menu keymap produce a menu is to make it the definition of a prefix key. (A Lisp program can explicitly pop up a menu and receive the user’s choice—see Pop-Up Menus.)
+
+If the prefix key ends with a mouse event, Emacs handles the menu keymap by popping up a visible menu, so that the user can select a choice with the mouse. When the user clicks on a menu item, the event generated is whatever character or symbol has the binding that brought about that menu item. (A menu item may generate a series of events if the menu has multiple levels or comes from the menu bar.)
+
+It’s often best to use a button-down event to trigger the menu. Then the user can select a menu item by releasing the button.
+
+If the menu keymap contains a binding to a nested keymap, the nested keymap specifies a submenu. There will be a menu item, labeled by the nested keymap’s item string, and clicking on this item automatically pops up the specified submenu. As a special exception, if the menu keymap contains a single nested keymap and no other menu items, the menu shows the contents of the nested keymap directly, not as a submenu.
+
+However, if Emacs is compiled without X toolkit support, or on text terminals, submenus are not supported. Each nested keymap is shown as a menu item, but clicking on it does not automatically pop up the submenu. If you wish to imitate the effect of submenus, you can do that by giving a nested keymap an item string which starts with ‘@’. This causes Emacs to display the nested keymap using a separate menu pane; the rest of the item string after the ‘@’ is the pane label. If Emacs is compiled without X toolkit support, or if a menu is displayed on a text terminal, menu panes are not used; in that case, a ‘@’ at the beginning of an item string is omitted when the menu label is displayed, and has no other effect.
+
+
+**** Menus and the Keyboard
+
+When a prefix key ending with a keyboard event (a character or function key) has a definition that is a menu keymap, the keymap operates as a keyboard menu; the user specifies the next event by choosing a menu item with the keyboard.
+
+Emacs displays the keyboard menu with the map’s overall prompt string, followed by the alternatives (the item strings of the map’s bindings), in the echo area. If the bindings don’t all fit at once, the user can type SPC to see the next line of alternatives. Successive uses of SPC eventually get to the end of the menu and then cycle around to the beginning. (The variable menu-prompt-more-char specifies which character is used for this; SPC is the default.)
+
+When the user has found the desired alternative from the menu, he or she should type the corresponding character—the one whose binding is that alternative.
+
+Variable: menu-prompt-more-char ¶
+This variable specifies the character to use to ask to see the next line of a menu. Its initial value is 32, the code for SPC.
+
+**** Menu Example
+
+Here is a complete example of defining a menu keymap. It is the definition of the ‘Replace’ submenu in the ‘Edit’ menu in the menu bar, and it uses the extended menu item format (see Extended Menu Items). First we create the keymap, and give it a name:
+
+(defvar menu-bar-replace-menu (make-sparse-keymap "Replace"))
+Next we define the menu items:
+
+(define-key menu-bar-replace-menu [tags-repl-continue]
+  '(menu-item "Continue Replace" multifile-continue
+              :help "Continue last tags replace operation"))
+(define-key menu-bar-replace-menu [tags-repl]
+  '(menu-item "Replace in tagged files" tags-query-replace
+              :help "Interactively replace a regexp in all tagged files"))
+(define-key menu-bar-replace-menu [separator-replace-tags]
+  '(menu-item "--"))
+;; …
+Note the symbols which the bindings are made for; these appear inside square brackets, in the key sequence being defined. In some cases, this symbol is the same as the command name; sometimes it is different. These symbols are treated as function keys, but they are not real function keys on the keyboard. They do not affect the functioning of the menu itself, but they are echoed in the echo area when the user selects from the menu, and they appear in the output of where-is and apropos.
+
+The menu in this example is intended for use with the mouse. If a menu is intended for use with the keyboard, that is, if it is bound to a key sequence ending with a keyboard event, then the menu items should be bound to characters or real function keys, that can be typed with the keyboard.
+
+The binding whose definition is ("--") is a separator line. Like a real menu item, the separator has a key symbol, in this case separator-replace-tags. If one menu has two separators, they must have two different key symbols.
+
+Here is how we make this menu appear as an item in the parent menu:
+
+(define-key menu-bar-edit-menu [replace]
+  (list 'menu-item "Replace" menu-bar-replace-menu))
+Note that this incorporates the submenu keymap, which is the value of the variable menu-bar-replace-menu, rather than the symbol menu-bar-replace-menu itself. Using that symbol in the parent menu item would be meaningless because menu-bar-replace-menu is not a command.
+
+If you wanted to attach the same replace menu to a mouse click, you can do it this way:
+
+(define-key global-map [C-S-down-mouse-1]
+   menu-bar-replace-menu)
+
+
+**** The Menu Bar
+
+Emacs usually shows a menu bar at the top of each frame. See Menu Bars in The GNU Emacs Manual. Menu bar items are subcommands of the fake function key MENU-BAR, as defined in the active keymaps.
+
+To add an item to the menu bar, invent a fake function key of your own (let’s call it key), and make a binding for the key sequence [menu-bar key]. Most often, the binding is a menu keymap, so that pressing a button on the menu bar item leads to another menu.
+
+When more than one active keymap defines the same function key for the menu bar, the item appears just once. If the user clicks on that menu bar item, it brings up a single, combined menu containing all the subcommands of that item—the global subcommands, the local subcommands, and the minor mode subcommands.
+
+The variable overriding-local-map is normally ignored when determining the menu bar contents. That is, the menu bar is computed from the keymaps that would be active if overriding-local-map were nil. See Active Keymaps.
+
+Here’s an example of setting up a menu bar item:
+
+;; Make a menu keymap (with a prompt string)
+;; and make it the menu bar item’s definition.
+(define-key global-map [menu-bar words]
+  (cons "Words" (make-sparse-keymap "Words")))
+
+;; Define specific subcommands in this menu.
+(define-key global-map
+  [menu-bar words forward]
+  '("Forward word" . forward-word))
+(define-key global-map
+  [menu-bar words backward]
+  '("Backward word" . backward-word))
+A local keymap can cancel a menu bar item made by the global keymap by rebinding the same fake function key with undefined as the binding. For example, this is how Dired suppresses the ‘Edit’ menu bar item:
+
+(define-key dired-mode-map [menu-bar edit] 'undefined)
+Here, edit is the symbol produced by a fake function key, it is used by the global map for the ‘Edit’ menu bar item. The main reason to suppress a global menu bar item is to regain space for mode-specific items.
+
+Variable: menu-bar-final-items ¶
+Normally the menu bar shows global items followed by items defined by the local maps.
+
+This variable holds a list of fake function keys for items to display at the end of the menu bar rather than in normal sequence. The default value is (help-menu); thus, the ‘Help’ menu item normally appears at the end of the menu bar, following local menu items.
+
+Variable: menu-bar-update-hook ¶
+This normal hook is run by redisplay to update the menu bar contents, before redisplaying the menu bar. You can use it to update menus whose contents should vary. Since this hook is run frequently, we advise you to ensure that the functions it calls do not take much time in the usual case.
+
+Next to every menu bar item, Emacs displays a key binding that runs the same command (if such a key binding exists). This serves as a convenient hint for users who do not know the key binding. If a command has multiple bindings, Emacs normally displays the first one it finds. You can specify one particular key binding by assigning an :advertised-binding symbol property to the command. See Substituting Key Bindings in Documentation.
+
+
+**** Tool bars
+
+A tool bar is a row of clickable icons at the top of a frame, just below the menu bar. See Tool Bars in The GNU Emacs Manual. Emacs normally shows a tool bar on graphical displays.
+
+On each frame, the frame parameter tool-bar-lines controls how many lines’ worth of height to reserve for the tool bar. A zero value suppresses the tool bar. If the value is nonzero, and auto-resize-tool-bars is non-nil, the tool bar expands and contracts automatically as needed to hold the specified contents. If the value is grow-only, the tool bar expands automatically, but does not contract automatically.
+
+The tool bar contents are controlled by a menu keymap attached to a fake function key called TOOL-BAR (much like the way the menu bar is controlled). So you define a tool bar item using define-key, like this:
+
+(define-key global-map [tool-bar key] item)
+where key is a fake function key to distinguish this item from other items, and item is a menu item key binding (see Extended Menu Items), which says how to display this item and how it behaves.
+
+The usual menu keymap item properties, :visible, :enable, :button, and :filter, are useful in tool bar bindings and have their normal meanings. The real-binding in the item must be a command, not a keymap; in other words, it does not work to define a tool bar icon as a prefix key.
+
+The :help property specifies a help-echo string to display while the mouse is on that item. This is displayed in the same way as help-echo text properties (see Help display).
+
+In addition, you should use the :image property; this is how you specify the image to display in the tool bar:
+
+:image image
+image is either a single image specification (see Images) or a vector of four image specifications. If you use a vector of four, one of them is used, depending on circumstances:
+
+item 0
+Used when the item is enabled and selected.
+
+item 1
+Used when the item is enabled and deselected.
+
+item 2
+Used when the item is disabled and selected.
+
+item 3
+Used when the item is disabled and deselected.
+
+The GTK+ and NS versions of Emacs ignores items 1 to 3, because disabled and/or deselected images are autocomputed from item 0.
+
+If image is a single image specification, Emacs draws the tool bar button in disabled state by applying an edge-detection algorithm to the image.
+
+The :rtl property specifies an alternative image to use for right-to-left languages. Only the GTK+ version of Emacs supports this at present.
+
+Some toolkits display both an image and a text in the toolbar. If you want to force using only the image, use a :vert-only non-nil property.
+
+Like the menu bar, the tool bar can display separators (see Menu Separators). Tool bar separators are vertical rather than horizontal, though, and only a single style is supported. They are represented in the tool bar keymap by (menu-item "--") entries; properties like :visible are not supported for tool bar separators. Separators are rendered natively in GTK+ and Nextstep tool bars; in the other cases, they are rendered using an image of a vertical line.
+
+The default tool bar is defined so that items specific to editing do not appear for major modes whose command symbol has a mode-class property of special (see Major Mode Conventions). Major modes may add items to the global bar by binding [tool-bar foo] in their local map. It makes sense for some major modes to replace the default tool bar items completely, since not many can be accommodated conveniently, and the default bindings make this easy by using an indirection through tool-bar-map.
+
+Variable: tool-bar-map ¶
+By default, the global map binds [tool-bar] as follows:
+
+(keymap-global-set "<tool-bar>"
+                   `(menu-item ,(purecopy "tool bar") ignore
+                               :filter tool-bar-make-keymap))
+The function tool-bar-make-keymap, in turn, derives the actual tool bar map dynamically from the value of the variable tool-bar-map. Hence, you should normally adjust the default (global) tool bar by changing that map. Some major modes, such as Info mode, completely replace the global tool bar by making tool-bar-map buffer-local and setting it to a different keymap.
+
+There are two convenience functions for defining tool bar items, as follows.
+
+Function: tool-bar-add-item icon def key &rest props ¶
+This function adds an item to the tool bar by modifying tool-bar-map. The image to use is defined by icon, which is the base name of an XPM, XBM or PBM image file to be located by find-image. Given a value ‘"exit"’, say, exit.xpm, exit.pbm and exit.xbm would be searched for in that order on a color display. On a monochrome display, the search order is ‘.pbm’, ‘.xbm’ and ‘.xpm’. The binding to use is the command def, and key is the fake function key symbol in the prefix keymap. The remaining arguments props are additional property list elements to add to the menu item specification.
+
+To define items in some local map, bind tool-bar-map with let around calls of this function:
+
+(defvar foo-tool-bar-map
+  (let ((tool-bar-map (make-sparse-keymap)))
+    (tool-bar-add-item …)
+    …
+    tool-bar-map))
+Function: tool-bar-add-item-from-menu command icon &optional map &rest props ¶
+This function is a convenience for defining tool bar items which are consistent with existing menu bar bindings. The binding of command is looked up in the menu bar in map (default global-map) and modified to add an image specification for icon, which is found in the same way as by tool-bar-add-item. The resulting binding is then placed in tool-bar-map, so use this function only for global tool bar items.
+
+map must contain an appropriate keymap bound to [menu-bar]. The remaining arguments props are additional property list elements to add to the menu item specification.
+
+Function: tool-bar-local-item-from-menu command icon in-map &optional from-map &rest props ¶
+This function is used for making non-global tool bar items. Use it like tool-bar-add-item-from-menu except that in-map specifies the local map to make the definition in. The argument from-map is like the map argument of tool-bar-add-item-from-menu.
+
+Variable: auto-resize-tool-bars ¶
+If this variable is non-nil, the tool bar automatically resizes to show all defined tool bar items—but not larger than a quarter of the frame’s height.
+
+If the value is grow-only, the tool bar expands automatically, but does not contract automatically. To contract the tool bar, the user has to redraw the frame by entering C-l.
+
+If Emacs is built with GTK+ or Nextstep, the tool bar can only show one line, so this variable has no effect.
+
+Variable: auto-raise-tool-bar-buttons ¶
+If this variable is non-nil, tool bar items display in raised form when the mouse moves over them.
+
+Variable: tool-bar-button-margin ¶
+This variable specifies an extra margin to add around tool bar items. The value is an integer, a number of pixels. The default is 4.
+
+Variable: tool-bar-button-relief ¶
+This variable specifies the shadow width for tool bar items. The value is an integer, a number of pixels. The default is 1.
+
+Variable: tool-bar-border ¶
+This variable specifies the height of the border drawn below the tool bar area. An integer specifies height as a number of pixels. If the value is one of internal-border-width (the default) or border-width, the tool bar border height corresponds to the corresponding frame parameter.
+
+You can define a special meaning for clicking on a tool bar item with the shift, control, meta, etc., modifiers. You do this by setting up additional items that relate to the original item through the fake function keys. Specifically, the additional items should use the modified versions of the same fake function key used to name the original item.
+
+Thus, if the original item was defined this way,
+
+(define-key global-map [tool-bar shell]
+  '(menu-item "Shell" shell
+              :image (image :type xpm :file "shell.xpm")))
+then here is how you can define clicking on the same tool bar image with the shift modifier:
+
+(define-key global-map [tool-bar S-shell] 'some-command)
+See Function Keys, for more information about how to add modifiers to function keys.
+
+If you have functions that change whether a tool bar item is enabled or not, this status is not necessarily updated visually immediately. To force recalculation of the tool bar, call force-mode-line-update (see Mode Line Format).
+
+
+**** Modifying Menus
+
+When you insert a new item in an existing menu, you probably want to put it in a particular place among the menu’s existing items. If you use define-key to add the item, it normally goes at the front of the menu. To put it elsewhere in the menu, use keymap-set-after:
+
+Function: keymap-set-after map key binding &optional after ¶
+Define a binding in map for key, with value binding, just like keymap-set (see Changing Key Bindings), but position the binding in map after the binding for the event after. The argument key should represent a single menu item or key, and should satisfy key-valid-p (see Key Sequences). after should be a single event type—a symbol or a character, not a sequence. The new binding goes after the binding for after. If after is t or is omitted, then the new binding goes last, at the end of the keymap. However, new bindings are added before any inherited keymap.
+
+Here is an example:
+
+(keymap-set-after my-menu "<drink>"
+  '("Drink" . drink-command) 'eat)
+makes a binding for the fake function key DRINK and puts it right after the binding for EAT.
+
+Here is how to insert an item called ‘Work’ in the ‘Signals’ menu of Shell mode, after the item break:
+
+(keymap-set-after shell-mode-map "<menu-bar> <signals> <work>"
+  '("Work" . work-command) 'break)
+
+**** Easy Menu
+
+The following macro provides a convenient way to define pop-up menus and/or menu bar menus.
+
+Macro: easy-menu-define symbol maps doc menu ¶
+This macro defines a pop-up menu and/or menu bar submenu, whose contents are given by menu.
+
+If symbol is non-nil, it should be a symbol; then this macro defines symbol as a function for popping up the menu (see Pop-Up Menus), with doc as its documentation string. symbol should not be quoted.
+
+Regardless of the value of symbol, if maps is a keymap, the menu is added to that keymap, as a top-level menu for the menu bar (see The Menu Bar). It can also be a list of keymaps, in which case the menu is added separately to each of those keymaps.
+
+The first element of menu must be a string, which serves as the menu label. It may be followed by any number of the following keyword-argument pairs:
+
+:filter function
+function must be a function which, if called with one argument—the list of the other menu items—returns the actual items to be displayed in the menu.
+
+:visible include
+include is an expression; if it evaluates to nil, the menu is made invisible. :included is an alias for :visible.
+
+:active enable
+enable is an expression; if it evaluates to nil, the menu is not selectable. :enable is an alias for :active.
+
+The remaining elements in menu are menu items.
+
+A menu item can be a vector of three elements, [name callback enable]. name is the menu item name (a string). callback is a command to run, or an expression to evaluate, when the item is chosen. enable is an expression; if it evaluates to nil, the item is disabled for selection.
+
+Alternatively, a menu item may have the form:
+
+   [ name callback [ keyword arg ]... ]
+where name and callback have the same meanings as above, and each optional keyword and arg pair should be one of the following:
+
+:keys keys
+keys is a string to display as keyboard equivalent to the menu item. This is normally not needed, as keyboard equivalents are computed automatically. keys is expanded with substitute-command-keys before it is displayed (see Substituting Key Bindings in Documentation).
+
+:key-sequence keys
+keys is a hint indicating which key sequence to display as keyboard equivalent, in case the command is bound to several key sequences. It has no effect if keys is not bound to same command as this menu item.
+
+:active enable
+enable is an expression; if it evaluates to nil, the item is made unselectable. :enable is an alias for :active.
+
+:visible include
+include is an expression; if it evaluates to nil, the item is made invisible. :included is an alias for :visible.
+
+:label form
+form is an expression that is evaluated to obtain a value which serves as the menu item’s label (the default is name).
+
+:suffix form
+form is an expression that is dynamically evaluated and whose value is concatenated with the menu entry’s label.
+
+:style style
+style is a symbol describing the type of menu item; it should be toggle (a checkbox), or radio (a radio button), or anything else (meaning an ordinary menu item).
+
+:selected selected
+selected is an expression; the checkbox or radio button is selected whenever the expression’s value is non-nil.
+
+:help help
+help is a string describing the menu item.
+
+Alternatively, a menu item can be a string. Then that string appears in the menu as unselectable text. A string consisting of dashes is displayed as a separator (see Menu Separators).
+
+Alternatively, a menu item can be a list with the same format as menu. This is a submenu.
+
+Here is an example of using easy-menu-define to define a menu similar to the one defined in the example in The Menu Bar:
+
+(easy-menu-define words-menu global-map
+  "Menu for word navigation commands."
+  '("Words"
+     ["Forward word" forward-word]
+     ["Backward word" backward-word]))

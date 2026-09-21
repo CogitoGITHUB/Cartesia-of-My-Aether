@@ -1,0 +1,62 @@
+#+manifold-source: ../manuals.org
+#+manifold-lines: 59185-59242
+#+manifold-stage: 04-mind
+#+manifold-date: 2026-09-15
+
+* Detexify — The Symbol Oracle
+Detexify is a small oracle disguised as a webpage.
+You draw a symbol, and it answers with the LaTeX command that summons it.
+No hunting through manuals, no dusty PDFs.
+Just gesture → recognition → code.
+
+*** How It Works (Human Side)
+You sketch the shape.
+Detexify studies the strokes, angles, pressure of intention.
+Then it returns a ranked list of possible LaTeX symbols.
+Choose the correct one; copy the command; continue your ritual.
+
+*** How It Works (Machine Side)
+Under the hood lives a simple, elegant classifier:
+- pattern-matching on strokes,
+- feature extraction,
+- k-nearest-neighbors logic.
+Not deep learning—just smart geometry whispering to probability.
+
+It compares your drawing to thousands of known symbol samples.
+The closest shapes rise to the top like truth surfacing in calm water.
+
+*** Why It Matters
+Because memory is finite and symbols are infinite.
+Because \forall, \nabla, \hookrightarrow, \blacktriangleright
+all blur into one long dream when you’re tired.
+Detexify cuts through that fog.
+
+*** Offline Possibility
+The tool is open-source.
+If your world demands autonomy,
+you can run it locally—but it requires:
+- Ruby,
+- Haskell,
+- patience.
+
+It’s doable, but not a lightweight spell.
+
+*** Best Usage Ritual
+For sharper results:
+- draw cleanly,
+- one symbol at a time,
+- preferably with a stylus,
+- let the algorithm meet you halfway.
+
+The clearer the gesture, the cleaner the oracle’s answer.
+
+*** Essence
+Detexify is not a tool.
+It is a translator between intuition and typesetting,
+between the gesture of the hand
+and the precision of mathematics.
+
+A whispering bridge:
+you sketch the unknown,
+and it returns the name.
+

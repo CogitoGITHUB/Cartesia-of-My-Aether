@@ -1,0 +1,25 @@
+#+manifold-source: ../manuals.org
+#+manifold-lines: 44252-44272
+#+manifold-stage: 05-world
+#+manifold-date: 2026-09-15
+
+* emacs-everywhere
+
+#+begin_src emacs-lisp
+;; leaf block for emacs-everywhere
+(leaf emacs-everywhere
+  :straight (emacs-everywhere :type git :host github :repo "tecosaur/emacs-everywhere")
+  :config
+  ;; basic keybinding example, you can change to whatever fits your wm
+  (global-set-key (kbd "C-c e") 'emacs-everywhere)
+  ;; optional: define C-c C-c and C-c C-k behavior in the buffer
+  ;; defaults are already paste and cancel, respectively
+  )
+
+#+end_src
+
+
+
+
+
+

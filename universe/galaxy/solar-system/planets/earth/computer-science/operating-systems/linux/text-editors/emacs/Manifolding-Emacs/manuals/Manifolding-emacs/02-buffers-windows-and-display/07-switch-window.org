@@ -1,0 +1,135 @@
+#+manifold-source: ../manuals.org
+#+manifold-lines: 77058-77188
+#+manifold-stage: 02-body
+#+manifold-date: 2026-09-15
+
+* switch-window
+
+** Installation
+
+#+begin_src emacs-lisp
+(leaf switch-window
+  :straight (switch-window
+             :type git
+             :host github
+             :repo "dimitri/switch-window"
+             :fetch t)
+  :bind
+  ("C-x w" . switch-window)
+  :config
+  (setq switch-window-shortcut-style 'qwerty
+        switch-window-timeout nil
+        switch-window-threshold 2))
+#+end_src
+
+
+*** I want to let window to show bigger label.
+
+The face of label is switch-window-label, user can change it :height
+with custiomize-face
+
+*** I want to **hide** window label when window's number < 3
+
+    (setq switch-window-threshold 2)
+*** I want to select minibuffer with label "z".
+
+    (setq switch-window-minibuffer-shortcut ?z)
+
+*** I want to auto resize a window when switch to it
+
+    (setq switch-window-auto-resize-window t)
+    (setq switch-window-default-window-size 0.8) ;80% of frame size
+    (switch-window-mouse-mode) ;auto resize when switch window with mouse
+
+** What is switch-window
+switch-window is an Emacs window switch tool, which offer a
+**visual** way to choose a window to switch to, delete, split
+or other operations.
+
+
+** Configure and Usage
+
+    (require 'switch-window)
+    (global-set-key (kbd "C-x o") 'switch-window)
+    (global-set-key (kbd "C-x 1") 'switch-window-then-maximize)
+    (global-set-key (kbd "C-x 2") 'switch-window-then-split-below)
+    (global-set-key (kbd "C-x 3") 'switch-window-then-split-right)
+    (global-set-key (kbd "C-x 0") 'switch-window-then-delete)
+
+    (global-set-key (kbd "C-x 4 d") 'switch-window-then-dired)
+    (global-set-key (kbd "C-x 4 f") 'switch-window-then-find-file)
+    (global-set-key (kbd "C-x 4 m") 'switch-window-then-compose-mail)
+    (global-set-key (kbd "C-x 4 r") 'switch-window-then-find-file-read-only)
+
+    (global-set-key (kbd "C-x 4 C-f") 'switch-window-then-find-file)
+    (global-set-key (kbd "C-x 4 C-o") 'switch-window-then-display-buffer)
+
+    (global-set-key (kbd "C-x 4 0") 'switch-window-then-kill-buffer)
+
+** Tips
+** Advanced usage:
+
+    (setq switch-window-auto-resize-window
+          (lambda ()
+            (equal (buffer-name) "*scratch*"))) ;when return t, run auto switch
+    (setq switch-window-default-window-size '(0.8 . 0.6)) ;80% width and 60% height of frame
+
+By the way, you can use package [golden-ratio](https://github.com/roman/golden-ratio.el) also.
+
+
+*** Switch-window seem to conflict with Exwm, how to do?
+
+By default, switch-window get user's input with the help
+of function \`read-event', this approach does not work well
+with [Exwm](https://github.com/ch11ng/exwm) (Emacs X window manager),
+user should set the below variable and use minibuffer
+to get input instead:
+
+    (setq switch-window-input-style 'minibuffer)
+
+Note: if you use minibuffer to get input, the feature about
+\`switch-window-minibuffer-shortcut' will not work well.
+
+
+
+*** I use text terminal, but I want **bigger** label.
+
+The only choice is using asciiart, which **draw** a bigger label
+with **small** ascii char.
+
+    (setq switch-window-shortcut-appearance 'asciiart)
+
+*** I want to use image or icon as label.
+
+1.  Prepare your label images, rename them to:
+    1.png &#x2026; 9.png, a.png &#x2026; z.png.
+
+    You can use other image types supported by
+    Emacs, please see: \`image-types'.
+2.  Put all above images to directory:
+    \`switch-window-image-directory'.
+3.  Set variable: \`switch-window-shortcut-appearance'
+
+        (setq switch-window-shortcut-appearance 'image)
+
+![img](./snapshots/switch-window-2.png)
+
+
+<a id="org0124ba1"></a>
+
+*** \`switch-window-shortcut-appearance' can't satisfy my need.  how to do?
+
+All you should do is hacking you own label buffer function,
+for example: my-switch-window-label-buffer-function, and set
+the below variable:
+
+    (setq switch-window-label-buffer-function
+          'my-switch-window-label-buffer-function)
+
+
+
+
+
+
+
+

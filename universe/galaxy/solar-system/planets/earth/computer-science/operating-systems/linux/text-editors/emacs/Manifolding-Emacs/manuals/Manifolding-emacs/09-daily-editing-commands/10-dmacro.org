@@ -1,0 +1,23 @@
+#+manifold-source: ../manuals.org
+#+manifold-lines: 59423-59441
+#+manifold-stage: 04-mind
+#+manifold-date: 2026-09-15
+
+* dmacro
+
+#+begin_src emacs-lisp
+ (leaf dmacro
+  :straight (dmacro :type git :host github :repo "emacs-jp/dmacro")
+  :config
+  ;; optional: set your repeat key
+  (setq dmacro-key (kbd "C-S-e"))
+  ;; enable globally if you want
+  (global-dmacro-mode 1))
+
+#+end_src
+
+
+
+
+
+

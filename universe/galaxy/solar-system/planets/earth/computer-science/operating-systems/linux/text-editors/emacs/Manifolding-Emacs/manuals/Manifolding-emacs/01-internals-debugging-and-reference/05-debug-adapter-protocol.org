@@ -1,0 +1,30 @@
+#+manifold-source: ../manuals.org
+#+manifold-lines: 81291-81316
+#+manifold-stage: 01-awakening
+#+manifold-date: 2026-09-15
+
+* DAP — Debug Adapter Protocol for Emacs / LSP Debugger
+
+#+begin_src emacs-lisp
+(leaf dap-mode
+  :straight (dap-mode
+             :host github
+             :repo "emacs-lsp/dap-mode")
+  :after lsp-mode
+  :config
+  ;; core engine
+  (dap-mode 1)
+  (dap-ui-mode 1)
+
+  ;; auto configuration
+  (setq dap-auto-configure-mode t
+        dap-auto-configure-features '(sessions locals controls tooltip))
+
+  ;; muscle-memory debugging keys
+  (define-key dap-mode-map (kbd "C-c d d") #'dap-debug)
+  (define-key dap-mode-map (kbd "C-c d b") #'dap-breakpoint-toggle)
+  (define-key dap-mode-map (kbd "C-c d n") #'dap-continue)
+  (define-key dap-mode-map (kbd "C-c d s") #'dap-step-in)
+  (define-key dap-mode-map (kbd "C-c d o") #'dap-step-out))
+#+end_src
+

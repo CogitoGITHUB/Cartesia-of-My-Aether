@@ -1,0 +1,26 @@
+#+manifold-source: ../manuals.org
+#+manifold-lines: 77189-77210
+#+manifold-stage: 02-body
+#+manifold-date: 2026-09-15
+
+* Move-text — lift and drop lines like sculpting clay
+
+#+begin_src emacs-lisp
+(leaf move-text
+  :straight (move-text
+             :type git
+             :host github
+             :repo "emacsfodder/move-text"
+             :fetch t)
+  :bind
+  ("M-<up>"   . move-text-up)
+  ("M-<down>" . move-text-down)
+  :config
+  ;; Evil integration
+  (define-key evil-normal-state-map (kbd "M-<up>")   #'move-text-up)
+  (define-key evil-normal-state-map (kbd "M-<down>") #'move-text-down)
+  (define-key evil-visual-state-map (kbd "M-<up>")   #'move-text-up)
+  (define-key evil-visual-state-map (kbd "M-<down>") #'move-text-down))
+#+end_src
+
+

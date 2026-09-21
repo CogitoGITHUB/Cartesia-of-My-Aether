@@ -1,0 +1,1578 @@
+#+manifold-source: ../manuals.org
+#+manifold-lines: 19765-21338
+#+manifold-stage: 06-forge
+#+manifold-date: 2026-09-15
+
+* Maintaining Large Programs
+
+This chapter describes Emacs features for maintaining medium- to large-size programs and packages. These features include:
+
+Unified interface to Support for Version Control Systems (VCS) that record the history of changes to source files.
+Commands for handling programming projects.
+A specialized mode for maintaining ChangeLog files that provide a chronological log of program changes.
+Xref, a set of commands for displaying definitions of symbols (a.k.a. “identifiers”) and their references.
+EDE, the Emacs’s own IDE.
+A mode for merging changes to program sources made on separate branches of development.
+A minor-mode for highlighting bug references and visiting the referenced bug reports in their issue tracker.
+If you are maintaining a large Lisp program, then in addition to the features described here, you may find the Emacs Lisp Regression Testing (ERT) library useful (see ERT in Emacs Lisp Regression Testing).
+
+*** Version Control
+
+A version control system is a program that can record multiple versions of a source file, storing information such as the creation time of each version, who made it, and a description of what was changed.
+
+The Emacs version control interface is called VC. VC commands work with several different version control systems; currently, it supports Bazaar, CVS, Git, Mercurial, Monotone, RCS, SRC, SCCS/CSSC, and Subversion. Of these, the GNU project distributes CVS, RCS, and Bazaar.
+
+VC is enabled automatically whenever you visit a file governed by a version control system. To disable VC entirely, set the customizable variable vc-handled-backends to nil (see Customizing VC).
+
+To update the VC state information for the file visited in the current buffer, use the command vc-refresh-state. This command is useful when you perform version control commands outside Emacs (e.g., from the shell prompt), or if you put the buffer’s file under a different version control system, or remove it from version control entirely.
+
+VC is also enabled automatically in Dired buffers (see Dired, the Directory Editor) showing directories whose files are controlled by a VCS. All VC commands described in this section can be invoked from any Dired buffer showing a directory with VC-controlled files; any files that are marked in a Dired buffer (see Dired Marks vs. Flags) are considered to belong to the current fileset, and VC commands operate on the files in this fileset. This allows you to construct VC filesets including any files you want, regardless of their VC state. (If no files are marked when a VC command is invoked from a Dired buffer, the file shown on the current line in the buffer is considered the only file in the fileset.)
+
+
+**** Introduction to Version Control
+
+VC allows you to use a version control system from within Emacs, integrating the version control operations smoothly with editing. It provides a uniform interface for common operations in many version control operations.
+
+Some uncommon or intricate version control operations, such as altering repository settings, are not supported in VC. You should perform such tasks outside VC, e.g., via the command line.
+
+This section provides a general overview of version control, and describes the version control systems that VC supports. You can skip this section if you are already familiar with the version control system you want to use.
+
+
+***** Understanding the Problems it Addresses
+
+Version control systems provide you with three important capabilities:
+
+Reversibility: the ability to back up to a previous state if you discover that some modification you did was a mistake or a bad idea.
+Concurrency: the ability to have many people modifying the same collection of files knowing that conflicting modifications can be detected and resolved.
+History: the ability to attach historical data to your data, such as explanatory comments about the intention behind each change. Even for a programmer working solo, change histories are an important aid to memory; for a multi-person project, they are a vitally important form of communication among developers.
+
+
+***** Supported Version Control Systems
+
+VC currently works with many different version control systems, which it refers to as back ends:
+
+Git is a decentralized version control system originally invented by Linus Torvalds to support development of Linux (his kernel). VC supports many common Git operations, but others, such as repository syncing, must be done from the command line.
+CVS is the free version control system that was, until circa 2008, used by the majority of free software projects. Since then, it has been superseded by newer systems. CVS allows concurrent multi-user development either locally or over the network. Unlike newer systems, it lacks support for atomic commits and file moving/renaming. VC supports all basic editing operations under CVS.
+Subversion (svn) is a free version control system designed to be similar to CVS but without its problems (e.g., it supports atomic commits of filesets, and versioning of directories, symbolic links, meta-data, renames, copies, and deletes).
+SCCS was the first version control system ever built, and was long ago superseded by more advanced ones. VC compensates for certain features missing in SCCS (e.g., tag names for releases) by implementing them itself. Other VC features, such as multiple branches, are simply unavailable. Since SCCS is non-free, we recommend avoiding it.
+CSSC is a free replacement for SCCS. You should use CSSC only if, for some reason, you cannot use a more recent and better-designed version control system.
+RCS is the free version control system around which VC was initially built. It is relatively primitive: it cannot be used over the network, and works at the level of individual files. Almost everything you can do with RCS can be done through VC.
+Mercurial (hg) is a decentralized version control system broadly resembling Git. VC supports most Mercurial commands, with the exception of repository sync operations.
+Bazaar (bzr) is a decentralized version control system that supports both repository-based and decentralized versioning. VC supports most basic editing operations under Bazaar.
+SRC (src) is RCS, reloaded—a specialized version-control system designed for single-file projects worked on by only one person. It allows multiple files with independent version-control histories to exist in one directory, and is thus particularly well suited for maintaining small documents, scripts, and dotfiles. While it uses RCS for revision storage, it presents a modern user interface featuring lockless operation and integer sequential version numbers. VC supports almost all SRC operations.
+
+
+***** Concepts of Version Control
+
+When a file is under version control, we say that it is registered in the version control system. The system has a repository which stores both the file’s present state and its change history—enough to reconstruct the current version or any earlier version. The repository also contains other information, such as log entries that describe the changes made to each file.
+
+The copy of a version-controlled file that you actually edit is called the work file. You can change each work file as you would an ordinary file. After you are done with a set of changes, you may commit (or check in) the changes; this records the changes in the repository, along with a descriptive log entry.
+
+A directory tree of work files is called a working tree.
+
+Each commit creates a new revision in the repository. The version control system keeps track of all past revisions and the changes that were made in each revision. Each revision is named by a revision ID, whose format depends on the version control system; in the simplest case, it is just an integer.
+
+To go beyond these basic concepts, you will need to understand three aspects in which version control systems differ. As explained in the next three sections, they can be lock-based or merge-based; file-based or changeset-based; and centralized or decentralized. VC handles all these modes of operation, but it cannot hide the differences.
+
+
+***** Merge-based vs Lock-based Version Control
+
+A version control system typically has some mechanism to coordinate between users who want to change the same file. There are two ways to do this: merging and locking.
+
+In a version control system that uses merging, each user may modify a work file at any time. The system lets you merge your work file, which may contain changes that have not been committed, with the latest changes that others have committed.
+
+Older version control systems use a locking scheme instead. Here, work files are normally read-only. To edit a file, you ask the version control system to make it writable for you by locking it; only one user can lock a given file at any given time. This procedure is analogous to, but different from, the locking that Emacs uses to detect simultaneous editing of ordinary files (see Protection against Simultaneous Editing). When you commit your changes, that unlocks the file, and the work file becomes read-only again. Other users may then lock the file to make their own changes.
+
+Both locking and merging systems can have problems when multiple users try to modify the same file at the same time. Locking systems have lock conflicts; a user may try to check a file out and be unable to because it is locked. In merging systems, merge conflicts happen when you commit a change to a file that conflicts with a change committed by someone else after your checkout. Both kinds of conflict have to be resolved by human judgment and communication. Experience has shown that merging is superior to locking, both in convenience to developers and in minimizing the number and severity of conflicts that actually occur.
+
+SCCS always uses locking. RCS is lock-based by default but can be told to operate in a merging style. CVS and Subversion are merge-based by default but can be told to operate in a locking mode. Decentralized version control systems, such as Git and Mercurial, are exclusively merging-based.
+
+VC mode supports both locking and merging version control. The terms “commit” and “update” are used in newer version control systems; older lock-based systems use the terms “check in” and “check out”. VC hides the differences between them as much as possible.
+
+
+***** Changeset-based vs File-based Version Control
+
+On SCCS, RCS, CVS, and other early version control systems (and also in SRC), version control operations are file-based: each file has its own comment and revision history separate from that of all other files. Newer systems, beginning with Subversion, are changeset-based: a commit may include changes to several files, and the entire set of changes is handled as a unit. Any comment associated with the change does not belong to a single file, but to the changeset itself.
+
+Changeset-based version control is more flexible and powerful than file-based version control; usually, when a change to multiple files has to be reversed, it’s good to be able to easily identify and remove all of it.
+
+
+***** Decentralized vs Centralized Repositories
+
+Early version control systems were designed around a centralized model in which each project has only one repository used by all developers. SCCS, RCS, CVS, Subversion, and SRC share this kind of model. One of its drawbacks is that the repository is a choke point for reliability and efficiency.
+
+GNU Arch pioneered the concept of distributed or decentralized version control, later implemented in Git, Mercurial, and Bazaar. A project may have several different repositories, and these systems support a sort of super-merge between repositories that tries to reconcile their change histories. In effect, there is one repository for each developer, and repository merges take the place of commit operations.
+
+VC helps you manage the traffic between your personal workfiles and a repository. Whether the repository is a single master, or one of a network of peer repositories, is not something VC has to care about.
+
+
+***** Types of Log File
+
+Projects that use a version control system can have two types of log for changes. One is the log maintained by the version control system: each time you commit a change, you fill out a log entry for the change (see Features of the Log Entry Buffer). This is called the version control log.
+
+The other kind of log is the file ChangeLog (see Change Logs). It provides a chronological record of all changes to a large portion of a program—typically one directory and its subdirectories. A small program would use one ChangeLog file; a large program may have a ChangeLog file in each major directory. See Change Logs. Programmers have used change logs since long before version control systems.
+
+Changeset-based version systems typically maintain a changeset-based modification log for the entire system, which makes change log files somewhat redundant. One advantage that they retain is that it is sometimes useful to be able to view the transaction history of a single directory separately from those of other directories. Another advantage is that commit logs can’t be fixed in many version control systems.
+
+A project maintained with version control can use just the version control log, or it can use both kinds of logs. It can handle some files one way and some files the other way. Each project has its policy, which you should follow.
+
+When the policy is to use both, you typically want to write an entry for each change just once, then put it into both logs. You can write the entry in ChangeLog, then copy it to the log buffer with C-c C-a when committing the change (see Features of the Log Entry Buffer). Or you can write the entry in the log buffer while committing the change (with the help of C-c C-w), and later use the C-x v a command to copy it to ChangeLog (see Change Logs and VC).
+
+
+**** Version Control and the Mode Line
+
+When you visit a file that is under version control, Emacs indicates this on the mode line. For example, ‘Bzr-1223’ says that Bazaar is used for that file, and the current revision ID is 1223.
+
+The character between the back-end name and the revision ID indicates the version control status of the work file. In a merge-based version control system, a ‘-’ character indicates that the work file is unmodified, and ‘:’ indicates that it has been modified. ‘!’ indicates that the file contains conflicts as result of a recent merge operation (see Merging Branches), or that the file was removed from the version control. Finally, ‘?’ means that the file is under version control, but is missing from the working tree.
+
+In a lock-based system, ‘-’ indicates an unlocked file, and ‘:’ a locked file; if the file is locked by another user (for instance, ‘jim’), that is displayed as ‘RCS:jim:1.3’. ‘@’ means that the file was locally added, but not yet committed to the master repository.
+
+On a graphical display, you can move the mouse over this mode line indicator to pop up a tool-tip, which displays a more verbose description of the version control status. Pressing mouse-1 over the indicator pops up a menu of VC commands, identical to ‘Tools / Version Control’ on the menu bar.
+
+When Auto Revert mode (see Reverting a Buffer) reverts a buffer that is under version control, it updates the version control information in the mode line. However, Auto Revert mode may not properly update this information if the version control status changes without changes to the work file, from outside the current Emacs session. If you set auto-revert-check-vc-info to t, Auto Revert mode updates the version control status information every auto-revert-interval seconds, even if the work file itself is unchanged. The resulting CPU usage depends on the version control system, but is usually not excessive.
+
+
+**** Basic Editing under Version Control
+
+Most VC commands operate on VC filesets. A VC fileset is a collection of one or more files that a VC operation acts upon. When you type VC commands in a buffer visiting a version-controlled file, the VC fileset is simply that one file. When you type them in a VC Directory buffer, and some files in it are marked, the VC fileset consists of the marked files (see VC Directory Mode). Likewise, when you invoke a VC command from a Dired buffer, the VC fileset consists of the marked files (see Dired Marks vs. Flags), defaulting to the file shown on the current line if no files are marked.
+
+With modern changeset-based version control systems (see Changeset-based vs File-based Version Control), such as Git, Mercurial, and Bazaar, VC commands handle multi-file VC filesets as a group. For example, committing a multi-file VC fileset generates a single revision, containing the changes to all those files. On older file-based version control systems like CVS, each file in a multi-file VC fileset is handled individually; thus, committing a fileset generates one revision for each changed file in the fileset.
+
+C-x v v
+Perform the next appropriate version control operation on the current VC fileset.
+
+The principal VC command is a multi-purpose command, C-x v v (vc-next-action), which performs the most appropriate action on the current VC fileset: either registering it with a version control system, or committing it, or unlocking it, or merging changes into it. The precise actions for each situation are described in detail in the following subsections. You can use C-x v v either in a file-visiting buffer, in a Dired buffer, or in a VC Directory buffer; in the latter two cases the command operates on the fileset consisting of the marked files. You can also use C-x v v, in a buffer with patches under Diff Mode (see Diff Mode), in which case the command operates on the files whose diffs are shown in the buffer.
+
+Note that VC filesets are distinct from the named filesets used for viewing and visiting files in functional groups (see Filesets). Unlike named filesets, VC filesets are not named and don’t persist across sessions.
+
+
+***** Basic Version Control with Merging
+
+With a modern merging-based version control system (such as Git and Hg; see Merge-based vs Lock-based Version Control), C-x v v does the following when invoked from a buffer that visits a version-controlled file or a VC Directory or Dired buffer:
+
+If there is more than one file in the VC fileset and the files have inconsistent version control statuses, signal an error. (Note, however, that a fileset is allowed to include both newly-added files and modified files; see Registering a File for Version Control.) Also signal an error if the files in the fileset are missing (removed from the filesystem, but still tracked by version control), or are ignored by version control.
+If every file in the VC fileset is registered and unchanged with respect to the last revision, do nothing.
+If none of the files in the VC fileset are registered with a version control system, register the newly-added files in the VC fileset, i.e., place them under version control. See Registering a File for Version Control. If Emacs cannot find a system to register under, it prompts for a repository type, creates a new repository, and registers the VC fileset with it. You can also specify the system explicitly, see Advanced Control in C-x v v. Note that registering the files doesn’t commit them; you must invoke C-x v v again to commit, see below.
+If every file in the VC fileset has been either newly-added or modified, commit the changed files. To do this, Emacs pops up a *vc-log* buffer; type the desired log entry for the changes, followed by C-c C-c to commit. See Features of the Log Entry Buffer.
+With modern decentralized version control systems (Git, Mercurial, etc.), the changes are committed locally and not automatically propagated to the upstream repository (which is usually on a remote host). In these cases, if the repository has been changed since your last update, the commit may fail. In that case, you must update from upstream and then try again. Use C-x v + (see Pulling/Pushing Changes into/from a Branch) or C-x v m (see Merging Branches) for that.
+
+With a centralized version control system, if the commit fails due to upstream changes, type C-x v v again to merge in the upstream repository changes.
+
+Finally, if you are using a centralized version control system, if any file in the VC fileset is outdated with respect to the upstream repository, offer to update the fileset from the repository.
+These rules also apply when you use RCS in its non-locking mode, except that changes are not automatically merged from the repository. Nothing informs you if another user has committed changes in the same file since you began editing it; when you commit your revision, that other user’s changes are removed (however, they remain in the repository and are thus not irrevocably lost). Therefore, you must verify that the current revision is unchanged before committing your changes. In addition, locking is possible with RCS even in this mode: C-x v v with an unmodified file locks the file, just as it does with RCS in its normal locking mode (see Basic Version Control with Locking).
+
+If C-x v v is invoked from a buffer under Diff Mode, the command assumes the buffer holds a set of patches for one or more files. It then applies the changes to the respective files and commits the changes after popping up the *vc-log* buffer to allow you to type a suitable commit log message.
+
+
+***** Basic Version Control with Locking
+
+With a locking-based version control system (such as SCCS, and RCS in its default mode), C-x v v does the following:
+
+If there is more than one file in the VC fileset and the files have inconsistent version control statuses, signal an error. Also signal an error if the files in the fileset are missing (removed from the filesystem, but still tracked by version control).
+If each file in the VC fileset is not registered with a version control system, register the newly-added files in the fileset. See Registering a File for Version Control. If Emacs cannot find a system to register under, it prompts for a repository type, creates a new repository, and registers the VC fileset with it. You can also specify the system explicitly, see Advanced Control in C-x v v.
+If each file is registered and unlocked, check the files out: lock each one and make it writable, so that you can begin to edit it.
+If each file is locked by you and contains changes, commit (a.k.a. “check-in”) the changes. To do this, Emacs pops up a *vc-log* buffer; type the desired log entry for the new revision, followed by C-c C-c to commit (see Features of the Log Entry Buffer).
+If each file is locked by you, but you have not changed it, release the lock and make the file read-only again. This undoes previous check-out operation for files that were not changed since the checkout.
+If each file is locked by another user, ask whether you want to steal the lock. If you say yes, the file becomes locked by you, and a warning message is sent to the user who had formerly locked the file.
+If files in the fileset are unlocked, but have changes with respect to their last revision, offer to claim the lock for each such file or to revert the file to the last checked-in revision. (This situation is exceptional and should not normally happen.)
+These rules also apply when you use CVS in locking mode, except that CVS does not support stealing locks.
+
+
+***** Previous: Basic Version Control with Locking, Up: Basic Editing under Version Control   [Contents][Index]
+
+29.1.3.3 Advanced Control in C-x v v
+When you give a prefix argument to vc-next-action (C-u C-x v v), it still performs the next logical version control operation, but accepts additional arguments to specify precisely how to do the operation.
+
+You can specify the name of a version control system. This is useful if the fileset can be managed by more than one version control system, and Emacs fails to detect the correct one.
+Otherwise, if using CVS, RCS or SRC, you can specify a revision ID.
+If the fileset is modified (or locked), this makes Emacs commit the files with that revision ID. You can create a new branch by supplying an appropriate revision ID (see Version Control Branches).
+
+If the fileset is unmodified (and unlocked), this checks out the specified revision into the working tree. You can also specify a revision on another branch by giving its revision or branch ID (see Switching between Branches). An empty argument (i.e., C-u C-x v v RET) checks out the latest (a.k.a. “head”) revision on the current branch.
+
+Specifying revision ID in this manner is silently ignored by a decentralized version control system. Those systems do not let you specify your own revision IDs, nor do they use the concept of checking out individual files.
+
+
+**** Features of the Log Entry Buffer
+
+When you tell VC to commit a change, it pops up a buffer named *vc-log*. In this buffer, you should write a log entry describing the changes you have made (see Understanding the Problems it Addresses). After you are done, type C-c C-c (log-edit-done) to exit the buffer and commit the change, together with your log entry.
+
+The major mode for the *vc-log* buffer is Log Edit mode, a variant of Text mode (see Text Mode). On entering Log Edit mode, Emacs runs the hooks text-mode-hook and vc-log-mode-hook (see Hooks).
+
+In the *vc-log* buffer, you can write one or more header lines, specifying additional information to be supplied to the version control system. Each header line must occupy a single line at the top of the buffer; the first line that is not a header line is treated as the start of the log entry. For example, the following header line states that the present change was not written by you, but by another developer:
+
+Author: J. R. Hacker <jrh@example.com>
+Apart from the ‘Author’ header, Emacs recognizes the headers ‘Summary’ (a one-line summary of the changeset), ‘Date’ (a manually-specified commit time), and ‘Fixes’ (a reference to a bug fixed by the change). Not all version control systems recognize all headers. If you specify a header for a system that does not support it, the header is treated as part of the log entry.
+
+While in the *vc-log* buffer, the current VC fileset is considered to be the fileset that will be committed if you type C-c C-c. To view a list of the files in the VC fileset, type C-c C-f (log-edit-show-files). To view a diff of changes between the VC fileset and the version from which you started editing (see Examining And Comparing Old Revisions), type C-c C-d (log-edit-show-diff).
+
+To help generate ChangeLog entries, type C-c C-w (log-edit-generate-changelog-from-diff), to generate skeleton ChangeLog entries, listing all changed file and function names based on the diff of the VC fileset. Consecutive entries left empty will be combined by M-q (fill-paragraph). By default the skeleton will just include the file name, without any leading directories. If you wish to prepend the leading directories up to the VC root, customize diff-add-log-use-relative-names.
+
+If the VC fileset includes one or more ChangeLog files (see Change Logs), type C-c C-a (log-edit-insert-changelog) to pull the relevant entries into the *vc-log* buffer. If the topmost item in each ChangeLog was made under your user name on the current date, this command searches that item for entries matching the file(s) to be committed, and inserts them. If you are using CVS or RCS, see Change Logs and VC, for the opposite way of working—generating ChangeLog entries from the Log Edit buffer.
+
+To abort a commit, just don’t type C-c C-c in that buffer. You can switch buffers and do other editing. As long as you don’t try to make another commit, the entry you were editing remains in the *vc-log* buffer, and you can go back to that buffer at any time to complete the commit.
+
+You can also browse the history of previous log entries to duplicate a commit comment. This can be useful when you want to make several commits with similar comments. The commands M-n, M-p, M-s and M-r for doing this work just like the minibuffer history commands (see Minibuffer History), except that they are used outside the minibuffer.
+
+
+**** Examining And Comparing Old Revisions
+
+C-x v =
+Compare the work files in the current VC fileset with the versions you started from (vc-diff). With a prefix argument, prompt for two revisions of the current VC fileset and compare them. You can also call this command from a Dired buffer (see Dired, the Directory Editor).
+
+M-x vc-ediff
+Like C-x v =, but using Ediff. See Ediff in The Ediff Manual.
+
+C-x v D
+Compare the entire working tree to the revision you started from (vc-root-diff). With a prefix argument, prompt for two revisions and compare their trees.
+
+C-x v ~
+Prompt for a revision of the current file, and visit it in a separate buffer (vc-revision-other-window).
+
+C-x v g
+Display an annotated version of the current file: for each line, show the latest revision in which it was modified (vc-annotate).
+
+C-x v = (vc-diff) displays a diff which compares each work file in the current VC fileset to the version(s) from which you started editing. The diff is displayed in another window, in a Diff mode buffer (see Diff Mode) named *vc-diff*. The usual Diff mode commands are available in this buffer. In particular, the g (revert-buffer) command performs the file comparison again, generating a new diff.
+
+To compare two arbitrary revisions of the current VC fileset, call vc-diff with a prefix argument: C-u C-x v =. This prompts for two revision IDs (see Concepts of Version Control), and displays a diff between those versions of the fileset. This will not work reliably for multi-file VC filesets, if the version control system is file-based rather than changeset-based (e.g., CVS), since then revision IDs for different files would not be related in any meaningful way.
+
+Instead of the revision ID, some version control systems let you specify revisions in other formats. For instance, under Bazaar you can enter ‘date:yesterday’ for the argument to C-u C-x v = (and related commands) to specify the first revision committed after yesterday. See the documentation of the version control system for details.
+
+If you invoke C-x v = or C-u C-x v = from a Dired buffer (see Dired, the Directory Editor), the file listed on the current line is treated as the current VC fileset. The VC fileset can also include several marked files.
+
+M-x vc-ediff works like C-x v =, except that it uses an Ediff session. See Ediff in The Ediff Manual.
+
+C-x v D (vc-root-diff) is similar to C-x v =, but it displays the changes in the entire current working tree (i.e., the working tree containing the current VC fileset). If you invoke this command from a Dired buffer, it applies to the working tree containing the directory.
+
+To compare two arbitrary revisions of the whole trees, call vc-root-diff with a prefix argument: C-u C-x v D. This prompts for two revision IDs (see Concepts of Version Control), and displays a diff between those versions of the entire version-controlled directory trees (RCS, SCCS, CVS, and SRC do not support this feature).
+
+You can customize the diff options that C-x v = and C-x v D use for generating diffs. The options used are taken from the first non-nil value amongst the variables vc-backend-diff-switches, vc-diff-switches, and diff-switches (see Comparing Files), in that order. Here, backend stands for the relevant version control system, e.g., bzr for Bazaar. Since nil means to check the next variable in the sequence, either of the first two may use the value t to mean no switches at all. Most of the vc-backend-diff-switches variables default to nil, but some default to t; these are for version control systems whose diff implementations do not accept common diff options, such as Subversion.
+
+To directly examine an older version of a file, visit the work file and type C-x v ~ revision RET (vc-revision-other-window). This retrieves the file version corresponding to revision, saves it to filename.~revision~, and visits it in a separate window.
+
+Many version control systems allow you to view files annotated with per-line revision information, by typing C-x v g (vc-annotate). This creates a new “annotate” buffer displaying the file’s text, with each line colored to show how old it is. Red text is new, blue is old, and intermediate colors indicate intermediate ages. By default, the color is scaled over the full range of ages, such that the oldest changes are blue, and the newest changes are red. If the variable vc-annotate-background-mode is non-nil, the colors expressing the age of each line are applied to the background color, leaving the foreground at its default color.
+
+You can customize the annotate options that C-x v g uses by customizing vc-backend-annotate-switches and vc-annotate-switches. They function similarly to vc-backend-diff-switches and vc-diff-switches, described above.
+
+When you give a prefix argument to C-x v g, Emacs reads two arguments using the minibuffer: the revision to display and annotate (instead of the current file contents), and the time span in days the color range should cover.
+
+From the “annotate” buffer, these and other color scaling options are available from the ‘VC-Annotate’ menu. In this buffer, you can also use the following keys to browse the annotations of past revisions, view diffs, or view log entries:
+
+p
+Annotate the previous revision, i.e., the revision before the one currently annotated. A numeric prefix argument is a repeat count, so C-u 10 p would take you back 10 revisions.
+
+n
+Annotate the next revision, i.e., the revision after the one currently annotated. A numeric prefix argument is a repeat count.
+
+j
+Annotate the revision indicated by the current line.
+
+a
+Annotate the revision before the one indicated by the current line. This is useful to see the state the file was in before the change on the current line was made.
+
+f
+Show in a buffer the file revision indicated by the current line.
+
+d
+Display the diff between the current line’s revision and the previous revision. This is useful to see what the current line’s revision actually changed in the file.
+
+D
+Display the diff between the current line’s revision and the previous revision for all files in the changeset (for VC systems that support changesets). This is useful to see what the current line’s revision actually changed in the tree.
+
+l
+Show the log of the current line’s revision. This is useful to see the author’s description of the changes in the revision on the current line.
+
+w
+Annotate the working revision—the one you are editing. If you used p and n to browse to other revisions, use this key to return to your working revision.
+
+v
+Toggle the annotation visibility. This is useful for looking just at the file contents without distraction from the annotations.
+
+
+**** VC Change Log
+
+C-x v l
+Display the change history for the current fileset (vc-print-log).
+
+C-x v L
+Display the change history for the current repository (vc-print-root-log).
+
+C-x v b l
+Display the change history for another branch (vc-print-branch-log).
+
+C-x v I
+Display the changes that a “pull” operation will retrieve (vc-log-incoming).
+
+C-x v O
+Display the changes that will be sent by the next “push” operation (vc-log-outgoing).
+
+C-x v h
+Display the history of changes made in the region of file visited by the current buffer (vc-region-history).
+
+M-x vc-log-search RET
+Search the change history for a specified pattern.
+
+C-x v l (vc-print-log) displays a buffer named *vc-change-log*, showing the history of changes made to the current fileset in the long form, including who made the changes, the dates, and the log entry for each change (these are the same log entries you would enter via the *vc-log* buffer; see Features of the Log Entry Buffer). When invoked from a buffer visiting a file, the current fileset consists of that single file, and point in the displayed *vc-change-log* buffer is centered at the revision of that file. When invoked from a VC Directory buffer (see VC Directory Mode) or from a Dired buffer (see Dired, the Directory Editor), the fileset consists of all the marked files, defaulting to the file shown on the current line in the directory buffer if no file is marked.
+
+If the fileset includes one or more directories, the resulting *vc-change-log* buffer shows a short log of changes (one line for each change), if the VC backend supports that; otherwise it shows the log in the long form.
+
+With a prefix argument, the command prompts for the revision to center on in the *vc-change-log* buffer and for the maximum number of revisions to display.
+
+C-x v L (vc-print-root-log) displays a *vc-change-log* buffer showing the history of the entire version-controlled directory tree (RCS, SCCS, CVS, and SRC do not support this feature). With a prefix argument, the command prompts for the maximum number of revisions to display. A numeric prefix argument specifies the maximum number of revisions without prompting. When the numeric prefix argument is 1, as in C-1 C-x v L or C-u 1 C-x v L, the command prompts for the revision ID, and displays the log entry of that revision together with the changes (diffs) it introduced. (Some less capable version control systems, such as RCS and CVS, don’t have commands to show a revision log with its diffs; for them the command displays only the log entry, and you can request to show the diffs by typing d or D, see below.)
+
+The C-x v L history is shown in a compact form, usually showing only the first line of each log entry. However, you can type RET (log-view-toggle-entry-display) in the *vc-change-log* buffer to reveal the entire log entry for the revision at point. A second RET hides it again.
+
+C-x v b l branch-name RET (vc-print-branch-log) displays a *vc-change-log* buffer showing the history of the version-controlled directory tree, like vc-print-root-log does, but it shows the history of a branch other than the current one; it prompts for the branch whose history to display.
+
+On a decentralized version control system, the C-x v I (vc-log-incoming) command displays a log buffer showing the changes that will be applied, the next time you run the version control system’s pull command to get new revisions from another remote location (see Pulling/Pushing Changes into/from a Branch). This other remote location is the default one from which changes are pulled, as defined by the version control system; with a prefix argument, vc-log-incoming prompts for a specific remote location. Similarly, C-x v O (vc-log-outgoing) shows the changes that will be sent to another remote location, the next time you run the push command; with a prefix argument, it prompts for a specific destination that in case of some version control system can be a branch name.
+
+In the *vc-change-log* buffer, you can use the following keys to move between the logs of revisions and of files, and to examine and compare past revisions (see Examining And Comparing Old Revisions):
+
+p
+Move to the previous revision entry. (Revision entries in the log buffer are usually in reverse-chronological order, so the previous revision-item usually corresponds to a newer revision.) A numeric prefix argument is a repeat count.
+
+n
+Move to the next revision entry. A numeric prefix argument is a repeat count.
+
+a
+Annotate the revision on the current line (see Examining And Comparing Old Revisions).
+
+e
+Modify the change comment displayed at point. Note that not all VC systems support modifying change comments.
+
+f
+Visit the revision indicated at the current line.
+
+d
+Display a diff between the revision at point and the next earlier revision, for the specific file.
+
+D
+Display the changeset diff between the revision at point and the next earlier revision. This shows the changes to all files made in that revision.
+
+RET
+In a compact-style log buffer (e.g., the one created by C-x v L), toggle between showing and hiding the full log entry for the revision at point.
+
+Because fetching many log entries can be slow, the *vc-change-log* buffer displays no more than 2000 revisions by default. The variable vc-log-show-limit specifies this limit; if you set the value to zero, that removes the limit. You can also increase the number of revisions shown in an existing *vc-change-log* buffer by clicking on the ‘Show 2X entries’ or ‘Show unlimited entries’ buttons at the end of the buffer. However, RCS, SCCS, CVS, and SRC do not support this feature.
+
+A useful variant of examining history of changes is provided by the command vc-region-history (by default bound to C-x v h), which shows a *VC-history* buffer with the history of changes made in the region of the current buffer’s file between point and the mark (see The Mark and the Region). The history of changes includes the commit log messages and also the changes themselves in the Diff format.
+
+Invoke this command after marking in the current buffer the region in whose changes you are interested. In the *VC-history* buffer it pops up, you can use all of the commands available in the *vc-change-log* buffer described above, and also the commands defined by Diff mode (see Diff Mode).
+
+This command is currently available only with Git and Mercurial (hg).
+
+The command vc-log-search allows searching for a pattern in the log of changes. It prompts for a pattern (a regular expression), and displays all entries in the change history whose log messages match the pattern. When invoked with a prefix argument, the command will also prompt for a specific VCS shell command to run for this purpose.
+
+
+**** Undoing Version Control Actions
+
+C-x v u
+Revert the work file(s) in the current VC fileset to the last revision (vc-revert).
+
+If you want to discard all the changes you have made to the current VC fileset, type C-x v u (vc-revert). This will ask you for confirmation before discarding the changes. If you agree, the fileset is reverted.
+
+If vc-revert-show-diff is non-nil, this command will show you a diff between the work file(s) and the revision from which you started editing. Afterwards, the diff buffer will either be killed (if this variable is kill), or the buffer will be buried (any other non-nil value). If you don’t want C-x v u to show a diff, set this variable to nil (you can still view the diff directly with C-x v =; see Examining And Comparing Old Revisions).
+
+On locking-based version control systems, C-x v u leaves files unlocked; you must lock again to resume editing. You can also use C-x v u to unlock a file if you lock it and then decide not to change it.
+
+
+**** Ignore Version Control Files
+
+C-x v G
+Ignore a file under current version control system. (vc-ignore).
+
+Many source trees contain some files that do not need to be versioned, such as editor backups, object or bytecode files, and built programs. You can simply not add them, but then they’ll always crop up as unknown files. You can also tell the version control system to ignore these files by adding them to the ignore file at the top of the tree. C-x v G (vc-ignore) can help you do this. When called with a prefix argument, you can remove a file from the ignored file list.
+
+
+**** VC Directory Mode
+
+The VC Directory buffer is a specialized buffer for viewing the version control statuses of the files in a directory tree, and performing version control operations on those files. In particular, it is used to specify multi-file VC filesets for commands like C-x v v to act on (see VC Directory Commands).
+
+To use the VC Directory buffer, type C-x v d (vc-dir). This reads a directory’s name using the minibuffer, and switches to a VC Directory buffer for that directory. By default, the buffer is named *vc-dir*. Its contents are described in The VC Directory Buffer.
+
+The vc-dir command automatically detects the version control system to be used in the specified directory. In the event that more than one system is being used in the directory, you should invoke the command with a prefix argument, C-u C-x v d; this prompts for the version control system which the VC Directory buffer should use.
+
+In addition to the VC Directory buffer, Emacs has a similar facility called PCL-CVS which is specialized for CVS. See About PCL-CVS in PCL-CVS—The Emacs Front-End to CVS.
+
+You can also invoke VC commands from Dired buffers (see Dired, the Directory Editor). In that case, any VC command you invoke considers the marked files as the current fileset (see Basic Editing under Version Control), defaulting to the file on the current line if no files are marked.
+
+***** The VC Directory Buffer
+
+The VC Directory buffer contains a list of version-controlled files and their version control statuses. It lists files in the current directory (the one specified when you called C-x v d) and its subdirectories, but only those with a noteworthy status. Files that are up-to-date (i.e., the same as in the repository) are omitted. If all the files in a subdirectory are up-to-date, the subdirectory is not listed either. As an exception, if a file has become up-to-date as a direct result of a VC command, it is listed.
+
+Here is an example of a VC Directory buffer listing:
+
+                     ./
+    edited           configure.ac
+   added            README
+    unregistered     temp.txt
+                     src/
+   edited           src/main.c
+Two work files have been modified but not committed: configure.ac in the current directory, and main.c in the src/ subdirectory. The file named README has been added but is not yet committed, while temp.txt is not under version control (see Registering a File for Version Control).
+
+The ‘*’ characters next to the entries for README and src/main.c indicate that the user has marked these files as the current VC fileset (see VC Directory Commands).
+
+The above example is typical for a decentralized version control system like Bazaar, Git, or Mercurial. Other systems can show other statuses. For instance, CVS shows the ‘needs-update’ status if the repository has changes that have not been applied to the work file. RCS and SCCS show the name of the user locking a file as its status.
+
+On CVS, the vc-dir command normally contacts the repository, which may be on a remote machine, to check for updates. If you change the variable vc-cvs-stay-local to nil (see Options specific for CVS), then Emacs avoids contacting a remote repository when generating the VC Directory buffer (it will still contact it when necessary, e.g., when doing a commit). This may be desirable if you are working offline or the network is slow.
+
+The VC Directory buffer omits subdirectories listed in the variable vc-directory-exclusion-list. Its default value contains directories that are used internally by version control systems.
+
+
+***** VC Directory Commands
+
+Emacs provides several commands for navigating the VC Directory buffer, and for marking files as belonging to the current VC fileset.
+
+n
+SPC
+Move point to the next entry (vc-dir-next-line).
+
+p
+Move point to the previous entry (vc-dir-previous-line).
+
+TAB
+Move to the next directory entry (vc-dir-next-directory).
+
+S-TAB
+Move to the previous directory entry (vc-dir-previous-directory).
+
+RET
+f
+Visit the file or directory listed on the current line (vc-dir-find-file).
+
+o
+Visit the file or directory on the current line, in a separate window (vc-dir-find-file-other-window).
+
+m
+Mark the file or directory on the current line (vc-dir-mark), putting it in the current VC fileset. If the region is active, mark all files in the region.
+
+A file cannot be marked with this command if it is already in a marked directory, or one of its subdirectories. Similarly, a directory cannot be marked with this command if any file in its tree is marked.
+
+M
+If point is on a file entry, mark all files with the same status; if point is on a directory entry, mark all files in that directory tree (vc-dir-mark-all-files). With a prefix argument, mark all listed files and directories.
+
+% m
+ %
+You can use this command to mark files by regexp (vc-dir-mark-by-regexp). If given a prefix, unmark files instead.
+
+ r
+You can use this command to mark files that are in one of registered states, including edited, added or removed. (vc-dir-mark-registered-files).
+
+G
+Add the file under point to the list of files that the VC should ignore (vc-dir-ignore). For instance, if the VC is Git, it will append this file to the .gitignore file. If given a prefix, do this with all the marked files.
+
+q
+Quit the VC Directory buffer, and bury it (quit-window).
+
+u
+Unmark the file or directory on the current line. If the region is active, unmark all the files in the region (vc-dir-unmark).
+
+U
+If point is on a file entry, unmark all files with the same status; if point is on a directory entry, unmark all files in that directory tree (vc-dir-unmark-all-files). With a prefix argument, unmark all files and directories.
+
+x
+Hide files with ‘up-to-date’ or ‘ignored’ status (vc-dir-hide-up-to-date). With a prefix argument, hide items whose state is that of the item at point.
+
+While in the VC Directory buffer, all the files that you mark with m (vc-dir-mark) or M (vc-dir-mark-all-files) are in the current VC fileset. If you mark a directory entry with m, all the listed files in that directory tree are in the current VC fileset. The files and directories that belong to the current VC fileset are indicated with a ‘*’ character in the VC Directory buffer, next to their VC status. In this way, you can set up a multi-file VC fileset to be acted on by VC commands like C-x v v (see Basic Editing under Version Control), C-x v = (see Examining And Comparing Old Revisions), and C-x v u (see Undoing Version Control Actions).
+
+The VC Directory buffer also defines some single-key shortcuts for VC commands with the C-x v prefix: =, +, l, i, D, L, G, I, O, and v.
+
+For example, you can commit a set of edited files by opening a VC Directory buffer, where the files are listed with the ‘edited’ status; marking the files; and typing v or C-x v v (vc-next-action). If the version control system is changeset-based, Emacs will commit the files in a single revision.
+
+While in the VC Directory buffer, you can also perform search and replace on the current VC fileset, with the following commands:
+
+S
+Search the fileset (vc-dir-search).
+
+Q
+Do a regular expression query replace on the fileset (vc-dir-query-replace-regexp).
+
+M-s a C-s
+Do an incremental search on the fileset (vc-dir-isearch).
+
+M-s a C-M-s
+Do an incremental regular expression search on the fileset (vc-dir-isearch-regexp).
+
+Apart from acting on multiple files, these commands behave much like their single-buffer counterparts (see Searching and Replacement).
+
+The VC Directory buffer additionally defines some branch-related commands starting with the prefix b:
+
+b c
+Create a new branch (vc-create-branch). See Creating New Branches.
+
+b l
+Prompt for the name of a branch and display the change history of that branch (vc-print-branch-log).
+
+b s
+Switch to a branch (vc-switch-branch). See Switching between Branches.
+
+d
+Delete the marked files, or the current file if no marks (vc-dir-clean-delete). The files will not be marked as deleted in the version control system, so this function is mostly useful for unregistered files.
+
+The above commands are also available via the menu bar, and via a context menu invoked by mouse-2. Furthermore, some VC backends use the menu to provide extra backend-specific commands. For example, Git and Bazaar allow you to manipulate stashes and shelves (which are a way to temporarily put aside uncommitted changes, and bring them back at a later time).
+
+
+**** Version Control Branches
+
+One use of version control is to support multiple independent lines of development, which are called branches. Amongst other things, branches can be used for maintaining separate stable and development versions of a program, and for developing unrelated features in isolation from one another.
+
+VC’s support for branch operations is currently fairly limited. For decentralized version control systems, it provides commands for updating one branch with the contents of another, and for merging the changes made to two different branches (see Merging Branches). For centralized version control systems, it supports checking out different branches and committing into new or different branches.
+
+***** Switching between Branches
+
+The various version control systems differ in how branches are implemented, and these differences cannot be entirely concealed by VC.
+
+On some decentralized version control systems, including Bazaar and Mercurial in its normal mode of operation, each branch has its own working directory tree, so switching between branches just involves switching directories. On Git, branches are normally co-located in the same directory, and switching between branches is done using the git checkout command, which changes the contents of the working tree to match the branch you switch to. Bazaar also supports co-located branches, in which case the bzr switch command will switch branches in the current directory. With Subversion, you switch to another branch using the svn switch command. With Mercurial, command hg update is used to switch to another branch.
+
+The VC command to switch to another branch in the current directory is C-x v b s branch-name RET (vc-switch-branch).
+
+On centralized version control systems, you can also switch between branches by typing C-u C-x v v in an up-to-date work file (see Advanced Control in C-x v v), and entering the revision ID for a revision on another branch. On CVS, for instance, revisions on the trunk (the main line of development) normally have IDs of the form 1.1, 1.2, 1.3, …, while the first branch created from (say) revision 1.2 has revision IDs 1.2.1.1, 1.2.1.2, …, the second branch created from revision 1.2 has revision IDs 1.2.2.1, 1.2.2.2, …, and so forth. You can also specify the branch ID, which is a branch revision ID omitting its final component (e.g., 1.2.1), to switch to the latest revision on that branch.
+
+On a locking-based system, switching to a different branch also unlocks (write-protects) the working tree.
+
+Once you have switched to a branch, VC commands will apply to that branch until you switch away; for instance, any VC filesets that you commit will be committed to that specific branch.
+
+
+***** Pulling/Pushing Changes into/from a Branch
+
+C-x v P
+With a decentralized version control system, update another repository with locally-committed changes from the current branch (a.k.a. push changes). This concept does not exist for centralized version control systems
+
+C-x v +
+With a decentralized version control system, update the current branch of the local repository by pulling in changes from another repository.
+
+With a centralized version control system, update the current VC fileset from the repository.
+
+On a decentralized version control system, the command C-x v P (vc-push) updates another location, commonly known as the upstream repository, with locally-committed changes from the current branch. With a prefix argument, it prompts for the exact version control command to run, which lets you specify where to push changes; the default is bzr push with Bazaar, git push with Git, and hg push with Mercurial. The default commands always push to the repository in the default location determined by the version control system from your branch configuration.
+
+Prior to pushing, you can use C-x v O (vc-log-outgoing) to view a log buffer of the changes to be sent upstream. See VC Change Log.
+
+This command is currently supported only by Bazaar, Git, and Mercurial. The concept of “pushing” does not exist for centralized version control systems, where this operation is a part of committing a changeset, so invoking this command on a centralized VCS signals an error. This command also signals an error when attempted in a Bazaar bound branch, where committing a changeset automatically pushes the changes to the remote repository to which the local branch is bound.
+
+With a decentralized version control system, the command C-x v + (vc-pull) updates the current branch of the local repository and it working tree with changes made in the upstream repository. It is typically used to update a copy (a.k.a. clone) of a remote branch. If you supply a prefix argument, the command prompts for the exact version control command to use, which lets you specify where to pull changes from. Otherwise, it pulls from the repository in the default location determined by the version control system from your branch configuration.
+
+Amongst decentralized version control systems, C-x v + is currently supported only by Bazaar, Git, and Mercurial. With Bazaar, it calls bzr pull for ordinary branches (to pull from a master branch into a mirroring branch), and bzr update for a bound branch (to pull from a central repository). With Git, it calls git pull to fetch changes from a remote repository and merge it into the current branch. With Mercurial, it calls hg pull -u to fetch changesets from the default remote repository and update the working directory.
+
+Prior to pulling, you can use C-x v I (vc-log-incoming) to view a log buffer of the changes to be applied. See VC Change Log.
+
+With a centralized version control system like CVS, C-x v + updates the current VC fileset from the repository.
+
+
+***** Merging Branches
+
+C-x v m
+With a decentralized version control system, merge changes from another branch into the current one.
+
+With a centralized version control system, merge changes from another branch into the current VC fileset.
+
+While developing a branch, you may sometimes need to merge in changes that have already been made in another branch. This is not a trivial operation, as overlapping and conflicting changes may have been made to the two branches.
+
+With a decentralized version control system, you merge changes with the command C-x v m (vc-merge). With Bazaar, this prompts for the exact arguments to pass to the bzr merge command, offering a sensible default if possible. With Git, this prompts for the name of a branch to merge from, with completion (based on the branch names known to the current repository). With Mercurial, this prompts for argument to pass to hg merge. The output from running the merge command is shown in a separate buffer.
+
+With a centralized version control system like CVS, C-x v m prompts for a branch ID, or a pair of revision IDs (see Switching between Branches); then it finds the changes from that branch, or the changes between the two revisions you specified, and merges those changes into the current VC fileset. If you just type RET at the prompt, Emacs simply merges any changes that were made on the same branch since you checked the file out.
+
+Immediately after performing a merge, only the working tree is modified, and you can review the changes produced by the merge with C-x v D and related commands (see Examining And Comparing Old Revisions). If the two branches contained overlapping changes, merging produces a conflict; a warning appears in the output of the merge command, and conflict markers are inserted into each affected work file, surrounding the two sets of conflicting changes. You must then resolve the conflict by editing the conflicted files; by default, Emacs will place buffers with VC conflicts in the special Smerge mode, which provides special commands for resolving the merge conflicts. Once you are done with resolving the conflicts and have saved the files with resolved conflicts, those files must be committed in the usual way for the merge to take effect (see Basic Editing under Version Control).
+
+
+***** Creating New Branches
+
+On centralized version control systems like CVS, Emacs supports creating new branches as part of a commit operation. When committing a modified VC fileset, type C-u C-x v v (vc-next-action with a prefix argument; see Advanced Control in C-x v v). Then Emacs prompts for a revision ID for the new revision. You should specify a suitable branch ID for a branch starting at the current revision. For example, if the current revision is 2.5, the branch ID should be 2.5.1, 2.5.2, and so on, depending on the number of existing branches at that point.
+
+This procedure will not work for distributed version control systems like git or Mercurial. For those systems you should use the command vc-create-branch (C-x v b c branch-name RET) instead.
+
+To create a new branch at an older revision (one that is no longer the head of a branch), first select that revision (see Switching between Branches). Your procedure will then differ depending on whether you are using a locking or merging-based VCS.
+
+On a locking VCS, you will need to lock the old revision branch with C-x v v. You’ll be asked to confirm, when you lock the old revision, that you really mean to create a new branch—if you say no, you’ll be offered a chance to lock the latest revision instead. On a merging-based VCS you will skip this step.
+
+Then make your changes and type C-x v v again to commit a new revision. This creates a new branch starting from the selected revision.
+
+After the branch is created, subsequent commits create new revisions on that branch. To leave the branch, you must explicitly select a different revision with C-u C-x v v.
+
+
+**** Miscellaneous Commands and Features of VC
+
+This section explains the less-frequently-used features of VC.
+
+***** Change Logs and VC
+
+If you use RCS or CVS for a program with a ChangeLog file (see Change Logs), you can generate change log entries from the version control log entries of previous commits.
+
+Note that this only works with RCS or CVS. This procedure would be particularly incorrect on a modern changeset-based version control system, where changes to the ChangeLog file would normally be committed as part of a changeset. In that case, you should write the change log entries first, then pull them into the ‘*vc-log*’ buffer when you commit (see Features of the Log Entry Buffer).
+
+C-x v a ¶
+Visit the current directory’s ChangeLog file and, for registered files in that directory, create new entries for versions committed since the most recent change log entry (vc-update-change-log).
+
+C-u C-x v a
+As above, but only find entries for the current buffer’s file.
+
+For example, suppose the first line of ChangeLog is dated 1999-04-10, and that the only check-in since then was by Nathaniel Bowditch to rcs2log on 1999-05-22 with log entry ‘Ignore log messages that start with '#'.’. Then C-x v a inserts this ChangeLog entry:
+
+1999-05-22  Nathaniel Bowditch  <nat@apn.org>
+
+        * rcs2log: Ignore log messages that start with '#'.
+If the version control log entry specifies a function name (in parenthesis at the beginning of a line), that is reflected in the ChangeLog entry. For example, if a log entry for vc.el is ‘(vc-do-command): Check call-process status.’, the ChangeLog entry is:
+
+1999-05-06  Nathaniel Bowditch  <nat@apn.org>
+
+        * vc.el (vc-do-command): Check call-process status.
+When C-x v a adds several change log entries at once, it groups related log entries together if they all are checked in by the same author at nearly the same time. If the log entries for several such files all have the same text, it coalesces them into a single entry.
+
+
+***** Deleting and Renaming Version-Controlled Files
+
+M-x vc-delete-file
+Prompt for a file name, delete the file from the working tree, and schedule the deletion for committing.
+
+M-x vc-rename-file
+Prompt for two file names, old and new, rename them in the working tree, and schedule the renaming for committing. The old file defaults to the current buffer’s file name if it is under VC.
+
+If you wish to delete a version-controlled file, use the command M-x vc-delete-file. This prompts for the file name, and deletes it via the version control system. The file is removed from the working tree, and in the VC Directory buffer (see VC Directory Mode), it is displayed with the ‘removed’ status. When you commit it, the deletion takes effect in the repository.
+
+To rename a version-controlled file, type M-x vc-rename-file. This prompts for two arguments: the name of the file you wish to rename, and the new name; then it performs the renaming via the version control system. The renaming takes effect immediately in the working tree, and takes effect in the repository when you commit the renamed file.
+
+On modern version control systems that have built-in support for renaming, the renamed file retains the full change history of the original file. On CVS and older version control systems, the vc-rename-file command actually works by creating a copy of the old file under the new name, registering it, and deleting the old file. In this case, the change history is not preserved.
+
+
+***** Revision Tags
+
+Most version control systems allow you to apply a revision tag to a specific version of a version-controlled tree. On modern changeset-based version control systems, a revision tag is simply a symbolic name for a particular revision. On older file-based systems like CVS, each tag is added to the entire set of version-controlled files, allowing them to be handled as a unit. Revision tags are commonly used to identify releases that are distributed to users.
+
+There are two basic commands for tags; one makes a tag with a given name, the other retrieves a named tag.
+
+C-x v s name RET
+Define the working revision of every registered file in or under the current directory as a tag named name (vc-create-tag).
+
+C-x v r name RET
+For all registered files at or below the current directory level, retrieve the tagged revision name. This command will switch to a branch if name is a branch name and your VCS distinguishes branches from tags. (vc-retrieve-tag).
+
+This command reports an error if any files are locked at or below the current directory, without changing anything; this is to avoid overwriting work in progress.
+
+You can give a tag or branch name as an argument to C-x v = or C-x v ~ (see Examining And Comparing Old Revisions). Thus, you can use it to compare a tagged version against the current files, or two tagged versions against each other.
+
+On SCCS, VC implements tags itself; these tags are visible only through VC. Most later systems (including CVS, Subversion, bzr, git, and hg) have a native tag facility, and VC uses it where available; those tags will be visible even when you bypass VC.
+
+In file-based version control systems, when you rename a registered file you need to rename its master along with it; the command vc-rename-file will do this automatically (see Deleting and Renaming Version-Controlled Files). If you are using SCCS, you must also update the records of the tag, to mention the file by its new name (vc-rename-file does this, too). An old tag that refers to a master file that no longer exists under the recorded name is invalid; VC can no longer retrieve it. It would be beyond the scope of this manual to explain enough about RCS and SCCS to explain how to update the tags by hand. Using vc-rename-file makes the tag remain valid for retrieval, but it does not solve all problems. For example, some of the files in your program probably refer to others by name. At the very least, the makefile probably mentions the file that you renamed. If you retrieve an old tag, the renamed file is retrieved under its new name, which is not the name that the makefile expects. So the program won’t really work as retrieved.
+
+
+***** Inserting Version Control Headers
+
+On Subversion, CVS, RCS, and SCCS, you can put certain special strings called version headers into a work file. When the file is committed, the version control system automatically puts the revision number, the name of the user who made the commit, and other relevant information into the version header.
+
+VC does not normally use the information in the version headers. As an exception, when using RCS, Emacs uses the version header, if there is one, to determine the file version, since it is often more reliable than the RCS master file. To inhibit using the version header this way, change the variable vc-consult-headers to nil. VC then always uses the file permissions (if it is supposed to trust them), or else checks the master file.
+
+To insert a suitable header string into the current buffer, use the command M-x vc-insert-headers. This command works only on Subversion, CVS, RCS, and SCCS. The variable vc-backend-header contains the list of keywords to insert into the version header; for instance, CVS uses vc-cvs-header, whose default value is '("\$Id\$"). (The extra backslashes prevent the string constant from being interpreted as a header, if the Emacs Lisp file defining it is maintained with version control.) The vc-insert-headers command inserts each keyword in the list on a new line at point, surrounded by tabs, and inside comment delimiters if necessary.
+
+The variable vc-static-header-alist specifies further strings to add based on the name of the buffer. Its value should be a list of elements of the form (regexp . format). Whenever regexp matches the buffer name, format is also inserted as part of the version header. A ‘%s’ in format is replaced with the file’s version control type.
+
+
+***** Editing VC Commands
+
+You can use the C-x v ! (vc-edit-next-command) prefix command to edit the shell command line that VC is about to run. This is primarily intended to make it possible to add optional command-line arguments to VCS commands without unnecessary complications of the VC command set and its interfaces with the backend.
+
+For example, Git can produce logs of more than one branch, but C-x v b l (vc-print-branch-log) prompts for the name of just one branch. To obtain a log of more than one branch, you can type C-x v ! C-x v b l and then append the names of additional branches to the end of the ‘git log’ command that VC is about to run.
+
+
+***** Preparing Patches
+
+When collaborating on projects it is common to send patches via email, to share changes. You can do this using VC with the vc-prepare-patch command. This will prompt you for the revisions you wish to share, and which destination email address(es) to use. Separate the revisions using the value of crm-separator, commas by default. The command will then prepare those revisions using your MUA (Mail User Agent) for you to review and send.
+
+When invoked interactively in a Log View buffer with marked revisions, those marked revisions will be used.
+
+Depending on the value of the user option vc-prepare-patches-separately, vc-prepare-patch will generate one or more messages. The default value t means prepare and display a message for each revision, one after another. A value of nil means to generate a single message with all patches attached in the body.
+
+If you expect to contribute patches on a regular basis, you can set the user option vc-default-patch-addressee to the address(es) you wish to use. This will be used as the default value when invoking vc-prepare-patch. Project maintainers may consider setting this as a directory local variable (see Per-Directory Local Variables).
+
+
+**** Customizing VC
+
+The variable vc-handled-backends determines which version control systems VC should handle. The default value is (RCS CVS SVN SCCS SRC Bzr Git Hg), so it contains all the version systems that are currently supported. If you want VC to ignore one or more of these systems, exclude its name from the list. To disable VC entirely, set this variable to nil.
+
+The order of systems in the list is significant: when you visit a file registered in more than one system, VC uses the system that comes first in vc-handled-backends by default. The order is also significant when you register a file for the first time (see Registering a File for Version Control).
+
+***** General Options
+
+Emacs normally does not save backup files for source files that are maintained with version control. If you want to make backup files even for files that use version control, set the variable vc-make-backup-files to a non-nil value.
+
+Editing a version-controlled file through a symbolic link may cause unexpected results, if you are unaware that the underlying file is version-controlled. The variable vc-follow-symlinks controls what Emacs does if you try to visit a symbolic link pointing to a version-controlled file. If the value is ask (the default), Emacs asks for confirmation. If it is nil, Emacs just displays a warning message. If it is t, Emacs automatically follows the link and visits the real file instead.
+
+If vc-suppress-confirm is non-nil, then C-x v v and C-x v i can save the current buffer without asking, and C-x v u also operates without asking for confirmation.
+
+VC mode does much of its work by running the shell commands for the appropriate version control system. If vc-command-messages is non-nil, VC displays messages to indicate which shell commands it runs, and additional messages when the commands finish.
+
+
+***** Options for RCS and SCCS
+
+By default, RCS uses locking to coordinate the activities of several users, but there is a mode called non-strict locking in which you can check-in changes without locking the file first. Use ‘rcs -U’ to switch to non-strict locking for a particular file, see the rcs manual page for details.
+
+When deducing the version control state of an RCS file, VC first looks for an RCS version header string in the file (see Inserting Version Control Headers). If there is no header string, VC normally looks at the file permissions of the work file; this is fast. But there might be situations when the file permissions cannot be trusted. In this case the master file has to be consulted, which is rather expensive. Also the master file can only tell you if there’s any lock on the file, but not whether your work file really contains that locked version.
+
+You can tell VC not to use version headers to determine the file status by setting vc-consult-headers to nil. VC then always uses the file permissions (if it is supposed to trust them), or else checks the master file.
+
+VC determines the version control state of files under SCCS much as with RCS. It does not consider SCCS version headers, though. Thus, the variable vc-consult-headers does not affect SCCS use.
+
+
+***** Options specific for CVS
+
+You can specify additional command line options to pass to all CVS operations in the variable vc-cvs-global-switches. These switches are inserted immediately after the cvs command, before the name of the operation to invoke.
+
+When using a CVS repository on a remote machine, VC can try keeping network interactions to a minimum. This is controlled by the variable vc-cvs-stay-local. If vc-cvs-stay-local is only-file (the default), VC determines the version control status of each file using only the entry in the local CVS subdirectory and the information returned by previous CVS commands. As a consequence, if you have modified a file and somebody else has checked in other changes, you will not be notified of the conflict until you try to commit.
+
+If you change vc-cvs-stay-local to nil, VC queries the remote repository before it decides what to do in vc-next-action (C-x v v), just as it does for local repositories.
+
+You can also set vc-cvs-stay-local to a regular expression that is matched against the repository host name; VC then stays local only for repositories from hosts that match the pattern.
+
+When using a remote repository, Emacs normally makes automatic version backups of the original versions of each edited file. These local backups are made whenever you save the first changes to a file, and they are removed after you commit your changes to the repository. (Note that these are not the same as ordinary Emacs backup files; see Backup Files.) Commands like C-x v = and C-x v u make use of automatic version backups, if possible, to avoid having to access the network.
+
+Setting vc-cvs-stay-local to nil disables the making of automatic version backups.
+
+Automatic version backups have names of the form file.~version.~. This is similar to the name that C-x v ~ saves old versions to (see Examining And Comparing Old Revisions), except for the additional dot (‘.’) after the version. The relevant VC commands can use both kinds of version backups. The main difference is that the manual version backups made by C-x v ~ are not deleted automatically when you commit.
+
+CVS does not use locking by default, but there are ways to enable locking-like behavior using its CVSREAD or watch feature; see the CVS documentation for details. If that case, you can use C-x v v in Emacs to toggle locking, as you would for a locking-based version control system (see Basic Version Control with Locking).
+
+
+*** Working with Projects
+
+A project is a collection of files used for producing one or more programs. Files that belong to a project are typically stored in a hierarchy of directories; the top-level directory of the hierarchy is known as the project root.
+
+Whether a given directory is a root of some project is determined by the project-specific infrastructure, known as project back-end. Emacs currently supports two such back-ends: VC-aware (see Version Control), whereby a VCS repository is considered a project; and EDE (see Emacs Development Environment). This is expected to be extended in the future to support additional types of projects.
+
+Which files do or don’t belong to a project is also determined by the project back-end. For example, the VC-aware back-end doesn’t consider “ignored” files (see Ignore Version Control Files) to be part of the project. Also, the VC-aware Project back-end considers “untracked” files by default. That behavior is controllable with the variable project-vc-include-untracked.
+
+**** Project Commands That Operate on Files
+
+C-x p f
+Visit a file that belongs to the current project (project-find-file).
+
+C-x p g
+Find matches for a regexp in all files that belong to the current project (project-find-regexp).
+
+M-x project-search
+Interactively search for regexp matches in all files that belong to the current project.
+
+C-x p r
+Perform query-replace for a regexp in all files that belong to the current project (project-query-replace-regexp).
+
+C-x p d
+Run Dired in the current project’s root directory (project-dired).
+
+C-x p v
+Run vc-dir in the current project’s root directory (project-vc-dir).
+
+C-x p s
+Start an inferior shell in the current project’s root directory (project-shell).
+
+C-x p e
+Start Eshell in the current project’s root directory (project-eshell).
+
+C-x p c
+Run compilation in the current project’s root directory (project-compile).
+
+C-x p !
+Run shell command in the current project’s root directory (project-shell-command).
+
+C-x p &
+Run shell command asynchronously in the current project’s root directory (project-async-shell-command).
+
+Emacs provides commands for handling project files conveniently. This subsection describes these commands.
+
+All of the commands described here share the notion of the current project. The current project is determined by the default-directory (see File Names) of the buffer that is the current buffer when the command is invoked. If that directory doesn’t seem to belong to a recognizable project, these commands prompt you for the project directory.
+
+The command C-x p f (project-find-file) is a convenient way of visiting files (see Visiting Files) that belong to the current project. Unlike C-x C-f, this command doesn’t require to type the full file name of the file to visit, you can type only the file’s base name (i.e., omit the leading directories). In addition, the completion candidates considered by the command include only the files belonging to the current project, and nothing else. If there’s a file name at point, this command offers that file as the first element of the “future history”. If given a prefix, include all files under the project root, except for VCS directories listed in vc-directory-exclusion-list.
+
+The command C-x p g (project-find-regexp) is similar to rgrep (see Searching with Grep under Emacs), but it searches only the files that belong to the current project. The command prompts for the regular expression to search, and pops up an Xref mode buffer with the search results, where you can select a match using the Xref mode commands (see Commands Available in the *xref* Buffer). When invoked with a prefix argument, this command additionally prompts for the base directory from which to start the search; this allows, for example, to limit the search only to project files under a certain subdirectory of the project root. The way this command displays the matches is affected by the value of xref-auto-jump-to-first-xref (see Searching and Replacing with Identifiers).
+
+M-x project-search is a sequential variant of project-find-regexp. It prompts for a regular expression to search in the current project’s files, but instead of finding all the matches and displaying them, it stops when it finds a match and visits the matched file at the locus of the match, allowing you to edit the matched file. To find the rest of the matches, type M-x fileloop-continue RET.
+
+C-x p r (project-query-replace-regexp) is similar to project-search, but it prompts you for whether to replace each match it finds, like query-replace does (see Query Replace), and continues to the next match after you respond. If your response causes Emacs to exit the query-replace loop, you can later continue with M-x fileloop-continue RET.
+
+The command C-x p d (project-find-dir) prompts you to choose a directory inside the current project, with completion. And opens a Dired buffer (see Dired, the Directory Editor) listing the files in it.
+
+The command C-x p D (project-dired) opens a Dired buffer (see Dired, the Directory Editor) listing the files in the current project’s root directory.
+
+The command C-x p v (project-vc-dir) opens a VC Directory buffer (see VC Directory Mode) listing the version control statuses of the files in a directory tree under the current project’s root directory.
+
+The command C-x p s (project-shell) starts a shell session (see Running Shell Commands from Emacs) in a new buffer with the current project’s root as the working directory.
+
+The command C-x p e (project-eshell) starts an Eshell session in a new buffer with the current project’s root as the working directory. See Eshell in Eshell: The Emacs Shell.
+
+The command C-x p c (project-compile) runs compilation (see Running Compilations under Emacs) in the current project’s root directory.
+
+The command C-x p ! (project-shell-command) runs shell-command in the current project’s root directory.
+
+The command C-x p & (project-async-shell-command) runs async-shell-command in the current project’s root directory.
+
+
+**** Project Commands That Operate on Buffers
+
+C-x p b
+Switch to another buffer belonging to the current project (project-switch-to-buffer).
+
+C-x p C-b
+List the project buffers (project-list-buffers).
+
+C-x p k
+Kill all live buffers that belong to the current project (project-kill-buffers).
+
+Working on a project could potentially involve having many buffers visiting files that belong to the project, and also buffers that belong to the project, but don’t visit any files (like the *compilation* buffer created by project-compile). The command C-x p b (project-switch-to-buffer) helps you switch between buffers that belong to the current project by prompting for a buffer to switch and considering only the current project’s buffers as candidates for completion.
+
+Like the command list-buffers (see Listing Existing Buffers), the command C-x p C-b (project-list-buffers) displays a list of existing buffers, but only belonging to the current project.
+
+When you finish working on the project, you may wish to kill all the buffers that belong to the project, to keep your Emacs session smaller. The command C-x p k (project-kill-buffers) accomplishes that: it kills all the buffers that belong to the current project that satisfy any of project-kill-buffer-conditions. If project-kill-buffers-display-buffer-list is non-nil, the buffers to be killed will be displayed first.
+
+
+**** Switching Projects
+
+C-x p p
+Run an Emacs command for another project (project-switch-project).
+
+Commands that operate on project files (see Project Commands That Operate on Files) will conveniently prompt you for a project directory when no project is current. When you are inside some project, but you want to operate on a different project, use the C-x p p command (project-switch-project). This command prompts you to choose a directory among known project roots, and then displays the menu of available commands to operate on the project you choose. The variable project-switch-commands controls which commands are available in the menu, and which key invokes each command.
+
+The variable project-list-file names the file in which Emacs records the list of known projects. It defaults to the file projects in user-emacs-directory (see How Emacs Finds Your Init File).
+
+
+**** Managing the Project List File
+
+M-x project-forget-project
+Remove a known project from the project-list-file.
+
+Normally Emacs automatically adds and removes projects to and from the project-list-file, but sometimes you may want to manually edit the available projects. M-x project-forget-project prompts you to choose one of the available projects, and then removes it from the file.
+
+
+*** Change Logs
+
+Many software projects keep a change log. This is a file, normally named ChangeLog, containing a chronological record of when and how the program was changed. Sometimes, these files are automatically generated from the change log entries stored in version control systems, or are used to generate these change log entries. Sometimes, there are several change log files, each recording the changes in one directory or directory tree.
+
+**** Change Log Commands
+
+The Emacs command C-x 4 a adds a new entry to the change log file for the file you are editing (add-change-log-entry-other-window). If that file is actually a backup file, it makes an entry appropriate for the file’s parent—that is useful for making log entries for functions that have been deleted in the current version.
+
+C-x 4 a visits the change log file and creates a new entry unless the most recent entry is for today’s date and your name. It also creates a new item for the current file. For many languages, it can even guess the name of the function or other object that was changed.
+
+To find the change log file, Emacs searches up the directory tree from the file you are editing. By default, it stops if it finds a directory that seems to be the root of a version-control repository. To change this, customize change-log-directory-files.
+
+When the variable add-log-keep-changes-together is non-nil, C-x 4 a adds to any existing item for the file, rather than starting a new item.
+
+You can combine multiple changes of the same nature. If you don’t enter any text after the initial C-x 4 a, any subsequent C-x 4 a adds another symbol to the change log entry.
+
+If add-log-always-start-new-record is non-nil, C-x 4 a always makes a new entry, even if the last entry was made by you and on the same date.
+
+If the value of the variable change-log-version-info-enabled is non-nil, C-x 4 a adds the file’s version number to the change log entry. It finds the version number by searching the first ten percent of the file, using regular expressions from the variable change-log-version-number-regexp-list.
+
+The change log file is visited in Change Log mode. In this major mode, each bunch of grouped items counts as one paragraph, and each entry is considered a page. This facilitates editing the entries. C-j and auto-fill indent each new line like the previous line; this is convenient for entering the contents of an entry.
+
+You can use the command change-log-goto-source (by default bound to C-c C-c) to go to the source location of the change log entry near point, when Change Log mode is on. Then subsequent invocations of the next-error command (by default bound to M-g M-n and C-x `) will move between entries in the change log. You will jump to the actual site in the file that was changed, not just to the next change log entry. You can also use previous-error to move back through the change log entries.
+
+You can use the command M-x change-log-merge to merge other log files into a buffer in Change Log Mode, preserving the date ordering of entries.
+
+Version control systems are another way to keep track of changes in your program and keep a change log. Many projects that use a VCS don’t keep a separate versioned change log file nowadays, so you may wish to avoid having such a file in the repository. If the value of add-log-dont-create-changelog-file is non-nil, commands like C-x 4 a (add-change-log-entry-other-window) will record changes in a suitably named temporary buffer instead of a file, if such a file does not already exist.
+
+Whether you have a change log file or use a temporary buffer for change logs, you can type C-c C-a (log-edit-insert-changelog) in the VC Log buffer to insert the relevant change log entries, if they exist. See Features of the Log Entry Buffer.
+
+
+**** Format of ChangeLog
+
+A change log entry starts with a header line that contains the current date, your name (taken from the variable add-log-full-name), and your email address (taken from the variable add-log-mailing-address). Aside from these header lines, every line in the change log starts with a space or a tab. The bulk of the entry consists of items, each of which starts with a line starting with whitespace and a star. Here are two entries, both dated in May 1993, with two items and one item respectively.
+
+1993-05-25  Richard Stallman  <rms@gnu.org>
+
+        * man.el: Rename symbols 'man-*' to 'Man-*'.
+        (manual-entry): Make prompt string clearer.
+
+        * simple.el (blink-matching-paren-distance):
+        Change default to 12,000.
+
+1993-05-24  Richard Stallman  <rms@gnu.org>
+
+        * vc.el (minor-mode-map-alist): Don't use it if it's void.
+        (vc-cancel-version): Doc fix.
+One entry can describe several changes; each change should have its own item, or its own line in an item. Normally there should be a blank line between items. When items are related (parts of the same change, in different places), group them by leaving no blank line between them.
+
+You should put a copyright notice and permission notice at the end of the change log file. Here is an example:
+
+Copyright 1997, 1998 Free Software Foundation, Inc.
+Copying and distribution of this file, with or without modification, are
+permitted provided the copyright notice and this notice are preserved.
+Of course, you should substitute the proper years and copyright holder.
+
+
+*** Find Identifier References
+
+An identifier is a name of a syntactical subunit of the program: a function, a subroutine, a method, a class, a data type, a macro, etc. In a programming language, each identifier is a symbol in the language’s syntax. Identifiers are also known as tags.
+
+Program development and maintenance requires capabilities to quickly find where each identifier was defined and referenced, to rename identifiers across the entire project, etc. These capabilities are also useful for finding references in major modes other than those defined to support programming languages. For example, chapters, sections, appendices, etc. of a text or a TeX document can be treated as subunits as well, and their names can be used as identifiers. In this chapter, we use the term “identifiers” to collectively refer to the names of any kind of subunits, in program source and in other kinds of text alike.
+
+Emacs provides a unified interface to these capabilities, called ‘xref’.
+
+To do its job, xref needs to make use of information and to employ methods specific to the major mode. What files to search for identifiers, how to find references to identifiers, how to complete on identifiers—all this and more is mode-specific knowledge. xref delegates the mode-specific parts of its job to a backend provided by the mode; it also includes defaults for some of its commands, for those modes that don’t provide their own.
+
+A backend can implement its capabilities in a variety of ways. Here are a few examples:
+
+Some major modes provide built-in means for looking up the language symbols. For example, Emacs Lisp symbols can be identified by searching the package load history, maintained by the Emacs Lisp interpreter, and by consulting the built-in documentation strings; the Emacs Lisp mode uses these facilities in its backend to allow finding definitions of symbols. (One disadvantage of this kind of backend is that it only knows about subunits that were loaded into the interpreter.)
+If Eglot is activated for the current buffer’s project (see Working with Projects) and the current buffer’s major mode, Eglot consults an external language server program and provides the data supplied by the server regarding the definitions of the identifiers in the project. See Eglot Features in Eglot: The Emacs LSP Client.
+An external program can extract references by scanning the relevant files, and build a database of these references. A backend can then access this database whenever it needs to list or look up references. The Emacs distribution includes etags, a command for tagging identifier definitions in programs, which supports many programming languages and other major modes, such as HTML, by extracting references into tags tables. See Creating Tags Tables. Major modes for languages supported by etags can use tags tables as basis for their backend. (One disadvantage of this kind of backend is that tags tables need to be kept reasonably up to date, by rebuilding them from time to time.)
+
+**** Find Identifiers
+
+This subsection describes the commands that find references to identifiers and perform various queries about identifiers. Each such reference could define an identifier, e.g., provide the implementation of a program subunit or the text of a document section; or it could use the identifier, e.g., call a function or a method, assign a value to a variable, mention a chapter in a cross-reference, etc.
+
+***** Looking Up Identifiers
+
+The most important thing that xref enables you to do is to find the definition of a specific identifier.
+
+M-.
+Find definitions of an identifier (xref-find-definitions).
+
+C-M-. pattern RET
+Find all identifiers whose name matches pattern (xref-find-apropos).
+
+C-x 4 . RET
+Find definitions of identifier, but display it in another window (xref-find-definitions-other-window).
+
+C-x 5 . RET
+Find definition of identifier, and display it in a new frame (xref-find-definitions-other-frame).
+
+M-x xref-find-definitions-at-mouse
+Find definition of identifier at mouse click.
+
+M-,
+Go back to where you previously invoked M-. and friends (xref-go-back).
+
+C-M-,
+Go forward to where you previously invoked M-, (xref-go-forward).
+
+M-x xref-etags-mode
+Switch xref to use the etags backend.
+
+M-. (xref-find-definitions) shows the definition of the identifier at point. With a prefix argument, or if there’s no identifier at point, it prompts for the identifier. (If you want it to always prompt, customize xref-prompt-for-identifier to t.)
+
+When entering the identifier argument to M-., you can use the usual minibuffer completion commands (see Completion), with the known identifier names being the completion candidates.
+
+Like most commands that can switch buffers, xref-find-definitions has a variant that displays the new buffer in another window, and one that makes a new frame for it. The former is C-x 4 . (xref-find-definitions-other-window), and the latter is C-x 5 . (xref-find-definitions-other-frame).
+
+The command xref-find-definitions-at-mouse works like xref-find-definitions, but it looks for the identifier name at or around the place of a mouse event. This command is intended to be bound to a mouse event, such as C-M-mouse-1, for example.
+
+The command C-M-. (xref-find-apropos) is like apropos for tags (see Apropos). It displays a list of identifiers in the selected tags table whose names match the specified regexp. This is just like M-., except that it does regexp matching of identifiers instead of matching symbol names as fixed strings. By default, the command pops up the *xref* buffer, like M-., but you can display additional output by customizing the variable tags-apropos-additional-actions; see its documentation for details.
+
+If any of the above commands finds more than one matching definition, it by default pops up the *xref* buffer showing the matching candidates. (C-M-. always pops up the *xref* buffer if it finds at least one match.) The candidates are normally shown in that buffer as the name of a file and the matching identifier(s) in that file. In that buffer, you can select any of the candidates for display, and you have several additional commands, described in Commands Available in the *xref* Buffer. However, if the value of the variable xref-auto-jump-to-first-definition is move, the first of these candidates is automatically selected in the *xref* buffer, and if it’s t or show, the first candidate is automatically shown in its own window; t also selects the window showing the first candidate. The default value is nil, which just shows the candidates in the *xref* buffer, but doesn’t select any of them.
+
+To go back to places from where you’ve displayed the definition, use M-, (xref-go-back). It jumps back to the point of the last invocation of M-.. Thus you can find and examine the definition of something with M-. and then return to where you were with M-,. M-, allows you to retrace the steps you made forward in the history of places, all the way to the first place in history, where you first invoked M-., or to any place in-between.
+
+If you previously went back too far with M-,, or want to re-examine a place from which you went back, you can use C-M-, (xref-go-forward) to go forward again. This is similar to using M-., except that you don’t need on each step to move point to the identifier whose definition you want to look up. C-M-, allows you to retrace all the steps you made back in the history of places, all the way to the last place in history, where you invoked M-,, or to any place in-between.
+
+Some major modes install xref support facilities that might sometimes fail to find certain identifiers. For example, in Emacs Lisp mode (see Evaluating Emacs Lisp Expressions) M-. will by default find only functions and variables from Lisp packages which are loaded into the current Emacs session or are auto-loaded (see Autoload in The Emacs Lisp Reference Manual). If M-. fails to find some identifiers, you can try forcing xref to use the etags backend (see Find Identifier References). To this end, turn on the Xref Etags minor mode with M-x xref-etags-mode, then invoke M-. again. (For this to work, be sure to run etags to create the tags table in the directory tree of the source files, see Creating Tags Tables.)
+
+
+***** Commands Available in the *xref* Buffer
+
+The following commands are provided in the *xref* buffer by the special XREF mode:
+
+RET
+mouse-1
+Display the reference on the current line (xref-goto-xref). With prefix argument, also bury the *xref* buffer.
+
+mouse-2 ¶
+The same as mouse-1, but make the window displaying the *xref* buffer the selected window (xref-select-and-show-xref).
+
+n ¶
+.
+Move to the next reference and display it in the other window (xref-next-line).
+
+N ¶
+Move to the first reference of the next reference group and display it in the other window (xref-next-group).
+
+p ¶
+,
+Move to the previous reference and display it in the other window (xref-prev-line).
+
+P ¶
+Move to the first reference of the previous reference group and display it in the other window (xref-prev-group).
+
+C-o ¶
+Display the reference on the current line in the other window (xref-show-location-at-point).
+
+r pattern RET replacement RET
+Perform interactive query-replace on references that match pattern (xref-query-replace-in-results), replacing the match with replacement. This command can only be used in *xref* buffers that show all the matches for an identifier in all the relevant files. See Searching and Replacing with Identifiers.
+
+g ¶
+Refresh the contents of the *xref* buffer (xref-revert-buffer).
+
+M-, ¶
+Quit the window showing the *xref* buffer, and then jump to the previous Xref stack location (xref-quit-and-pop-marker-stack).
+
+q ¶
+Quit the window showing the *xref* buffer (xref-quit).
+
+In addition, the usual navigation commands, such as the arrow keys, C-n, and C-p are available for moving around the buffer without displaying the references.
+
+
+***** Searching and Replacing with Identifiers
+
+The commands in this section perform various search and replace operations either on identifiers themselves or on files that reference them.
+
+M-?
+Find all the references for the identifier at point.
+
+r
+M-x xref-query-replace-in-results RET replacement RET
+C-u M-x xref-query-replace-in-results RET regexp RET replacement RET
+Interactively replace regexp with replacement in the names of all the identifiers shown in the *xref* buffer.
+
+M-x xref-find-references-and-replace RET from RET to RET
+Interactively rename all instances of the identifier from to the new name to.
+
+M-x tags-search RET regexp RET
+Search for regexp through the files in the selected tags table.
+
+M-x tags-query-replace RET regexp RET replacement RET
+Perform a query-replace-regexp on each file in the selected tags table.
+
+M-x fileloop-continue
+Restart one of the last 2 commands above, from the current location of point.
+
+M-? finds all the references for the identifier at point, prompting for the identifier as needed, with completion. Depending on the current backend (see Find Identifier References), the command may prompt even if it finds a valid identifier at point. When invoked with a prefix argument, it always prompts for the identifier. (If you want it to prompt always, customize the value of the variable xref-prompt-for-identifier to t; or set it to nil to prompt only if there’s no usable identifier at point.) The command then presents the *xref* buffer with all the references to the identifier, showing the file name and the line where the identifier is referenced. The XREF mode commands are available in this buffer, see Commands Available in the *xref* Buffer.
+
+If the value of the variable xref-auto-jump-to-first-xref is t, xref-find-references automatically jumps to the first result and selects the window where it is displayed. If the value is show, the first result is shown, but the window showing the *xref* buffer is left selected. If the value is move, the first result is selected in the *xref* buffer, but is not shown. The default value is nil, which just shows the results in the *xref* buffer, but doesn’t select any of them.
+
+r (xref-query-replace-in-results) reads a replacement string, just like ordinary M-x query-replace-regexp. It then renames the identifiers shown in the *xref* buffer in all the places in all the files where these identifiers are referenced, such that their new name is replacement. This is useful when you rename your identifiers as part of refactoring. This command should be invoked in the *xref* buffer generated by M-?. By default, the command replaces the entire name of each identifier with replacement, but if invoked with a prefix argument, the command prompts for a regexp to match identifier names, and replaces only the matches of that regexp in the names of the identifiers with replacement.
+
+M-x xref-find-references-and-replace works similarly to xref-query-replace-in-results, but is more convenient when you want to rename a single identifier specified by its name from.
+
+M-x tags-search reads a regexp using the minibuffer, then searches for matches in all the files in the selected tags table, one file at a time. It displays the name of the file being searched so you can follow its progress. As soon as it finds an occurrence, tags-search returns. This command requires tags tables to be available (see Tags Tables).
+
+Having found one match with tags-search, you probably want to find all the rest. M-x fileloop-continue resumes the tags-search, finding one more match. This searches the rest of the current buffer, followed by the remaining files of the tags table.
+
+M-x tags-query-replace performs a single query-replace-regexp through all the files in the tags table. It reads a regexp to search for and a string to replace with, just like ordinary M-x query-replace-regexp. It searches much like M-x tags-search, but repeatedly, processing matches according to your input. See Query Replace, for more information on query replace.
+
+You can control the case-sensitivity of tags search commands by customizing the value of the variable tags-case-fold-search. The default is to use the same setting as the value of case-fold-search (see Lax Matching During Searching).
+
+It is possible to get through all the files in the tags table with a single invocation of M-x tags-query-replace. But often it is useful to exit temporarily, which you can do with any input event that has no special query replace meaning. You can resume the query replace subsequently by typing M-x fileloop-continue; this command resumes the last tags search or replace command that you did. For instance, to skip the rest of the current file, you can type M-> M-x fileloop-continue.
+
+Note that the commands described above carry out much broader searches than the xref-find-definitions family. The xref-find-definitions commands search only for definitions of identifiers that match your string or regexp. The commands xref-find-references, tags-search, and tags-query-replace find every occurrence of the identifier or regexp, as ordinary search commands and replace commands do in the current buffer.
+
+As an alternative to xref-find-references and tags-search, you can run grep as a subprocess and have Emacs show you the matching lines one by one. See Searching with Grep under Emacs.
+
+
+***** Identifier Inquiries
+
+C-M-i
+M-TAB
+Perform completion on the text around point, possibly using the selected tags table if one is loaded (completion-at-point).
+
+M-x list-tags RET file RET
+Display a list of the identifiers defined in the program file file.
+
+C-M-. regexp RET
+Display a list of all identifiers matching regexp (xref-find-apropos). See Looking Up Identifiers.
+
+M-x tags-next-file
+Visit files recorded in the selected tags table.
+
+In most programming language modes, you can type C-M-i or M-TAB (completion-at-point) to complete the symbol at point. Some modes provide specialized completion for this command tailored to the mode; for those that don’t, if there is a tags table loaded, this command can use it to generate completion candidates. See Completion for Symbol Names.
+
+M-x list-tags reads the name of one of the files covered by the selected tags table, and displays a list of tags defined in that file. Do not include a directory as part of the file name unless the file name recorded in the tags table includes a directory. This command works only with the etags backend, and requires a tags table for the project to be available. See Tags Tables. If used interactively, the default tag is file name of the current buffer if used interactively.
+
+M-x tags-next-file visits files covered by the selected tags table. The first time it is called, it visits the first file covered by the table. Each subsequent call visits the next covered file, unless a prefix argument is supplied, in which case it returns to the first file. This command requires a tags table to be selected.
+
+
+
+**** Tags Tables
+
+A tags table records the tags18 extracted by scanning the source code of a certain program or a certain document. Tags extracted from generated files reference the original files, rather than the generated files that were scanned during tag extraction. Examples of generated files include C files generated from Cweb source files, from a Yacc parser, or from Lex scanner definitions; .i preprocessed C files; and Fortran files produced by preprocessing .fpp source files.
+
+To produce a tags table, you run the etags shell command on a document or the source code file. The ‘etags’ program writes the tags to a tags table file, or tags file in short. The conventional name for a tags file is TAGS. See Creating Tags Tables. (It is also possible to create a tags table by using one of the commands from other packages that can produce such tables in the same format.)
+
+Emacs uses the tags tables via the etags package as one of the supported backends for xref. Because tags tables are produced by the etags command that is part of an Emacs distribution, we describe tags tables in more detail here.
+
+The Ebrowse facility is similar to etags but specifically tailored for C++. See Ebrowse in Ebrowse User’s Manual. The Semantic package provides another way to generate and use tags, separate from the etags facility. See Semantic.
+
+Source File Tag Syntax
+Creating Tags Tables
+Etags Regexps
+Footnotes
+(18)
+A tag is a synonym for identifier reference. Commands and features based on the etags package traditionally use “tag” with this meaning, and this subsection follows that tradition.
+
+
+***** Source File Tag Syntax
+
+Here is how tag syntax is defined for the most popular languages:
+
+In C code, any C function or typedef is a tag, and so are definitions of struct, union and enum. #define macro definitions, #undef and enum constants are also tags, unless you specify ‘--no-defines’ when making the tags table. Similarly, global variables are tags, unless you specify ‘--no-globals’, and so are struct members, unless you specify ‘--no-members’. Use of ‘--no-globals’, ‘--no-defines’ and ‘--no-members’ can make the tags table file much smaller.
+You can tag function declarations and external variables in addition to function definitions by giving the ‘--declarations’ option to etags.
+
+In C++ code, in addition to all the tag constructs of C code, member functions are also recognized; member variables are also recognized, unless you use the ‘--no-members’ option. operator definitions have tag names like ‘operator+’. If you specify the ‘--class-qualify’ option, tags for variables and functions in classes are named ‘class::variable’ and ‘class::function’. By default, class methods and members are not class-qualified, which allows to identify their names in the sources more accurately.
+In Java code, tags include all the constructs recognized in C++, plus the interface, extends and implements constructs. Tags for variables and functions in classes are named ‘class.variable’ and ‘class.function’.
+In LaTeX documents, the arguments for \chapter, \section, \subsection, \subsubsection, \eqno, \label, \ref, \cite, \bibitem, \part, \appendix, \entry, \index, \def, \newcommand, \renewcommand, \newenvironment and \renewenvironment are tags.
+Other commands can make tags as well, if you specify them in the environment variable TEXTAGS before invoking etags. The value of this environment variable should be a colon-separated list of command names. For example,
+
+TEXTAGS="mycommand:myothercommand"
+export TEXTAGS
+specifies (using Bourne shell syntax) that the commands ‘\mycommand’ and ‘\myothercommand’ also define tags.
+
+In Lisp code, any function defined with defun, any variable defined with defvar or defconst, and in general the first argument of any expression that starts with ‘(def’ in column zero is a tag. As an exception, expressions of the form (defvar foo) are treated as declarations, and are only tagged if the ‘--declarations’ option is given.
+In Scheme code, tags include anything defined with def or with a construct whose name starts with ‘def’. They also include variables set with set! at top level in the file.
+Several other languages are also supported:
+
+In Ada code, functions, procedures, packages, tasks and types are tags. Use the ‘--packages-only’ option to create tags for packages only.
+In Ada, the same name can be used for different kinds of entity (e.g., for a procedure and for a function). Also, for things like packages, procedures and functions, there is the spec (i.e., the interface) and the body (i.e., the implementation). To make it easier to pick the definition you want, Ada tag names have suffixes indicating the type of entity:
+
+‘/b’
+package body.
+
+‘/f’
+function.
+
+‘/k’
+task.
+
+‘/p’
+procedure.
+
+‘/s’
+package spec.
+
+‘/t’
+type.
+
+Thus, M-x find-tag RET bidule/b RET will go directly to the body of the package bidule, while M-x find-tag RET bidule RET will just search for any tag bidule.
+
+In assembler code, labels appearing at the start of a line, followed by a colon, are tags.
+In Bison or Yacc input files, each rule defines as a tag the nonterminal it constructs. The portions of the file that contain C code are parsed as C code.
+In Cobol code, tags are paragraph names; that is, any word starting in column 8 and followed by a period.
+In Erlang code, the tags are the functions, records and macros defined in the file.
+In Fortran code, functions, subroutines and block data are tags.
+In Go code, packages, functions, and types are tags.
+In HTML input files, the tags are the title and the h1, h2, h3 headers. Also, tags are name= in anchors and all occurrences of id=.
+In Lua input files, all functions are tags.
+In makefiles, targets are tags; additionally, variables are tags unless you specify ‘--no-globals’.
+In Objective C code, tags include Objective C definitions for classes, class categories, methods and protocols. Tags for variables and functions in classes are named ‘class::variable’ and ‘class::function’.
+In Pascal code, the tags are the functions and procedures defined in the file.
+In Perl code, the tags are the packages, subroutines and variables defined by the package, sub, use constant, my, and local keywords. Use ‘--globals’ if you want to tag global variables. Tags for subroutines are named ‘package::sub’. The name for subroutines defined in the default package is ‘main::sub’.
+In PHP code, tags are functions, classes and defines. Vars are tags too, unless you use the ‘--no-members’ option.
+In PostScript code, the tags are the functions.
+In Prolog code, tags are predicates and rules at the beginning of line.
+In Python code, def or class at the beginning of a line generate a tag.
+In Ruby code, def or class or module at the beginning of a line generate a tag. Constants also generate tags.
+In Rust code, tags anything defined with fn, enum, struct or macro_rules!.
+You can also generate tags based on regexp matching (see Etags Regexps) to handle other formats and languages.
+
+
+***** Creating Tags Tables
+
+The etags program is used to create a tags table file. It knows the syntax of several languages, as described in Source File Tag Syntax. Here is how to run etags:
+
+etags inputfiles…
+The etags program reads the specified files, and writes a tags table named TAGS in the current working directory. You can optionally specify a different file name for the tags table by using the ‘--output=file’ option; specifying - as a file name prints the tags table to standard output. You can also append the newly created tags table to an existing file by using the ‘--append’ option.
+
+If the specified files don’t exist, etags looks for compressed versions of them and uncompresses them to read them. Under MS-DOS, etags also looks for file names like mycode.cgz if it is given ‘mycode.c’ on the command line and mycode.c does not exist.
+
+If the tags table becomes outdated due to changes in the files described in it, you can update it by running the etags program again. If the tags table does not record a tag, or records it for the wrong file, then Emacs will not be able to find that definition until you update the tags table. But if the position recorded in the tags table becomes a little bit wrong (due to other editing), Emacs will still be able to find the right position, with a slight delay.
+
+Thus, there is no need to update the tags table after each edit. You should update a tags table when you define new tags that you want to have listed, or when you move tag definitions from one file to another, or when changes become substantial.
+
+You can make a tags table include another tags table, by passing the ‘--include=file’ option to etags. It then covers all the files covered by the included tags file, as well as its own.
+
+If you specify the source files with relative file names when you run etags, the tags file will contain file names relative to the directory where the tags file was initially written. This way, you can move an entire directory tree containing both the tags file and the source files, and the tags file will still refer correctly to the source files. If the tags file is - or is in the /dev directory, however, the file names are made relative to the current working directory. This is useful, for example, when writing the tags to the standard output.
+
+When using a relative file name, it should not be a symbolic link pointing to a tags file in a different directory, because this would generally render the file names invalid.
+
+If you specify absolute file names as arguments to etags, then the tags file will contain absolute file names. This way, the tags file will still refer to the same files even if you move it, as long as the source files remain in the same place. Absolute file names start with ‘/’, or with ‘device:/’ on MS-DOS and MS-Windows.
+
+When you want to make a tags table from a great number of files, you may have problems listing them on the command line, because some systems have a limit on its length. You can circumvent this limit by telling etags to read the file names from its standard input, by typing a dash in place of the file names, like this:
+
+find . -name "*.[chCH]" -print | etags -
+etags recognizes the language used in an input file based on its file name and contents. It first tries to match the file’s name and extension to the ones commonly used with certain languages. Some languages have interpreters with known names (e.g., perl for Perl or pl for Prolog), so etags next looks for an interpreter specification of the form ‘#!interp’ on the first line of an input file, and matches that against known interpreters. If none of that works, or if you want to override the automatic detection of the language, you can specify the language explicitly with the ‘--language=name’ option. You can intermix these options with file names; each one applies to the file names that follow it. Specify ‘--language=auto’ to tell etags to resume guessing the language from the file names and file contents. Specify ‘--language=none’ to turn off language-specific processing entirely; then etags recognizes tags by regexp matching alone (see Etags Regexps). This comes in handy when an input file uses a language not yet supported by etags, and you want to avoid having etags fall back on Fortran and C as the default languages.
+
+The option ‘--parse-stdin=file’ is mostly useful when calling etags from programs. It can be used (only once) in place of a file name on the command line. etags will read from standard input and mark the produced tags as belonging to the file file.
+
+For C and C++, if the source files don’t observe the GNU Coding Standards’ convention if having braces (‘{’ and ‘}’) in column zero only for top-level definitions, like functions and struct definitions, we advise that you use the ‘--ignore-indentation’ option, to prevent etags from incorrectly interpreting closing braces in column zero.
+
+‘etags --help’ outputs the list of the languages etags knows, and the file name rules for guessing the language. It also prints a list of all the available etags options, together with a short explanation. If followed by one or more ‘--language=lang’ options, it outputs detailed information about how tags are generated for lang.
+
+
+***** Etags Regexps
+
+The ‘--regex’ option to etags allows tags to be recognized by regular expression matching. You can intermix this option with file names; each one applies to the source files that follow it. If you specify multiple ‘--regex’ options, all of them are used in parallel. The syntax is:
+
+--regex=[{language}]/tagregexp/[nameregexp/]modifiers
+The essential part of the option value is tagregexp, the regexp for matching tags. It is always used anchored, that is, it only matches at the beginning of a line. If you want to allow indented tags, use a regexp that matches initial whitespace; start it with ‘[ \t]*’.
+
+In these regular expressions, ‘\’ quotes the next character, and all the C character escape sequences are supported: ‘\a’ for bell, ‘\b’ for back space, ‘\e’ for escape, ‘\f’ for formfeed, ‘\n’ for newline, ‘\r’ for carriage return, ‘\t’ for tab, and ‘\v’ for vertical tab. In addition, ‘\d’ stands for the DEL character.
+
+Ideally, tagregexp should not match more characters than are needed to recognize what you want to tag. If the syntax requires you to write tagregexp so it matches more characters beyond the tag itself, you should add a nameregexp, to pick out just the tag. This will enable Emacs to find tags more accurately and to do completion on tag names more reliably. In nameregexp, it is frequently convenient to use “back references” (see Backslash in Regular Expressions) to parenthesized groupings ‘\( … \)’ in tagregexp. For example, ‘\1’ refers to the first such parenthesized grouping. You can find some examples of this below.
+
+The modifiers are a sequence of zero or more characters that modify the way etags does the matching. A regexp with no modifiers is applied sequentially to each line of the input file, in a case-sensitive way. The modifiers and their meanings are:
+
+‘i’
+Ignore case when matching this regexp.
+
+‘m’
+Match this regular expression against the whole file, so that multi-line matches are possible.
+
+‘s’
+Match this regular expression against the whole file, and allow ‘.’ in tagregexp to match newlines.
+
+The ‘-R’ option cancels all the regexps defined by preceding ‘--regex’ options. It too applies to the file names following it. Here’s an example:
+
+etags --regex=/reg1/i voo.doo --regex=/reg2/m \
+    bar.ber -R --lang=lisp los.er
+Here etags chooses the parsing language for voo.doo and bar.ber according to their contents. etags also uses reg1 to recognize additional tags in voo.doo, and both reg1 and reg2 to recognize additional tags in bar.ber. reg1 is checked against each line of voo.doo and bar.ber, in a case-insensitive way, while reg2 is checked against the whole bar.ber file, permitting multi-line matches, in a case-sensitive way. etags uses only the Lisp tags rules, with no user-specified regexp matching, to recognize tags in los.er.
+
+You can restrict a ‘--regex’ option to match only files of a given language by using the optional prefix {language}. (‘etags --help’ prints the list of languages recognized by etags.) This is particularly useful when storing many predefined regular expressions for etags in a file. The following example tags the DEFVAR macros in the Emacs source files, for the C language only:
+
+--regex='{c}/[ \t]*DEFVAR_[A-Z_ \t(]+"\([^"]+\)"/\1/'
+When you have complex regular expressions, you can store the list of them in a file. The following option syntax instructs etags to read two files of regular expressions. The regular expressions contained in the second file are matched without regard to case.
+
+--regex=@case-sensitive-file --ignore-case-regex=@ignore-case-file
+A regex file for etags contains one regular expression per line. Empty lines, and lines beginning with space or tab are ignored. When the first character in a line is ‘@’, etags assumes that the rest of the line is the name of another file of regular expressions; thus, one such file can include another file. All the other lines are taken to be regular expressions. If the first non-whitespace text on the line is ‘--’, that line is a comment.
+
+For example, we can create a file called ‘emacs.tags’ with the following contents:
+
+        -- This is for GNU Emacs C source files
+{c}/[ \t]*DEFVAR_[A-Z_ \t(]+"\([^"]+\)"/\1/
+and then use it like this:
+
+etags --regex=@emacs.tags *.[ch] */*.[ch]
+Here are some more examples. The regexps are quoted to protect them from shell interpretation.
+
+Tag Octave files:
+etags --language=none \
+      --regex='/[ \t]*function.*=[ \t]*\([^ \t]*\)[ \t]*(/\1/' \
+      --regex='/###key \(.*\)/\1/' \
+      --regex='/[ \t]*global[ \t].*/' \
+      *.m
+Note that tags are not generated for scripts, so that you have to add a line by yourself of the form ‘###key scriptname’ if you want to jump to it.
+
+Tag Tcl files:
+etags --language=none --regex='/proc[ \t]+\([^ \t]+\)/\1/' *.tcl
+Tag VHDL files:
+etags --language=none \
+  --regex='/[ \t]*\(ARCHITECTURE\|CONFIGURATION\) +[^ ]* +OF/' \
+  --regex='/[ \t]*\(ATTRIBUTE\|ENTITY\|FUNCTION\|PACKAGE\
+  \( BODY\)?\|PROCEDURE\|PROCESS\|TYPE\)[ \t]+\([^ \t(]+\)/\3/'
+
+
+**** Selecting a Tags Table
+
+Emacs has at any time at most one selected tags table. All the commands for working with tags tables use the selected one first. To select a tags table, type M-x visit-tags-table, which reads the tags table file name as an argument, with TAGS defaulting to the first directory that contains a file named TAGS encountered when recursively searching upward from the default directory.
+
+Emacs does not actually read in the tags table contents until you try to use them; all visit-tags-table does is store the file name in the variable tags-file-name, and not much more. The variable’s initial value is nil; that value tells all the commands for working with tags tables that they must ask for a tags table file name to use.
+
+In addition to the selected tags table, Emacs maintains the list of several tags tables that you use together. For example, if you are working on a program that uses a library, you may wish to have the tags tables of both the program and the library available, so that Emacs could easily find identifiers from both. If the selected tags table doesn’t have the identifier or doesn’t mention the source file a tags command needs, the command will try using all the other tags tables in the current list of tags tables.
+
+Using visit-tags-table to load a new tags table when another tags table is already loaded gives you a choice: you can add the new tags table to the current list of tags tables, or discard the current list and start a new list. If you start a new list, the new tags table is used instead of others. If you add the new table to the current list, it is used as well as the others.
+
+You can specify a precise list of tags tables by setting the variable tags-table-list to a list of directory names, like this:
+
+(setq tags-table-list
+      '("~/.emacs.d" "/usr/local/lib/emacs/src"))
+This tells the tags commands to look at the TAGS files in your ~/.emacs.d directory and in the /usr/local/lib/emacs/src directory. The order depends on which file you are in and which tags table mentions that file.
+
+Do not set both tags-file-name and tags-table-list.
+
+
+*** Emacs Development Environment
+
+EDE (Emacs Development Environment) is a package that simplifies the task of creating, building, and debugging large programs with Emacs. It provides some of the features of an IDE, or Integrated Development Environment, in Emacs.
+
+This section provides a brief description of EDE usage. For full details, see EDE in Emacs Development Environment.
+
+EDE is implemented as a global minor mode (see Minor Modes). To enable it, type M-x global-ede-mode or click on the ‘Project Support (EDE)’ item in the ‘Tools’ menu. You can also enable EDE each time you start Emacs, by adding the following line to your initialization file:
+
+(global-ede-mode t)
+Activating EDE adds a menu named ‘Development’ to the menu bar. Many EDE commands, including the ones described below, can be invoked from this menu.
+
+EDE organizes files into projects, which correspond to directory trees. The project root is the topmost directory of a project. To define a new project, visit a file in the desired project root and type M-x ede-new. This command prompts for a project type, which refers to the underlying method that EDE will use to manage the project (see EDE in Emacs Development Environment). The most common project types are ‘Make’, which uses Makefiles, and ‘Automake’, which uses GNU Automake (see Automake in Automake). In both cases, EDE also creates a file named Project.ede, which stores information about the project.
+
+A project may contain one or more targets. A target can be an object file, executable program, or some other type of file, which is built from one or more of the files in the project.
+
+To add a new target to a project, type C-c . t (M-x ede-new-target). This command also asks if you wish to add the current file to that target, which means that the target is to be built from that file. After you have defined a target, you can add more files to it by typing C-c . a (ede-add-file).
+
+To build a target, type C-c . c (ede-compile-target). To build all the targets in the project, type C-c . C (ede-compile-project). EDE uses the file types to guess how the target should be built.
+
+
+*** Merging Files with Emerge
+
+It’s not unusual for programmers to get their signals crossed and modify the same program in two different directions. To recover from this confusion, you need to merge the two versions. Emerge makes this easier. For other ways to compare files, see Comparing Files, and Ediff in The Ediff Manual.
+
+**** Overview of Emerge
+
+To start Emerge, run one of these four commands:
+
+M-x emerge-files ¶
+Merge two specified files.
+
+M-x emerge-files-with-ancestor ¶
+Merge two specified files, with reference to a common ancestor.
+
+M-x emerge-buffers ¶
+Merge two buffers.
+
+M-x emerge-buffers-with-ancestor ¶
+Merge two buffers with reference to a common ancestor in a third buffer.
+
+The Emerge commands compare two files or buffers, and display the comparison in three buffers: one for each input text (the A buffer and the B buffer), and one (the merge buffer) where merging takes place. The merge buffer shows the full merged text, not just the differences. Wherever the two input texts differ, you can choose which one of them to include in the merge buffer.
+
+The Emerge commands that take input from existing buffers use only the accessible portions of those buffers, if they are narrowed. See Narrowing.
+
+If a common ancestor version is available, from which the two texts to be merged were both derived, Emerge can use it to guess which alternative is right. Wherever one current version agrees with the ancestor, Emerge presumes that the other current version is a deliberate change which should be kept in the merged version. Use the ‘with-ancestor’ commands if you want to specify a common ancestor text. These commands read three file or buffer names—variant A, variant B, and the common ancestor.
+
+After the comparison is done and the buffers are prepared, the interactive merging starts. You control the merging by typing special merge commands in the merge buffer (see Merge Commands). For each run of differences between the input texts, you can choose which one of them to keep, or edit them both together.
+
+The merge buffer uses a special major mode, Emerge mode, with commands for making these choices. But you can also edit the buffer with ordinary Emacs commands.
+
+At any given time, the attention of Emerge is focused on one particular difference, called the selected difference. This difference is marked off in the three buffers like this:
+
+vvvvvvvvvvvvvvvvvvvv
+text that differs
+^^^^^^^^^^^^^^^^^^^^
+Emerge numbers all the differences sequentially and the mode line always shows the number of the selected difference.
+
+Normally, the merge buffer starts out with the A version of the text. But when the A version of a difference agrees with the common ancestor, then the B version is initially preferred for that difference.
+
+Emerge leaves the merged text in the merge buffer when you exit. At that point, you can save it in a file with C-x C-w. If you give a numeric argument to emerge-files or emerge-files-with-ancestor, it reads the name of the output file using the minibuffer. (This is the last file name those commands read.) Then exiting from Emerge saves the merged text in the output file.
+
+Normally, Emerge commands save the output buffer in its file when you exit. If you abort Emerge with C-], the Emerge command does not save the output buffer, but you can save it yourself if you wish.
+
+
+**** Submodes of Emerge
+
+You can choose between two modes for giving merge commands: Fast mode and Edit mode. In Fast mode, basic merge commands are single characters, but ordinary Emacs commands are disabled. This is convenient if you use only merge commands. In Edit mode, all merge commands start with the prefix key C-c C-c, and the normal Emacs commands are also available. This allows editing the merge buffer, but slows down Emerge operations.
+
+Use e to switch to Edit mode, and C-c C-c f to switch to Fast mode. The mode line indicates Edit and Fast modes with ‘E’ and ‘F’.
+
+Emerge has two additional submodes that affect how particular merge commands work: Auto Advance mode and Skip Prefers mode.
+
+If Auto Advance mode is in effect, the a and b commands advance to the next difference. This lets you go through the merge faster as long as you simply choose one of the alternatives from the input. The mode line indicates Auto Advance mode with ‘A’.
+
+If Skip Prefers mode is in effect, the n and p commands skip over differences in states “prefer-A” and “prefer-B” (see State of a Difference). Thus you see only differences for which neither version is presumed correct. The mode line indicates Skip Prefers mode with ‘S’. This mode is only relevant when there is an ancestor.
+
+Use the command s a (emerge-auto-advance) to set or clear Auto Advance mode. Use s s (emerge-skip-prefers) to set or clear Skip Prefers mode. These commands turn on the mode with a positive argument, turn it off with a negative or zero argument, and toggle the mode with no argument.
+
+
+**** State of a Difference
+
+In the merge buffer, a difference is marked with lines of ‘v’ and ‘^’ characters. Each difference has one of these seven states:
+
+A
+The difference is showing the A version. The a command always produces this state; the mode line indicates it with ‘A’.
+
+B
+The difference is showing the B version. The b command always produces this state; the mode line indicates it with ‘B’.
+
+default-A
+default-B
+The difference is showing the A or the B state by default, because you haven’t made a choice. All differences start in the default-A state (and thus the merge buffer is a copy of the A buffer), except those for which one alternative is preferred (see below).
+
+When you select a difference, its state changes from default-A or default-B to plain A or B. Thus, the selected difference never has state default-A or default-B, and these states are never displayed in the mode line.
+
+The command d a chooses default-A as the default state, and d b chooses default-B. This chosen default applies to all differences that you have never selected and for which no alternative is preferred. If you are moving through the merge sequentially, the differences you haven’t selected are those following the selected one. Thus, while moving sequentially, you can effectively make the A version the default for some sections of the merge buffer and the B version the default for others by using d a and d b between sections.
+
+prefer-A
+prefer-B
+The difference is showing the A or B state because it is preferred. This means that you haven’t made an explicit choice, but one alternative seems likely to be right because the other alternative agrees with the common ancestor. Thus, where the A buffer agrees with the common ancestor, the B version is preferred, because chances are it is the one that was actually changed.
+
+These two states are displayed in the mode line as ‘A*’ and ‘B*’.
+
+combined
+The difference is showing a combination of the A and B states, as a result of the x c or x C commands.
+
+Once a difference is in this state, the a and b commands don’t do anything to it unless you give them a numeric argument.
+
+The mode line displays this state as ‘comb’.
+
+
+**** Merge Commands
+
+Here are the Merge commands for Fast mode; in Edit mode, precede them with C-c C-c:
+
+p
+Select the previous difference.
+
+n
+Select the next difference.
+
+a
+Choose the A version of this difference.
+
+b
+Choose the B version of this difference.
+
+C-u n j
+Select difference number n.
+
+.
+Select the difference containing point.
+
+q
+Quit—finish the merge.
+
+C-]
+Abort—exit merging and do not save the output.
+
+f
+Go into Fast mode. (In Edit mode, this is actually C-c C-c f.)
+
+e
+Go into Edit mode.
+
+l
+Recenter (like C-l) all three windows. With an argument, reestablish the default three-window display.
+
+-
+Specify part of a prefix numeric argument.
+
+digit
+Also specify part of a prefix numeric argument.
+
+d a
+Choose the A version as the default from here down in the merge buffer.
+
+d b
+Choose the B version as the default from here down in the merge buffer.
+
+c a
+Copy the A version of this difference into the kill ring.
+
+c b
+Copy the B version of this difference into the kill ring.
+
+i a
+Insert the A version of this difference at point.
+
+i b
+Insert the B version of this difference at point.
+
+m
+Put point and mark around the difference.
+
+^
+Scroll all three windows down (like M-v).
+
+v
+Scroll all three windows up (like C-v).
+
+<
+Scroll all three windows left (like C-x <).
+
+>
+Scroll all three windows right (like C-x >).
+
+|
+Reset horizontal scroll on all three windows.
+
+x 1
+Shrink the merge window to one line. (Use C-u l to restore it to full size.)
+
+x c
+Combine the two versions of this difference (see Combining the Two Versions).
+
+x f
+Show the names of the files/buffers Emerge is operating on, in a Help window. (Use C-u l to restore windows.)
+
+x j
+Join this difference with the following one. (C-u x j joins this difference with the previous one.)
+
+x s
+Split this difference into two differences. Before you use this command, position point in each of the three buffers at the place where you want to split the difference.
+
+x t
+Trim identical lines off the top and bottom of the difference. Such lines occur when the A and B versions are identical but differ from the ancestor version.
+
+
+**** Exiting Emerge
+
+The q command (emerge-quit) finishes the merge, storing the results into the output file if you specified one. It restores the A and B buffers to their proper contents, or kills them if they were created by Emerge and you haven’t changed them. It also disables the Emerge commands in the merge buffer, since executing them later could damage the contents of the various buffers.
+
+C-] aborts the merge. This means exiting without writing the output file. If you didn’t specify an output file, then there is no real difference between aborting and finishing the merge.
+
+If the Emerge command was called from another Lisp program, then its return value is t for successful completion, or nil if you abort.
+
+
+**** Combining the Two Versions
+
+Sometimes you want to keep both alternatives for a particular difference. To do this, use x c, which edits the merge buffer like this:
+
+#ifdef NEW
+version from B buffer
+#else /* not NEW */
+version from A buffer
+#endif /* not NEW */
+While this example shows C preprocessor conditionals delimiting the two alternative versions, you can specify the strings to use by setting the variable emerge-combine-versions-template to a string of your choice. In the string, ‘%a’ says where to put version A, and ‘%b’ says where to put version B. The default setting, which produces the results shown above, looks like this:
+
+"#ifdef NEW\n%b#else /* not NEW */\n%a#endif /* not NEW */\n"
+
+
+**** Fine Points of Emerge
+
+During the merge, you mustn’t try to edit the A and B buffers yourself. Emerge modifies them temporarily, but ultimately puts them back the way they were.
+
+You can have any number of merges going at once—just don’t use any one buffer as input to more than one merge at once, since the temporary changes made in these buffers would get in each other’s way.
+
+Starting Emerge can take a long time because it needs to compare the files fully. Emacs can’t do anything else until diff finishes. Perhaps in the future someone will change Emerge to do the comparison in the background when the input files are large—then you could keep on doing other things with Emacs until Emerge is ready to accept commands.
+
+After setting up the merge, Emerge runs the hook emerge-startup-hook. See Hooks.
+
+
+*** Bug Reference
+
+Most projects with a certain amount of users track bug reports in some issue tracking software which assigns each report a unique and short number or identifier. Those are used to reference a given bug, e.g., in a source code comment above the code fixing some bug, in documentation files, or in discussions on some mailing list or IRC channel.
+
+The minor modes bug-reference-mode and bug-reference-prog-mode highlight such bug references and make it possible to follow them to the corresponding bug report on the project’s issue tracker. bug-reference-prog-mode is a variant of bug-reference-mode which highlights bug references only inside source code comments and strings.
+
+For its working, bug reference mode needs to know the syntax of bug references (bug-reference-bug-regexp), and the URL of the tracker where bug reports can be looked up (bug-reference-url-format). Since those are typically different from project to project, it makes sense to specify them in see Per-Directory Local Variables or see Local Variables in Files.
+
+For example, let’s assume in our project, we usually write references to bug reports as bug#1234, or Bug-1234 and that this bug’s page on the issue tracker is https://project.org/issues/1234, then these local variables section would do.
+
+;; Local Variables:
+;; bug-reference-bug-regexp: "\\([Bb]ug[#-]\\([0-9]+\\)\\)"
+;; bug-reference-url-format: "https://project.org/issues/%s"
+;; End:
+The string captured by the first regexp group defines the bounds of the overlay bug-reference creates, i.e., the part which is highlighted and made clickable.
+
+The string captured by the second regexp group in bug-reference-bug-regexp is used to replace the %s template in the bug-reference-url-format.
+
+Note that bug-reference-url-format may also be a function in order to cater for more complex scenarios, e.g., when different parts of the bug reference have to be used to distinguish between issues and merge requests resulting in different URLs.
+
+Automatic Setup
+If bug-reference-mode is activated, bug-reference-mode-hook has been run and still bug-reference-bug-regexp, and bug-reference-url-format aren’t both set, it’ll try to setup suitable values for these two variables itself by calling the functions in bug-reference-auto-setup-functions one after the other until one is able to set the variables.
+
+Right now, there are three types of setup functions.
+
+Setup for version-controlled files configurable by the variables bug-reference-forge-alist, and bug-reference-setup-from-vc-alist. The defaults are able to setup GNU projects where https://debbugs.gnu.org is used as issue tracker and issues are usually referenced as bug#13 (but many different notations are considered, too), and several kinds of modern software forges such as GitLab, Gitea, SourceHut, or GitHub. If you deploy a self-hosted instance of such a forge, the easiest way to tell bug-reference about it is through bug-reference-forge-alist.
+Setup for email guessing from mail folder/mbox names, and mail header values configurable by the variable bug-reference-setup-from-mail-alist. The built-in news- and mailreader Email and Usenet News with Gnus and Reading Mail with Rmail are supported.
+Setup for IRC channels configurable by the variable bug-reference-setup-from-irc-alist. The built-in IRC clients Rcirc, See Rcirc in The Rcirc Manual, and ERC, See ERC in The ERC Manual, are supported.
+For almost all of those modes, it’s enough to simply enable bug-reference-mode, only Rmail requires a slightly different setup.
+
+;; Use VC-based setup if file is under version control.
+(add-hook 'prog-mode-hook #'bug-reference-prog-mode)
+
+;; Gnus (summary & article buffers)
+(add-hook 'gnus-mode-hook #'bug-reference-mode)
+
+;; Rmail
+(add-hook 'rmail-show-message-hook #'bug-reference-mode-force-auto-setup)
+
+;; Rcirc
+(add-hook 'rcirc-mode-hook #'bug-reference-mode)
+
+;; ERC
+(add-hook 'erc-mode-hook #'bug-reference-mode)
+In the Rmail case, instead of the mode hook, the rmail-show-message-hook has to be used in combination with the function bug-reference-mode-force-auto-setup which activates bug-reference-mode and forces auto-setup. The reason is that with Rmail all messages reside in the same buffer but the setup needs to be performed whenever another messages is displayed.
+
+Adding support for third-party packages
+Adding support for bug-reference’ auto-setup is usually quite straight-forward: write a setup function of zero arguments which gathers the required information (e.g., List-Id/To/From/Cc mail header values in the case of a MUA), and then calls one of the following helper functions:
+
+bug-reference-maybe-setup-from-vc which does the setup according to bug-reference-setup-from-vc-alist,
+bug-reference-maybe-setup-from-mail which does the setup according to bug-reference-setup-from-mail-alist,
+and bug-reference-maybe-setup-from-irc which does the setup according to bug-reference-setup-from-irc-alist.
+A setup function should return non-nil if it could setup bug-reference mode which is the case if the last thing the function does is calling one of the helper functions above.
+
+Finally, the setup function has to be added to bug-reference-auto-setup-functions.
+
+Note that these auto-setup functions should check as a first step if they are applicable, e.g., by checking the major-mode value.
+
+Integration with the debbugs package
+If your project’s issues are tracked on the server https://debbugs.gnu.org, you can browse and reply to reports directly in Emacs using the debbugs package, which can be downloaded via the Package Menu (see Emacs Lisp Packages). This package adds the minor mode debbugs-browse-mode, which can be activated on top of bug-reference-mode and bug-reference-prog-mode as follows:
+
+(add-hook 'bug-reference-mode-hook 'debbugs-browse-mode)
+(add-hook 'bug-reference-prog-mode-hook 'debbugs-browse-mode)
+

@@ -1,0 +1,24 @@
+#+manifold-source: ../manuals.org
+#+manifold-lines: 81317-81336
+#+manifold-stage: 01-awakening
+#+manifold-date: 2026-09-15
+
+* Flycheck
+
+#+begin_src emacs-lisp
+(leaf flycheck
+  :straight (flycheck
+             :host github
+             :repo "flycheck/flycheck")
+  :hook (after-init . global-flycheck-mode)
+  :config
+  (global-flycheck-mode 1)
+
+  ;; Monochrome diagnosis
+  (custom-set-faces
+   '(flycheck-error   ((t (:underline (:style wave :color "#000000")))))
+   '(flycheck-warning ((t (:underline (:style wave :color "#000000")))))
+   '(flycheck-info    ((t (:underline (:style wave :color "#000000")))))))
+
+#+end_src
+

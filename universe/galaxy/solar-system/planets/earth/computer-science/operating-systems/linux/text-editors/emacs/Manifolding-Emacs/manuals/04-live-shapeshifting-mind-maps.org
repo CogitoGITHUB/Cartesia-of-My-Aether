@@ -1,0 +1,72 @@
+#+manifold-source: ../manuals.org
+#+manifold-lines: 10435-10502
+#+manifold-stage: grimoire-unsorted
+#+manifold-date: 2026-09-15
+
+* Live Shapeshifting Mind Maps !!!
+:PROPERTIES:
+:Created: 2025-12-21
+:END:
+Advanced Semantic Relationships
+
+** Core Goal
+- Build a fully scalable semantic map engine
+- Support complex domain-specific relationships
+- Maintain full control over node visualization, layout, and hierarchy
+
+** Node Metadata
+- :TYPE: classification of node (package, system, science field, experiment, concept)
+- :STATUS: (draft, active, stable, deprecated)
+- :TAGS: multi-dimensional tags for filtering and coloring
+- :X:, :Y: spatial coordinates for UI positioning
+- :PRIORITY: importance or focus weight
+- :VERSION: for versioned systems/packages
+- :OWNER: responsible entity or reference
+- :REFERENCES: bibliographic or dependency links
+
+** Relationship Types (beyond parent/child/friend)
+- :DEPENDS_ON: node requires this node to exist
+- :USED_BY: inverse of depends_on
+- :CONTRIBUTES_TO: conceptual or functional influence
+- :PART_OF: containment or subsystem membership
+- :HAS_PART: inverse of part_of
+- :ALTERNATIVE_TO: interchangeable nodes or packages
+- :INFLUENCES: abstract or experimental influence
+- :DERIVED_FROM: historical or evolutionary origin
+- :SIMILAR_TO: semantic similarity
+- :CONFLICTS_WITH: incompatibilities or contradictions
+- :MAPPED_TO: cross-domain or external reference
+
+** Interaction Rules
+- Each node can have multiple relationships of each type
+- Relationships can carry metadata:
+  - :WEIGHT: importance/strength of relationship
+  - :CONTEXT: domain or scenario in which this relation applies
+  - :TIMESTAMP: creation or observation time
+
+** Clustering & Hierarchy
+- Nodes can belong to multiple clusters/subgraphs
+- Clustering by:
+  - Type, tag, system, science domain, or experimental context
+- Foldable and expandable clusters
+- Dynamic re-clustering based on filters or weightings
+
+** Visualization & Layout
+- Positioning controlled via :X:, :Y:
+- Color/shape by :TYPE or :STATUS
+- Edge style by relationship type (solid, dashed, dotted, directional)
+- Optional auto-layout hints for complex subgraphs
+- Layering of clusters for multi-scale maps
+
+** Persistence & Sync
+- All node and relationship metadata stored in org-roam files
+- Relationships and attributes written as org properties
+- Org-roam database rebuilds from these files
+- Can export to Graphviz, Mermaid, or custom SVG canvas
+
+** Advanced Features
+- Cross-domain linking (e.g., package → system → science field → experiment)
+- Relationship inheritance along hierarchy
+- Filtering by type, cluster, tag, or weight
+- Semantic queries: find nodes influencing X within context Y
+- Versioning & history tracking for nodes and relationships

@@ -1,0 +1,162 @@
+#+manifold-source: ../manuals.org
+#+manifold-lines: 6-163
+#+manifold-stage: 01-awakening
+#+manifold-date: 2026-09-15
+
+* Lisp History
+
+Lisp (LISt Processing language) was first developed in the late 1950s at the Massachusetts Institute of Technology for research in artificial intelligence. The great power of the Lisp language makes it ideal for other purposes as well, such as writing editing commands.
+
+Dozens of Lisp implementations have been built over the years, each with its own idiosyncrasies. Many of them were inspired by Maclisp, which was written in the 1960s at MIT’s Project MAC. Eventually the implementers of the descendants of Maclisp came together and developed a standard for Lisp systems, called Common Lisp. In the meantime, Gerry Sussman and Guy Steele at MIT developed a simplified but very powerful dialect of Lisp, called Scheme.
+
+GNU Emacs Lisp is largely inspired by Maclisp, and a little by Common Lisp. If you know Common Lisp, you will notice many similarities. However, many features of Common Lisp have been omitted or simplified in order to reduce the memory requirements of GNU Emacs. Sometimes the simplifications are so drastic that a Common Lisp user might be very confused. We will occasionally point out how GNU Emacs Lisp differs from Common Lisp. If you don’t know Common Lisp, don’t worry about it; this manual is self-contained.
+
+A certain amount of Common Lisp emulation is available via the cl-lib library. See Overview in Common Lisp Extensions.
+
+Emacs Lisp is not at all influenced by Scheme; but the GNU project has an implementation of Scheme, called Guile. We use it in all new GNU software that calls for extensibility.
+
+
+** Conventions
+
+This section explains the notational conventions that are used in this manual. You may want to skip this section and refer back to it later.
+
+*** Some Terms
+
+Throughout this manual, the phrases “the Lisp reader” and “the Lisp printer” refer to those routines in Lisp that convert textual representations of Lisp objects into actual Lisp objects, and vice versa. See Printed Representation and Read Syntax, for more details. You, the person reading this manual, are thought of as the programmer and are addressed as “you”. The user is the person who uses Lisp programs, including those you write.
+
+Examples of Lisp code are formatted like this: (list 1 2 3). Names that represent metasyntactic variables, or arguments to a function being described, are formatted like this: first-number.
+
+
+*** nil and t
+
+In Emacs Lisp, the symbol nil has three separate meanings: it is a symbol with the name ‘nil’; it is the logical truth value false; and it is the empty list—the list of zero elements. When used as a variable, nil always has the value nil.
+
+As far as the Lisp reader is concerned, ‘()’ and ‘nil’ are identical: they stand for the same object, the symbol nil. The different ways of writing the symbol are intended entirely for human readers. After the Lisp reader has read either ‘()’ or ‘nil’, there is no way to determine which representation was actually written by the programmer.
+
+In this manual, we write () when we wish to emphasize that it means the empty list, and we write nil when we wish to emphasize that it means the truth value false. That is a good convention to use in Lisp programs also.
+
+(cons 'foo ())                ; Emphasize the empty list
+(setq foo-flag nil)           ; Emphasize the truth value false
+In contexts where a truth value is expected, any non-nil value is considered to be true. However, t is the preferred way to represent the truth value true. When you need to choose a value that represents true, and there is no other basis for choosing, use t. The symbol t always has the value t.
+
+In Emacs Lisp, nil and t are special symbols that always evaluate to themselves. This is so that you do not need to quote them to use them as constants in a program. An attempt to change their values results in a setting-constant error. See Variables that Never Change.
+
+Function: booleanp object ¶
+Return non-nil if object is one of the two canonical boolean values: t or nil.
+
+
+*** Evaluation Notation
+
+A Lisp expression that you can evaluate is called a form. Evaluating a form always produces a result, which is a Lisp object. In the examples in this manual, this is indicated with ‘⇒’:
+
+(car '(1 2))
+     ⇒ 1
+You can read this as “(car '(1 2)) evaluates to 1”.
+
+When a form is a macro call, it expands into a new form for Lisp to evaluate. We show the result of the expansion with ‘→’. We may or may not show the result of the evaluation of the expanded form.
+
+(third '(a b c))
+     → (car (cdr (cdr '(a b c))))
+     ⇒ c
+To help describe one form, we sometimes show another form that produces identical results. The exact equivalence of two forms is indicated with ‘≡’.
+
+(make-sparse-keymap) ≡ (list 'keymap)
+
+
+*** Printing Notation
+
+Many of the examples in this manual print text when they are evaluated. If you execute example code in a Lisp Interaction buffer (such as the buffer *scratch*) by typing C-j after the closing parenthesis of the example, the printed text is inserted into the buffer. If you execute the example by other means (such as by evaluating the function eval-region), the printed text is displayed in the echo area.
+
+Examples in this manual indicate printed text with ‘-|’, irrespective of where that text goes. The value returned by evaluating the form follows on a separate line with ‘⇒’.
+
+(progn (prin1 'foo) (princ "\n") (prin1 'bar))
+     -| foo
+     -| bar
+     ⇒ bar
+
+
+*** Error Messages
+
+Some examples signal errors. This normally displays an error message in the echo area. We show the error message on a line starting with ‘error→’. Note that ‘error→’ itself does not appear in the echo area.
+
+(+ 23 'x)
+error→ Wrong type argument: number-or-marker-p, x
+
+
+*** Buffer Text Notation
+
+Some examples describe modifications to the contents of a buffer, by showing the before and after versions of the text. These examples show the contents of the buffer in question between two lines of dashes containing the buffer name. In addition, ‘∗’ indicates the location of point. (The symbol for point, of course, is not part of the text in the buffer; it indicates the place between two characters where point is currently located.)
+
+---------- Buffer: foo ----------
+This is the ∗contents of foo.
+---------- Buffer: foo ----------
+
+(insert "changed ")
+     ⇒ nil
+---------- Buffer: foo ----------
+This is the changed ∗contents of foo.
+---------- Buffer: foo ----------
+
+
+*** Format of Descriptions
+
+Functions, variables, macros, commands, user options, and special forms are described in this manual in a uniform format. The first line of a description contains the name of the item followed by its arguments, if any. The category—function, variable, or whatever—appears at the beginning of the line. The description follows on succeeding lines, sometimes with examples.
+
+**** A Sample Function Description
+
+In a function description, the name of the function being described appears first. It is followed on the same line by a list of argument names. These names are also used in the body of the description, to stand for the values of the arguments.
+
+The appearance of the keyword &optional in the argument list indicates that the subsequent arguments may be omitted (omitted arguments default to nil). Do not write &optional when you call the function.
+
+The keyword &rest (which must be followed by a single argument name) indicates that any number of arguments can follow. The single argument name following &rest receives, as its value, a list of all the remaining arguments passed to the function. Do not write &rest when you call the function.
+
+Here is a description of an imaginary function foo:
+
+Function: foo integer1 &optional integer2 &rest integers ¶
+The function foo subtracts integer1 from integer2, then adds all the rest of the arguments to the result. If integer2 is not supplied, then the number 19 is used by default.
+
+(foo 1 5 3 9)
+     ⇒ 16
+(foo 5)
+     ⇒ 14
+More generally,
+
+(foo w x y…)
+≡
+(+ (- x w) y…)
+By convention, any argument whose name contains the name of a type (e.g., integer, integer1 or buffer) is expected to be of that type. A plural of a type (such as buffers) often means a list of objects of that type. An argument named object may be of any type. (For a list of Emacs object types, see Lisp Data Types.) An argument with any other sort of name (e.g., new-file) is specific to the function; if the function has a documentation string, the type of the argument should be described there (see Documentation).
+
+See Lambda Expressions, for a more complete description of arguments modified by &optional and &rest.
+
+Command, macro, and special form descriptions have the same format, but the word ‘Function’ is replaced by ‘Command’, ‘Macro’, or ‘Special Form’, respectively. Commands are simply functions that may be called interactively; macros process their arguments differently from functions (the arguments are not evaluated), but are presented the same way.
+
+The descriptions of macros and special forms use a more complex notation to specify optional and repeated arguments, because they can break the argument list down into separate arguments in more complicated ways. ‘[optional-arg]’ means that optional-arg is optional and ‘repeated-args…’ stands for zero or more arguments. Parentheses are used when several arguments are grouped into additional levels of list structure. Here is an example:
+
+Special Form: count-loop (var [from to [inc]]) body… ¶
+This imaginary special form implements a loop that executes the body forms and then increments the variable var on each iteration. On the first iteration, the variable has the value from; on subsequent iterations, it is incremented by one (or by inc if that is given). The loop exits before executing body if var equals to. Here is an example:
+
+(count-loop (i 0 10)
+  (prin1 i) (princ " ")
+  (prin1 (aref vector i))
+  (terpri))
+If from and to are omitted, var is bound to nil before the loop begins, and the loop exits if var is non-nil at the beginning of an iteration. Here is an example:
+
+(count-loop (done)
+  (if (pending)
+      (fixit)
+    (setq done t)))
+In this special form, the arguments from and to are optional, but must both be present or both absent. If they are present, inc may optionally be specified as well. These arguments are grouped with the argument var into a list, to distinguish them from body, which includes all remaining elements of the form.
+
+
+**** A Sample Variable Description
+
+A variable is a name that can be bound (or set) to an object. The object to which a variable is bound is called a value; we say also that variable holds that value. Although nearly all variables can be set by the user, certain variables exist specifically so that users can change them; these are called user options. Ordinary variables and user options are described using a format like that for functions, except that there are no arguments.
+
+Here is a description of the imaginary electric-future-map variable.
+
+Variable: electric-future-map ¶
+The value of this variable is a full keymap used by Electric Command Future mode. The functions in this map allow you to edit commands you have not yet thought about executing.
+
+User option descriptions have the same format, but ‘Variable’ is replaced by ‘User Option’.
+
+

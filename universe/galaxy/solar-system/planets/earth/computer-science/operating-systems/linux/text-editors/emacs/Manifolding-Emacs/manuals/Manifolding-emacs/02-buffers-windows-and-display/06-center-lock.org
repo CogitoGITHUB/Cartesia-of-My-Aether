@@ -1,0 +1,29 @@
+#+manifold-source: ../manuals.org
+#+manifold-lines: 77489-77513
+#+manifold-stage: 02-body
+#+manifold-date: 2026-09-15
+
+* Center Lock — cursor gravitational axis
+#+begin_src emacs-lisp
+(leaf center-lock
+  :config
+  (defvar shapeshift/center-lock-enabled t
+    "Whether the cursor should remain vertically centered.")
+
+  (defun shapeshift/recenter-maybe ()
+    (when (and shapeshift/center-lock-enabled
+               (not (eq this-command 'scroll-up-command))
+               (not (eq this-command 'scroll-down-command))
+               (not (minibufferp)))
+      (recenter)))
+
+  (define-minor-mode center-lock-mode
+    "Keep the cursor vertically centered at all times."
+    :global t
+    (if center-lock-mode
+        (add-hook 'post-command-hook #'shapeshift/recenter-maybe)
+      (remove-hook 'post-command-hook #'shapeshift/recenter-maybe)))
+
+  (center-lock-mode 1))
+#+end_src
+
