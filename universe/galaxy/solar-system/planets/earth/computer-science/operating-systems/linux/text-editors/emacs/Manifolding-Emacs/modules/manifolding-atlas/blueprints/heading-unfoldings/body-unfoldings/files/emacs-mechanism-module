@@ -1,0 +1,16 @@
+#+title: Emacs Mechanism Module Template
+
+* Emacs Mechanism Module Template :ATLAS:
+:PROPERTIES:
+:ID:       e1555fa3-427c-482d-bf2a-20cf7a155f91
+:MM_PARENT: none
+:MM_ORDER:  237.0
+:END:
+
+** Config
+#+begin_src emacs-lisp :tangle no
+(leaf PACKAGE-NAME
+  :require t
+  :config
+  (message "PACKAGE-NAME ready"))
+#+end_src

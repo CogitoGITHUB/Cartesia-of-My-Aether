@@ -1,0 +1,201 @@
+#+title: Manifolding Keyboard — Key-Chord Core
+
+Chord detection state machine and definition cluster. Bound definers stay in states/; everything here is shared machinery.
+
+** Chord input engine (key-chord-extracted, ~my/chord-input-method~) :ATLAS:
+:PROPERTIES:
+:ID:       29640e29-cf37-4b91-b8d3-76afad352460
+:MM_PARENT: none
+:MM_ORDER:  155.0
+:END:
+Extracted from ~key-chord-input-method~ (key-chord.el:353–437) plus its helpers
+~key-chord-check-typing-flow~ (329–351), ~key-chord-execute-chord~ (309–318),
+~key-chord-no-chord~ (320–327), ~key-chord-valid-chord-char-p~ (304–307),
+~key-chord-in-read-char-context-p~ (41–47) and ~key-chord-lookup-key~ (263–273),
+from key-chord (GPLv2, David Andersson). The mechanism dispatches a pair of
+simultaneously (or double-tapped) plain keys to a command: installed as
+~input-method-function~, it intercepts the first key and, if that key could
+begin a chord (has a ~(my/chord K1)~ binding in a current map), reads a second
+key within a delay and emits the ~(my/chord K1 K2)~ event; otherwise it replays
+the first key unchanged via ~unread-command-events~. A typing-flow timer
+(~my/chord-check-typing-flow~) temporarily disables detection while the user is
+typing fast, avoiding false chords. Chords live under the pseudo-prefix symbol
+~my/chord~ (key-chord used ~key-chord~). SKIPPED from source: the key-tracking
+optimization (~key-chord-keys-in-use~, desync risk) and kbd-macro heuristics;
+during macro execution chords are bypassed outright. Deps: builtins
+(~input-method-function~, ~read-event~, ~current-time~, ~float-time~,
+~time-subtract~, ~lookup-key~, ~unread-command-events~, ~executing-kbd-macro~).
+Coexists with M-K's modal maps (input method runs before command dispatch).
+Layout-independent, Dvorak-safe. Installed globally via ~setq-default~; demo
+chord ~jj~ → ~my/repeat-last~ (R01) bound in global-map as a live consumer.
+#+begin_src emacs-lisp
+(defvar my/chord-last-unmatched nil)
+(defvar my/chord-in-typing-flow nil)
+(defvar my/chord-last-key-time nil)
+(defvar my/chord-typing-reset-time nil)
+(defvar my/chord-two-keys-delay 0.1)
+(defvar my/chord-one-key-delay 0.2)
+(defvar my/chord-one-key-min-delay 0.0)
+(defvar my/chord-typing-speed-threshold 0.1)
+(defvar my/chord-typing-reset-delay 0.5)
+(defvar my/chord-typing-detection t)
+
+(defun my/chord-in-read-char-context-p ()
+  "Non-nil in a read-char/read-key context (input should bypass chords)."
+  (and overriding-local-map
+       (memq overriding-local-map (list read-key-empty-map read-key-full-map))))
+
+(defun my/chord-valid-chord-char-p (char)
+  "Non-nil if CHAR (<= 255) can participate in a chord."
+  (and (integerp char) (< char 255)))
+
+(defun my/chord-lookup-key1 (keymap key)
+  "Like `lookup-key' but returns nil when the result is a number."
+  (let ((res (lookup-key keymap key)))
+    (and (not (numberp res)) res)))
+
+(defun my/chord-lookup-key (key)
+  "Look up KEY in all current minor, local and global maps."
+  (let ((maps (current-minor-mode-maps)) res)
+    (while (and maps (not res))
+      (setq res (my/chord-lookup-key1 (car maps) key))
+      (setq maps (cdr maps)))
+    (or res
+        (and (current-local-map)
+             (my/chord-lookup-key1 (current-local-map) key))
+        (my/chord-lookup-key1 (current-global-map) key))))
+
+(defun my/chord-execute-chord (first-char next-char)
+  "Return the `(my/chord FIRST NEXT)' event for a matched chord."
+  (setq my/chord-last-unmatched nil)
+  (list 'my/chord first-char next-char))
+
+(defun my/chord-no-chord (first-char &optional next-char)
+  "Return FIRST-CHAR alone, pushing NEXT-CHAR back for later processing."
+  (when next-char
+    (setq unread-command-events (cons next-char unread-command-events)))
+  (setq my/chord-last-unmatched first-char)
+  (list first-char))
+
+(defun my/chord-pause-typing-flow ()
+  "Temporarily pause typing flow to allow chord detection."
+  (when my/chord-typing-detection
+    (setq my/chord-in-typing-flow nil)))
+
+(defun my/chord-check-typing-flow (current-time)
+  "Toggle typing-flow state from the spacing between keystrokes."
+  (when my/chord-typing-detection
+    (when (and my/chord-typing-reset-time
+               (> (float-time current-time) my/chord-typing-reset-time))
+      (setq my/chord-in-typing-flow nil)
+      (setq my/chord-last-unmatched nil))
+    (setq my/chord-typing-reset-time
+          (+ (float-time current-time) my/chord-typing-reset-delay))
+    (unless my/chord-in-typing-flow
+      (when my/chord-last-key-time
+        (let ((elapsed (float-time
+                        (time-subtract current-time my/chord-last-key-time))))
+          (when (< elapsed my/chord-typing-speed-threshold)
+            (setq my/chord-in-typing-flow t)))))
+    (setq my/chord-last-key-time current-time)))
+
+(defun my/chord-input-method (first-char)
+  "Input-method hook dispatching `(my/chord K1 K2)' chords.
+FIRST-CHAR is the first key input. Bypassed in read-char contexts and during
+keyboard macros; otherwise reads a second key within the chord delay and emits
+a chord event when one matches, else replays FIRST-CHAR."
+  (if (my/chord-in-read-char-context-p)
+      (progn (setq my/chord-last-unmatched nil) (list first-char))
+    (unless executing-kbd-macro
+      (my/chord-check-typing-flow (current-time)))
+    (cond
+     ((not (my/chord-valid-chord-char-p first-char))
+      (setq my/chord-last-unmatched nil)
+      (list first-char))
+     ((and my/chord-typing-detection my/chord-in-typing-flow
+           (not executing-kbd-macro))
+      (list first-char))
+     (executing-kbd-macro
+      (my/chord-no-chord first-char))
+     ((not (eq first-char my/chord-last-unmatched))
+      (my/chord-pause-typing-flow)
+      (let ((res (my/chord-lookup-key (vector 'my/chord first-char))))
+        (if (not res)
+            (my/chord-no-chord first-char)
+          (let ((start-time (current-time))
+                (delay (if (my/chord-lookup-key
+                            (vector 'my/chord first-char first-char))
+                           my/chord-one-key-delay
+                         my/chord-two-keys-delay)))
+            (let ((next-char (read-event nil nil delay)))
+              (cond
+               ((null next-char) (my/chord-no-chord first-char))
+               ((not (my/chord-valid-chord-char-p next-char))
+                (my/chord-no-chord first-char next-char))
+               ((eq first-char next-char)
+                (let ((elapsed (float-time
+                                (time-subtract (current-time) start-time))))
+                  (if (< elapsed my/chord-one-key-min-delay)
+                      (my/chord-no-chord first-char next-char)
+                    (if (my/chord-lookup-key
+                         (vector 'my/chord first-char next-char))
+                        (my/chord-execute-chord first-char next-char)
+                      (my/chord-no-chord first-char next-char)))))
+               (t
+                (if (my/chord-lookup-key
+                     (vector 'my/chord first-char next-char))
+                    (my/chord-execute-chord first-char next-char)
+                  (my/chord-no-chord first-char next-char)))))))))
+     (t (my/chord-no-chord first-char)))))
+
+(setq-default input-method-function #'my/chord-input-method)
+(define-key (current-global-map) (vector 'my/chord ?j ?j) 'my/repeat-last)
+#+end_src
+** Chord definition (key-chord-extracted, ~my/chord-define~)
+Extracted from ~key-chord-define~ (key-chord.el:228–254) plus ~key-chord-define-
+global~ / ~-local~ (144–173) and ~key-chord-unset-global~ / ~-local~ (175–183),
+from key-chord (GPLv2, David Andersson). The mechanism declares a chord: given a
+two-element key sequence it validates both are byte characters (codes < 256) and
+binds the command under the ~my/chord~ pseudo-prefix, symmetric in BOTH orders
+(K1K2 and K2K1), with a same-key (double-tap) chord defined once — matching the
+C01 lookup model. The key-tracking register/unregister calls are SKIPPED (that
+optimization was rejected in C01). The interactive global setter is the bound
+consumer: define a chord on the fly. Deps: builtins (~define-key~,
+~current-global-map~, ~current-local-map~, ~aref~, ~length~, ~error~).
+Layout-independent, Dvorak-safe. Bound ~my/chord-define-global~ → plain key ~6~
+in normal + motion states.
+#+begin_src emacs-lisp
+(defun my/chord-define (keymap keys command)
+  "Define in KEYMAP a chord of the two keys in KEYS calling COMMAND.
+KEYS is a string/vector of two byte characters (codes < 256). If COMMAND is nil
+the chord is removed. A pair is bound in both orders (K1K2 and K2K1); a same-key
+double-tap chord is defined once."
+  (when (/= 2 (length keys))
+    (error "Chord keys must have two elements"))
+  (let ((key1 (aref keys 0))
+        (key2 (aref keys 1)))
+    (unless (and (integerp key1) (< key1 256)
+                 (integerp key2) (< key2 256))
+      (error "Chord keys must both be bytes (characters with codes < 256)"))
+    (if (eq key1 key2)
+        (define-key keymap (vector 'my/chord key1 key2) command)
+      (define-key keymap (vector 'my/chord key1 key2) command)
+      (define-key keymap (vector 'my/chord key2 key1) command))))
+
+
+(defun my/chord-define-local (keys command)
+  "Locally define a chord of the two keys in KEYS calling COMMAND."
+  (interactive "sSet key chord locally (2 keys): \nCSet chord \"%s\" to command: ")
+  (my/chord-define (current-local-map) keys command))
+
+(defun my/chord-unset-global (keys)
+  "Remove the global chord of the two keys in KEYS."
+  (interactive "sUnset key chord globally (2 keys): ")
+  (my/chord-define (current-global-map) keys nil))
+
+(defun my/chord-unset-local (keys)
+  "Remove the local chord of the two keys in KEYS."
+  (interactive "sUnset key chord locally (2 keys): ")
+  (my/chord-define (current-local-map) keys nil))
+#+end_src
+** Local definers

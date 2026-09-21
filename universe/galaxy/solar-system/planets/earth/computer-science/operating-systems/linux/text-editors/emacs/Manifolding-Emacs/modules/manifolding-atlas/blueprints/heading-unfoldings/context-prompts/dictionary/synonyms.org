@@ -1,8 +1,0 @@
-#+title:      Synonyms Prompt
-#+priority:   12
-
-* SYNONYMS :scoped:dictionary:
-:PROPERTIES:
-:ID: synonyms
-:UNFOLDING: synonyms
-:END:

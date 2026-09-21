@@ -1,0 +1,20 @@
+#+title:      nerd-icons
+#+identifier: 1e7b9c5f-3a4d-4e6f-af56-2a8e4f6b1c3d
+#+filetags:   :emacs-package:ui:
+
+* NERD-ICONS — Icon Library #emacs-package #ui :ATLAS:
+:PROPERTIES:
+:ID:       1e7b9c5f-3a4d-4e6f-af56-2a8e4f6b1c3d
+:MM_PARENT: none
+:MM_ORDER:  16.0
+:PACKAGE:  nerd-icons
+:STRAIGHT: (nerd-icons :type git :host github :repo "rainstormstudio/nerd-icons.el" :files (:defaults "data" "nerd-icons-pkg.el"))
+:CATEGORY: ui
+:END:
+
+** Config
+#+begin_src emacs-lisp
+  (with-eval-after-load 'dired
+    (when (fboundp 'nerd-icons-dired-mode)
+      (nerd-icons-dired-mode 1)))
+#+end_src

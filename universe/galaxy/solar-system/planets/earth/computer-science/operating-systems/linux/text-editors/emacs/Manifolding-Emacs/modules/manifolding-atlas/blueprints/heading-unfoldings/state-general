@@ -1,0 +1,15 @@
+#+title:      State General Prompt
+
+* STATE_GENERAL :unfolding:file:heading:task:ATLAS:
+:PROPERTIES:
+:ID:       6a6b447d-a535-4a33-978d-6886c217da64
+:MM_PARENT: none
+:MM_ORDER:  28.0
+:REQUIRED: t
+:UNFOLDING: state-general
+:END:
+** TODO
+** WARNING
+** EVERGREEN
+** DRAFT
+** SETTLED

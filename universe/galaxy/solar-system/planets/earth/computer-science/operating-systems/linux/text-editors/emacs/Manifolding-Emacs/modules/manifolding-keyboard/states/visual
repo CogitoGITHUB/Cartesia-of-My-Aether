@@ -1,0 +1,43 @@
+#+title: Manifolding Keyboard — Visual State
+
+Keys specific to the visual state. Shared bindings live in universal.org.
+
+** State definition :ATLAS:
+:PROPERTIES:
+:ID:       bf4781f5-5e70-4031-a83a-f67dbd6398bb
+:MM_PARENT: none
+:MM_ORDER:  190.0
+:END:
+Self-registration: mode and keymap in one unit (manual activation only). Delete this file and the state unregisters on next boot.
+#+begin_src emacs-lisp
+(manifolding-keyboard-define-state "visual"
+  :lighter "[VIS]"
+  :cursor-type 'hollow)
+#+end_src
+** Owned functions
+#+begin_src emacs-lisp
+(defun my/visual-normal-state ()
+  "Deactivate mark and switch to normal state."
+  (interactive)
+  (deactivate-mark)
+  (manifolding-keyboard-set-state "normal"))
+#+end_src
+** Bindings
+#+begin_src emacs-lisp
+(manifolding-keyboard-define-keys
+  :states '("visual")
+  :bind
+  `(
+    ("ESC" . my/visual-normal-state)
+    ("a" . mark-word)
+    ("c" . consult-yank-pop)
+    ("d" . kill-region)
+    ("e" . mark-line)
+    ("h" . beginning-of-line)
+    ("i" . mark-inner-region)
+    ("n" . kill-ring-save)
+    ("o" . mark-sexp)
+    ("t" . end-of-line)
+    ("u" . rectangle-mark-mode)
+))
+#+end_src

@@ -1,0 +1,29 @@
+#+title:      org-superstar
+#+filetags:   :emacs-package:ui:
+
+* ORG-SUPERSTAR — Headline Bullets :ATLAS:
+:PROPERTIES:
+:ID:       375e3582-ea90-45f8-acd4-07088c7908fd
+:MM_PARENT: none
+:MM_ORDER:  106.0
+:PACKAGE:  org-superstar
+:STRAIGHT: (org-superstar :type git :host github :repo "integral-dw/org-superstar-mode")
+:CATEGORY: ui
+:END:
+
+** Config
+#+begin_src emacs-lisp
+(setq org-superstar-headline-bullets-list '("Ⅰ" "Ⅱ" "Ⅲ" "Ⅳ" "Ⅴ" "Ⅵ" "Ⅶ" "Ⅷ" "Ⅸ" "Ⅹ")
+      org-superstar-item-bullet-alist     '((?* . ?•)
+                                            (?+ . ?➤)
+                                            (?- . ?–))
+      org-superstar-leading-fallback      ?\s
+      org-superstar-remove-leading-stars  t
+      org-superstar-cycle-headline-bullets nil)
+
+(add-hook 'org-mode-hook #'org-superstar-mode)
+
+(with-eval-after-load 'org-superstar
+  (set-face-attribute 'org-superstar-header-bullet nil :height 1.1)
+  (set-face-attribute 'org-superstar-item nil :height 1.1))
+#+end_src

@@ -1,7 +1,0 @@
-#+title:      Phone Prompt
-#+priority:   25
-
-* PHONE :free:contact:
-:PROPERTIES:
-:ID: contact-phone
-:END:

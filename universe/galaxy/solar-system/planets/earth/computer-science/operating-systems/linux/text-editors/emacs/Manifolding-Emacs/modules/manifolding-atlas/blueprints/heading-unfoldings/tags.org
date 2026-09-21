@@ -1,7 +1,0 @@
-#+title:      Tags Prompt
-#+priority:   1
-
-* TAGS :tags:file:heading:task:
-:PROPERTIES:
-:ID: tags
-:END:

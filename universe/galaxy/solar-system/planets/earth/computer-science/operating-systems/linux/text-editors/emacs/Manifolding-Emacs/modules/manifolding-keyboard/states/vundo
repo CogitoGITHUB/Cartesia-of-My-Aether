@@ -1,0 +1,20 @@
+#+title: Manifolding Keyboard — Vundo Map
+
+Direct keymap bindings for vundo-mode.
+
+** Vundo :ATLAS:
+:PROPERTIES:
+:ID:       5028d1e2-104b-4a43-b78a-57a17573a782
+:MM_PARENT: none
+:MM_ORDER:  191.0
+:END:
+#+begin_src emacs-lisp
+(with-eval-after-load 'vundo
+  (add-hook 'vundo-mode-hook (lambda () (manifolding-keyboard-set-state nil)))
+  (define-key vundo-mode-map (kbd "h") #'vundo-backward)
+  (define-key vundo-mode-map (kbd "t") #'vundo-forward)
+  (define-key vundo-mode-map (kbd "n") #'vundo-next)
+  (define-key vundo-mode-map (kbd "s") #'vundo-previous)
+  (define-key vundo-mode-map (kbd "q") #'vundo-quit)
+  (define-key vundo-mode-map (kbd "<return>") #'vundo-confirm))
+#+end_src

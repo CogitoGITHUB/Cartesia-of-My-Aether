@@ -1,0 +1,128 @@
+#+title: Manifolding Keyboard — Menus
+
+Auto-derived Transient menus. Nothing here hand-lists keys: states
+menus walk live keymaps, the main hub lists the leaders/ directory,
+and per-leader menus come from the =my/defhydra-state= spec the files
+already carry (macro emits Transient directly). Add/delete a leader
+file or binding and the menus follow with zero edits here.
+
+* Registry :ATLAS:
+:PROPERTIES:
+:ID:       f94efe9f-808c-4431-b88b-3fc8203165bc
+:MM_PARENT: none
+:MM_ORDER:  158.0
+:END:
+#+begin_src emacs-lisp
+(defvar my/menus-hydra-registry nil
+  "Alist (HYDRA-NAME . TITLE) populated by my/defhydra-state expansion.
+Read by the main hub menu; shrinks on its own when files are deleted.")
+#+end_src
+
+* States menus (approach a: read the live keymap)
+#+begin_src emacs-lisp
+(defun my/menus-state-suffixes (state)
+  "Parsed suffix objects for STATE's keymap, for :setup-children.
+DESC is the command's docstring first line (empty fallback).
+Raw (KEY DESC CMD) specs must go through `transient-parse-suffix':
+init-time consumes parsed objects, not source specs."
+  (let ((map (manifolding-keyboard-get-state-keymap state))
+        (out nil))
+    (when (boundp map)
+      (map-keymap
+       (lambda (ev cmd)
+         (when (and (symbolp cmd) (commandp cmd))
+           (let* ((doc (or (documentation cmd) ""))
+                  (desc (car (split-string doc "\n"))))
+             (push (list (key-description (vector ev)) desc cmd) out))))
+       (symbol-value map)))
+    (mapcar (lambda (s) (transient-parse-suffix 'my/menus-state-menu s))
+            (sort out (lambda (a b) (string< (car a) (car b)))))))
+
+(transient-define-prefix my/menus-state-menu ()
+  "State menu, derived from the current state's live keymap."
+  ["Keys" :class transient-column :setup-children
+   (lambda (_)
+     (my/menus-state-suffixes
+      (or manifolding-keyboard-state "normal")))])
+#+end_src
+
+* Main hub (directory-derived submenu list)
+#+begin_src emacs-lisp
+(defun my/menus-leader-suffixes ()
+  "One parsed suffix per leader for the main hub's :setup-children.
+KEY is the SPC sub-key (manual — key assignment is inherently so);
+LABEL/CMD derive from the registry and hydra bodies. Raw specs go
+through `transient-parse-suffix': init-time consumes parsed objects."
+  (let ((out nil))
+    (dolist (entry (append my/menus-leader-map nil))
+      (let* ((key (car entry))
+             (hydra (cdr entry))
+             (title (or (cdr (assq hydra my/menus-hydra-registry))
+                        (symbol-name hydra))))
+        (push (transient-parse-suffix
+               'my/main-hydra/body
+               (list key title (intern (format "%s/body" hydra))))
+              out)))
+    out))
+
+(defvar my/menus-leader-map
+  '(("v" . my/manifolding-atlas-hydra)
+    ("y" . my/wormhole-hydra)
+    ("m" . my/mindmap-hydra)
+    ("S" . my/atlas-search-hydra)
+    ("a" . my/ks-hydra)
+    ("o" . my/org-hydra)
+    ("g" . my/git-hydra)
+    ("b" . my/browse-hydra)
+    ("d" . my/literate-hydra)
+    ("w" . my/windows-hydra)
+    ("i" . my/tabs-hydra)
+    ("h" . my/buffers-hydra)
+    ("t" . my/bookmarks-hydra)
+    ("n" . my/files-hydra)
+    ("r" . my/registers-hydra)
+    ("s" . my/select-hydra)
+    ("e" . my/activities-hydra)
+    ("x" . my/templates-hydra))
+  "SPC sub-key to leader hydra. The one hand list in the menu system:
+19 static pairs (key assignment is inherently manual), everything
+below them derived.")
+
+(defun my/menus--ghostel-or-msg ()
+  "Open ghostel if available, else fallback to vterm/ansi-term."
+  (interactive)
+  (cond ((fboundp 'ghostel) (call-interactively #'ghostel))
+        ((fboundp 'vterm) (call-interactively #'vterm))
+        ((fboundp 'ansi-term) (ansi-term (or (getenv "SHELL") "/bin/bash")))
+        (t (user-error "no terminal available (ghostel disabled, vterm not installed)"))))
+
+(unless (fboundp 'my/manifolding-atlas-quick-captures)
+  (defun my/manifolding-atlas-quick-captures ()
+    "Stale quick-captures entry: dispatch to real fast-captures."
+    (interactive)
+    (cond ((fboundp 'my/manifolding-atlas-quick-journal)
+           (call-interactively #'my/manifolding-atlas-quick-journal))
+          ((fboundp 'my/manifolding-atlas-quick-todo)
+           (call-interactively #'my/manifolding-atlas-quick-todo))
+          ((fboundp 'my/manifolding-atlas-quick-observations)
+           (call-interactively #'my/manifolding-atlas-quick-observations))
+          (t (user-error "quick captures not loaded (atlas fast-captures not available)")))))
+
+(defun my/menus--digraphs-or-msg ()
+  "Show digraphs if evil present, else fallback."
+  (interactive)
+  (cond ((fboundp 'evil-show-digraphs) (call-interactively #'evil-show-digraphs))
+        ((fboundp 'list-digraphs) (call-interactively #'list-digraphs))
+        (t (user-error "digraphs not available (evil not loaded)"))))
+
+(transient-define-prefix my/main-hydra/body ()
+  "Main menu. Submenus derived from the leader map + hydra registry."
+  ["Leaders" :class transient-column :setup-children
+   (lambda (_) (my/menus-leader-suffixes))]
+  ["Quick Access" :class transient-column
+   ("o" "open link" org-open-at-point)
+   ("v" "manifolding-atlas" my/manifolding-atlas-hydra/body)
+   ("T" "terminal" my/menus--ghostel-or-msg)
+   ("z" "fast capture" my/manifolding-atlas-quick-captures)
+   ("/" "digraphs" my/menus--digraphs-or-msg)])
+#+end_src

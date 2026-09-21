@@ -1,0 +1,16 @@
+#+title:      git-gutter
+
+* GIT-GUTTER — Git Change Indicators :ATLAS:
+:PROPERTIES:
+:ID:       56108386-ac4e-4b4f-b231-fff219ca5d4f
+:MM_PARENT: none
+:MM_ORDER:  57.0
+:CATEGORY: git
+:PACKAGE:  git-gutter
+:STRAIGHT: (git-gutter :type git :host github :repo "emacsorphanage/git-gutter")
+:END:
+
+** Config
+#+begin_src emacs-lisp
+(require 'git-gutter)
+#+end_src

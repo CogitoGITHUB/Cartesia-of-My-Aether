@@ -1,0 +1,18 @@
+#+title:      ivy-omni-org
+#+identifier: 201f4c6e-197b-47db-9442-e98806b99256
+#+filetags:   :emacs-package:completion:
+
+* ivy-omni-org :ATLAS:
+:PROPERTIES:
+:ID:       201f4c6e-197b-47db-9442-e98806b99256
+:MM_PARENT: none
+:MM_ORDER:  62.0
+:PACKAGE:  ivy-omni-org
+:CATEGORY: completion
+:STRAIGHT: (ivy-omni-org :type git :host github :repo "akirak/ivy-omni-org")
+:END:
+
+** Config :config:
+#+begin_src emacs-lisp
+
+#+end_src

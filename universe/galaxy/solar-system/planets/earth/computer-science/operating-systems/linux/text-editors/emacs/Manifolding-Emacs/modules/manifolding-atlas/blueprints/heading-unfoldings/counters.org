@@ -1,9 +1,0 @@
-#+title:      Counters Prompt
-#+priority:   32
-
-* COUNTERS :inline:file:heading:task:
-** TODO
-** WARNING
-** MAPPED
-** MAINTAINED
-** STALE

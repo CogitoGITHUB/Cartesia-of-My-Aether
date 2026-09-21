@@ -1,0 +1,18 @@
+#+title:      goggles
+#+identifier: 68f0a666-1abc-4a99-a4c6-bdb72827e3d6
+#+filetags:   :emacs-package:editing:
+
+* goggles :ATLAS:
+:PROPERTIES:
+:ID:       68f0a666-1abc-4a99-a4c6-bdb72827e3d6
+:MM_PARENT: none
+:MM_ORDER:  58.0
+:PACKAGE:  goggles
+:CATEGORY: editing
+:STRAIGHT: (goggles :type git :host github :repo "minad/goggles")
+:END:
+
+** Config :config:
+#+begin_src emacs-lisp
+
+#+end_src

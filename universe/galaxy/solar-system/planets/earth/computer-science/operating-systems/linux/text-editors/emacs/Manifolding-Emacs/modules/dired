@@ -1,0 +1,81 @@
+#+title:    dired
+#+filetags: :emacs-package:files:navigation:
+
+* Dired :ATLAS:
+:PROPERTIES:
+:ID:       7bb3a054-ef51-410f-b219-0fe54164beed
+:MM_PARENT: none
+:MM_ORDER:  144.0
+:END:
+** Commands
+#+begin_src emacs-lisp
+(defun my/dired-here ()
+  "Open dired at the current buffer's directory."
+  (interactive)
+  (dired (expand-file-name
+          (or (and buffer-file-name
+                   (file-name-directory buffer-file-name))
+              default-directory))))
+(defun my/dired-find-file ()
+  "Open file at point, guarding against nil (header lines etc.)."
+  (interactive)
+  (let ((file (ignore-errors (dired-get-filename nil t))))
+    (if file
+        (find-file file)
+      (message "No file on this line"))))
+(defun my/dired-ks-open-file ()
+  "Select a dired line with key selection and open the file directly."
+  (interactive)
+  (ks-with my/dired-ks-open-file
+    (let ((r (ks--line (eq current-prefix-arg 4))))
+      (when (and (not (memq r '(t nil))) (eq ks-action #'identity))
+        (goto-char r)
+        (my/dired-find-file)))))
+#+end_src
+** Config
+#+begin_src emacs-lisp
+(setq dired-auto-revert-buffer t)
+(add-hook 'dired-mode-hook 'auto-revert-mode)
+(setq dired-movement-style 'bounded)
+(add-hook 'dired-after-readin-hook (lambda () (dired-hide-details-mode 1)))
+(require 'dired-x)
+(unless (string-search "^\\.git\\(ignore\\)?$" dired-omit-files)
+  (setq dired-omit-files
+        (concat dired-omit-files "\\|^\\.git\\(ignore\\)?$")))
+(add-hook 'dired-mode-hook (lambda () (dired-omit-mode 1)))
+(advice-add 'dired-internal-noselect :after
+            (lambda (&rest _)
+              (when olivetti-mode
+                (olivetti-set-buffer-windows))))
+
+;; ── Deleting a file kills its visiting buffers, silently ────────────
+;; No "Kill buffer of X, too?" prompts — in dired or anywhere else.
+(setq dired-clean-up-buffers-too t)
+
+(defun my/delete-file-kill-visiting-buffers (file &rest _)
+  "After DELETE-FILE, silently kill every buffer visiting FILE."
+  (when (and (stringp file)
+             (not (string-match-p "/\\.git/" file)))
+    (let ((target (ignore-errors (expand-file-name file))))
+      (when target
+        (dolist (buf (buffer-list))
+          (when (buffer-live-p buf)
+            (let ((bf (buffer-local-value 'buffer-file-name buf)))
+              (when (and bf (string= bf target))
+                (with-current-buffer buf
+                  (set-buffer-modified-p nil))
+                (ignore-errors (kill-buffer buf))))))))))
+
+(advice-add 'delete-file :after #'my/delete-file-kill-visiting-buffers)
+#+end_src
+
+* Diff HL — Git status in dired
+:PROPERTIES:
+:PACKAGE:  diff-hl
+:STRAIGHT: (diff-hl :type git :host github :repo "dgutov/diff-hl")
+:CATEGORY: git
+:END:
+** Config
+#+begin_src emacs-lisp
+(add-hook 'dired-mode-hook #'diff-hl-dired-mode)
+#+end_src

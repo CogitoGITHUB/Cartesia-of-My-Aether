@@ -1,0 +1,25 @@
+#+title:      File Override Prompt
+
+* File Override Prompt :ATLAS:
+:PROPERTIES:
+:ID:       24424009-629e-49f9-b047-ba2b2d525f84
+:MM_PARENT: none
+:MM_ORDER:  196.0
+:END:
+#+begin_src emacs-lisp
+(my/manifolding-atlas-register-prompt
+  :key 'rule-file
+  :name 'rule-file
+  :label "File Override"
+  :contexts '(rule)
+  :prompt-fn (lambda ()
+               (when (yes-or-no-p "Override destination file for primary topic? ")
+                 (let* ((existing (when (file-directory-p my/manifolding-atlas-rules--rules-directory)
+                                    (append (directory-files my/manifolding-atlas-rules--rules-directory nil "\\.org$")
+                                            (directory-files my/manifolding-atlas-rules--rules-directory nil "[^./]+$"))))
+                        (file (completing-read "Destination file: " existing)))
+                   file)))
+  :to-plist (lambda (val _ctx)
+              (when val
+                `(:unfoldings (("RULE_FILE" . ,val))))))
+#+end_src

@@ -1,0 +1,17 @@
+#+title:      State Operational Prompt
+
+* STATE_OPERATIONAL :unfolding:file:heading:task:ATLAS:
+:PROPERTIES:
+:ID:       73e076fb-a4c4-4083-b1fe-1bf169fc6654
+:MM_PARENT: none
+:MM_ORDER:  30.0
+:REQUIRED: t
+:UNFOLDING: state-operational
+:END:
+** TODO
+** WARNING
+** PLANNED
+** IN_PROGRESS
+** DEPLOYED
+** SUSPENDED
+** RETIRED

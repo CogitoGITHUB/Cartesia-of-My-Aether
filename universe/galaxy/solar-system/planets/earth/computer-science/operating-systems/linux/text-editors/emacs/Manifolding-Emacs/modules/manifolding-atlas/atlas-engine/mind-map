@@ -1,0 +1,1128 @@
+#+title: Manifolding Atlas — Mind Map
+
+Controller layer for the vault's visual mind map.
+
+Ownership (architectural law — see README): this subsystem owns
+TOPOLOGY, ORDER, PARENT/CHILD and SIBLING relationships, ROOTS,
+HEADINGS, node location, MAP DISPLAY, and TRAVERSAL. It reads
+mastering data (stage, status) for display only — reading never
+constitutes ownership. The single shared surface with mastering is
+the STATUS drawer value plus the schedule suspend flag: one key,
+two readers.
+
+Model:
+- Files → parent-child tree (the skeleton)
+- Headings → siblings within their file (the flesh on each bone)
+- Group → one file + all its heading notes = one visual card
+
+Edges (three distinct layers):
+- structural — file parent-child (drives layout, deterministic)
+- semantic — id: links (intellectual connections, overlay)
+- presentational — wormhole links (content embedding, overlay)
+
+Ordering: ORDER_KEY real float per node → O(1) insert-between, zero cascade.
+=mm/repack= normalises floats → clean integers when gaps < mm/epsilon.
+
+Scale: All queries hit =mm_nodes= via indexed SQL. No Elisp-side sorting.
+ON DELETE CASCADE auto-removes map entries when notes are deleted.
+
+Status: the unified STATUS unfolding — ACTIVE | SUSPENDED | ARCHIVED
+| DORMANT — owned semantically by mastering's lifecycle, read here
+for display. A leftover MM_STATUS drawer translates one-way
+(active→ACTIVE, deprecated→DORMANT, archived→ARCHIVED); no writer
+emits MM_STATUS anymore.
+
+JSON export writes =manifold-map.json= — API contract for a future UI.
+The future graphical renderer is a projection of this data, never a
+source of truth: it may read stage, status, topology, and headings,
+and own none of them.
+
+The architectural knife applied here: =notes= are identity, =links=
+are relationship, and =mm_nodes= records only how a relationship
+participates in this map — placement, order, card grouping. Graph
+traversal itself belongs to the substrate (=db-descendants= and
+friends); map-tree walking (=mm/subtree-of= and friends) belongs
+here. One day a note may join several maps at once (biology, AI,
+personal, project) with no substrate change at all — only a
+map-scoped index beside this one.
+
+*** Schema & Extractor :ATLAS:
+:PROPERTIES:
+:ID:       f14d38b9-f954-4dde-bfeb-50fc8919ef0c
+:MM_PARENT: none
+:MM_ORDER:  127.0
+:END:
+Creates the =mm_nodes= table in the manifolding-atlas DB and registers an extractor
+that auto-adds each synced note as a node on first insert.
+
+**** Table and registration
+#+begin_src emacs-lisp
+(defconst mm/epsilon 1e-10
+  "Minimum ORDER_KEY gap before mm/repack is triggered automatically.")
+
+(defun mm/ensure-table ()
+  "Create mm_nodes table and indexes in manifolding-atlas DB if they do not exist."
+  (emacsql (manifolding-atlas-db)
+           [:create :table :if :not :exists mm-nodes
+            ([(note-id :text :primary-key :not-null)
+              (parent-id :text)
+              (order-key :real :not-null)
+              (node-type :text :not-null)
+              (depth :integer :not-null)]
+             (:foreign-key [note-id] :references notes [id]
+              :on-delete :cascade))])
+  (emacsql (manifolding-atlas-db)
+           [:create :index :if :not :exists mm-idx-parent
+            :on mm-nodes [parent-id order-key]])
+  (emacsql (manifolding-atlas-db)
+           [:create :index :if :not :exists mm-idx-depth
+            :on mm-nodes [depth]]))
+
+(defun mm/ensure-and-register ()
+  "Ensure schema exists and register mm extractor with manifolding-atlas."
+  (mm/ensure-table)
+  (manifolding-atlas-db-register-extractor
+   (make-manifolding-atlas-extractor
+    :name       'mm-nodes
+    :version    1
+    :priority   70
+    :extract-fn #'mm/extract)))
+
+(with-eval-after-load 'manifolding-atlas
+  (mm/ensure-and-register))
+#+end_src
+
+**** Extractor
+File notes (level 0): parent-id nil — user assigns position explicitly.
+Heading notes (level > 0): parent-id auto-set to the file's root note.
+Never overwrites existing rows — user-set positions are preserved.
+The insert is a plain conditional insert, deliberately backend-neutral:
+the old SQLite-only =INSERT OR IGNORE= spelling cannot compile on
+PostgreSQL, and the =unless existing= guard above already covers the
+single-user case (a concurrent-insert race, if it ever happened,
+is absorbed by ignore-errors rather than risking a duplicate row).
+#+begin_src emacs-lisp
+(defun mm/extract (_ctx note-data)
+  "Manifolding Atlas extractor: register note in mm_nodes on DB sync.
+File notes (level 0): parent-id nil — user assigns position explicitly.
+Heading notes (level > 0): parent-id auto-set to the file's root note.
+Never overwrites existing rows — user-set positions are preserved."
+  (let* ((note-id   (plist-get note-data :id))
+         (level     (or (plist-get note-data :level) 0))
+         (file-path (plist-get note-data :path))
+         (node-type (if (> level 0) "heading" "file"))
+         (existing  (caar (emacsql (manifolding-atlas-db)
+                                   [:select [note-id] :from mm-nodes
+                                    :where (= note-id $s1)]
+                                   note-id))))
+    (unless existing
+      (let* ((parent-id
+              (when (> level 0)
+                (caar (emacsql (manifolding-atlas-db)
+                               [:select [id] :from notes
+                                :where (and (= path $s1)
+                                            (= level 0))]
+                               file-path))))
+             (depth
+              (if parent-id
+                  (1+ (or (caar (emacsql (manifolding-atlas-db)
+                                         [:select [depth] :from mm-nodes
+                                          :where (= note-id $s1)]
+                                         parent-id))
+                          0))
+                0))
+             (order-key
+              (if (> level 0)
+                  (float (or (plist-get note-data :pos) 0))
+                0.0)))
+        (ignore-errors
+          (emacsql (manifolding-atlas-db)
+                   [:insert :into mm-nodes
+                    :values $v1]
+                   (vector note-id parent-id order-key node-type depth)))))
+    note-data))
+#+end_src
+
+*** Core Queries
+All return raw EMACSQL rows. Callers lift into =manifolding-atlas-note= objects as needed.
+
+**** Node lookup and children
+#+begin_src emacs-lisp
+(defun mm/node-at (note-id)
+  "Return mm row (note-id parent-id order-key node-type depth) or nil."
+  (car (emacsql (manifolding-atlas-db)
+                [:select [note-id parent-id order-key node-type depth]
+                 :from mm-nodes
+                 :where (= note-id $s1)]
+                note-id)))
+
+(defun mm/roots ()
+  "Return list of (note-id order-key) for all root file nodes."
+  (emacsql (manifolding-atlas-db)
+           [:select [note-id order-key]
+            :from mm-nodes
+            :where (and (is parent-id nil)
+                        (= node-type "file"))
+            :order-by [(asc order-key)]]))
+
+(defun mm/children-of (note-id)
+  "Return list of (note-id order-key) for direct file children of NOTE-ID."
+  (emacsql (manifolding-atlas-db)
+           [:select [note-id order-key]
+            :from mm-nodes
+            :where (and (= parent-id $s1)
+                        (= node-type "file"))
+            :order-by [(asc order-key)]]
+           note-id))
+
+(defun mm/headings-of (note-id)
+  "Return list of (note-id order-key) for heading siblings in file NOTE-ID."
+  (emacsql (manifolding-atlas-db)
+           [:select [note-id order-key]
+            :from mm-nodes
+            :where (and (= parent-id $s1)
+                        (= node-type "heading"))
+            :order-by [(asc order-key)]]
+           note-id))
+#+end_src
+
+**** Siblings and parent
+#+begin_src emacs-lisp
+(defun mm/siblings-of (note-id)
+  "Return ordered (note-id order-key) list of siblings of NOTE-ID.
+Excludes NOTE-ID itself."
+  (when-let* ((row       (mm/node-at note-id))
+              (node-type (nth 3 row)))
+    (let ((parent-id (nth 1 row)))
+      (if parent-id
+          (emacsql (manifolding-atlas-db)
+                   [:select [note-id order-key]
+                    :from mm-nodes
+                    :where (and (= parent-id $s1)
+                                (= node-type $s2)
+                                (!= note-id $s3))
+                    :order-by [(asc order-key)]]
+                   parent-id node-type note-id)
+        (emacsql (manifolding-atlas-db)
+                 [:select [note-id order-key]
+                  :from mm-nodes
+                  :where (and (is parent-id nil)
+                              (= node-type $s1)
+                              (!= note-id $s2))
+                  :order-by [(asc order-key)]]
+                 node-type note-id)))))
+
+(defun mm/parent-of (note-id)
+  "Return parent note-id of NOTE-ID, or nil if root."
+  (nth 1 (mm/node-at note-id)))
+#+end_src
+
+**** Depth, subtree, group
+#+begin_src emacs-lisp
+(defun mm/at-depth (depth)
+  "Return list of (note-id) for all file nodes at DEPTH."
+  (emacsql (manifolding-atlas-db)
+           [:select [note-id]
+            :from mm-nodes
+            :where (and (= depth $s1)
+                        (= node-type "file"))
+            :order-by [(asc order-key)]]
+           depth))
+
+(defun mm/subtree-of (note-id)
+  "Return all descendant file note-ids under NOTE-ID. BFS — no recursion limit."
+  (let (result (queue (list note-id)))
+    (while queue
+      (let* ((cur      (pop queue))
+             (children (mapcar #'car (mm/children-of cur))))
+        (setq result (append result children)
+              queue  (append queue children))))
+    result))
+
+(defun mm/group-of (note-id)
+  "Return Group plist for NOTE-ID: (:file manifolding-atlas-note :headings list-of-notes)."
+  (list :file     (manifolding-atlas-db-get-by-id note-id)
+        :headings (mapcar (lambda (row) (manifolding-atlas-db-get-by-id (car row)))
+                          (mm/headings-of note-id))))
+#+end_src
+
+*** Edge Queries
+Three distinct connection layers queried independently.
+
+**** Semantic and presentational links
+#+begin_src emacs-lisp
+(defun mm/semantic-links-from (note-id)
+  "Return list of dest note-ids linked from NOTE-ID via id: links."
+  (mapcar (lambda (link) (plist-get link :dest))
+          (manifolding-atlas-db-query-links-from note-id)))
+
+(defun mm/presentational-links-from (note-id)
+  "Return list of dest note-ids wormholed from NOTE-ID."
+  (condition-case nil
+      (mapcar #'car
+              (emacsql (manifolding-atlas-db)
+                       [:select [dest] :from wormhole-links
+                        :where (= source $s1)]
+                       note-id))
+    (error nil)))
+#+end_src
+
+**** All edges
+#+begin_src emacs-lisp
+(defun mm/all-edges ()
+  "Return all three edge types as a plist:
+:structural, :semantic, :presentational."
+  (let* ((structural
+          (mapcar (lambda (row) (cons (car row) (cadr row)))
+                  (emacsql (manifolding-atlas-db)
+                           [:select [note-id parent-id]
+                            :from mm-nodes
+                            :where (and (is-not parent-id nil)
+                                        (= node-type "file"))])))
+         (semantic
+          (let (edges)
+            (dolist (row (emacsql (manifolding-atlas-db)
+                                  [:select [note-id] :from mm-nodes]))
+              (dolist (dest (mm/semantic-links-from (car row)))
+                (push (cons (car row) dest) edges)))
+            (nreverse edges)))
+         (presentational
+          (condition-case nil
+              (mapcar (lambda (row) (cons (car row) (cadr row)))
+                      (emacsql (manifolding-atlas-db)
+                               [:select [source dest]
+                                :from wormhole-links]))
+            (error nil))))
+    (list :structural    structural
+          :semantic      semantic
+          :presentational presentational)))
+#+end_src
+
+*** Position Management
+Reparenting and order-key manipulation.
+
+**** Reparenting primitives
+#+begin_src emacs-lisp
+(defun mm/set-parent (note-id parent-id)
+  "Set parent of NOTE-ID to PARENT-ID and recompute depth for subtree."
+  (let* ((parent-row   (mm/node-at parent-id))
+         (parent-depth (if parent-row (nth 4 parent-row) 0)))
+    (emacsql (manifolding-atlas-db)
+             [:update mm-nodes
+              :set [(= parent-id $s1) (= depth $s2)]
+              :where (= note-id $s3)]
+             parent-id (1+ parent-depth) note-id)
+    (mm/recompute-depths note-id (+ 2 parent-depth))))
+
+(defun mm/make-root (note-id)
+  "Remove parent of NOTE-ID, making it a root file node."
+  (emacsql (manifolding-atlas-db)
+           [:update mm-nodes
+            :set [(= parent-id nil) (= depth 0)]
+            :where (= note-id $s1)]
+           note-id)
+  (mm/recompute-depths note-id 1))
+
+(defun mm/recompute-depths (note-id child-depth)
+  "Recursively recompute depths for all file children of NOTE-ID."
+  (dolist (child-id (mapcar #'car (mm/children-of note-id)))
+    (emacsql (manifolding-atlas-db)
+             [:update mm-nodes
+              :set [(= depth $s1)]
+              :where (= note-id $s2)]
+             child-depth child-id)
+    (mm/recompute-depths child-id (1+ child-depth))))
+
+(defun mm/set-order-key (note-id key)
+  "Set ORDER_KEY of NOTE-ID to KEY (a float)."
+  (emacsql (manifolding-atlas-db)
+           [:update mm-nodes
+            :set [(= order-key $s1)]
+            :where (= note-id $s2)]
+           key note-id))
+#+end_src
+
+**** Next-key lookup
+Shared by the insert-after logic; re-read after a repack invalidates keys.
+#+begin_src emacs-lisp
+(defun mm/next-order-key-above (parent-id node-type cur-key)
+  "Smallest sibling ORDER_KEY above CUR-KEY, or nil when none."
+  (caar (emacsql (manifolding-atlas-db)
+                 [:select [(funcall min order-key)]
+                  :from mm-nodes
+                  :where (and (= parent-id $s1)
+                              (= node-type $s2)
+                              (> order-key $s3))]
+                 parent-id node-type cur-key)))
+#+end_src
+
+**** Insert-after key computation
+Auto-triggers mm/repack if the gap to the next sibling < mm/epsilon.
+#+begin_src emacs-lisp
+(defun mm/order-key-after (note-id)
+  "Return an ORDER_KEY placing a new sibling immediately after NOTE-ID.
+Auto-triggers mm/repack if the gap to the next sibling < mm/epsilon."
+  (let* ((row       (mm/node-at note-id))
+         (parent-id (nth 1 row))
+         (node-type (nth 3 row))
+         (cur-key   (nth 2 row))
+         (next-key  (mm/next-order-key-above parent-id node-type cur-key)))
+    (if (null next-key)
+        (+ cur-key 1.0)
+      (let ((gap (- next-key cur-key)))
+        (when (< gap mm/epsilon)
+          (mm/repack parent-id node-type)
+          (setq cur-key  (nth 2 (mm/node-at note-id))
+                next-key (mm/next-order-key-above
+                          parent-id node-type cur-key))))
+        (/ (+ cur-key next-key) 2.0))))
+#+end_src
+
+**** Insert-between key computation
+Auto-triggers mm/repack if gap < mm/epsilon.
+#+begin_src emacs-lisp
+(defun mm/order-key-between (note-id-a note-id-b)
+  "Return an ORDER_KEY placing a new node between NOTE-ID-A and NOTE-ID-B."
+  (let* ((key-a (nth 2 (mm/node-at note-id-a)))
+         (key-b (nth 2 (mm/node-at note-id-b)))
+         (lo    (min key-a key-b))
+         (hi    (max key-a key-b)))
+    (when (< (- hi lo) mm/epsilon)
+      (let* ((row-a     (mm/node-at note-id-a))
+             (parent-id (nth 1 row-a))
+             (node-type (nth 3 row-a)))
+        (mm/repack parent-id node-type)
+        (setq key-a (nth 2 (mm/node-at note-id-a))
+              key-b (nth 2 (mm/node-at note-id-b))
+              lo    (min key-a key-b)
+              hi    (max key-a key-b))))
+    (/ (+ lo hi) 2.0)))
+
+(defun mm/reparent (note-id new-parent-id &optional after-id)
+  "Move NOTE-ID to be a child of NEW-PARENT-ID.
+If AFTER-ID is given, place immediately after that sibling.
+Otherwise append at end with order-key = max + 1.0."
+  (let ((order-key
+         (if after-id
+             (mm/order-key-after after-id)
+           (let ((max-key (caar (emacsql (manifolding-atlas-db)
+                                         [:select [(funcall max order-key)]
+                                          :from mm-nodes
+                                          :where (= parent-id $s1)]
+                                         new-parent-id))))
+             (+ (or max-key 0.0) 1.0)))))
+    (mm/set-parent note-id new-parent-id)
+    (mm/set-order-key note-id order-key)))
+#+end_src
+
+*** Repack
+Normalises floats to clean integers when gaps approach =mm/epsilon=.
+
+**** Sibling group repack
+#+begin_src emacs-lisp
+(defun mm/repack (parent-id node-type)
+  "Normalize ORDER_KEYs for siblings under PARENT-ID of NODE-TYPE.
+Assigns 1.0, 2.0, 3.0, ... in current sorted order."
+  (let ((siblings (emacsql (manifolding-atlas-db)
+                           [:select [note-id]
+                            :from mm-nodes
+                            :where (and (= parent-id $s1)
+                                        (= node-type $s2))
+                            :order-by [(asc order-key)]]
+                           parent-id node-type))
+        (i 1.0))
+    (dolist (row siblings)
+      (emacsql (manifolding-atlas-db)
+               [:update mm-nodes
+                :set [(= order-key $s1)]
+                :where (= note-id $s2)]
+               i (car row))
+      (setq i (+ i 1.0)))
+    (message "mm: repacked %d siblings" (round (1- i)))))
+#+end_src
+
+**** Root renumbering and full sweep
+#+begin_src emacs-lisp
+(defun mm/repack-roots ()
+  "Renumber root file nodes 1.0, 2.0, ... in current order."
+  (let ((roots (mm/roots))
+        (i 1.0))
+    (dolist (row roots)
+      (emacsql (manifolding-atlas-db)
+               [:update mm-nodes
+                :set [(= order-key $s1)]
+                :where (= note-id $s2)]
+               i (car row))
+      (setq i (+ i 1.0)))))
+
+(defun mm/repack-all ()
+  "Repack all sibling groups in the vault."
+  (interactive)
+  (let ((groups (emacsql (manifolding-atlas-db)
+                         [:select :distinct [parent-id node-type]
+                          :from mm-nodes
+                          :where (is-not parent-id nil)])))
+    (dolist (row groups)
+      (mm/repack (car row) (cadr row))))
+  (mm/repack-roots)
+  (message "mm: repack-all complete"))
+#+end_src
+
+*** Status Management
+Unified STATUS unfolding, shared with mastering: ACTIVE | SUSPENDED
+| ARCHIVED | DORMANT. This subsystem reads it for display and writes
+it on explicit user action — the drawer value is shared data, while
+review behavior stays mastering-owned. A leftover MM_STATUS drawer
+translates one-way and is never written.
+
+#+begin_src emacs-lisp
+(defun mm/status-of (note-id)
+  "Return STATUS of NOTE-ID: ACTIVE | SUSPENDED | ARCHIVED | DORMANT.
+Reads the unified STATUS unfolding; a leftover MM_STATUS drawer
+translates one-way (active→ACTIVE, deprecated→DORMANT,
+archived→ARCHIVED). Defaults to ACTIVE."
+  (let* ((note (manifolding-atlas-db-get-by-id note-id))
+         (unfoldings (and note (manifolding-atlas-note-unfoldings note)))
+         (status (cdr (assoc "STATUS" unfoldings)))
+         (legacy (cdr (assoc "MM_STATUS" unfoldings))))
+    (cond (status status)
+          ((null legacy) "ACTIVE")
+          ((string-equal legacy "active") "ACTIVE")
+          ((string-equal legacy "deprecated") "DORMANT")
+          ((string-equal legacy "archived") "ARCHIVED")
+          (t "ACTIVE"))))
+
+(defun mm/set-status (note status)
+  "Set unified STATUS on NOTE to STATUS.
+STATUS is ACTIVE, SUSPENDED, ARCHIVED, or DORMANT. Writes the drawer
+and mirrors the suspend flag into the schedule row when one exists,
+so map and review agree immediately."
+  (unless (member status '("ACTIVE" "SUSPENDED" "ARCHIVED" "DORMANT"))
+    (user-error "STATUS must be ACTIVE, SUSPENDED, ARCHIVED, or DORMANT"))
+  (let ((file (manifolding-atlas-note-path note))
+        (level (manifolding-atlas-note-level note))
+        (pos (manifolding-atlas-note-pos note)))
+    (when file
+      (with-current-buffer (find-file-noselect file)
+        (save-excursion
+          (if (and level (> level 0) pos)
+              (progn (goto-char pos) (org-back-to-heading t))
+            (goto-char (point-min)))
+          (my/manifolding-atlas--drawer-put "STATUS" status))
+        (save-buffer))))
+  (when (fboundp 'my/manifolding-atlas-mastering--sync-status-flag)
+    (ignore-errors (my/manifolding-atlas-mastering--sync-status-flag note)))
+  (message "✓ STATUS → %s on %s" status (manifolding-atlas-note-title note)))
+#+end_src
+
+*** Interactive Assignment
+Commands to position notes in the tree interactively.
+
+**** Parent assignment
+#+begin_src emacs-lisp
+(defun mm/assign-parent ()
+  "Set the parent of the current note in the mind map."
+  (interactive)
+  (let* ((note      (my/manifolding-atlas--buffer-note))
+         (note-id   (manifolding-atlas-note-id note))
+         (parent    (manifolding-atlas-select "Parent: " :require-match t))
+         (parent-id (manifolding-atlas-note-id parent)))
+    (when (string= note-id parent-id)
+      (user-error "A note cannot be its own parent"))
+    (mm/reparent note-id parent-id)
+    (message "✓ %s → parent: %s"
+             (manifolding-atlas-note-title note)
+             (manifolding-atlas-note-title parent))))
+#+end_src
+
+**** Sibling placement commands
+Both reuse the order-key machinery so repack triggers automatically.
+#+begin_src emacs-lisp
+(defun mm/assign-after ()
+  "Place the current note immediately after a chosen sibling."
+  (interactive)
+  (let* ((note      (my/manifolding-atlas--buffer-note))
+         (note-id   (manifolding-atlas-note-id note))
+         (sibling   (manifolding-atlas-select "Place after: " :require-match t))
+         (sib-id    (manifolding-atlas-note-id sibling))
+         (parent-id (mm/parent-of sib-id))
+         (new-key   (mm/order-key-after sib-id)))
+    (if parent-id
+        (mm/set-parent note-id parent-id)
+      (mm/make-root note-id))
+    (mm/set-order-key note-id new-key)
+    (message "✓ Placed after: %s" (manifolding-atlas-note-title sibling))))
+
+(defun mm/assign-between ()
+  "Place the current note between two chosen siblings."
+  (interactive)
+  (let* ((note    (my/manifolding-atlas--buffer-note))
+         (note-id (manifolding-atlas-note-id note))
+         (before  (manifolding-atlas-select "After this: "  :require-match t))
+         (after   (manifolding-atlas-select "Before this: " :require-match t))
+         (new-key (mm/order-key-between
+                   (manifolding-atlas-note-id before)
+                   (manifolding-atlas-note-id after)))
+         (parent-id (mm/parent-of (manifolding-atlas-note-id before))))
+    (if parent-id
+        (mm/set-parent note-id parent-id)
+      (mm/make-root note-id))
+    (mm/set-order-key note-id new-key)
+    (message "✓ Placed between: %s / %s"
+             (manifolding-atlas-note-title before)
+             (manifolding-atlas-note-title after))))
+
+(defun mm/make-root-interactive ()
+  "Make the current note a root node (remove its parent)."
+  (interactive)
+  (let ((note (my/manifolding-atlas--buffer-note)))
+    (mm/make-root (manifolding-atlas-note-id note))
+    (message "✓ %s is now a root." (manifolding-atlas-note-title note))))
+#+end_src
+
+*** Navigation Commands
+Quick movement between related nodes.
+
+**** Direct-relative jumps
+#+begin_src emacs-lisp
+(defun mm/goto-parent ()
+  "Visit the parent of the current note in the map."
+  (interactive)
+  (let* ((note      (my/manifolding-atlas--buffer-note))
+         (parent-id (mm/parent-of (manifolding-atlas-note-id note))))
+    (if parent-id
+        (manifolding-atlas-visit (manifolding-atlas-db-get-by-id parent-id))
+      (message "Root node — no parent."))))
+
+(defun mm/goto-root ()
+  "Visit the root ancestor of the current note."
+  (interactive)
+  (let* ((note (my/manifolding-atlas--buffer-note))
+         (id   (manifolding-atlas-note-id note)))
+    (while (mm/parent-of id)
+      (setq id (mm/parent-of id)))
+    (if (string= id (manifolding-atlas-note-id note))
+        (message "Already at root.")
+      (manifolding-atlas-visit (manifolding-atlas-db-get-by-id id)))))
+#+end_src
+
+**** Deterministic sibling stepping
+Traversal, not search: these move exactly one step along the sibling
+axis and stop at the boundary with a message. No wrapping, ever — a
+traversal system that teleports from the last sibling to the first
+stops meaning "move through the topology" and starts performing a
+hidden search. The picker-based goto-sibling above stays for jumps;
+these are for walking.
+#+begin_src emacs-lisp
+(defun mm/--sibling-at-offset (note-id offset)
+  "Note-id OFFSET steps from NOTE-ID among ordered siblings, or nil.
+Negative goes toward earlier siblings, positive toward later ones."
+  (when-let* ((row       (mm/node-at note-id))
+              (node-type (nth 3 row))
+              (parent-id (nth 1 row)))
+    (let* ((sibs (if parent-id
+                     (emacsql (manifolding-atlas-db)
+                              [:select [note-id]
+                               :from mm-nodes
+                               :where (and (= parent-id $s1)
+                                           (= node-type $s2))
+                               :order-by [(asc order-key)]]
+                              parent-id node-type)
+                   (emacsql (manifolding-atlas-db)
+                            [:select [note-id]
+                             :from mm-nodes
+                             :where (and (is parent-id nil)
+                                         (= node-type $s1))
+                             :order-by [(asc order-key)]]
+                            node-type)))
+           (ids  (mapcar #'car sibs))
+           (pos  (cl-position note-id ids :test #'string=)))
+      (when pos
+        (nth (+ pos offset) ids)))))
+
+(defun mm/goto-next-sibling ()
+  "Visit the next sibling in map order. Stops at the boundary."
+  (interactive)
+  (let* ((note (my/manifolding-atlas--buffer-note))
+         (next (and note (mm/--sibling-at-offset
+                          (manifolding-atlas-note-id note) 1))))
+    (if next
+        (manifolding-atlas-visit (manifolding-atlas-db-get-by-id next))
+      (message "Already at last sibling."))))
+
+(defun mm/goto-prev-sibling ()
+  "Visit the previous sibling in map order. Stops at the boundary."
+  (interactive)
+  (let* ((note (my/manifolding-atlas--buffer-note))
+         (prev (and note (mm/--sibling-at-offset
+                          (manifolding-atlas-note-id note) -1))))
+    (if prev
+        (manifolding-atlas-visit (manifolding-atlas-db-get-by-id prev))
+      (message "Already at first sibling."))))
+
+(defun mm/traverse-child ()
+  "Descend one level: first child when several, direct when one.
+Headings are internal structure of their file card, not map nodes,
+so from a heading this ascends to the file card first — s/n then
+walks the tree proper. A leaf reports instead of guessing."
+  (interactive)
+  (let* ((note (my/manifolding-atlas--buffer-note)))
+    (unless note (user-error "No note at point"))
+    (if (> (manifolding-atlas-note-level note) 0)
+        (let ((file-note (car (emacsql (manifolding-atlas-db)
+                               [:select [id] :from notes
+                                :where (and (= path $s1) (= level 0))]
+                               (manifolding-atlas-note-path note)))))
+          (if file-note
+              (manifolding-atlas-visit (manifolding-atlas-db-get-by-id file-note))
+            (message "No file card above.")))
+      (let ((children (mm/children-of (manifolding-atlas-note-id note))))
+        (cond ((null children)
+               (message "Leaf node — no children."))
+              ((null (cdr children))
+               (manifolding-atlas-visit
+                (manifolding-atlas-db-get-by-id (caar children))))
+              (t (mm/goto-child)))))))
+#+end_src
+**** Traverse-mode entry
+The mindmap keyboard state (defined in manifolding-keyboard/states/mindmap.org)
+turns single keys into topology moves. Entry is explicit — never by
+major-mode hook — so traverse mode can't hijack help, dired, or
+minibuffer flows. Entering over the current note also raises the map
+beside the vault so you see where you stand.
+#+begin_src emacs-lisp
+(defun my/mindmap-traverse-enter ()
+  "Enter mindmap traverse state over the current note.
+Shows the map beside the vault when it isn't already visible."
+  (interactive)
+  (unless (my/manifolding-atlas--buffer-note)
+    (user-error "No note at point"))
+  (unless (get-buffer "*manifold-map*")
+    (ignore-errors (mm/map-display)))
+  (manifolding-keyboard-set-state "mindmap")
+  (message "MAP traverse: s/n vertical · h/t horizontal · B branch review · q quit"))
+
+(defun my/mindmap-traverse-quit ()
+  "Leave traverse state back to the org state."
+  (interactive)
+  (manifolding-keyboard-set-state "org"))
+#+end_src
+
+**** Completion-based jumps
+Picker jumps for non-adjacent targets — the counterpart to stepping.
+#+begin_src emacs-lisp
+(defun mm/goto-child ()
+  "Select and visit a direct child of the current note."
+  (interactive)
+  (let* ((note     (my/manifolding-atlas--buffer-note))
+         (children (mm/children-of (manifolding-atlas-note-id note))))
+    (unless children (user-error "No children."))
+    (let* ((cands (mapcar (lambda (row)
+                            (let ((n (manifolding-atlas-db-get-by-id (car row))))
+                              (cons (manifolding-atlas-note-title n) n)))
+                          children))
+           (target (cdr (assoc (completing-read "Child: "
+                                                (mapcar #'car cands)
+                                                nil t)
+                               cands))))
+      (when target (manifolding-atlas-visit target)))))
+
+(defun mm/goto-sibling ()
+  "Select and visit a sibling of the current note."
+  (interactive)
+  (let* ((note     (my/manifolding-atlas--buffer-note))
+         (siblings (mm/siblings-of (manifolding-atlas-note-id note))))
+    (unless siblings (user-error "No siblings."))
+    (let* ((cands (mapcar (lambda (row)
+                            (let ((n (manifolding-atlas-db-get-by-id (car row))))
+                              (cons (manifolding-atlas-note-title n) n)))
+                          siblings))
+           (target (cdr (assoc (completing-read "Sibling: "
+                                                (mapcar #'car cands)
+                                                nil t)
+                               cands))))
+      (when target (manifolding-atlas-visit target)))))
+#+end_src
+
+*** Map Display
+Renders the full tree as an Org buffer or a side-buffer group view.
+
+**** Full map rendering
+#+begin_src emacs-lisp
+(defun mm/map-display ()
+  "Display the full mind map as an org tree in *manifold-map*."
+  (interactive)
+  (let ((roots (mm/roots)))
+    (if (not roots)
+        (message "No nodes in map. Use mm/assign-parent to build the tree.")
+      (with-current-buffer (get-buffer-create "*manifold-map*")
+        (erase-buffer)
+        (org-mode)
+        (setq-local org-return-follows-link t)
+        (insert "#+TITLE: Manifold Mind Map\n\n")
+        (mm/map--insert-level roots 1)
+        (goto-char (point-min))
+        (display-buffer (current-buffer))))))
+#+end_src
+
+**** Recursive level inserter
+Headings render one level below their file; children indent deeper
+when headings exist so the group stays visually coherent. Each line
+carries its mastering stage (a display read — the map owns none of
+it) plus a status flag whenever the note isn't ACTIVE.
+#+begin_src emacs-lisp
+(defun mm/map--stage-of (note-id)
+  "Stage token of NOTE-ID for display, defaulting to AWARE.
+Reads the schedule row (fast, indexed); falls back to the drawer."
+  (or (caar (condition-case nil
+                (emacsql (manifolding-atlas-db)
+                         [:select [stage] :from mastering_schedule
+                          :where (= note-id $s1)]
+                         note-id)
+              (error nil)))
+      "AWARE"))
+
+(defun mm/map--insert-level (rows level)
+  "Insert ROWS as org headings at LEVEL, recursing into children."
+  (dolist (row rows)
+    (let* ((note-id  (car row))
+           (note     (manifolding-atlas-db-get-by-id note-id))
+           (status   (mm/status-of note-id))
+           (stage    (mm/map--stage-of note-id))
+           (stars    (make-string level ?*))
+           (tag      (concat (format " [%s]" stage)
+                             (unless (string-equal status "ACTIVE")
+                               (format "[%s]" status))))
+           (headings (mm/headings-of note-id))
+           (children (mm/children-of note-id)))
+      (when note
+        (insert (format "%s %s%s  [[id:%s]]\n"
+                        stars
+                        (manifolding-atlas-note-title note)
+                        tag
+                        note-id))
+        (dolist (h-row headings)
+          (when-let ((h-note (manifolding-atlas-db-get-by-id (car h-row))))
+            (insert (format "%s %s [%s]  [[id:%s]]\n"
+                            (make-string (1+ level) ?*)
+                            (manifolding-atlas-note-title h-note)
+                            (mm/map--stage-of (car h-row))
+                            (car h-row)))))
+        (when children
+          (mm/map--insert-level children (+ level 1 (if headings 1 0))))))))
+#+end_src
+
+**** Group side buffer
+Shows the file card, its headings, and one branch-coverage line: how
+many scoped cards sit at UNDERSTANDING or above. Coverage is computed
+live from stage reads — never stored — so it can't drift from the
+schedule table.
+#+begin_src emacs-lisp
+(defun mm/branch-coverage (note-id)
+  "Return (AT-OR-ABOVE . TOTAL) for NOTE-ID's branch incl. headings.
+Counts cards at UNDERSTANDING or above on the spine; UNSEEN counts as
+below. Pure read over mm/* + stage lookups."
+  (let* ((scope (cons note-id (mm/subtree-of note-id)))
+         (headings (mapcar #'car (mm/headings-of note-id)))
+         (all (append scope headings))
+         (at 0))
+    (unless (fboundp 'my/manifolding-atlas-mastering--stage-index)
+      (error "Mastering engine not loaded"))
+    (dolist (id all)
+      (let ((idx (my/manifolding-atlas-mastering--stage-index
+                  (mm/map--stage-of id))))
+        (when (and (>= idx 0)
+                   (>= idx (my/manifolding-atlas-mastering--stage-index
+                            "UNDERSTANDING")))
+          (setq at (1+ at)))))
+    (cons at (length all))))
+
+(defun mm/group-display ()
+  "Display the Group of the current buffer note in a side buffer."
+  (interactive)
+  (let* ((note  (my/manifolding-atlas--buffer-note))
+         (group (mm/group-of (manifolding-atlas-note-id note))))
+    (with-current-buffer (get-buffer-create "*mm-group*")
+      (erase-buffer)
+      (org-mode)
+      (insert (format "#+TITLE: Group — %s\n\n"
+                      (manifolding-atlas-note-title (plist-get group :file))))
+      (let ((cov (ignore-errors
+                   (mm/branch-coverage
+                    (manifolding-atlas-note-id (plist-get group :file))))))
+        (when cov
+          (insert (format "Coverage: %d/%d cards at UNDERSTANDING or above\n\n"
+                          (car cov) (cdr cov)))))
+      (insert "* File\n")
+      (insert (format "  [[id:%s][%s]]\n"
+                      (manifolding-atlas-note-id (plist-get group :file))
+                      (manifolding-atlas-note-title (plist-get group :file))))
+      (when (plist-get group :headings)
+        (insert "* Headings\n")
+        (dolist (h (plist-get group :headings))
+          (insert (format "  [[id:%s][%s]]\n"
+                          (manifolding-atlas-note-id h)
+                          (manifolding-atlas-note-title h)))))
+      (display-buffer (current-buffer)))))
+#+end_src
+
+*** JSON Export
+Writes =manifold-map.json= — the API contract for the future
+graphical renderer. Nodes carry topology (parentId, orderKey,
+depth), display state (status), and learning state (stage): the
+renderer projects all three and owns none of them.
+
+**** Edge serialization
+#+begin_src emacs-lisp
+(defun mm/json--edges (edges)
+  "Convert edge PLIST EDGES into JSON-ready alists."
+  `((structural     . ,(vconcat (mapcar (lambda (e)
+                                          `((source . ,(car e))
+                                            (target . ,(cdr e))))
+                                        (plist-get edges :structural))))
+    (semantic       . ,(vconcat (mapcar (lambda (e)
+                                          `((source . ,(car e))
+                                            (target . ,(cdr e))))
+                                        (plist-get edges :semantic))))
+    (presentational . ,(vconcat (mapcar (lambda (e)
+                                          `((source . ,(car e))
+                                            (target . ,(cdr e))))
+                                        (plist-get edges :presentational))))))
+
+(defun mm/export-json (&optional output-path)
+  "Export the full mind map as JSON to OUTPUT-PATH.
+Default: <notes-dir>/manifold-map.json"
+  (interactive)
+  (let* ((path  (or output-path
+                    (expand-file-name "manifold-map.json"
+                                      (my/manifolding-atlas-root-dir))))
+         (data  `((nodes . ,(vconcat (mm/json--build-nodes)))
+                  (edges . ,(mm/json--edges (mm/all-edges))))))
+    (with-temp-file path
+      (insert (json-encode data)))
+    (message "✓ Manifold map → %s" path)))
+#+end_src
+
+**** Node building
+#+begin_src emacs-lisp
+(defun mm/json--build-headings (file-note-id)
+  "Build list of heading alists for FILE-NOTE-ID's group."
+  (let (headings)
+    (dolist (row (mm/headings-of file-note-id))
+      (when-let ((h-note (manifolding-atlas-db-get-by-id (car row))))
+        (push `((id       . ,(car row))
+                (title    . ,(manifolding-atlas-note-title h-note))
+                (type     . "heading")
+                (orderKey . ,(cadr row))
+                (status   . ,(mm/status-of (car row)))
+                (stage    . ,(mm/map--stage-of (car row))))
+              headings)))
+    (nreverse headings)))
+
+(defun mm/json--build-nodes ()
+  "Build list of JSON node alists for all file nodes."
+  (let ((rows (emacsql (manifolding-atlas-db)
+                       [:select [note-id parent-id order-key depth]
+                        :from mm-nodes
+                        :where (= node-type "file")
+                        :order-by [(asc depth) (asc order-key)]]))
+        nodes)
+    (dolist (row rows)
+      (let* ((note-id   (nth 0 row))
+             (parent-id (nth 1 row))
+             (order-key (nth 2 row))
+             (depth     (nth 3 row))
+             (note      (manifolding-atlas-db-get-by-id note-id))
+             (status    (mm/status-of note-id))
+             (headings  (mm/json--build-headings note-id)))
+        (when note
+          (push `((id       . ,note-id)
+                   (title    . ,(manifolding-atlas-note-title note))
+                   (type     . "file")
+                   (parentId . ,parent-id)
+                   (orderKey . ,order-key)
+                   (depth    . ,depth)
+                   (status   . ,status)
+                   (stage    . ,(mm/map--stage-of note-id))
+                   (headings . ,(vconcat headings)))
+                 nodes))))
+    (nreverse nodes)))
+#+end_src
+
+*** Init
+One-shot bootstrap from all existing vault notes. Safe to run repeatedly.
+
+#+begin_src emacs-lisp
+(defun mm/init ()
+  "Bootstrap mm_nodes from all existing vault notes.
+Headings auto-parent to their file's root note.
+File notes get parent-id nil — build the tree via mm/assign-parent.
+Safe to run repeatedly — never overwrites existing entries."
+  (interactive)
+  (message "mm/init: scanning vault...")
+  (let ((count 0))
+    (dolist (note (manifolding-atlas-db-query))
+      (mm/extract nil
+                  (list :id    (manifolding-atlas-note-id note)
+                        :level (manifolding-atlas-note-level note)
+                        :path  (manifolding-atlas-note-path note)
+                        :pos   (manifolding-atlas-note-pos note)))
+      (setq count (1+ count)))
+    (message "mm/init: %d notes registered. Build the tree with mm/assign-parent."
+             count)))
+#+end_src
+
+*** Transient Menu
+
+**** Status suffixes
+Writes go through mm/set-status (unified STATUS + flag mirror), so
+the map display and the review pool agree on every keypress.
+#+begin_src emacs-lisp
+(transient-define-suffix mm/--status-active ()
+  :description "Set ACTIVE"
+  (interactive)
+  (mm/set-status (my/manifolding-atlas--buffer-note) "ACTIVE"))
+
+(transient-define-suffix mm/--status-suspended ()
+  :description "Set SUSPENDED"
+  (interactive)
+  (mm/set-status (my/manifolding-atlas--buffer-note) "SUSPENDED"))
+
+(transient-define-suffix mm/--status-dormant ()
+  :description "Set DORMANT"
+  (interactive)
+  (mm/set-status (my/manifolding-atlas--buffer-note) "DORMANT"))
+
+(transient-define-suffix mm/--status-archived ()
+  :description "Set ARCHIVED"
+  (interactive)
+  (mm/set-status (my/manifolding-atlas--buffer-note) "ARCHIVED"))
+#+end_src
+
+**** Menu prefix
+#+begin_src emacs-lisp
+(transient-define-prefix mm/menu ()
+  "Manifold Mind Map controller."
+  [["Navigate"
+    ("p" "Go to parent"    mm/goto-parent)
+    ("c" "Go to child"     mm/goto-child)
+    ("s" "Go to sibling"   mm/goto-sibling)
+    ("r" "Go to root"      mm/goto-root)]
+   ["Position"
+    ("P" "Assign parent"   mm/assign-parent)
+    ("A" "Place after"     mm/assign-after)
+    ("B" "Place between"   mm/assign-between)
+    ("R" "Make root"       mm/make-root-interactive)
+    ("!" "Repack all"      mm/repack-all)]
+   ["Status"
+    ("a" mm/--status-active)
+    ("s" mm/--status-suspended)
+    ("d" mm/--status-dormant)
+    ("x" mm/--status-archived)]
+   ["View"
+    ("m" "Map display"     mm/map-display)
+    ("g" "Group display"   mm/group-display)
+    ("j" "Export JSON"     mm/export-json)
+    ("i" "Init vault"      mm/init)]])
+#+end_src
+
+*** Auto-Prompt on Create
+Prompts to assign the new note in the mind map after every file-level
+note creation — mandatory choice between parent, child, sibling, or
+unknown. Headings auto-parent to their file, no prompt for those.
+
+**** Placement branches
+Each interactive placement swallows its own quit so a C-g during
+selection never aborts note creation.
+#+begin_src emacs-lisp
+(defun mm/--place-under (note)
+  "Pick an existing child and reparent it under NOTE."
+  (let ((note-id (manifolding-atlas-note-id note)))
+    (condition-case nil
+        (let ((child (manifolding-atlas-select "Child to place under this note: "
+                                               :require-match t))
+              (child-id (manifolding-atlas-note-id child)))
+          (unless (string= note-id child-id)
+            (mm/reparent child-id note-id)
+            (message "✓ %s is now a child of %s"
+                     (manifolding-atlas-note-title child)
+                     (manifolding-atlas-note-title note))))
+      (quit (message "Placement cancelled.")))))
+
+(defun mm/--place-under-parent (note)
+  "Pick a parent and file NOTE under it."
+  (let ((note-id (manifolding-atlas-note-id note)))
+    (condition-case nil
+        (let ((parent (manifolding-atlas-select "Parent for this note: "
+                                                :require-match t))
+              (parent-id (manifolding-atlas-note-id parent)))
+          (unless (string= note-id parent-id)
+            (mm/reparent note-id parent-id)
+            (message "✓ %s → child of %s"
+                     (manifolding-atlas-note-title note)
+                     (manifolding-atlas-note-title parent))))
+      (quit (message "Placement cancelled.")))))
+
+(defun mm/--place-after-sibling (note)
+  "Pick a sibling and place NOTE immediately after it."
+  (let ((note-id (manifolding-atlas-note-id note)))
+    (condition-case nil
+        (let ((sibling (manifolding-atlas-select "Place after: "
+                                                 :require-match t))
+              (sib-id (manifolding-atlas-note-id sibling))
+              (parent-id (mm/parent-of (manifolding-atlas-note-id sibling))))
+          (if parent-id
+              (mm/set-parent note-id parent-id)
+            (mm/make-root note-id))
+          (mm/set-order-key note-id (mm/order-key-after sib-id))
+          (message "✓ %s → after %s"
+                   (manifolding-atlas-note-title note)
+                   (manifolding-atlas-note-title sibling)))
+      (quit (message "Placement cancelled.")))))
+#+end_src
+
+**** Placement dispatcher
+#+begin_src emacs-lisp
+(defun mm/--prompt-placement (note)
+  "Prompt to place NOTE in the mind map — parent/child/sibling/unknown."
+  (let ((note-id (manifolding-atlas-note-id note))
+        (file    (manifolding-atlas-note-path note)))
+    (when (and file (file-exists-p file))
+      (with-current-buffer (find-file-noselect file)
+        (let ((choice (read-char-choice
+                       "[p]arent  [c]hild  [s]ibling  [u]nknown: "
+                       '(?p ?c ?s ?u))))
+          (pcase choice
+            (?p (mm/--place-under note))
+            (?c (mm/--place-under-parent note))
+            (?s (mm/--place-after-sibling note))
+            (?u
+             (mm/make-root note-id)
+             (message "✓ %s left as root" (manifolding-atlas-note-title note)))))))))
+#+end_src
+
+**** Prompt post-apply
+The declarative mind-map prompt lands here instead of the interactive
+dispatcher — no questions asked twice.
+#+begin_src emacs-lisp
+(defun mm/--apply-placement (placement target-id note)
+  "Apply mind map PLACEMENT for NOTE with TARGET-ID.
+Called as a post-apply function by the mind-map prompt."
+  (let ((note-id (manifolding-atlas-note-id note)))
+    (pcase placement
+      ("parent"
+       (when (and target-id (not (string= note-id target-id)))
+         (mm/reparent target-id note-id)))
+      ("child"
+       (when (and target-id (not (string= note-id target-id)))
+         (mm/reparent note-id target-id)))
+      ("sibling"
+       (when target-id
+         (let ((parent-id (mm/parent-of target-id)))
+           (if parent-id
+               (mm/set-parent note-id parent-id)
+             (mm/make-root note-id))
+           (mm/set-order-key note-id (mm/order-key-after target-id)))))
+      ("root"
+       (mm/make-root note-id)))))
+#+end_src

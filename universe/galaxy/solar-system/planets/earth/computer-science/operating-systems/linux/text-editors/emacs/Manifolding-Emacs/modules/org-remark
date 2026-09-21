@@ -1,0 +1,20 @@
+#+title:      org-remark
+#+filetags:   :emacs-package:editing:
+
+* ORG-REMARK — Annotate and Highlight External Files #emacs-package :ATLAS:
+:PROPERTIES:
+:ID:       47f0bd04-9fcb-4dcd-849f-4f41819c93f1
+:MM_PARENT: none
+:MM_ORDER:  103.0
+:ID:
+:PACKAGE:  org-remark
+:STRAIGHT: (org-remark :type git :host github :repo "nobiot/org-remark")
+:CATEGORY: editing
+:END:
+
+** Config
+#+begin_src emacs-lisp
+(setq org-remark-notes-file-path
+      (expand-file-name "highlights.org" (my/manifolding-atlas-root-dir)))
+(org-remark-global-tracking-mode 1)
+#+end_src

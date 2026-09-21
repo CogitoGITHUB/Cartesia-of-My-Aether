@@ -1,0 +1,37 @@
+#+title: Manifolding Keyboard — Mindmap State
+
+Keys specific to the mindmap state. Shared bindings live in universal.org.
+
+** State definition :ATLAS:
+:PROPERTIES:
+:ID:       d4827d4b-2087-4303-bb8f-499148542fc7
+:MM_PARENT: none
+:MM_ORDER:  184.0
+:END:
+Self-registration: mode and keymap in one unit (manual activation only). Delete this file and the state unregisters on next boot.
+#+begin_src emacs-lisp
+(manifolding-keyboard-define-state "mindmap"
+  :lighter "[MAP]"
+  :cursor-type 'box)
+#+end_src
+** Bindings
+#+begin_src emacs-lisp
+(manifolding-keyboard-define-keys
+  :states '("mindmap")
+  :bind
+  `(
+    ("A" . mm/assign-after)
+    ("B" . my/manifolding-atlas-mastering-review-subtree)
+    ("ESC" . my/mindmap-traverse-quit)
+    ("P" . mm/assign-parent)
+    ("g" . mm/group-display)
+    ("h" . mm/goto-prev-sibling)
+    ("i" . my/insert-state)
+    ("m" . mm/map-display)
+    ("n" . mm/traverse-child)
+    ("q" . my/mindmap-traverse-quit)
+    ("r" . mm/goto-root)
+    ("s" . mm/goto-parent)
+    ("t" . mm/goto-next-sibling)
+))
+#+end_src

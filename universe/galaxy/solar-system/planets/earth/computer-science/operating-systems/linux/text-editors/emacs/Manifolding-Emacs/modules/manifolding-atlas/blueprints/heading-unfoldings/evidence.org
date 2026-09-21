@@ -1,9 +1,0 @@
-#+title:      Evidence Prompt
-#+priority:   38
-
-* EVIDENCE :inline:file:heading:task:
-** TODO
-** WARNING
-** LOGGED
-** UPDATED
-** REJECTED

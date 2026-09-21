@@ -1,0 +1,82 @@
+#+title:      Emacs Mechanism Local Files
+
+* Emacs Mechanism Local Files :ATLAS:
+:PROPERTIES:
+:ID:       0af52924-1b98-4118-8f7e-9f3fb38b7e6c
+:MM_PARENT: none
+:MM_ORDER:  234.0
+:END:
+
+** Directory
+#+begin_src emacs-lisp
+(defvar my/manifolding-atlas-emacs-mechanism-directory
+  (expand-file-name "emacs-mechanism/" (my/manifolding-atlas-root-dir))
+  "Vault subdir where mechanism notes live.")
+#+end_src
+
+** Template body
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-emacs-mechanism--template-body (kind)
+  "Body text for KIND template file, or \"%?\"."
+  (let ((file (expand-file-name kind (my/capture-directory))))
+    (if (file-exists-p file)
+        (with-temp-buffer
+          (insert-file-contents file)
+          (buffer-string))
+      "%?")))
+#+end_src
+
+** Store template
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-emacs-mechanism--store-template (note kind)
+  "Stamp TEMPLATE + TEMPLATE_HASH unfoldings on NOTE."
+  (my/manifolding-atlas--unfolding-put note "TEMPLATE" kind)
+  (my/manifolding-atlas--unfolding-put note "TEMPLATE_HASH"
+    (or (ignore-errors (my/manifolding-atlas--capture-file-hash kind))
+        "unknown")))
+#+end_src
+
+** Headline tag
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-emacs-mechanism--ensure-headline-tag (note)
+  "Ensure NOTE's first headline has :ID: and :EMACS_MECHANISM: tag."
+  (let ((path (manifolding-atlas-note-path note)))
+    (with-current-buffer (find-file-noselect path)
+      (goto-char (point-min))
+      (when (re-search-forward "^\\*+ " nil t)
+        (unless (org-id-get) (org-id-get-create))
+        (let ((tags (org-get-tags)))
+          (unless (member "EMACS_MECHANISM" tags)
+            (org-set-tags (cons "EMACS_MECHANISM" tags)))))
+      (save-buffer))))
+#+end_src
+
+** Body capture opener
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-emacs-mechanism--open-capture (note body)
+  "Open org-capture for NOTE's body with BODY template."
+  (let ((org-capture-templates
+         `(("v" "Edit mechanism body"
+            plain (file+function ,(manifolding-atlas-note-path note)
+                   (lambda () (goto-char (point-max))))
+            ,body :kill-buffer t :unnarrowed t))))
+    (org-capture nil "v")))
+#+end_src
+
+** Create command
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-emacs-mechanism-local-create (title)
+  "Create a local mechanism note for TITLE in the mechanism subdir."
+  (interactive (list (read-string "Mechanism file title: ")))
+  (make-directory my/manifolding-atlas-emacs-mechanism-directory t)
+  (let* ((slug (downcase (replace-regexp-in-string "[^a-z0-9]+" "-" title)))
+         (body (my/manifolding-atlas-emacs-mechanism--template-body
+                "emacs-mechanism-local"))
+         (note (manifolding-atlas-create title (concat "emacs-mechanism/" slug)
+                 :tags '("emacs-mechanism") :body body)))
+    (my/manifolding-atlas-emacs-mechanism--store-template
+     note "emacs-mechanism-local")
+    (my/manifolding-atlas-emacs-mechanism--ensure-headline-tag note)
+    (my/manifolding-atlas-emacs-mechanism--open-capture note body)
+    note))
+#+end_src

@@ -1,0 +1,116 @@
+#+title:      Emacs Mechanism Auto Atlas
+
+* Emacs Mechanism Auto Atlas :ATLAS:
+:PROPERTIES:
+:ID:       41910229-d0f6-4d3f-a2ca-55e1ab5048a5
+:MM_PARENT: none
+:MM_ORDER:  238.0
+:END:
+
+** Auto scan
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-emacs-mechanism-auto-scan ()
+  "Tagged files that are not full Atlas files yet. Whole vault minus WIP."
+  (when (fboundp 'my/manifolding-atlas-root-dir)
+    (let ((root (my/manifolding-atlas-root-dir)) out)
+      (dolist (f (directory-files-recursively root "[^./]+$"))
+        (unless (or (string-match-p "/\\.git/" f)
+                    (string-match-p "/WIP-DONT-TOUCH/" f))
+          (when (my/manifolding-atlas-emacs-mechanism--needs-convert-p f)
+            (push f out))))
+      (nreverse out))))
+#+end_src
+
+** Needs convert predicate
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-emacs-mechanism--needs-convert-p (file)
+  "Non-nil when FILE is tagged :EMACS_MECHANISM: but lacks ID or DB rows."
+  (and (fboundp 'manifolding-emacs-file-first-headline)
+       (let ((parsed (manifolding-emacs-file-first-headline file)))
+         (when parsed
+           (let ((tags (nth 1 parsed)) (id (nth 2 parsed)))
+             (and tags (member "EMACS_MECHANISM"
+                               (split-string (string-trim tags ":" ":") ":" t))
+                  (or (null id) (not (my/manifolding-atlas-emacs-mechanism--indexed-p id)))))))))
+#+end_src
+
+** Indexed predicate
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-emacs-mechanism--indexed-p (id)
+  "Non-nil when ID has both notes and mm-nodes rows. Nil-safe without DB."
+  (and id (fboundp 'manifolding-atlas-db)
+       (condition-case nil
+           (let ((db (manifolding-atlas-db)))
+             (and (car (emacsql db [:select [id] :from notes :where (= id $s1)] id))
+                  (car (emacsql db [:select [note-id] :from mm-nodes :where (= note-id $s1)] id))))
+         (error nil))))
+#+end_src
+
+** Auto convert file
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-emacs-mechanism-auto-convert-file (file &optional parent-id)
+  "Make FILE a real Atlas file: ID drawer, index rows, mm row. Returns ID."
+  (require 'org-id nil t)
+  (let* ((parsed (manifolding-emacs-file-first-headline file))
+         (id (or (nth 2 parsed)
+                 (with-current-buffer (find-file-noselect file)
+                   (goto-char (point-min))
+                   (when (re-search-forward "^\\*+ " nil t)
+                     (let ((new (org-id-uuid)))
+                       (forward-line 1)
+                       (insert ":PROPERTIES:\n:ID:       " new "\n:END:\n")
+                       (save-buffer) new))))))
+    (unless id (error "No headline to anchor :ID: in %s" file))
+    (when (fboundp 'manifolding-atlas-db-update-file)
+      (manifolding-atlas-db-update-file file))
+    (my/manifolding-atlas-emacs-mechanism--ensure-mm-row id parent-id)
+    id))
+#+end_src
+
+** Ensure mm row
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-emacs-mechanism--ensure-mm-row (id parent-id)
+  "Insert mm-nodes root row for ID (or under PARENT-ID) when missing."
+  (when (and id (fboundp 'manifolding-atlas-db)
+             (not (my/manifolding-atlas-emacs-mechanism--indexed-p id)))
+    (condition-case err
+        (let* ((db (manifolding-atlas-db))
+               (depth (if parent-id 1 0))
+               (maxk (or (caar (emacsql db [:select [(funcall max order-key)]
+                                               :from mm-nodes])) 0.0)))
+          (emacsql db [:insert :into mm-nodes :values $v1]
+                   (vector id parent-id (+ maxk 1.0) "file" depth)))
+      (error (message "auto-atlas mm row failed [%s]: %s"
+                      id (error-message-string err))))))
+#+end_src
+
+** Auto run once
+#+begin_src emacs-lisp
+(defvar my/manifolding-atlas-emacs-mechanism--auto-ran nil
+  "Session guard: auto-run fires once behind the db-open timer.")
+
+(defun my/manifolding-atlas-emacs-mechanism-auto-run-once (&optional force)
+  "Convert all tagged-but-incomplete files. Timer-safe, idempotent."
+  (when (or force (not my/manifolding-atlas-emacs-mechanism--auto-ran))
+    (setq my/manifolding-atlas-emacs-mechanism--auto-ran t)
+    (let ((files (my/manifolding-atlas-emacs-mechanism-auto-scan))
+          (done 0) (failed nil))
+      (dolist (f files)
+        (condition-case err
+            (when (my/manifolding-atlas-emacs-mechanism-auto-convert-file f)
+              (setq done (1+ done)))
+          (error (push (cons f (error-message-string err)) failed))))
+      (when (fboundp 'manifolding-emacs-refresh-order-cache)
+        (ignore-errors (manifolding-emacs-refresh-order-cache)))
+      (message "auto-atlas: %d converted, %d failed" done (length failed))
+      (dolist (fl failed) (message "auto-atlas FAIL %s: %s" (car fl) (cdr fl)))
+      done)))
+#+end_src
+
+** Interactive auto run
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-emacs-mechanism-auto-run ()
+  "Manually convert all tagged-but-incomplete files now."
+  (interactive)
+  (my/manifolding-atlas-emacs-mechanism-auto-run-once t))
+#+end_src

@@ -1,0 +1,22 @@
+#+title: Manifolding Keyboard — Files Leader
+
+SPC n: files menu.
+
+** SPC n — Files :ATLAS:
+:PROPERTIES:
+:ID:       2df1f38b-f0a1-43b3-b75d-b6941a3562ba
+:MM_PARENT: none
+:MM_ORDER:  165.0
+:END:
+#+begin_src emacs-lisp
+(my/defhydra-state my/files-hydra nil "Files" (my/main-hydra/body "main menu")
+  "Find / Open"
+  (("f" find-file              "find file"        :exit t)
+   ("r" consult-recent-file    "recent files"     :exit t)
+   ("p" find-file-other-project "other project"   :exit t)
+   ("o" (lambda () (interactive) (find-file (my/last-org))) "last org file" :exit t)
+   ("e" (lambda () (interactive) (find-file (my/last-elisp))) "last elisp file" :exit t))
+  "Manage"
+  (("R" revert-buffer          "revert"     :exit t)
+   ("s" my/save-all            "save all"   :exit t)))
+#+end_src

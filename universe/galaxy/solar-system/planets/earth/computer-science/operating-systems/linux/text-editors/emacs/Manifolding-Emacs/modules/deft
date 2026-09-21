@@ -1,0 +1,18 @@
+#+title:      deft
+#+identifier: 78d4f552-344e-482e-b6e9-e9e42560ae5f
+#+filetags:   :emacs-package:notes:
+
+* deft :ATLAS:
+:PROPERTIES:
+:ID:       78d4f552-344e-482e-b6e9-e9e42560ae5f
+:MM_PARENT: none
+:MM_ORDER:  50.0
+:PACKAGE:  deft
+:CATEGORY: notes
+:STRAIGHT: (deft :type git :host github :repo "jrblevin/deft")
+:END:
+
+** Config :config:
+#+begin_src emacs-lisp
+
+#+end_src

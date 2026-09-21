@@ -1,9 +1,0 @@
-#+title:      Sources Prompt
-#+priority:   42
-
-* SOURCES :inline:file:heading:task:
-** TODO
-** WARNING
-** VETTED
-** PENDING
-** ARCHIVED

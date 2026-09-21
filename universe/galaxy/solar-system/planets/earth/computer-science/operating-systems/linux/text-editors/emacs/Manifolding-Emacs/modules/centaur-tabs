@@ -1,0 +1,67 @@
+#+title:      centaur-tabs
+#+identifier:
+#+filetags:   :emacs-package:ui:
+
+* CENTAUR-TABS — Aesthetic Tab Bar #emacs-package :ATLAS:
+:PROPERTIES:
+:ID:       8c3fca67-1d79-496d-a53b-0d2523c9e76c
+:MM_PARENT: none
+:MM_ORDER:  43.0
+:ID:
+:PACKAGE:  centaur-tabs
+:STRAIGHT: (centaur-tabs :type git :host github :repo "ema2159/centaur-tabs")
+:CATEGORY: ui
+:END:
+
+** Guix
+#+begin_src scheme
+#+end_src
+
+** Config
+#+begin_src emacs-lisp
+  (setq centaur-tabs-style               "bar"
+        centaur-tabs-height              32
+        centaur-tabs-set-icons           t
+        centaur-tabs-icon-type           'nerd-icons
+        centaur-tabs-set-modified-marker t
+        centaur-tabs-modified-marker     "●"
+        centaur-tabs-set-bar             'under
+        centaur-tabs-set-close-button    nil
+        centaur-tabs-show-new-tab-button nil
+        centaur-tabs-plain-icons         t
+        x-underline-at-descent-line      t)
+
+  ;; Hide *star* buffers
+  (defun centaur-tabs-hide-tab (x)
+    (let ((name (format "%s" x)))
+      (or (window-dedicated-p (selected-window))
+          (string-prefix-p "*" name)
+          (and (string-prefix-p "magit" name)
+               (not (file-name-extension name))))))
+
+  (defun my/centaur-tabs-buffer-list ()
+    (cl-remove-if
+     (lambda (buf)
+       (centaur-tabs-hide-tab buf))
+     (centaur-tabs-buffer-list)))
+
+  (setq centaur-tabs-buffer-list-function #'my/centaur-tabs-buffer-list)
+
+  (centaur-tabs-mode 1)
+  (centaur-tabs-group-by-projectile-project)
+  (tab-bar-mode -1)
+  (setq tab-bar-show nil)
+
+  (defun my/centaur-tabs-theme ()
+    (set-face-attribute 'centaur-tabs-selected nil
+                        :foreground "#FFFFFF")
+    (set-face-attribute 'centaur-tabs-selected-modified nil
+                        :foreground "#FFFFFF")
+    (set-face-attribute 'centaur-tabs-unselected nil
+                        :foreground "#FFFFFF")
+    (set-face-attribute 'centaur-tabs-unselected-modified nil
+                        :foreground "#FFFFFF"))
+
+  (add-hook 'centaur-tabs-init-hook #'my/centaur-tabs-theme)
+  (my/centaur-tabs-theme)
+#+end_src

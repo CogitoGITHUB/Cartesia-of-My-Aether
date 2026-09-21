@@ -1,0 +1,36 @@
+#+title: Manifolding Keyboard — Insert State
+
+Keys specific to the insert state. Shared bindings live in universal.org.
+
+** State definition :ATLAS:
+:PROPERTIES:
+:ID:       f75a9ef7-b1f3-434f-b7ad-064289be489f
+:MM_PARENT: none
+:MM_ORDER:  182.0
+:END:
+Self-registration: mode and keymap in one unit (manual activation only). Delete this file and the state unregisters on next boot.
+#+begin_src emacs-lisp
+(manifolding-keyboard-define-state "insert"
+  :sparse t
+  :no-suppress t
+  :lighter "[INS]"
+  :cursor-type 'bar)
+#+end_src
+** Owned functions
+#+begin_src emacs-lisp
+(defun my/smart-escape ()
+  "Return to the appropriate modal state based on the current buffer."
+  (interactive)
+  (cond
+   ((derived-mode-p 'org-mode)   (manifolding-keyboard-set-state "org"))
+   (t                            (manifolding-keyboard-set-state "normal"))))
+#+end_src
+** Bindings
+#+begin_src emacs-lisp
+(manifolding-keyboard-define-keys
+  :states '("insert")
+  :bind
+  `(
+    ("ESC" . my/smart-escape)
+))
+#+end_src

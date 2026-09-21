@@ -1,7 +1,0 @@
-#+title:      Rule Topics Prompt
-#+priority:   24
-
-* RULE_TOPICS :topics:rule:
-:PROPERTIES:
-:ID: rule-topics
-:END:

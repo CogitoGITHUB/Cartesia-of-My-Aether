@@ -1,0 +1,18 @@
+#+title:      State Work Prompt
+
+* STATE_WORK :unfolding:file:heading:task:ATLAS:
+:PROPERTIES:
+:ID:       b73fe4fb-ce49-488a-a85c-d4f9d06b9a0c
+:MM_PARENT: none
+:MM_ORDER:  33.0
+:REQUIRED: t
+:UNFOLDING: state-work
+:END:
+** TODO
+** WARNING
+** ACTIVE
+** PAUSED
+** BLOCKED
+** WAITING
+** ABANDONED
+** COMPLETE

@@ -1,0 +1,17 @@
+#+title:      State Validation Prompt
+
+* STATE_VALIDATION :unfolding:file:heading:task:ATLAS:
+:PROPERTIES:
+:ID:       0dd729fa-6dfd-4bb6-9393-a78ba6b5f083
+:MM_PARENT: none
+:MM_ORDER:  32.0
+:REQUIRED: t
+:UNFOLDING: state-validation
+:END:
+** TODO
+** WARNING
+** DRAFT
+** REVIEWED
+** VALIDATED
+** FAILED
+** SUPERSEDED

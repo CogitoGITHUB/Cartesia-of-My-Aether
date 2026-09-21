@@ -1,0 +1,143 @@
+#+title:      Org Mode
+#+filetags:   :emacs-package:org:core:
+
+* Org Mode — Built-in Configuration :ATLAS:
+:PROPERTIES:
+:ID:       20b7f928-018c-4624-8a35-7baed50b86b6
+:MM_PARENT: none
+:MM_ORDER:  98.0
+:CATEGORY: editing
+:END:
+
+** Todo Vocabulary
+Single source is `org-todo-states.org`; this mirrors it. Font-lock is
+refreshed on every Org buffer via hook so load order never matters.
+#+begin_src emacs-lisp
+(setq org-tags-column 0)
+(with-eval-after-load 'org
+  (setq org-todo-keywords
+        '((sequence "TODO" "NEXT" "DOING" "TESTING" "WAIT" "WARNING"
+                    "|"
+                    "DONE" "CANCELLED" "CANCELED"))))
+(add-hook 'org-mode-hook #'org-set-regexps-and-options)
+#+end_src
+
+** Links
+#+begin_src emacs-lisp
+(setq org-link-descriptive t)
+(setq org-return-follows-link t)
+
+(with-eval-after-load 'org
+  (advice-add #'org-link--reveal :override #'ignore))
+
+;; Standard org-activate-links skips property drawer contexts.
+;; Activate links there manually.
+(font-lock-add-keywords 'org-mode
+  '((my/org--activate-property-links)))
+
+(defun my/manifolding-atlas--open-capture-for-note (note &optional _)
+  "Open NOTE for editing via capture when available, else visit file.
+Signals loudly on failure — never silently ignored."
+  (unless note
+    (user-error "Cannot open note: nil note"))
+  (let ((file (cond
+               ((fboundp 'manifolding-atlas-note-path)
+                (manifolding-atlas-note-path note))
+               ((and (fboundp 'manifolding-atlas-note-id)
+                     (fboundp 'org-id-find-id-file))
+                (org-id-find-id-file (manifolding-atlas-note-id note)))
+               (t nil))))
+    (cond
+     ((and file (file-exists-p file)
+           (fboundp 'my/manifolding-atlas--edit-file-in-capture))
+      (my/manifolding-atlas--edit-file-in-capture file))
+     ((and file (file-exists-p file))
+      (find-file file))
+     (file
+      (user-error "Cannot open note: file does not exist: %s" file))
+     ((fboundp 'manifolding-atlas-note-id)
+      (let ((id (manifolding-atlas-note-id note)))
+        (if id
+            (org-id-open id)
+          (user-error "Cannot open note: no file and no ID"))))
+     (t (user-error "Cannot open note: no handler available")))))
+
+(with-eval-after-load 'org
+  (defvar my/org--property-link-map
+    (let ((map (make-sparse-keymap)))
+      (set-keymap-parent map org-mouse-map)
+      (define-key map (kbd "RET")
+        (lambda ()
+          (interactive)
+          (save-excursion
+            (goto-char (line-beginning-position))
+            (when (re-search-forward org-link-any-re (line-end-position) t)
+              (let* ((target (match-string-no-properties 2))
+                     (colon (when (string-match ":" target) (match-end 0)))
+                     (type (if colon (substring target 0 (1- colon)) ""))
+                     (path (if colon (substring target colon) target)))
+                (if (and (string= type "id")
+                         (fboundp 'manifolding-atlas-db-get-by-id))
+                    (let ((note (manifolding-atlas-db-get-by-id path)))
+                      (if note
+                          (my/manifolding-atlas--open-capture-for-note note "")
+                        (org-id-open path)))
+                  (org-id-open path)))))))
+      map)
+    "Keymap for property drawer links, inheriting `org-mouse-map' and binding RET to open the property link."))
+
+(defun my/org--activate-property-links (limit)
+  "Activate Org links inside property drawer values up to LIMIT."
+  (when (re-search-forward org-link-any-re limit t)
+    (let* ((start (match-beginning 0))
+           (end   (match-end 0))
+           (visible-start (or (match-beginning 3) (match-beginning 2)))
+           (visible-end (or (match-end 3) (match-end 2)))
+           (target (match-string-no-properties 2))
+           (desc   (match-string-no-properties 3))
+           (colon  (when (and target (string-match ":" target))
+                     (match-end 0)))
+           (type   (if colon (substring target 0 (1- colon)) (or target "")))
+           (path   (if colon (substring target colon) (or target ""))))
+      (save-excursion
+        (goto-char (line-beginning-position))
+        (when (looking-at ":\\([A-Z_][A-Z_0-9]*\\):")
+          (let ((prop-start (match-beginning 0)))
+            (org-remove-flyspell-overlays-in start end)
+            (org-rear-nonsticky-at end)
+            (remove-text-properties start end '(invisible nil))
+            (when org-link-descriptive
+              (add-text-properties start visible-start
+                                   (list 'invisible 'org-link))
+              (add-text-properties visible-end end
+                                   (list 'invisible 'org-link)))
+            (add-text-properties prop-start end
+                                 (list 'mouse-face 'highlight
+                                       'keymap my/org--property-link-map
+                                       'help-echo (concat "LINK: " type ":" path)
+                                       'font-lock-multiline t
+                                       'rear-nonsticky t))
+            (add-face-text-property prop-start end 'org-link)
+            t))))))
+
+(font-lock-add-keywords 'org-mode
+  '((my/org--clean-property-display)))
+
+(defun my/org--clean-property-display (limit)
+  "Clean up property drawer display: hide colons, underscores as spaces."
+  (catch 'found
+    (while (re-search-forward "^:\\([A-Z_][A-Z_0-9]*\\):" limit t)
+      (let ((pname (match-string-no-properties 1)))
+        (unless (member pname '("PROPERTIES" "END"))
+          (let ((name-start (match-beginning 1))
+                (name-end (match-end 1))
+                (trailing-colon (1- (match-end 0))))
+            (put-text-property (match-beginning 0) (1+ (match-beginning 0)) 'display "")
+            (put-text-property trailing-colon (match-end 0) 'display "")
+            (save-excursion
+              (goto-char name-start)
+              (while (re-search-forward "_" name-end t)
+                (put-text-property (match-beginning 0) (match-end 0) 'display " "))))
+          (throw 'found t))))
+    nil))
+#+end_src

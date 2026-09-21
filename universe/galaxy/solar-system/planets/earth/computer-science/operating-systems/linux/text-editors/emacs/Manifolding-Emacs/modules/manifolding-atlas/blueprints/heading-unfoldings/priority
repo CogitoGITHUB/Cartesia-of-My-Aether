@@ -1,0 +1,14 @@
+#+title:      Priority Prompt
+
+* PRIORITY :inline:file:heading:task:ATLAS:
+:PROPERTIES:
+:ID:       54e09d81-4d73-4073-91b4-eb91c59006ad
+:MM_PARENT: none
+:MM_ORDER:  8.0
+:TASK-DEFAULT: B
+:END:
+** TODO
+** WARNING
+** A
+** B
+** C

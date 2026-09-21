@@ -1,9 +1,0 @@
-#+title:      Signals Prompt
-#+priority:   33
-
-* SIGNALS :inline:file:heading:task:
-** TODO
-** WARNING
-** WATCHED
-** RESOLVED
-** IGNORED

@@ -1,0 +1,18 @@
+#+title:      restart-emacs
+#+identifier: e9b66fce-f0dd-482b-9b65-a60109351a6d
+#+filetags:   :emacs-package:convenience:
+
+* restart-emacs :ATLAS:
+:PROPERTIES:
+:ID:       e9b66fce-f0dd-482b-9b65-a60109351a6d
+:MM_PARENT: none
+:MM_ORDER:  116.0
+:PACKAGE:  restart-emacs
+:CATEGORY: convenience
+:STRAIGHT: (restart-emacs :type git :host github :repo "iqbalansari/restart-emacs")
+:END:
+
+** Config :config:
+#+begin_src emacs-lisp
+
+#+end_src

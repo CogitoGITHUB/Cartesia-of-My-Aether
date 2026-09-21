@@ -1,9 +1,0 @@
-#+title:      Flowtest Epsilon Prompt
-#+priority:   32
-
-* FLOWTEST_EPSILON :inline:file:heading:task:
-** TODO
-** WARNING
-** MAPPED
-** MAINTAINED
-** STALE

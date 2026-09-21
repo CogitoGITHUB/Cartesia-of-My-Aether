@@ -1,0 +1,18 @@
+#+title:      org-books
+#+identifier: 2a039d59-37d0-472b-b866-dd29a855527e
+#+filetags:   :emacs-package:org:
+
+* org-books :ATLAS:
+:PROPERTIES:
+:ID:       2a039d59-37d0-472b-b866-dd29a855527e
+:MM_PARENT: none
+:MM_ORDER:  89.0
+:PACKAGE:  org-books
+:CATEGORY: org
+:STRAIGHT: (org-books :type git :host sourcehut :repo "lepisma/org-books")
+:END:
+
+** Config :config:
+#+begin_src emacs-lisp
+
+#+end_src
