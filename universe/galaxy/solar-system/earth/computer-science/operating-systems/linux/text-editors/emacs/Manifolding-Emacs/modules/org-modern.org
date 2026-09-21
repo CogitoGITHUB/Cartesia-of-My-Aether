@@ -1,0 +1,43 @@
+#+title:      org-modern
+#+filetags:   :emacs-package:ui:
+
+* ORG-MODERN — Modern Org Style
+:PROPERTIES:
+:PACKAGE:  org-modern
+:STRAIGHT: (org-modern :type git :host github :repo "minad/org-modern")
+:CATEGORY: ui
+:END:
+
+** Config
+#+begin_src emacs-lisp
+  (setq org-modern-hide-stars "  "
+        org-modern-fold-stars
+        '(("◉" . "◯")
+          ("│" . "└")
+          (" │" . " └")
+          (" │" . " └"))
+        org-modern-keyword
+        '(("title"      . "Title")
+          ("filetags"   . "Tags")
+          ("identifier" . "ID")
+          ("date"       . "Date")
+          ("author"     . "Author")
+          ("priority"   . "Priority"))
+        org-modern-property-drawer t
+        org-modern-links t
+        )
+
+  (unless (display-graphic-p)
+    (setq org-modern-block-fringe    nil
+          org-modern-table-vertical  1
+          org-modern-table-horizontal 0
+          org-modern-star            nil))
+
+  (advice-add 'set-face-attribute :around
+              (lambda (orig face frame &rest args)
+                (condition-case nil
+                    (apply orig face frame args)
+                  (error nil))))
+
+  (global-org-modern-mode)
+#+end_src

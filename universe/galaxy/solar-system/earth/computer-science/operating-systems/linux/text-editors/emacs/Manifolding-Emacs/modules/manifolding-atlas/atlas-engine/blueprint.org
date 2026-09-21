@@ -1,0 +1,1037 @@
+#+TITLE: Manifolding Atlas — Blueprint
+#+priority: 2
+
+* Blueprint Core Library
+:PROPERTIES:
+:CATEGORY: blueprint
+:END:
+
+#+begin_src emacs-lisp
+(require 'cl-lib)
+(require 'ol)
+(require 'manifolding-atlas-db nil t)
+(require 'manifolding-atlas-db-query nil t)
+(require 'manifolding-atlas-buffer nil t)
+
+;;; Schema structure
+
+(cl-defstruct (manifolding-atlas-blueprint (:constructor manifolding-atlas-blueprint--create)
+                             (:copier nil))
+  "A schema describing structured expectations for a class of notes.
+
+Slots:
+  name      - symbol identifying the schema
+  predicate - function (note) -> non-nil selecting notes it applies to
+  fields    - list of field spec plists (see Commentary)
+  includes  - names of the schemas this one inherits fields from"
+  name
+  predicate
+  fields
+  includes)
+
+;;; Registry
+
+(defvar manifolding-atlas-blueprint--registry (make-hash-table :test 'eq)
+  "Registry of defined schemas, keyed by name symbol.")
+
+(defun manifolding-atlas-blueprint--merge-fields (field-lists)
+  "Merge FIELD-LISTS, a list of field-spec lists, into a single list.
+The lists are processed in order; a later field spec overrides an
+earlier one with the same :key, whether the duplicate falls within a
+single list or across lists, while an overridden field keeps the
+position of its first appearance.  Used to fold the fields of included
+schemas into a schema that names them in :include."
+  (let ((order nil)
+        (by-key (make-hash-table :test 'equal)))
+    (dolist (fields field-lists)
+      (dolist (field fields)
+        (let ((key (plist-get field :key)))
+          (unless (gethash key by-key)
+            (push key order))
+          (puthash key field by-key))))
+    (mapcar (lambda (key) (gethash key by-key)) (nreverse order))))
+
+(cl-defun manifolding-atlas-blueprint-define (name &key predicate fields include)
+  "Define and register a schema called NAME.
+
+PREDICATE is a function (note) -> non-nil when the schema applies to
+the note.  FIELDS is a list of field spec plists (see Commentary for
+the supported keys).
+
+INCLUDE names another schema to inherit fields from - a schema name
+symbol, a `manifolding-atlas-blueprint' object, or a list of either.  The included
+schemas contribute their fields first (multiple includes merged
+left-to-right), then FIELDS.  When a :key appears more than once the
+later definition wins, so FIELDS overrides an included field and a
+later include overrides an earlier one; an overridden field keeps the
+position of its first appearance.  Includes are resolved now, so an
+included schema must already be registered, and re-defining it later
+does not retroactively update schemas that included it.
+
+Registering a schema with an existing NAME replaces it.  Returns the
+`manifolding-atlas-blueprint' object."
+  (unless (symbolp name)
+    (error "Schema name must be a symbol: %S" name))
+  (unless (functionp predicate)
+    (error "Schema :predicate must be a function"))
+  (dolist (field fields)
+    (unless (and (plist-member field :key)
+                 (stringp (plist-get field :key)))
+      (error "Schema field must have a string :key: %S" field)))
+  (let* ((includes (cond
+                    ((null include) nil)
+                    ((or (symbolp include) (manifolding-atlas-blueprint-p include)) (list include))
+                    ((listp include) include)
+                    (t (error "Schema :include must be a symbol, a schema, or a list of them: %S"
+                              include))))
+         (inherited (mapcar (lambda (s)
+                              (manifolding-atlas-blueprint-fields (manifolding-atlas-blueprint--resolve s)))
+                            includes))
+         (include-names (mapcar (lambda (s)
+                                  (if (manifolding-atlas-blueprint-p s) (manifolding-atlas-blueprint-name s) s))
+                                includes))
+         (schema (manifolding-atlas-blueprint--create
+                  :name name
+                  :predicate predicate
+                  :includes include-names
+                  :fields (manifolding-atlas-blueprint--merge-fields
+                           (append inherited (list fields))))))
+    (puthash name schema manifolding-atlas-blueprint--registry)
+    schema))
+
+(defun manifolding-atlas-blueprint-get (name)
+  "Return the registered schema called NAME, or nil."
+  (gethash name manifolding-atlas-blueprint--registry))
+
+(defun manifolding-atlas-blueprint-list ()
+  "Return the list of registered schema names."
+  (let (names)
+    (maphash (lambda (k _v) (push k names)) manifolding-atlas-blueprint--registry)
+    (nreverse names)))
+
+(defun manifolding-atlas-blueprint-unregister (name)
+  "Remove the schema called NAME from the registry."
+  (remhash name manifolding-atlas-blueprint--registry))
+
+(defun manifolding-atlas-blueprint--resolve (schema-or-name)
+  "Return a `manifolding-atlas-blueprint' from SCHEMA-OR-NAME.
+
+SCHEMA-OR-NAME is either a `manifolding-atlas-blueprint' object or the symbol name of
+a registered schema.  Signals an error when a name is not registered."
+  (cond
+   ((manifolding-atlas-blueprint-p schema-or-name) schema-or-name)
+   ((symbolp schema-or-name)
+    (or (manifolding-atlas-blueprint-get schema-or-name)
+        (error "No schema registered as %S" schema-or-name)))
+   (t (error "Not a schema or schema name: %S" schema-or-name))))
+
+;;; Field access
+
+(defun manifolding-atlas-blueprint-field-value (note field)
+  "Return the value of FIELD for NOTE, read with the field's declared type.
+
+FIELD is a field spec plist or a bare metadata key string (in which
+case the type defaults to `string').  Reads from the note's
+already-extracted metadata via `manifolding-atlas-note-meta-get'.  When the field
+spec is :multiple, returns a list of values."
+  (let* ((spec (if (stringp field) (list :key field) field))
+         (key (plist-get spec :key))
+         (type (or (plist-get spec :type) 'string)))
+    (if (plist-get spec :multiple)
+        (manifolding-atlas-note-meta-get-list note key type)
+      (manifolding-atlas-note-meta-get note key type))))
+
+;;; Predicate
+
+(defun manifolding-atlas-blueprint-applies-p (note schema-or-name)
+  "Return non-nil when SCHEMA-OR-NAME's predicate matches NOTE.
+
+SCHEMA-OR-NAME is a `manifolding-atlas-blueprint' object or a registered schema name."
+  (let ((schema (manifolding-atlas-blueprint--resolve schema-or-name)))
+    (funcall (manifolding-atlas-blueprint-predicate schema) note)))
+
+;;; Validation
+
+(cl-defstruct (manifolding-atlas-violation (:copier nil))
+  "A single schema violation found on a note.
+
+Slots:
+  note-id    - id of the offending note
+  note-title - title of the offending note
+  schema     - name of the schema that was violated
+  field      - metadata key of the offending field
+  type       - violation type symbol (see `manifolding-atlas-blueprint-validate')
+  message    - human-readable description
+  value      - the offending value, when applicable"
+  note-id note-title schema field type message value)
+
+(defun manifolding-atlas-blueprint--call-or-value (spec note)
+  "Resolve SPEC for NOTE: call it when a function, otherwise return it.
+Used for field keys like :required and :one-of that accept either a
+literal or a function of the note."
+  (if (functionp spec) (funcall spec note) spec))
+
+(defun manifolding-atlas-blueprint--coerce (raw type)
+  "Coerce the RAW string value to TYPE for comparison."
+  (pcase type
+    ('number (string-to-number raw))
+    ('symbol (intern raw))
+    (_ raw)))
+
+(defun manifolding-atlas-blueprint--link-id (raw)
+  "Return the note id referenced by RAW, or nil when RAW is not an id link.
+Accepts a bracket link \"[[id:UUID][desc]]\" or a bare UUID."
+  (cond
+   ((string-match org-link-bracket-re raw)
+    (let ((link (match-string 1 raw)))
+      (when (string-prefix-p "id:" link)
+        (string-remove-prefix "id:" link))))
+   ((string-match-p (concat "\\`" (or (bound-and-true-p manifolding-atlas-utils--uuid-regexp) "[0-9a-fA-F\\-]\\{36\\}") "\\'") raw)
+     raw)))
+
+(defun manifolding-atlas-blueprint--violation (note schema field type message value)
+  "Build a `manifolding-atlas-violation' for NOTE on SCHEMA's FIELD of TYPE.
+MESSAGE describes the problem and VALUE is the offending value."
+  (make-manifolding-atlas-violation
+   :note-id (manifolding-atlas-note-id note)
+   :note-title (manifolding-atlas-note-title note)
+   :schema (manifolding-atlas-blueprint-name schema)
+   :field (plist-get field :key)
+   :type type
+   :message message
+   :value value))
+
+(defun manifolding-atlas-blueprint--target-tags-violation (target id field note schema)
+  "Return a violation when TARGET is missing FIELD's :target-tags, else nil.
+
+TARGET is the resolved `manifolding-atlas-note' referenced by FIELD on NOTE, and ID
+is its id (used in the message and as the offending value).  SCHEMA owns
+the field.  All declared tags must be present (all-of); the missing ones
+are named in the message."
+  (let* ((required (plist-get field :target-tags))
+         (missing (and required
+                       (cl-remove-if
+                        (lambda (tag) (member tag (manifolding-atlas-note-tags target)))
+                        required))))
+    (when missing
+      (manifolding-atlas-blueprint--violation
+       note schema field 'invalid-target
+       (format "Field %S target %s is missing required tag(s) %S"
+               (plist-get field :key) id missing)
+       id))))
+
+(defun manifolding-atlas-blueprint--value-violation (raw field note schema)
+  "Return a violation for the RAW value of FIELD on NOTE, or nil when valid.
+SCHEMA is the owning schema.  Checks, in order: type, reference
+resolution and :target-tags (for `note' fields), allowed values, then a
+custom :validate function.  Returns the first problem found."
+  (let* ((key (plist-get field :key))
+         (type (or (plist-get field :type) 'string))
+         (one-of (manifolding-atlas-blueprint--call-or-value (plist-get field :one-of) note))
+         (validate (plist-get field :validate)))
+    (or
+     ;; type / reference checks
+     (pcase type
+       ('number
+        (unless (string-match-p "\\`[ \t]*-?[0-9][0-9.]*[ \t]*\\'" raw)
+          (manifolding-atlas-blueprint--violation
+           note schema field 'wrong-type
+           (format "Field %S expected a number, got %S" key raw) raw)))
+       ((or 'note 'link)
+        (let ((id (manifolding-atlas-blueprint--link-id raw)))
+          (cond
+           ((null id)
+            (manifolding-atlas-blueprint--violation
+             note schema field 'wrong-type
+             (format "Field %S expected an id link, got %S" key raw) raw))
+           ;; `link' fields only check the id-link shape; `note' fields
+           ;; additionally resolve the target and enforce :target-tags.
+           ((eq type 'note)
+            (let ((target (manifolding-atlas-db-get-by-id id)))
+              (if (not target)
+                  (manifolding-atlas-blueprint--violation
+                   note schema field 'invalid-reference
+                   (format "Field %S references missing note %s" key id) id)
+                (manifolding-atlas-blueprint--target-tags-violation
+                 target id field note schema))))))))
+     ;; allowed values (not meaningful for note/link references)
+     (when (and one-of (not (memq type '(note link))))
+       (let ((typed (manifolding-atlas-blueprint--coerce raw type)))
+         (unless (member typed one-of)
+           (manifolding-atlas-blueprint--violation
+            note schema field 'disallowed-value
+            (format "Field %S value %S is not one of %S" key typed one-of)
+            typed))))
+     ;; custom validator
+     (when validate
+       (let* ((typed (manifolding-atlas-blueprint--coerce raw type))
+              (result (funcall validate typed note)))
+         (unless (eq result t)
+           (manifolding-atlas-blueprint--violation
+            note schema field 'invalid-value
+            (if (stringp result) result
+              (format "Field %S failed validation" key))
+            typed)))))))
+
+(defun manifolding-atlas-blueprint--field-violations (note field schema)
+  "Return the list of violations for FIELD on NOTE against SCHEMA."
+  (let* ((key (plist-get field :key))
+         (required (manifolding-atlas-blueprint--call-or-value (plist-get field :required) note))
+         (raws (manifolding-atlas-note-meta-get-list note key 'string)))
+    (cond
+     ((and required (null raws))
+      (list (manifolding-atlas-blueprint--violation
+             note schema field 'missing-required
+             (format "Required field %S is missing" key) nil)))
+     ((null raws) nil)
+     (t (delq nil
+              (mapcar (lambda (raw)
+                        (manifolding-atlas-blueprint--value-violation raw field note schema))
+                      raws))))))
+
+(defun manifolding-atlas-blueprint-validate (note schema-or-name)
+  "Return the list of `manifolding-atlas-violation' for NOTE against SCHEMA-OR-NAME.
+
+SCHEMA-OR-NAME is a `manifolding-atlas-blueprint' object or a registered schema name.
+Each field is checked for the following problem types:
+
+- `missing-required'   a required field has no value
+- `wrong-type'         a value does not match the field's declared type
+- `invalid-reference'  a `note' field links to a non-existent note
+- `invalid-target'     a `note' field's target is missing a :target-tags tag
+- `disallowed-value'   a value is not in the field's :one-of set
+- `invalid-value'      a value is rejected by the field's :validate function
+
+The note is validated as given; the schema's predicate is not consulted
+here (see `manifolding-atlas-blueprint-validate-all')."
+  (let ((schema (manifolding-atlas-blueprint--resolve schema-or-name)))
+    (cl-loop for field in (manifolding-atlas-blueprint-fields schema)
+             append (manifolding-atlas-blueprint--field-violations note field schema))))
+
+(defun manifolding-atlas-blueprint-validate-notes (notes schema-or-name)
+  "Return all violations for NOTES against SCHEMA-OR-NAME.
+
+NOTES is any list of `manifolding-atlas-note' objects; every note is validated
+regardless of the schema's predicate.  To validate only the notes a
+schema applies to, filter with `manifolding-atlas-blueprint-applies-p' first, or use
+`manifolding-atlas-blueprint-validate-all'."
+  (let ((schema (manifolding-atlas-blueprint--resolve schema-or-name)))
+    (cl-loop for note in notes
+             append (manifolding-atlas-blueprint-validate note schema))))
+
+(defun manifolding-atlas-blueprint-validate-all (schema-or-name)
+  "Return all violations for every note matched by SCHEMA-OR-NAME.
+
+Notes are selected with the schema's predicate, then validated.  This
+is sugar for `manifolding-atlas-blueprint-validate-notes' over the matching notes."
+  (let ((schema (manifolding-atlas-blueprint--resolve schema-or-name)))
+    (manifolding-atlas-blueprint-validate-notes
+     (manifolding-atlas-db-query (lambda (note) (manifolding-atlas-blueprint-applies-p note schema)))
+     schema)))
+
+;;; Authoring
+
+(defun manifolding-atlas-blueprint-applicable (note)
+  "Return the names of registered schemas whose predicate matches NOTE.
+Schemas are tested in registration order."
+  (cl-remove-if-not (lambda (name) (manifolding-atlas-blueprint-applies-p note name))
+                    (manifolding-atlas-blueprint-list)))
+
+(defun manifolding-atlas-blueprint-missing-fields (note schema-or-name &optional required-only)
+  "Return the fields of SCHEMA-OR-NAME that NOTE has no value for.
+
+Required fields come first (in declared order), then optional ones;
+with REQUIRED-ONLY non-nil only required fields are returned.
+Requiredness is evaluated against NOTE, so a function :required is
+honored.  A field counts as present when NOTE has any value for its
+:key, so this never proposes a field the note already carries."
+  (let ((schema (manifolding-atlas-blueprint--resolve schema-or-name))
+        (required nil)
+        (optional nil))
+    (dolist (field (manifolding-atlas-blueprint-fields schema))
+      (when (null (manifolding-atlas-note-meta-get-list note (plist-get field :key) 'string))
+        (if (manifolding-atlas-blueprint--call-or-value (plist-get field :required) note)
+            (push field required)
+          (unless required-only (push field optional)))))
+    (append (nreverse required) (nreverse optional))))
+
+(defun manifolding-atlas-blueprint-note-violations (note)
+  "Return all violations of NOTE across the schemas that apply to it.
+
+Validates NOTE against each schema named by `manifolding-atlas-blueprint-applicable'
+and concatenates the results.  Returns nil when no schema applies or the
+note conforms to all that do.  This is the per-note counterpart to
+`manifolding-atlas-blueprint-validate-all' and the shared entry point for surfacing a
+single note's violations (sync warnings, in-buffer linting, health
+widgets)."
+  (cl-loop for name in (manifolding-atlas-blueprint-applicable note)
+           append (manifolding-atlas-blueprint-validate note name)))
+
+;;; Collection health
+
+(cl-defstruct (manifolding-atlas-blueprint-health (:constructor manifolding-atlas-blueprint-health--create)
+                                    (:copier nil))
+  "Aggregated health of a single schema across a set of notes.
+
+Slots:
+  schema        - schema name symbol
+  covered       - number of notes the schema applies to
+  invalid       - number of covered notes with at least one violation
+  invalid-notes - list of (note . violations) for the invalid notes
+  includes      - schema names this schema inherits fields from
+  included-by   - schema names that inherit fields from this schema"
+  schema covered invalid invalid-notes includes included-by)
+
+(cl-defun manifolding-atlas-blueprint-collection-health (&optional (notes (manifolding-atlas-db-query)))
+  "Return the health of every registered schema across NOTES.
+
+NOTES defaults to all notes in the database.  The result is a list of
+`manifolding-atlas-blueprint-health' structures, one per registered schema in
+registration order, each carrying how many notes the schema covers, how
+many of those are invalid, the invalid notes paired with their
+violations, and the schema's include relationships.  Pure apart from the
+default `manifolding-atlas-db-query'; pass NOTES to aggregate an explicit set."
+  (let ((by-name (make-hash-table :test 'eq))
+        (included-by (make-hash-table :test 'eq))
+        result)
+    (dolist (name (manifolding-atlas-blueprint-list))
+      (let ((includes (manifolding-atlas-blueprint-includes (manifolding-atlas-blueprint-get name))))
+        (puthash name (manifolding-atlas-blueprint-health--create
+                       :schema name :covered 0 :invalid 0
+                       :invalid-notes nil :includes includes)
+                 by-name)
+        (dolist (inc includes)
+          (push name (gethash inc included-by)))))
+    (dolist (note notes)
+      (dolist (name (manifolding-atlas-blueprint-applicable note))
+        (let ((h (gethash name by-name)))
+          (when h
+            (cl-incf (manifolding-atlas-blueprint-health-covered h))
+            (let ((vs (manifolding-atlas-blueprint-validate note name)))
+              (when vs
+                (cl-incf (manifolding-atlas-blueprint-health-invalid h))
+                (push (cons note vs) (manifolding-atlas-blueprint-health-invalid-notes h))))))))
+    (dolist (name (manifolding-atlas-blueprint-list))
+      (let ((h (gethash name by-name)))
+        (setf (manifolding-atlas-blueprint-health-invalid-notes h)
+              (nreverse (manifolding-atlas-blueprint-health-invalid-notes h)))
+        (setf (manifolding-atlas-blueprint-health-included-by h)
+              (nreverse (gethash name included-by)))
+        (push h result)))
+    (nreverse result)))
+
+(provide 'manifolding-atlas-blueprint)
+#+end_src
+
+* Blueprint DB Validation
+
+#+begin_src emacs-lisp
+(require 'manifolding-atlas-note nil t)
+(require 'manifolding-atlas-blueprint nil t)
+(require 'manifolding-atlas-db-extract nil t)
+
+(defcustom manifolding-atlas-db-blueprint-validation-action 'warning
+  "How to react when an indexed note violates an applicable schema.
+
+The check runs while a note is written to the database (on save,
+external sync, or a full scan), and only when schemas are registered and
+one applies to the note - otherwise it does nothing.
+
+- `silent'  index the note, say nothing.
+- `warning' index the note, emit a non-blocking warning naming the
+            violations (the default).
+- `error'   keep the violating note OUT of the database (skip indexing
+            it) and emit a warning.  The file on disk is untouched, so
+            the note simply stays absent from the database until it is
+            fixed and re-synced.
+
+Because files are the source of truth, none of these touch the file;
+they only control whether the database mirrors a violating note."
+  :type '(choice (const :tag "Index silently" silent)
+                 (const :tag "Index and warn" warning)
+                 (const :tag "Skip and warn" error))
+  :group 'manifolding-atlas)
+
+(defun manifolding-atlas-db-blueprint-validation--format (note violations)
+  "Format VIOLATIONS of NOTE into a human-readable warning string."
+  (format "Note %S (%s) violates its schema:\n%s"
+          (manifolding-atlas-note-title note)
+          (manifolding-atlas-note-id note)
+          (mapconcat
+           (lambda (v)
+             (format "  - [%s] %s"
+                     (manifolding-atlas-violation-schema v)
+                     (manifolding-atlas-violation-message v)))
+           violations "\n")))
+
+(defun manifolding-atlas-db-blueprint-validation--warn (note violations level)
+  "Emit a warning at LEVEL describing VIOLATIONS of NOTE."
+  (lwarn 'manifolding-atlas-blueprint level "%s"
+         (manifolding-atlas-db-blueprint-validation--format note violations)))
+
+(defun manifolding-atlas-db-blueprint-validation--filter (note)
+  "Validate NOTE for `manifolding-atlas-db-note-index-filter-functions'.
+
+Return non-nil to allow indexing NOTE and nil to skip it, dispatching on
+`manifolding-atlas-db-blueprint-validation-action'.  Fast-exits when validation is
+`silent' or no schemas are registered, and never affects a note that
+conforms or that no schema applies to."
+  (if (or (eq manifolding-atlas-db-blueprint-validation-action 'silent)
+          (null (manifolding-atlas-blueprint-list)))
+      t
+    (let ((violations (manifolding-atlas-blueprint-note-violations note)))
+      (cond
+       ((null violations) t)
+       ((eq manifolding-atlas-db-blueprint-validation-action 'error)
+        (manifolding-atlas-db-blueprint-validation--warn note violations :error)
+        nil)
+       (t
+        (manifolding-atlas-db-blueprint-validation--warn note violations :warning)
+        t)))))
+
+(add-hook 'manifolding-atlas-db-note-index-filter-functions
+          #'manifolding-atlas-db-blueprint-validation--filter)
+
+(provide 'manifolding-atlas-db-blueprint-validation)
+#+end_src
+
+* Blueprint Flymake
+
+#+begin_src emacs-lisp
+(require 'flymake)
+(require 'org-element)
+(require 'manifolding-atlas-note nil t)
+(require 'manifolding-atlas-blueprint nil t)
+(require 'manifolding-atlas-buffer nil t)
+(require 'manifolding-atlas-db-extract nil t)
+
+(defun manifolding-atlas-blueprint-flymake--note-region (level pos)
+  "Return (BEG . END) of the header line of a note at LEVEL and POS.
+For a heading-level note (LEVEL above zero) this is the heading line at
+POS; for a file-level note it is the =#+title= line, or the first line
+when there is none."
+  (save-excursion
+    (if (and level (> level 0) pos)
+        (goto-char pos)
+      (goto-char (point-min))
+      (unless (re-search-forward "^#\\+title:" nil t)
+        (goto-char (point-min))))
+    (cons (line-beginning-position) (line-end-position))))
+
+(defun manifolding-atlas-blueprint-flymake--field-region (field bound)
+  "Return (BEG . END) of FIELD's metadata line within BOUND, or nil.
+BOUND scopes the lookup to a heading subtree (see `manifolding-atlas-buffer-meta')
+and is nil for file-level metadata."
+  (when-let* ((meta (manifolding-atlas-buffer-meta--get (manifolding-atlas-buffer-meta bound) field))
+              (item (car (plist-get meta :items)))
+              (beg (org-element-unfolding :begin item)))
+    (cons beg (save-excursion (goto-char beg) (line-end-position)))))
+
+(defun manifolding-atlas-blueprint-flymake--violation-region (violation data level)
+  "Return (BEG . END) in the current buffer for VIOLATION.
+DATA is the extraction plist of the offending note and LEVEL its level.
+A value violation points at its field's line; a missing required field
+\(which has no line) points at the note's header line."
+  (let ((field (manifolding-atlas-violation-field violation))
+        (bound (when (and level (> level 0)) (plist-get data :pos))))
+    (or (and field
+             (not (eq (manifolding-atlas-violation-type violation) 'missing-required))
+             (manifolding-atlas-blueprint-flymake--field-region field bound))
+        (manifolding-atlas-blueprint-flymake--note-region level (plist-get data :pos)))))
+
+(defun manifolding-atlas-blueprint-flymake--collect ()
+  "Return schema-violation diagnostics for the notes in the current buffer.
+Each element is (BEG END TYPE TEXT), ready for `flymake-make-diagnostic'."
+  (let* ((ast (org-element-parse-buffer))
+         (path (or (buffer-file-name) (buffer-name)))
+         (file-title (manifolding-atlas-db--extract-file-title ast path))
+         (datas (cons (manifolding-atlas-db--extract-file-node ast path (current-buffer) file-title)
+                      (manifolding-atlas-db--extract-heading-nodes ast path (current-buffer) file-title)))
+         (diagnostics nil))
+    (dolist (data datas)
+      (when (plist-get data :id)
+        (let* ((level (or (plist-get data :level) 0))
+               (note (manifolding-atlas-db--note-from-data data path level)))
+          (dolist (v (manifolding-atlas-blueprint-note-violations note))
+            (let ((region (manifolding-atlas-blueprint-flymake--violation-region v data level)))
+              (push (list (car region) (cdr region) :warning
+                          (format "[%s] %s"
+                                  (manifolding-atlas-violation-schema v)
+                                  (manifolding-atlas-violation-message v)))
+                    diagnostics))))))
+    (nreverse diagnostics)))
+
+(defun manifolding-atlas-blueprint-flymake (report-fn &rest _)
+  "Report schema violations in the current buffer to REPORT-FN.
+A flymake backend; see `flymake-diagnostic-functions'."
+  (funcall report-fn
+           (mapcar (lambda (d)
+                     (apply #'flymake-make-diagnostic (current-buffer) d))
+                   (manifolding-atlas-blueprint-flymake--collect))))
+
+;;;###autoload
+(define-minor-mode manifolding-atlas-blueprint-flymake-mode
+  "Toggle real-time schema-violation linting in the current buffer.
+When enabled, register `manifolding-atlas-blueprint-flymake' as a flymake backend and
+turn on `flymake-mode', so violations of any schema applicable to a note
+in the buffer are flagged as you edit."
+  :lighter " manifolding-atlas-blueprint"
+  (if manifolding-atlas-blueprint-flymake-mode
+      (progn
+        (add-hook 'flymake-diagnostic-functions #'manifolding-atlas-blueprint-flymake nil t)
+        (flymake-mode 1))
+    (remove-hook 'flymake-diagnostic-functions #'manifolding-atlas-blueprint-flymake t)))
+
+(provide 'manifolding-atlas-blueprint-flymake)
+#+end_src
+
+* Blueprint Customization
+
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-blueprint--prompt-dir ()
+  "Return blueprints directory (stub for prompt dir)."
+  (or (and (fboundp 'my/manifolding-atlas-blueprint-dir)
+           (my/manifolding-atlas-blueprint-dir))
+      (expand-file-name "Manifolding-Emacs/modules/manifolding-atlas/blueprints/"
+                        user-emacs-directory)))
+
+(defun my/manifolding-atlas-blueprint--template-dir ()
+  "Return templates directory."
+  (expand-file-name "templates/" (my/manifolding-atlas-blueprint--prompt-dir)))
+
+(defun my/manifolding-atlas-blueprint--outline-spec (prompt-name)
+  "Return (KEY . OPTIONS) from declarative file PROMPT-NAME.org, or nil.
+Declarative = no src blocks; level-1 KEY heading, level-2 options."
+  (let* ((dir (my/manifolding-atlas-blueprint--prompt-dir))
+         (files (directory-files-recursively dir (format "^%s\\.org$" prompt-name))))
+    (when files
+      (condition-case nil
+          (with-temp-buffer
+            (insert-file-contents (car files))
+            (goto-char (point-min))
+            (when (not (re-search-forward "begin_src" nil t))
+              (let ((spec (car (my/manifolding-atlas-org-prompt--parse
+                                (car files)))))
+                (when spec
+                  (cons (nth 0 spec) (nth 1 spec))))))
+        ;; Engine unavailable/broken → legacy extractors handle it.
+        (error nil)))))
+
+(defun my/manifolding-atlas-blueprint--legacy-choices (prompt-name)
+  "Legacy regex extraction of choices from elisp prompt PROMPT-NAME."
+  (let* ((dir (my/manifolding-atlas-blueprint--prompt-dir))
+         (files (directory-files-recursively
+                 dir (format "^%s\\.org$" prompt-name))))
+    (when files
+      (with-temp-buffer
+        (insert-file-contents (car files))
+        (goto-char (point-min))
+        (when (re-search-forward "completing-read" nil t)
+          (condition-case nil
+              (when (re-search-forward "'(\"" nil t)
+                (let ((items (save-excursion
+                               (backward-char 2)
+                               (read (current-buffer)))))
+                  (cl-remove-if (lambda (s) (string-match-p "WARNING" s)) items)))
+            (error nil)))))))
+
+(defun my/manifolding-atlas-blueprint--extract-choices (prompt-name)
+  "Extract allowed values for PROMPT-NAME: level-2 options from a
+declarative file (WARNING sentinel excluded), else legacy regex over
+elisp lists (WARNING excluded)."
+  (or (let ((choices (cdr (my/manifolding-atlas-blueprint--outline-spec
+                           prompt-name))))
+        (when choices
+          (cl-remove-if (lambda (s) (string-match-p "WARNING" s))
+                        choices)))
+      (my/manifolding-atlas-blueprint--legacy-choices prompt-name)))
+
+(defun my/manifolding-atlas-blueprint--extract-unfolding-key (prompt-name)
+  "Extract the property drawer key for PROMPT-NAME: level-1 heading of a
+declarative file, else legacy regex over the elisp source."
+  (or (car (my/manifolding-atlas-blueprint--outline-spec prompt-name))
+      (let* ((dir (my/manifolding-atlas-blueprint--prompt-dir))
+             (files (directory-files-recursively
+                     dir (format "^%s\\.org$" prompt-name))))
+        (when files
+          (with-temp-buffer
+            (insert-file-contents (car files))
+            (when (re-search-forward "org-entry-get nil \"\\([A-Z_]+?\\)\"" nil t)
+              (match-string 1)))))))
+
+(defun my/manifolding-atlas-blueprint--validate (choices val _note)
+  "Validate a field value against CHOICES (dynamic-binding compat).
+Extracts label from Org link format if present."
+  (if (equal val "WARNING") "missing-required"
+    (let ((label (if (string-match "\\[\\[id:\\([^]]+\\)\\]\\[\\([^]]+\\)\\]\\]" val)
+                     (match-string 2 val)
+                   val)))
+      (if (and choices (not (member label choices)))
+          (format "invalid-value: %s" label)
+        t))))
+
+(defun my/manifolding-atlas-blueprint--field-from-prompt (prompt-name &optional required)
+  "Generate a manifolding-atlas-blueprint field plist from prompt file PROMPT-NAME.
+When REQUIRED is non-nil, the field is mandatory."
+  (let* ((key (or (my/manifolding-atlas-blueprint--extract-unfolding-key prompt-name)
+                  (upcase (replace-regexp-in-string
+                           "-" "_" (symbol-name prompt-name)))))
+         (choices (my/manifolding-atlas-blueprint--extract-choices prompt-name)))
+    `(:key ,key
+      :type string
+      ,@(when choices `(:one-of ,choices))
+      ,@(when required '(:required t))
+      :validate ,(apply-partially #'my/manifolding-atlas-blueprint--validate choices))))
+
+(defun my/manifolding-atlas-blueprint--drawer-keys-in-file (file)
+  "Return unfolding keys declared in FILE's drawer template."
+  (let (keys)
+    (with-temp-buffer
+      (insert-file-contents file)
+      (goto-char (point-min))
+      (when (re-search-forward "^:PROPERTIES:$" nil t)
+        (forward-line)
+        (while (not (looking-at "^:END:$"))
+          (when (looking-at "^:\\([A-Z_]+?\\):[ \t]*$")
+            (push (match-string 1) keys))
+          (forward-line))))
+    keys))
+
+(defun my/manifolding-atlas-blueprint--template-unfolding-keys ()
+  "Return list of unfolding keys defined in capture template files."
+  (let ((template-dir (my/manifolding-atlas-blueprint--template-dir))
+        keys)
+    (when (file-directory-p template-dir)
+      (dolist (file (directory-files template-dir t "\\.org\\'"))
+        (setq keys (append (my/manifolding-atlas-blueprint--drawer-keys-in-file file)
+                           keys))))
+    (delete-dups keys)))
+
+(defun my/manifolding-atlas-blueprint--template-unfoldings ()
+  "Return alist of (template-name . (unfolding-key ...)) from capture template files."
+  (let ((template-dir (my/manifolding-atlas-blueprint--template-dir))
+        result)
+    (when (file-directory-p template-dir)
+      (dolist (file (directory-files template-dir t "\\.org\\'"))
+        (let* ((name (file-name-sans-extension (file-name-nondirectory file)))
+               (keys (nreverse (my/manifolding-atlas-blueprint--drawer-keys-in-file file))))
+          (when keys
+            (push (cons name keys) result)))))
+    (nreverse result)))
+(manifolding-atlas-blueprint-define
+ 'base
+ :predicate (lambda (_note) t)
+ :fields
+ (list (my/manifolding-atlas-blueprint--field-from-prompt 'state-work t)
+       (my/manifolding-atlas-blueprint--field-from-prompt 'state-general t)
+       (my/manifolding-atlas-blueprint--field-from-prompt 'state-intelligence t)
+       (my/manifolding-atlas-blueprint--field-from-prompt 'state-operational t)
+       (my/manifolding-atlas-blueprint--field-from-prompt 'state-validation t)
+       (my/manifolding-atlas-blueprint--field-from-prompt 'state-source t)
+       (my/manifolding-atlas-blueprint--field-from-prompt 'state-dependency)
+       (my/manifolding-atlas-blueprint--field-from-prompt 'state-checklist)
+       (my/manifolding-atlas-blueprint--field-from-prompt 'rules)
+       (my/manifolding-atlas-blueprint--field-from-prompt 'traps-external)
+       (my/manifolding-atlas-blueprint--field-from-prompt 'traps-internal)))
+(defun my/manifolding-atlas-blueprint--required-validator ()
+  "Validator flagging missing or WARNING-valued required fields."
+  (lambda (val _note)
+    (cond ((equal val "WARNING") "missing-required")
+          ((null val) "missing-required")
+          (t t))))
+
+(defun my/manifolding-atlas-blueprint--hash-validator ()
+  "Validator comparing TEMPLATE_HASH against the current template file."
+  (lambda (val note)
+    (let* ((name (or (car (manifolding-atlas-note-meta-get-list
+                           note 'TEMPLATE 'string))
+                     (cdr (assoc "TEMPLATE"
+                                 (manifolding-atlas-note-unfoldings note)))))
+           (current (if name
+                        (my/manifolding-atlas--capture-file-hash name)
+                      nil)))
+      (cond ((and val current (not (string-equal val current)))
+             "template-outdated")
+            ((null val) "missing-required")
+            (t t)))))
+(cl-loop for (template-name . keys) in (my/manifolding-atlas-blueprint--template-unfoldings)
+         for schema-name = (intern (concat "template-" template-name))
+         do (manifolding-atlas-blueprint-define
+             schema-name
+             :predicate
+             `(lambda (note)
+                (or (member ,template-name
+                            (manifolding-atlas-note-meta-get-list note 'TEMPLATE 'string))
+                    (equal ,template-name
+                           (cdr (assoc "TEMPLATE"
+                                       (manifolding-atlas-note-unfoldings note))))))
+             :include 'base
+             :fields
+             `((:key "TEMPLATE_HASH"
+                :type string
+                :required t
+                :validate ,(my/manifolding-atlas-blueprint--hash-validator))
+               ,@(cl-loop for key in keys
+                          collect
+                          `(:key ,key :type string
+                            :required t
+                            :validate ,(my/manifolding-atlas-blueprint--required-validator))))))
+(manifolding-atlas-blueprint-define
+ 'task
+ :predicate (lambda (note) (member "task" (manifolding-atlas-note-tags note)))
+ :include 'base
+ :fields
+ (list (my/manifolding-atlas-blueprint--field-from-prompt 'todo)
+       (my/manifolding-atlas-blueprint--field-from-prompt 'priority)))
+(with-eval-after-load 'manifolding-atlas
+  (setq manifolding-atlas-db-blueprint-validation-action 'silent))
+(defun my/manifolding-atlas-blueprint--migrate-note-warnings (level pos)
+  "Clean WARNING sentinels at one heading anchor; return count deleted."
+  (let ((count 0))
+    (when (and level (> level 0) pos)
+      (goto-char pos)
+      (org-back-to-heading t))
+    (dolist (unfolding '("STATE_WORK" "STATE_GENERAL" "STATE_INTELLIGENCE"
+                    "STATE_OPERATIONAL" "STATE_VALIDATION" "STATE_SOURCE"
+                    "STATE_DEPENDENCY" "STATE_CHECKLIST" "PRIORITY" "TAG"))
+      (let ((val (org-entry-get nil unfolding)))
+        (when (and val (string-match-p "WARNING" val))
+          (org-entry-delete nil unfolding)
+          (setq count (1+ count)))))
+    (when (and (org-at-heading-p)
+               (equal (org-get-todo-state) "WARNING"))
+      (org-todo " ")
+      (setq count (1+ count)))
+    count))
+
+(defun my/manifolding-atlas-blueprint--migrate-file-warnings (file notes)
+  "Delete WARNING-valued unfoldings for NOTES in FILE; return count."
+  (let ((count 0))
+    (with-current-buffer (find-file-noselect file)
+      (dolist (info notes)
+        (setq count
+              (+ count
+                 (my/manifolding-atlas-blueprint--migrate-note-warnings
+                  (plist-get info :level) (plist-get info :pos)))))
+      (when (buffer-modified-p)
+        (save-buffer))
+      (kill-buffer))
+    count))
+(defun my/manifolding-atlas-blueprint-migrate-warnings ()
+  "Delete all unfoldings with value \"WARNING\" throughout the vault.
+
+Under the old prompt system, skipping a prompt stored \"WARNING\" as
+the unfolding value to track it in Static Blueprints.  Now schema
+validation flags notes that are *missing* the metadata entirely as
+`missing-required` violations, so the sentinel is no longer needed.
+Deleting the WARNING sentinel lets the description-list metadata
+(eg - STATE_WORK :: ACTIVE) become the canonical value."
+  (interactive)
+  (unless (yes-or-no-p
+           "Delete all \"WARNING\" unfolding values throughout the vault? ")
+    (user-error "Aborted"))
+  (let ((count 0)
+        (files (make-hash-table :test #'equal)))
+    ;; Group notes by file so we only visit each file once
+    (dolist (note (manifolding-atlas-db-query))
+      (let ((file (manifolding-atlas-note-path note)))
+        (when (and file (file-exists-p file))
+          (push (list :level (manifolding-atlas-note-level note)
+                      :pos (manifolding-atlas-note-pos note))
+                (gethash file files)))))
+    (maphash
+     (lambda (file notes)
+       (setq count
+             (+ count (my/manifolding-atlas-blueprint--migrate-file-warnings
+                       file notes))))
+     files)
+     (message "Migration complete: deleted %d WARNING unfolding values (existing metadata preserved)." count)))
+(require 'manifolding-atlas nil t)
+(require 'manifolding-atlas-db nil t)
+(require 'manifolding-atlas-blueprint nil t)
+(defvar my/manifolding-atlas-reinforce--timer nil
+  "Debounced idle timer handle for scheduled sweeps.")
+
+(defvar my/manifolding-atlas-reinforce--last-sweep nil
+  "Float time of the last completed sweep.")
+
+(defvar my/manifolding-atlas-reinforce-idle-delay 15
+  "Idle seconds after vault activity before a debounced sweep runs.")
+
+(defvar my/manifolding-atlas-reinforce-boot-delay 30
+  "Idle seconds after boot before the one-shot boot sweep.")
+
+(defvar my/manifolding-atlas-reinforce-audit-allowlist
+  '("FILE_NAME" "SUBDIR" "POSITION" "TAG" "THINKING_TYPES"
+     "STAGE" "STATUS" "MIND_MAP" "POS" "ETYMOLOGY" "EXAMPLE" "FREQUENCY"
+     "PRONUNCIATION" "REGISTER" "SYNONYMS" "TEMPLATE")
+  "Unfolding keys managed outside schemas; excluded from the audit.
+STAGE and STATUS replaced the retired MASTERING key here: both are
+owned by the mastering engine (spine + workflow state), not by
+declarative schemas.")
+(defun my/manifolding-atlas-reinforce-sweep ()
+  "Run a full-vault schema sweep and rebuild Static Blueprints."
+  (interactive)
+  ;; Sweeps can fire at arbitrary ambient stack depth (idle inside
+  ;; recursive-edits etc). Carry an independent deep budget so ambient
+  ;; depth is irrelevant.
+  (let ((max-lisp-eval-depth 12000)
+        (max-specpdl-size 12000))
+    (condition-case err
+        (progn
+          (my/manifolding-atlas-missing--rebuild-from-health)
+          (setq my/manifolding-atlas-reinforce--last-sweep (float-time))
+          (my/manifolding-atlas-reinforce--audit))
+      (error (message "Schema sweep failed: %s" err)))))
+(defun my/manifolding-atlas-reinforce--schedule ()
+  "Debounce: re-arm the idle sweep timer."
+  (when my/manifolding-atlas-reinforce--timer
+    (cancel-timer my/manifolding-atlas-reinforce--timer))
+  (setq my/manifolding-atlas-reinforce--timer
+        (run-with-idle-timer my/manifolding-atlas-reinforce-idle-delay
+                             nil
+                             #'my/manifolding-atlas-reinforce--sweep-maybe)))
+
+(defun my/manifolding-atlas-reinforce--sweep-maybe ()
+  "Run a sweep only when the DB is ready; never reschedules itself."
+  (setq my/manifolding-atlas-reinforce--timer nil)
+  (let ((ready (condition-case nil
+                   (caar (emacsql (manifolding-atlas-db)
+                                  [:select [id] :from notes :limit 1]))
+                 (error nil))))
+    (when ready
+      (my/manifolding-atlas-reinforce-sweep))))
+(with-eval-after-load 'manifolding-atlas
+  (run-with-idle-timer my/manifolding-atlas-reinforce-boot-delay
+                       nil
+                       #'my/manifolding-atlas-reinforce--sweep-maybe))
+(defvar my/manifolding-atlas-reinforce--guard-timer nil)
+
+(defun my/manifolding-atlas-reinforce--validate-buffer-note ()
+  "Validate the current buffer's note from freshly synced DB data.
+Violations are intentionally silent here — they surface in
+admin/Static Blueprints via the reinforcement sweeps."
+  (setq my/manifolding-atlas-reinforce--guard-timer nil)
+  (unless (active-minibuffer-window)
+    (when-let ((id (my/manifolding-atlas-links--current-note-id))
+               (note (manifolding-atlas-db-get-by-id id)))
+      (manifolding-atlas-blueprint-note-violations note))))
+
+(defun my/manifolding-atlas-reinforce--save-guard ()
+  "Debounce a validation of the just-saved note.
+Runs after the idle delay so fswatch has synced the new state into
+the DB and we grade fresh data, not pre-save state."
+  (when my/manifolding-atlas-reinforce--guard-timer
+    (cancel-timer my/manifolding-atlas-reinforce--guard-timer))
+  (setq my/manifolding-atlas-reinforce--guard-timer
+        (run-with-idle-timer 3 nil
+                             #'my/manifolding-atlas-reinforce--validate-buffer-note)))
+
+(defun my/manifolding-atlas-reinforce--on-worker-done (&rest _)
+  "React to sync worker completion by scheduling a sweep."
+  (my/manifolding-atlas-reinforce--schedule))
+(with-eval-after-load 'manifolding-atlas
+  (add-hook 'org-capture-after-finalize-hook
+            #'my/manifolding-atlas-reinforce--schedule t)
+  (add-hook 'manifolding-atlas-db-worker-done-functions
+            #'my/manifolding-atlas-reinforce--on-worker-done))
+(defun my/manifolding-atlas-reinforce--enable-in-vault ()
+  "Enable save guard and debounced sweeps in vault note buffers."
+  (when (and buffer-file-name
+             (string-prefix-p (expand-file-name
+                               (my/manifolding-atlas-root-dir))
+                              buffer-file-name))
+    (add-hook 'after-save-hook
+              #'my/manifolding-atlas-reinforce--save-guard nil t)
+    (add-hook 'after-save-hook
+              #'my/manifolding-atlas-reinforce--schedule nil t)))
+
+(add-hook 'org-mode-hook #'my/manifolding-atlas-reinforce--enable-in-vault)
+(defun my/manifolding-atlas-reinforce--schema-field-keys ()
+  "Return all unfolding keys covered by registered schemas."
+  (let ((keys nil))
+    (dolist (name (manifolding-atlas-blueprint-list))
+      (dolist (field (manifolding-atlas-blueprint-fields
+                      (manifolding-atlas-blueprint-get name)))
+        (push (plist-get field :key) keys)))
+    (delete-dups keys)))
+(defun my/manifolding-atlas-reinforce--audit-prompts (covered)
+  "Return prompt keys not covered by COVERED schema fields."
+  (let ((uncovered nil))
+    (dolist (spec my/manifolding-atlas-prompt-registry)
+      (let* ((name (plist-get spec :name))
+             (files (and name
+                         (directory-files-recursively
+                          (my/manifolding-atlas-blueprint-dir)
+                          (format "^%s\\.org$" name))))
+             (file (car files))
+             (key (condition-case nil
+                      (my/manifolding-atlas-blueprint--extract-unfolding-key name)
+                    (error nil))))
+        (unless (or (memq name '(position subdir file-name tags todo
+                                        schedule deadline unfoldings))
+                    (and file (string-match-p "/prompts/" file))
+                    (null key)
+                    (member key covered))
+          (push key uncovered))))
+    uncovered))
+(defun my/manifolding-atlas-reinforce--audit-templates ()
+  "Return issue strings for missing/drifted template schemas."
+  (let ((template-issues nil))
+    (dolist (name (mapcar #'car (my/manifolding-atlas-blueprint--template-unfoldings)))
+      (let* ((schema-name (intern (concat "template-" name)))
+             (schema (manifolding-atlas-blueprint-get schema-name)))
+        (if (null schema)
+            (push (format "%s: no template schema" name) template-issues)
+          (let* ((field-keys (mapcar (lambda (f) (plist-get f :key))
+                                     (manifolding-atlas-blueprint-fields schema)))
+                 (expected (cons "TEMPLATE_HASH"
+                                 (cdr (assoc name
+                                             (my/manifolding-atlas-blueprint--template-unfoldings))))))
+            (dolist (want expected)
+              (unless (member want field-keys)
+                (push (format "%s: schema missing field %s" name want)
+                      template-issues)))))))
+    template-issues))
+(defvar my/manifolding-atlas-reinforce--drawer-order-extra-keys '("ID")
+  "Drawer keys allowed in drawer-order.org without a prompt blueprint.
+Org-native keys live here; everything else must match a spec :key.")
+(defun my/manifolding-atlas-reinforce--audit-drawer-order ()
+  "Return issue strings for drawer-order.org headings with no prompt.
+Compares against spec :key strings (drawer keys, e.g. TODO_STATE),
+not prompt names. Passive check only — never touches the order file
+or the drawer sweep; silent when clean or engine unavailable."
+  (let ((issues nil))
+    (when (fboundp 'my/manifolding-atlas-drawer-order-from-file)
+      (let ((order (condition-case nil
+                       (my/manifolding-atlas-drawer-order-from-file)
+                     (error nil)))
+            (known nil))
+        (when (and (boundp 'my/manifolding-atlas-org-prompt--specs)
+                   (hash-table-p my/manifolding-atlas-org-prompt--specs))
+          (maphash (lambda (_k spec)
+                     (push (plist-get spec :key) known))
+                   my/manifolding-atlas-org-prompt--specs))
+        (dolist (k (or order nil))
+          (unless (or (member k known)
+                      (member k my/manifolding-atlas-reinforce--drawer-order-extra-keys))
+            (push (format "drawer-order: %s matches no prompt" k)
+                  issues)))))
+    (nreverse issues)))
+(defun my/manifolding-atlas-reinforce--audit ()
+  "Warn about prompts not covered by any schema and templates whose
+generated schema is missing or drifted. Silent when clean."
+  (let* ((covered (append my/manifolding-atlas-reinforce-audit-allowlist
+                          (my/manifolding-atlas-reinforce--schema-field-keys)))
+         (uncovered (my/manifolding-atlas-reinforce--audit-prompts covered))
+         (template-issues (my/manifolding-atlas-reinforce--audit-templates))
+         (drawer-issues (my/manifolding-atlas-reinforce--audit-drawer-order)))
+    (when template-issues
+      (lwarn 'manifolding-atlas-reinforce :warning
+             "Template schema issues: %s"
+             (string-join (nreverse template-issues) "; ")))
+    (when drawer-issues
+      (lwarn 'manifolding-atlas-reinforce :warning
+             "Drawer order issues: %s"
+             (string-join drawer-issues "; ")))))
+#+end_src

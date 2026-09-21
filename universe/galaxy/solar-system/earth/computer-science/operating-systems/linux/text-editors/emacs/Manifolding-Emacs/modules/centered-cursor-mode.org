@@ -1,0 +1,32 @@
+#+title:      centered-cursor
+#+identifier: 7f2a4d1b-3e6c-4b8a-cd34-1e5f2a9b7c0d
+#+filetags:   :emacs-package:ui:
+
+* CENTERED-CURSOR — Vertical Cursor Centering #emacs-package
+:PROPERTIES:
+:ID:       7f2a4d1b-3e6c-4b8a-cd34-1e5f2a9b7c0d
+:PACKAGE:  centered-cursor-mode
+:STRAIGHT: (centered-cursor-mode :type git :host github :repo "andre-r/centered-cursor-mode.el")
+:CATEGORY: ui
+:END:
+
+** Guix
+#+begin_src scheme ~/.config/guix/Operating-System/user-space/root/editors/emacs-packages/ui/centered-cursor.scm
+#+end_src
+
+** Init
+:PROPERTIES:
+:KEYWORD: init
+:END:
+#+begin_src emacs-lisp
+(require 'mwheel nil t)
+(unless (boundp 'mouse-wheel-up-event) (defvar mouse-wheel-up-event 'wheel-up))
+(unless (boundp 'mouse-wheel-down-event) (defvar mouse-wheel-down-event 'wheel-down))
+(unless (boundp 'mouse-wheel-up-alternate-event) (defvar mouse-wheel-up-alternate-event 'wheel-up))
+(unless (boundp 'mouse-wheel-down-alternate-event) (defvar mouse-wheel-down-alternate-event 'wheel-down))
+#+end_src
+
+** Config
+#+begin_src emacs-lisp
+(global-centered-cursor-mode 1)
+#+end_src

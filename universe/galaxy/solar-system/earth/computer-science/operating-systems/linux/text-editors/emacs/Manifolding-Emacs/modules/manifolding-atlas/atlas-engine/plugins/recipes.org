@@ -1,0 +1,212 @@
+#+title: Manifolding Atlas Recipes Plugin
+#+priority: 20
+
+Manual recipe notes in the atlas. Recipes are authored by hand — no URL
+fetch, no source-url unfolding. They are stored under `recipes/` in the vault,
+carry recipe-specific unfoldings (SERVINGS, PREP_TIME, COOK_TIME,
+READY_IN) via the `recipes` body template, and can have their ingredient
+quantities rescaled to a new serving count.
+
+Commands:
+- `my/manifolding-atlas-recipe-create` — create a new recipe note
+- `my/manifolding-atlas-recipes-edit-servings` — rescale ingredient quantities
+
+* State
+#+begin_src emacs-lisp
+(defvar my/manifolding-atlas-recipes-directory
+  (expand-file-name "recipes/" (my/manifolding-atlas-root-dir))
+  "Directory (inside the vault) where recipe notes live.")
+#+end_src
+
+* Helpers
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-recipes--slugify (title)
+  "Turn TITLE into a URL-safe file-name stem."
+  (let ((s (downcase title)))
+    (setq s (replace-regexp-in-string "[^a-z0-9]+" "-" s))
+    (replace-regexp-in-string "^-+\\|-+$" "" s)))
+#+end_src
+
+* Recipe Capture
+
+** Template plumbing
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-recipes--template-body ()
+  "Return the content of the `recipes' body template, or \"%?\"."
+  (let ((file (my/manifolding-atlas--capture-path "recipes")))
+    (if (file-exists-p file)
+        (with-temp-buffer
+          (insert-file-contents file)
+          (buffer-string))
+      "%?")))
+
+(defun my/manifolding-atlas-recipes--store-template (note)
+  "Store TEMPLATE and TEMPLATE_HASH unfoldings on NOTE."
+  (my/manifolding-atlas--unfolding-put note "TEMPLATE" "recipes")
+  (my/manifolding-atlas--unfolding-put note "TEMPLATE_HASH"
+                            (or (my/manifolding-atlas--capture-file-hash "recipes")
+                                "unknown")))
+#+end_src
+** Body capture opener
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-recipes--open-capture (recipe)
+  (let* ((file (manifolding-atlas-note-path recipe))
+         (body (my/manifolding-atlas-recipes--template-body)))
+    (my/manifolding-atlas-recipes--store-template recipe)
+    (let ((org-capture-templates
+           `(("v" "Edit recipe body"
+               plain
+               (file+function
+                ,file
+                (lambda ()
+                  (goto-char (point-max))
+                  (skip-chars-backward " \t\n")))
+               ,body
+               :kill-buffer t
+               :unnarrowed t)))
+          (org-capture-use-indirect-buffer nil))
+      (when-let ((buf (get-file-buffer file)))
+        (when (eq buf (current-buffer))
+          (switch-to-buffer (other-buffer))))
+      (org-capture nil "v"))))
+#+end_src
+** Create command
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-recipe-create ()
+  "Create a new recipe note under `my/manifolding-atlas-recipes-directory'.
+Prompts for title, fast mode level, recipe-specific prompts (SERVINGS etc.), and
+opens the `recipes' body template for editing."
+  (interactive)
+  (let* ((manifolding-atlas-create-default-function (lambda (_) '()))
+         (root (expand-file-name "recipes/" (my/manifolding-atlas-root-dir)))
+         (_ (make-directory root t))
+         (title (read-string "Recipe title: "))
+         (slug (my/manifolding-atlas-recipes--slugify title))
+         (subdir (my/manifolding-atlas-choose-subdir
+                  (expand-file-name "recipes/" (my/manifolding-atlas-root-dir))
+                  "Subdirectory under recipes/: "))
+         (fname (concat "recipes/" subdir slug))
+         (fast (my/manifolding-atlas--fast-level))
+         (prompts (my/manifolding-atlas-collect-prompts-with-fast '(recipe) nil fast))
+         (tags (cons "recipe" (plist-get prompts :tags)))
+         (recipe (my/manifolding-atlas--create-file-wrapper
+                  title fname tags
+                  (plist-get prompts :unfoldings)
+                  (plist-get prompts :body))))
+    (dolist (fn (plist-get prompts :post-apply))
+      (funcall fn recipe))
+    (my/manifolding-atlas-recipes--open-capture recipe)))
+#+end_src
+
+* Edit Servings
+Rescales ingredient quantities by finding the SERVINGS unfolding,
+computing a multiplier, and rewriting all numeric quantities (fractions,
+decimals, unicode fractions) in the Ingredients section.
+
+** Quantity recognition
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-recipes--current-servings ()
+  "Return the SERVINGS number of the recipe heading at point, or nil."
+  (save-excursion
+    (condition-case nil
+        (progn
+          (org-back-to-heading t)
+          (while (and (not (org-entry-get nil "SERVINGS")) (org-up-heading-safe)))
+          (let ((s (org-entry-get nil "SERVINGS")))
+            (when (and s (string-match-p "[0-9]" s))
+              (string-to-number s))))
+      (error nil))))
+
+(defconst my/manifolding-atlas-recipes--quantity-regexp
+  "\\([0-9]+\\)/\\([0-9]+\\)\\|\\([0-9]+\\)\\(?:\\.[0-9]+\\)?\\|\\([¼½¾⅐⅑⅒⅓⅔⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞]\\)"
+  "Match a numeric quantity: fraction, decimal/integer, or unicode fraction.")
+
+(defun my/manifolding-atlas-recipes--quantity-value ()
+  "Return the numeric value of the quantity matched at point, or nil."
+  (cond ((match-string 1)
+         (/ (float (string-to-number (match-string 1)))
+            (float (string-to-number (match-string 2)))))
+        ((match-string 3) (string-to-number (match-string 3)))
+        ((match-string 4)
+         (get-char-code-property (string-to-char (match-string 4)) 'numeric-value))
+        (t nil)))
+#+end_src
+
+** Rescaling and command
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-recipes--rescale-ingredients (mult)
+  "Multiply all numeric quantities in the Ingredients list by MULT."
+  (save-excursion
+    (save-restriction
+      (widen)
+      (goto-char (point-min))
+      (let ((beg (when (re-search-forward "^\\*\\* Ingredients" nil t)
+                   (progn (forward-line 1) (point))))
+            (end (point-max)))
+        (when beg
+          (save-excursion
+            (goto-char beg)
+            (when (re-search-forward "^\\*\\* " nil t)
+              (setq end (match-beginning 0))))
+          (narrow-to-region beg end)
+          (goto-char (point-min))
+          (while (re-search-forward my/manifolding-atlas-recipes--quantity-regexp nil t)
+            (let ((val (my/manifolding-atlas-recipes--quantity-value)))
+              (when val
+                (replace-match (format "%.3g" (* mult val)))))))))))
+
+(defun my/manifolding-atlas-recipes-edit-servings (desired)
+  "Change the serving count of the recipe at point to DESIRED, rescaling
+the quantities in the Ingredients list to match."
+  (interactive "sChange servings to: ")
+  (let* ((current (my/manifolding-atlas-recipes--current-servings))
+         (desired-n (string-to-number desired)))
+    (unless current
+      (user-error "Could not find a recipe with a SERVINGS unfolding"))
+    (let ((mult (/ (float desired-n) (float current))))
+      (save-excursion
+        (org-back-to-heading t)
+        (while (and (not (org-entry-get nil "SERVINGS")) (org-up-heading-safe)))
+        (my/manifolding-atlas-recipes--rescale-ingredients mult)
+        (org-entry-put nil "SERVINGS" (format "%s" desired-n))))
+    (message "Servings: %s → %s (quantities rescaled)" current desired-n)))
+#+end_src
+
+* Schema
+Requires SERVINGS, PREP_TIME, COOK_TIME and READY_IN on notes
+tagged =recipe=.
+#+begin_src emacs-lisp
+(with-eval-after-load 'manifolding-atlas
+  (manifolding-atlas-blueprint-define
+   'recipe
+   :predicate (lambda (note) (member "recipe" (manifolding-atlas-note-tags note)))
+   :include 'base
+   :fields
+   (list
+    (list :key "SERVINGS"  :type 'string
+          :validate (lambda (val _n) (if (equal val "WARNING") "missing-required" t)))
+    (list :key "PREP_TIME" :type 'string
+          :validate (lambda (val _n) (if (equal val "WARNING") "missing-required" t)))
+    (list :key "COOK_TIME" :type 'string
+          :validate (lambda (val _n) (if (equal val "WARNING") "missing-required" t)))
+    (list :key "READY_IN"  :type 'string
+          :validate (lambda (val _n) (if (equal val "WARNING") "missing-required" t))))))
+#+end_src
+
+* Transient Menu
+Requires transient.
+#+begin_src emacs-lisp
+(require 'transient)
+
+(transient-define-prefix my/manifolding-atlas-recipes-menu ()
+  "Recipe actions."
+  [["Recipe"
+    ("n" "New recipe"       my/manifolding-atlas-recipe-create)
+    ("s" "Edit servings"    my/manifolding-atlas-recipes-edit-servings)
+    ("f" "Find recipe"      (lambda ()
+                             (interactive)
+                             (manifolding-atlas-find
+                              :filter-fn
+                              (lambda (note)
+                                (member "recipe" (manifolding-atlas-note-tags note))))))]])
+#+end_src

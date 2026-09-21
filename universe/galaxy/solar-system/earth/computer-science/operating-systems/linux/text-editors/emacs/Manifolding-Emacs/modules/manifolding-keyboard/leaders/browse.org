@@ -1,0 +1,20 @@
+#+title: Manifolding Keyboard — Browse Leader
+#+priority: 20
+
+SPC b: browse menu.
+
+** SPC b — Browse
+#+begin_src emacs-lisp
+(my/defhydra-state my/browse-hydra nil "Browse" (my/main-hydra/body "main menu")
+  "eww"
+  (("o" eww                    "open url"      :exit t)
+   ("b" eww-list-bookmarks     "bookmarks"     :exit t)
+   ("h" eww-list-histories     "history"       :exit t)
+   ("r" eww-reload             "reload"        :exit t)
+   ("n" eww-forward-url        "forward"       :exit t)
+   ("p" eww-back-url           "back"          :exit t)
+   ("d" eww-download           "download"      :exit t)
+   ("c" eww-copy-page-url      "copy url"      :exit t)
+   ("s" eww-switch-to-buffer   "switch buffer" :exit t)
+   ("S" eww-list-buffers       "list buffers"  :exit t)))
+#+end_src

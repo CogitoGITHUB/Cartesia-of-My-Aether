@@ -1,0 +1,38 @@
+* Journal :: %U :: %^{Session|Morning|Evening} :: %^{Location|Transit|Base|Unknown}
+
+** Axis Check — Operational / Epistemic / Existential
+- Operational load right now (body + logistics + open loops):
+- Epistemic state (what I think I know vs what is actually measurable):
+- Existential residue (the quiet joke that keeps decomposing):
+
+** Morning Block (pre-collapse)
+
+*** What would make today meaningful / successful in this particular manifold?
+*** What is the single highest-leverage node that, if moved, shifts the entire graph?
+*** Energy / mood / body signal (1 line, no performance):
+*** What modular constraint is active today (travel, gear, people, money, attention)?
+*** What reality-mapping question am I carrying that still has no coordinates?
+*** Anticipated friction points (logistics, people, internal sabotage):
+*** One deliberate experiment or micro-protocol for the day:
+
+** Evening Block (post-collapse)
+
+*** What actually happened / what did the day do to the map?
+*** What worked cleanly? What failed with interesting debris?
+*** Open loops I am deliberately carrying into the next node (list, no resolution required):
+*** One gratitude that is not performative (can be dark, small, or purely structural):
+*** What did I learn that updates the model of reality / self / system?
+*** Where did the map diverge from the territory today?
+*** What pattern (AuDHD / sociopathic / modular-travel) showed up and how did I ride or ignore it?
+*** Energy residual + recovery protocol for the next cycle:
+*** One sentence that could serve as a future org-ql search anchor:
+
+** Cross-Session Mirror (optional, for when you want the symmetry)
+- Morning intention ↔ Evening outcome delta:
+- Highest-leverage node chosen ↔ Actual movement achieved:
+- Open loop status (still open / closed / mutated into something worse):
+
+** Meta — Cartography Notes
+- New edges discovered between previously disconnected nodes:
+- Nodes that should be pruned or archived:
+- Temporary coordinates assigned to still-fuzzy phenomena:

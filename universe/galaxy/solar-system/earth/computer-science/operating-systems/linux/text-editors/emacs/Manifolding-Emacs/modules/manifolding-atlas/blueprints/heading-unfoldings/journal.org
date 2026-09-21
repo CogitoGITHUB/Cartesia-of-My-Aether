@@ -1,0 +1,9 @@
+#+title:      Journal Prompt
+#+priority:   24
+
+* JOURNAL :inline:file:heading:task:
+** TODO
+** WARNING
+** OPEN
+** CLOSED
+** ROTATED

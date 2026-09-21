@@ -1,0 +1,33 @@
+#+title:      Status Prompt
+#+priority:   5
+
+Workflow state for a note's participation in active practice. This is
+deliberately a separate blueprint from STAGE: lifecycle states are not
+mastery states. You can suspend a beginner subject, an expert subject,
+an unfinished research question, or a dormant skill — the stage
+attainment survives underneath, and resuming restores exactly where
+the knowledge left off. Stage says how far the knowledge developed;
+status says what the mapper is currently doing with it.
+
+* STATUS :inline:file:heading:task:
+** ACTIVE
+In the active practice pool: due for review on schedule, visible in
+review sessions, counted in due tallies. The default for every living
+note.
+** SUSPENDED
+Frozen on purpose. The schedule row is kept (nothing is deleted), the
+stage value is untouched, but the note leaves due queries and review
+sessions until resumed. Use for: "not now" topics, seasonal skills,
+paused projects, anything whose absence from review is a decision
+rather than neglect. Resume with the same toggle.
+** ARCHIVED
+Finished business kept for reference: completed projects, superseded
+notes, closed questions. Out of review permanently unless deliberately
+reactivated. Unlike SUSPENDED, archival asserts the note needs no
+future practice — only its material.
+** DORMANT
+Neither practiced nor closed: hibernating knowledge that may or may
+not wake. The difference from SUSPENDED is intent — dormant means "no
+decision yet" while suspended means "decided pause". Dormant notes are
+excluded from review but included in periodic triage counts, so they
+resurface for a decision instead of rotting silently.

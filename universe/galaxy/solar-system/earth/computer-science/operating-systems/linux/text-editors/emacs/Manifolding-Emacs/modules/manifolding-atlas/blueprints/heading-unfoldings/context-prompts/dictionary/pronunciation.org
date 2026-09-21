@@ -1,0 +1,8 @@
+#+title:      Pronunciation Prompt
+#+priority:   16
+
+* PRONUNCIATION :scoped:dictionary:
+:PROPERTIES:
+:ID: pronunciation
+:UNFOLDING: pronunciation
+:END:

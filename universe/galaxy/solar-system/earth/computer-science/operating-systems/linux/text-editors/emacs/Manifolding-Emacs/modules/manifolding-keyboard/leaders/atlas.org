@@ -1,0 +1,59 @@
+#+title: Manifolding Keyboard — Atlas Leader
+#+priority: 22
+
+SPC v: Manifolding Atlas menu.
+
+** SPC v — Manifolding Atlas
+#+begin_src emacs-lisp
+(my/defhydra-state my/manifolding-atlas-hydra nil "Manifolding Atlas" (my/main-hydra/body "main menu")
+  "Find"
+  (("v" manifolding-atlas-find "find note" :exit t)
+   ("V" my/manifolding-atlas-insert-link "insert link" :exit t)
+   ("r" my/manifolding-atlas-rename-link "rename link" :exit t))
+  "Capture"
+  (("h" my/manifolding-atlas-capture-heading "new heading" :exit t)
+   ("c" my/manifolding-atlas-insert-heading "at point" :exit t)
+   ("H" my/manifolding-atlas-heading-to-note "heading→note" :exit t))
+   "Meta"
+   (("u" manifolding-atlas-ui-sidebar-toggle "sidebar" :exit t)
+    ("E" my/manifolding-atlas-reinforce-sweep "schema sweep" :exit t))
+  "Rules"
+  (("k" my/manifolding-atlas-rules-mark-as-rule "mark rule" :exit t)
+   ("K" my/manifolding-atlas-rules-goto-routed-file "rule file" :exit t)
+   ("R" my/manifolding-atlas-find-rules "find rules" :exit t))
+  "Protocols"
+  (("p" my/manifolding-atlas-protocols-build "build" :exit t)
+   ("m" my/manifolding-atlas-protocols-mark-as-step "mark step" :exit t)
+   ("i" my/manifolding-atlas-find-protocols "find protocols" :exit t))
+  "Vocab"
+  (("w" my/manifolding-atlas-dictionary-menu "dictionary" :exit t))
+  ;; Contacts plugin is scaffold-only (no menu yet) — hide until implemented
+  ;; (("C" my/manifolding-atlas-contacts-menu "contacts" :exit t))
+  "Mastering"
+  (("g" my/manifolding-atlas-mastering-review "review due" :exit t)
+   ("G" my/manifolding-atlas-mastering-review-overdue "review overdue" :exit t)
+   ("M" my/manifolding-atlas-mastering-mark-review "mark reviewed" :exit t)
+   ("a" my/manifolding-atlas-mastering-attest "attest stage" :exit t)
+   ("d" my/manifolding-atlas-mastering-review-subtree "branch" :exit t)
+   ("t" my/manifolding-atlas-mastering-toggle-participation "suspend" :exit t))
+  "Search"
+  (("s" my/atlas-search "search center" :exit t))
+  "Recipe"
+  (("n" my/manifolding-atlas-recipe-create "new recipe" :exit t)
+   ("e" my/manifolding-atlas-recipes-edit-servings "edit servings" :exit t)
+   ("f" my/manifolding-atlas-recipes-menu "recipes" :exit t))
+  "Routines"
+  (("N" my/manifolding-atlas-routines-create "new routine" :exit t)
+   ("J" my/manifolding-atlas-routines-chain-create "new chain" :exit t)
+   ("F" my/manifolding-atlas-routines-find "find routine" :exit t)
+   ("B" my/manifolding-atlas-routines-generate "generate" :exit t)
+   ("X" my/manifolding-atlas-routines-run "run" :exit t)
+   ("!" my/manifolding-atlas-routines-validate "validate" :exit t)
+   ("S" my/manifolding-atlas-routines-report "report" :exit t)
+   ("T" my/manifolding-atlas-routines-menu "menu" :exit t))
+  "Wormhole"
+  (("y" my/wormhole-hydra/body "wormhole" :exit t))
+  "Config"
+   (("A" my/manifolding-atlas-open-drawer-order "drawer order" :exit t)
+    ("b" my/manifolding-atlas-blueprint-nest-at-point "nest blueprint" :exit t)))
+#+end_src

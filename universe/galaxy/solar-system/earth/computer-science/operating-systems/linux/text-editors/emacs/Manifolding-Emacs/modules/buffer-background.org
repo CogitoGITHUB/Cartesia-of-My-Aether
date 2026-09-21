@@ -1,0 +1,30 @@
+#+title:    buffer-background
+#+filetags: :emacs-package:ui:
+
+* TODO Buffer-Background
+:PROPERTIES:
+:PACKAGE:  buffer-background
+:CATEGORY: ui
+:STRAIGHT: (buffer-background :type git :host github :repo "theesfeld/buffer-background")
+:END:
+
+** Purpose
+Displays solid colors as per-buffer backgrounds via face remapping,
+with adjustable opacity and automatic assignment by buffer name,
+major mode, file extension, or custom predicate. Zero dependencies.
+
+** Setup
+
+*** Config
+#+begin_src emacs-lisp
+(setq buffer-background-opacity 0.3)
+
+;; Automatic assignments. Keys: exact buffer name, regexp, major-mode
+;; symbol, (mode . SYMBOL), (file . "ext"), or (lambda (buf) ...) predicate.
+;; Values: "#rrggbb" color name, or (:color "..." :opacity 0.0-1.0) plist.
+(setq buffer-background-color-alist
+      '(("*scratch*"  . "#2d2d2d")
+        ("*Messages*" . "#1a1a1a")))
+
+(buffer-background-global-mode 1)
+#+end_src

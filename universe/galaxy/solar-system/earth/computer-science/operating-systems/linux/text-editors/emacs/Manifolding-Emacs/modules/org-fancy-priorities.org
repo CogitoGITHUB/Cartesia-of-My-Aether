@@ -1,0 +1,41 @@
+#+title:      org-fancy-priorities
+#+identifier: 5b2e8d3c-9f1a-4c7b-ef23-8d4a3b5c7f2e
+#+filetags:   :emacs-package:ui:
+
+* ORG-FANCY-PRIORITIES — Priority Icons #emacs-package
+:PROPERTIES:
+:ID:       5b2e8d3c-9f1a-4c7b-ef23-8d4a3b5c7f2e
+:PACKAGE:  org-fancy-priorities
+:STRAIGHT: (org-fancy-priorities :type git :host github :repo "harrybournis/org-fancy-priorities")
+:CATEGORY: ui
+:END:
+
+** Guix
+#+begin_src scheme
+#+end_src
+
+** Config
+#+begin_src emacs-lisp
+(defun my/org-fancy-priorities-defer ()
+  "Enable org-fancy-priorities once the buffer settles.
+Enabling from inside `org-mode-hook' force-fontifies while org's
+font-lock setup is still incomplete and can abort visiting the file."
+  (run-with-idle-timer
+   0 nil
+   (lambda ()
+     (when (derived-mode-p 'org-mode)
+       (ignore-errors (org-fancy-priorities-mode 1))))))
+
+(leaf org-fancy-priorities
+  :hook
+  (org-mode-hook        . my/org-fancy-priorities-defer)
+  (org-agenda-mode-hook . org-fancy-priorities-mode)
+  :custom
+  (org-fancy-priorities-list . '((?A . "🌹")
+                                  (?B . "🥀")
+                                  (?C . "·")))
+  (org-priority-faces . '((?A :foreground "#FFFFFF" :weight bold)
+                           (?B :foreground "#FFFFFF")
+                           (?C :foreground "#FFFFFF"))))
+#+end_src
+

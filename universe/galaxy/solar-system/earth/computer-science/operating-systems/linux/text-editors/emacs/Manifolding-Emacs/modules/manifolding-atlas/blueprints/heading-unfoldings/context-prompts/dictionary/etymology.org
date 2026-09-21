@@ -1,0 +1,17 @@
+#+title:      Etymology Prompt
+#+priority:   15
+
+* ETYMOLOGY :unfolding:dictionary:
+:PROPERTIES:
+:UNFOLDING: etymology
+:END:
+** TODO
+** Latin
+** Greek
+** Old English
+** French
+** German
+** Arabic
+** Hindi
+** Japanese
+** Other

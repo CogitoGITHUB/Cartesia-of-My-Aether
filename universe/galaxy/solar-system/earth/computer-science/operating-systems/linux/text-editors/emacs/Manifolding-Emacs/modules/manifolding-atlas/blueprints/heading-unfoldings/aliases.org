@@ -1,0 +1,4 @@
+#+title:      Aliases Prompt
+#+priority:   1
+
+# Aliases prompt removed per Plan B — no prompt registered, file kept as placeholder.

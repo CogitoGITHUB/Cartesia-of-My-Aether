@@ -1,0 +1,15 @@
+#+title: Manifolding Keyboard — Templates Leader
+#+priority: 20
+
+SPC x: templates menu.
+
+** SPC x — Templates
+#+begin_src emacs-lisp
+(my/defhydra-state my/templates-hydra nil "Templates" (my/main-hydra/body "main menu")
+  "Templates"
+  (("i" tempel-insert           "insert" :exit t)
+   ("I" tempel-complete         "complete" :exit t)
+   ("n" tempel-next             "next"   :exit nil)
+   ("p" tempel-previous         "prev"   :exit nil)
+   ("a" tempel-abort             "abort"  :exit t)))
+#+end_src

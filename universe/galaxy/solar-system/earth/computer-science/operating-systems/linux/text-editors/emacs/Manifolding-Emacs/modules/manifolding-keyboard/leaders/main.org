@@ -1,0 +1,22 @@
+#+title: Manifolding Keyboard — Main Leader
+#+priority: 20
+
+SPC root hub plus its owned commands.
+
+** Main menu
+
+Root menu (`my/main-hydra/body`, Transient era). Submenu list lives in
+`engine/menus.org` and derives from the leader registry — edit there,
+not here. Owned file-open commands below.
+** Owned commands
+#+begin_src emacs-lisp
+(defun my/find-file (path)
+  "Open PATH, expanding ~ correctly."
+  (interactive "FFile: ")
+  (find-file (expand-file-name path)))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/open-dashboard ()
+  (interactive)
+  (switch-to-buffer "*dashboard*"))
+#+end_src

@@ -1,0 +1,16 @@
+#+title:      org-generate
+#+identifier: 20fca4be-86b5-4fa8-b207-d35af90d282d
+#+filetags:   :emacs-package:org:
+
+* org-generate
+:PROPERTIES:
+:ID:       20fca4be-86b5-4fa8-b207-d35af90d282d
+:PACKAGE:  org-generate
+:CATEGORY: org
+:STRAIGHT: (org-generate :type git :host github :repo "conao3/org-generate.el")
+:END:
+
+** Config :config:
+#+begin_src emacs-lisp
+
+#+end_src

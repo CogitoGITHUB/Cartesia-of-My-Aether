@@ -1,0 +1,15 @@
+#+title:      org-fragtog
+#+filetags:   :emacs-package:editing:
+
+* ORG-FRAGTOG — Auto-Toggle LaTeX Fragments #emacs-package
+:PROPERTIES:
+:ID:
+:PACKAGE:  org-fragtog
+:STRAIGHT: (org-fragtog :type git :host github :repo "io12/org-fragtog")
+:CATEGORY: editing
+:END:
+
+** Config
+#+begin_src emacs-lisp
+(add-hook 'org-mode-hook #'org-fragtog-mode)
+#+end_src

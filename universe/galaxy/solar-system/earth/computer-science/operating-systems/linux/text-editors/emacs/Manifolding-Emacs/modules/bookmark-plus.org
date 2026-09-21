@@ -1,0 +1,39 @@
+#+title:    book-mode
+#+filetags: :emacs-package:ui:reading:
+#+PRIORITY: 20
+
+Ⅰ BOOK-MODE — Reading Interface ♯
+src emacs-lisp
+(setq book-mode-left-margin  8
+      book-mode-right-margin 8)
+
+;; Custom header — 🌹 only, no frame count or dedicated icon
+(defun book-mode-element-frame-count-icon (&optional _icon) " 🌹 ")
+(defun book-mode-element-dedicated () "")
+
+(defun my/book-mode-setup ()
+  (when book-mode
+    (face-remap-add-relative 'default
+                             :family "ETBembo"
+                             :height 160)
+    (face-remap-add-relative 'org-code  :family "Iosevka" :height 140)
+    (face-remap-add-relative 'org-block :family "Iosevka" :height 140)
+    (setq-local fill-column 75)
+    (visual-line-mode 1)
+    (setq-local left-fringe-width  0
+                right-fringe-width 0)
+    (set-window-fringes (selected-window) 0 0)
+    (setq-local cursor-type 'bar)))
+
+(add-hook 'book-mode-hook  #'my/book-mode-setup)
+(add-hook 'org-mode-hook   #'book-mode)
+(add-hook 'dired-mode-hook #'book-mode)
+
+(advice-add 'book-mode :after
+            (lambda (&rest _)
+              (setq-local mode-line-format nil)))
+
+;; Stop book-mode hijacking messages away from the echo area
+(with-eval-after-load 'book-mode
+  (advice-remove 'message #'book-mode--message))
+src

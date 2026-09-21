@@ -1,0 +1,133 @@
+#+title:      Manifolding Atlas — Fast Journal
+#+priority:   15
+
+Fast journal entry capture. Creates a timestamped heading in Journal.org.
+
+* Core
+
+** Date and path resolution
+Journal notes nest into admin/Journal/<Y>/<Q>/<m>/<W>/ like routines.
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-quick-journal--date ()
+  (format-time-string "%Y-%m-%d" (org-read-date nil t nil "Journal date")))
+
+(defun my/manifolding-atlas-quick-journal--path (date)
+  (let* ((parsed (date-to-time date))
+         (year (format-time-string "%Y" parsed))
+         (quarter (format "Q%d" (1+ (/ (1- (string-to-number (substring date 5 7))) 3))))
+         (month (format-time-string "%Y-%m" parsed))
+         (week (format-time-string "W%V" parsed))
+         (dir (expand-file-name
+               (format "admin/Journal/%s/%s/%s/%s/" year quarter month week)
+               (my/manifolding-atlas-root-dir)))
+         (file (expand-file-name date dir)))
+    `(:dir ,dir :file ,file :year ,year
+           :quarter ,quarter :month ,month :week ,week :date ,date)))
+#+end_src
+
+** Day template picker
+Day-file TEMPLATE picker with live side preview, defaulting to
+"journal". Mirrors `my/manifolding-atlas-prompt-template--choose'
+but preselects the journal template; returns "WARNING" when skipped.
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-quick-journal--choose-template ()
+  "Ask for day-file TEMPLATE with live preview. Default \"journal\"."
+  (if (and (boundp 'my/manifolding-atlas-prompt-template--deferred)
+           my/manifolding-atlas-prompt-template--deferred)
+      "WARNING"
+    (let* ((names (ignore-errors (my/manifolding-atlas-prompt-template--names)))
+           (cands (append '("WARNING" "none") names))
+           (default (if (member "journal" names) "journal" "WARNING"))
+           (preview-buf "*Template Preview*")
+           (last-cand nil)
+           (update-preview
+            (lambda ()
+              (let* ((input (ignore-errors (minibuffer-contents)))
+                     (cand (cond
+                            ((and (bound-and-true-p vertico-mode)
+                                  (fboundp 'vertico--candidate))
+                             (ignore-errors (vertico--candidate)))
+                            (t nil)))
+                     (chosen (or cand input)))
+                (unless (equal chosen last-cand)
+                  (setq last-cand chosen)
+                  (let ((content (my/manifolding-atlas--get-template-content chosen)))
+                    (with-current-buffer (get-buffer-create preview-buf)
+                      (erase-buffer)
+                      (insert (or content (format "No content for %s" (or chosen ""))))
+                      (goto-char (point-min))
+                      (display-buffer (current-buffer) '((display-buffer-reuse-window display-buffer-in-side-window) (side . right) (window-width . 0.5)))))))))
+           (setup-fn
+            (lambda ()
+              (add-hook 'post-command-hook update-preview nil t)
+              (ignore-errors (funcall update-preview))))
+           (exit-fn
+            (lambda ()
+              (remove-hook 'post-command-hook update-preview t)
+              (when (get-buffer preview-buf)
+                (kill-buffer preview-buf)))))
+      (unwind-protect
+          (progn
+            (add-hook 'minibuffer-setup-hook setup-fn)
+            (add-hook 'minibuffer-exit-hook exit-fn)
+            (completing-read "JOURNAL TEMPLATE: " cands nil t nil nil default))
+        (remove-hook 'minibuffer-setup-hook setup-fn)
+        (remove-hook 'minibuffer-exit-hook exit-fn)
+        (remove-hook 'post-command-hook update-preview t)
+        (when (get-buffer preview-buf)
+          (kill-buffer preview-buf))))))
+#+end_src
+
+** Journal entry command
+Creates the day note on first touch, then appends a timestamped
+child heading and opens capture.
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-quick-journal ()
+  (interactive)
+  (let* ((date (my/manifolding-atlas-quick-journal--date))
+         (info (my/manifolding-atlas-quick-journal--path date))
+         (dir (plist-get info :dir))
+         (file (plist-get info :file))
+         (ts (format-time-string "[%Y-%m-%d %a %H:%M]"))
+         day-note)
+    (make-directory dir t)
+    (unless (file-exists-p file)
+      (let* ((unfoldings `(("YEAR" . ,(plist-get info :year))
+                      ("QUARTER" . ,(plist-get info :quarter))
+                      ("MONTH" . ,(plist-get info :month))
+                      ("WEEK" . ,(plist-get info :week))
+                      ("DATE" . ,date)))
+             (manifolding-atlas-create-default-function (lambda (_) '()))
+             (template (my/manifolding-atlas-quick-journal--choose-template))
+             (raw-body (or (my/manifolding-atlas--get-template-content template) ""))
+             ;; %U is capture syntax; the day branch bypasses capture, so
+             ;; stamp it with the creation timestamp. %^{...} prompts stay
+             ;; literal for you to fill in the buffer.
+             (body (replace-regexp-in-string "%U" ts raw-body t t)))
+        (let ((my/manifolding-atlas--skip-capture t))
+          (let ((created (manifolding-atlas-create date file
+                         :unfoldings unfoldings
+                         :body body)))
+            (ignore-errors
+              (my/manifolding-atlas-prompt-template--apply template created))))))
+    (setq day-note (car (manifolding-atlas-db-query-by-file-path file)))
+    (unless day-note
+      (manifolding-atlas-db-update-file file)
+      (setq day-note (car (manifolding-atlas-db-query-by-file-path file))))
+    (unless day-note
+      (error "Journal note not found for %s" date))
+    (manifolding-atlas-create ts nil :parent day-note)
+    (setq my/manifolding-atlas--skip-open-prompt t)
+    (let ((org-capture-templates
+           (append org-capture-templates
+                   (list (list "j" "Journal" 'plain
+                               `(file+function ,file
+                                 (lambda ()
+                                   (with-current-buffer
+                                       (find-file-noselect ,file)
+                                     (goto-char (point-max)))))
+                               "*** %?" :kill-buffer t :unnarrowed t)))))
+      (org-capture nil "j")
+      (set-buffer-modified-p nil)
+      (when (fboundp 'modaled-set-state) (modaled-set-state "insert")))))
+#+end_src

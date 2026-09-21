@@ -1,0 +1,30 @@
+#+title: Manifolding Keyboard — Mindmap Leader
+#+priority: 20
+
+SPC m: mind map menu.
+
+** SPC m — Mind Map
+#+begin_src emacs-lisp
+(my/defhydra-state my/mindmap-hydra nil "Mind Map" (my/main-hydra/body "main menu")
+  "Navigate"
+  (("p" mm/goto-parent       "parent"     :exit t)
+   ("c" mm/goto-child        "child"      :exit t)
+   ("r" mm/goto-root         "root"       :exit t)
+   ("t" my/mindmap-traverse-enter "traverse" :exit t))
+  "Position"
+  (("P" mm/assign-parent     "assign parent"  :exit t)
+   ("A" mm/assign-after      "place after"    :exit t)
+   ("B" mm/assign-between    "place between"  :exit t)
+   ("R" mm/make-root-interactive "make root"   :exit t)
+   ("!" mm/repack-all        "repack all"     :exit t))
+  "Status"
+  (("a" mm/--status-active     "active"     :exit t)
+   ("s" mm/--status-suspended  "suspended"  :exit t)
+   ("d" mm/--status-dormant    "dormant"    :exit t)
+   ("x" mm/--status-archived   "archived"   :exit t))
+  "View"
+  (("m" mm/map-display       "map display"    :exit t)
+   ("g" mm/group-display     "group display"  :exit t)
+   ("j" mm/export-json       "export JSON"    :exit t)
+   ("i" mm/init              "init vault"     :exit t)))
+#+end_src

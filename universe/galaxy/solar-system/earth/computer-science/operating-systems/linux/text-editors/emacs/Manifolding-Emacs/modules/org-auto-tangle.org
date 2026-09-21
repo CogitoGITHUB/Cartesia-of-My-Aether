@@ -1,0 +1,16 @@
+#+title:      org-auto-tangle
+#+identifier: 1d7f9b5e-3c2a-4e8f-af56-4b6c8e2f7d1a
+#+filetags:   :emacs-package:org:
+
+* ORG-AUTO-TANGLE — Auto Tangle on Save
+:PROPERTIES:
+:ID:       1d7f9b5e-3c2a-4e8f-af56-4b6c8e2f7d1a
+:PACKAGE:  org-auto-tangle
+:STRAIGHT: (org-auto-tangle :type git :host github :repo "yilkalargaw/org-auto-tangle")
+:CATEGORY: org
+:END:
+
+** Config
+#+begin_src emacs-lisp
+(add-hook 'org-mode-hook #'org-auto-tangle-mode)
+#+end_src

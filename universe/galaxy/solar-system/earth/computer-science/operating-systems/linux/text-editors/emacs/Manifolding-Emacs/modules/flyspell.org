@@ -1,0 +1,27 @@
+#+title:      flyspell
+#+filetags:   :emacs-package:spelling:
+
+* Ispell — Spell Checker Interface
+:PROPERTIES:
+:PACKAGE:  ispell
+:STRAIGHT: (ispell :type built-in)
+:CATEGORY: editing
+:END:
+
+** Config :config:
+#+begin_src emacs-lisp
+(setq ispell-program-name "aspell")
+(setq ispell-extra-args '("--run-together" "--lang=en_US"))
+#+end_src
+
+* Flyspell — On-the-fly Spell Checking
+:PROPERTIES:
+:PACKAGE:  flyspell
+:STRAIGHT: (flyspell :type built-in)
+:CATEGORY: editing
+:END:
+
+** Config :config:
+#+begin_src emacs-lisp
+(setq flyspell-use-meta-tab nil)
+#+end_src

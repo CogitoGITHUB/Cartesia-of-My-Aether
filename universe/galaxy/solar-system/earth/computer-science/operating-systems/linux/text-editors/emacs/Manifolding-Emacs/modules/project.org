@@ -1,0 +1,17 @@
+#+title:      project
+#+identifier: 3b4d2e1f-9c6a-4f8e-bd23-7a2d5c1e3f9b
+#+filetags:   :emacs-package:tools:
+
+* Project
+:PROPERTIES:
+:PACKAGE:  project
+:CATEGORY: tools
+:BUILT-IN: t
+:END:
+
+** Config
+
+#+begin_src emacs-lisp
+(setq project-list-file (expand-file-name "projects" user-emacs-directory))
+(setq dashboard-projects-backend 'project-el)
+#+end_src

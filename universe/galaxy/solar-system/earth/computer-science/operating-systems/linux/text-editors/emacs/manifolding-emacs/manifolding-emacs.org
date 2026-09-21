@@ -1,3 +1,0 @@
-#+title: MANIFOLDING-EMACS
-
-Placeholder node — structure intentionally left empty. Populated later from the actual Manifolding-Emacs tree, not now.

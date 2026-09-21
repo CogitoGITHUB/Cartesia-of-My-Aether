@@ -1,0 +1,72 @@
+#+title: Manifolding Keyboard — Org State
+#+priority: 20
+
+Keys specific to the org state. Shared bindings live in universal.org.
+
+** State definition
+Self-registration: mode, keymap, and init predicate in one unit. Delete this file and the state unregisters on next boot.
+#+begin_src emacs-lisp
+(defun my/org-state-init-p ()
+  "Auto-activate org state in org buffers."
+  (derived-mode-p 'org-mode))
+#+end_src
+#+begin_src emacs-lisp
+(manifolding-keyboard-define-state "org"
+  :lighter "[ORG]"
+  :cursor-type 'box :init #'my/org-state-init-p)
+#+end_src
+** Owned functions
+#+begin_src emacs-lisp
+(defun my/org-insert-level1-todo ()
+  "Insert a level-1 TODO heading and enter insert state."
+  (interactive)
+  (end-of-line)
+  (insert "\n* TODO ")
+  (manifolding-keyboard-set-state "insert"))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/org-insert-code-block ()
+  "Insert a src block and enter insert state."
+  (interactive)
+  (org-insert-structure-template "src")
+  (manifolding-keyboard-set-state "insert"))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/org-insert-latex-block ()
+  "Insert a LaTeX export block and enter insert state."
+  (interactive)
+  (org-insert-structure-template "latex")
+  (manifolding-keyboard-set-state "insert"))
+#+end_src
+** Bindings
+#+begin_src emacs-lisp
+(manifolding-keyboard-define-keys
+  :states '("org")
+  :bind
+  `(
+    ("I" . manifolding-atlas-insert)
+    ("K" . org-clock-out)
+    ("L" . org-latex-preview)
+    ("M" . my/org-insert-level1-todo)
+    ("N" . org-shifttab)
+    ("Q" . my/org-insert-code-block)
+    ("RET" . my/manifolding-atlas-return-dispatch)
+    ("V" . manifolding-atlas-find)
+    ("W" . org-narrow-to-subtree)
+    ("X" . my/org-insert-latex-block)
+    ("b" . org-insert-structure-template)
+    ("c" . org-capture)
+    ("f" . org-refile)
+    ("g" . org-set-tags-command)
+    ("j" . consult-org-heading)
+    ("k" . org-clock-in)
+    ("l" . org-insert-link)
+    ("o" . org-open-at-point)
+    ("p" . org-schedule)
+    ("r" . org-priority)
+    ("v" . org-cycle-global)
+    ("x" . org-deadline)
+    ("y" . org-agenda)
+    ("z" . consult-todo)
+))
+#+end_src

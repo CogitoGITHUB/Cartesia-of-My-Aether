@@ -1,0 +1,21 @@
+#+title:      org-appear
+#+identifier: 9c5e7b3f-1d8a-4c6f-ef34-2a4c8f2e5b7d
+#+filetags:   :emacs-package:org:
+
+* ORG-APPEAR — Reveal Org Emphasis
+:PROPERTIES:
+:ID:       9c5e7b3f-1d8a-4c6f-ef34-2a4c8f2e5b7d
+:PACKAGE:  org-appear
+:STRAIGHT: (org-appear :type git :host github :repo "awth13/org-appear")
+:CATEGORY: org
+:END:
+
+** Config
+#+begin_src emacs-lisp
+(setq org-appear-autolinks     nil
+      org-appear-autosubmarkers t
+      org-appear-autoentities  t
+      org-appear-autokeywords  t)
+
+(add-hook 'org-mode-hook #'org-appear-mode)
+#+end_src

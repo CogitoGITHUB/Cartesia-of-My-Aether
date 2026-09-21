@@ -1,0 +1,271 @@
+#+title: Manifolding Keyboard — Scaffolding
+#+priority: 20
+
+Creators and validator for the split layout. Mirrors the Atlas
+blueprint-add pattern: creation writes a correctly-shaped file (loud
+on collision), discovery is free (recursive loader at priority 20),
+tracking is an explicit validator (not memory). No manifest, no
+drawer, no registry edit — dropping a file is the whole registration.
+
+A new state needs three things (the creator does #1, you do #2–3):
+1. =states/<name>.org= (creator writes it),
+2. a =manifolding-keyboard-define-state= invocation in
+   =engine/state-machine.org=,
+3. =init-state-fn= routing in =engine/setup.org= if the state should
+   activate automatically.
+A new leader needs only its file (the main =SPC= hub links sub-hydras
+by body symbol at runtime).
+
+* Creators
+
+** New state file
+#+begin_src emacs-lisp
+(defun manifolding-keyboard-new-state (name)
+  "Create states/<NAME>.org from the state skeleton.
+Errors loudly when the file already exists."
+  (interactive "sState name (lowercase, e.g. foreplay): ")
+  (when (string-empty-p name)
+    (user-error "State name must not be empty"))
+  (let ((path (expand-file-name
+               (format "states/%s.org" name)
+               (manifolding-keyboard--module-dir))))
+    (when (file-exists-p path)
+      (user-error "State file exists: %s" path))
+    (with-temp-file path
+      (insert (format "#+title: Manifolding Keyboard — %s State\n#+priority: 20\n\nKeys specific to the %s state. Shared bindings live in universal.org.\n** Bindings\n#+begin_src emacs-lisp\n(manifolding-keyboard-define-keys\n  :states '(\"%s\")\n  :bind\n  `((\"<key>\" . <command>)))\n#+end_src\n\n** Owned functions\n"
+                      (capitalize name) name name)))
+    (find-file path)
+    (message "State created: %s (add define-state + init routing, see header)" path)))
+#+end_src
+
+** New leader file
+#+begin_src emacs-lisp
+(defun manifolding-keyboard-new-leader (key title)
+  "Create leaders/<KEY>.org from the leader skeleton.
+KEY is the SPC sub-key (single char); TITLE is the menu title.
+Errors loudly when the file already exists."
+  (interactive "sLeader key (single char under SPC): \nsMenu title: ")
+  (when (or (string-empty-p key) (string-empty-p title))
+    (user-error "Leader key and title must not be empty"))
+  (let* ((slug (downcase (replace-regexp-in-string "[^a-z0-9]+" "-" title)))
+         (path (expand-file-name
+                (format "leaders/%s.org" slug)
+                (manifolding-keyboard--module-dir))))
+    (when (file-exists-p path)
+      (user-error "Leader file exists: %s" path))
+    (with-temp-file path
+      (insert (format "#+title: Manifolding Keyboard — %s Leader\n#+priority: 20\n\n** %s menu\n#+begin_src emacs-lisp\n(my/defhydra-state my/%s-hydra nil \"%s\" (my/main-hydra/body \"main menu\")\n  \"Actions\"\n  ((\"<sub>\" <command> \"<desc>\" :exit t)))\n#+end_src\n"
+                      title key slug title)))
+    (find-file path)
+    (message "Leader created: %s" path)))
+
+(defun manifolding-keyboard--module-dir ()
+  "Absolute path of the manifolding-keyboard/ module directory."
+  (expand-file-name "Manifolding-Emacs/modules/manifolding-keyboard/"
+                    user-emacs-directory))
+#+end_src
+
+* Validator
+
+Warns, never errors, on external commands (consult-*, magit-*, org-*,
+vterm-*, mm/* load lazily — erroring would train you to ignore the
+check). Duplicate keys and non-nil hydra states are always violations:
+those are never lazy-loading artifacts.
+#+begin_src emacs-lisp
+(defcustom manifolding-keyboard-external-prefixes
+  '("consult-" "magit-" "org-" "mm/" "manifolding-atlas-"
+    "my/manifolding-atlas-" "evil-" "mwheel-" "text-scale-" "tab-bar-" "centaur-tabs-"
+    "org-tree-slide-" "treemacs-" "vundo" "git-timemachine" "dired-" "ibuffer-"
+    "outline-" "rectangle-" "mark-" "kill-" "save-" "other-" "beginning-" "save-buffer"
+    "scroll-" "forward-" "backward-" "next-" "previous-" "goto-" "move-" "copy-"
+    "delete-" "split-" "switch-" "find-" "query-" "flush-" "describe-" "ghostel"
+    "evil-show-digraphs" "my/dired-" "my/mindmap-")
+  "Command prefixes treated as external (warn, never error, when unbound)."
+  :type '(repeat string)
+  :group 'manifolding-keyboard)
+;; NOTE: my/dired-* (dired.org), my/mindmap-* (mind-map.org) resolve at
+;; boot from sibling modules — covered here, not flagged.
+
+(defun manifolding-keyboard--defined-hydras ()
+  "Hydra body symbols defined in leaders/ (generated at boot by the Transient shim)."
+  (let ((out nil))
+    (dolist (file (append
+                   (and (file-directory-p (expand-file-name "leaders/" (manifolding-keyboard--module-dir)))
+                        (directory-files (expand-file-name "leaders/" (manifolding-keyboard--module-dir)) t "\\.org$"))
+                   (let ((m (expand-file-name "engine/menus.org" (manifolding-keyboard--module-dir))))
+                     (and (file-exists-p m) (list m)))))
+      (dolist (blk (manifolding-emacs-concatenate-source-blocks file))
+        (with-temp-buffer
+          (insert blk)
+          (goto-char (point-min))
+          (condition-case nil
+              (while t
+                (let ((form (read (current-buffer))))
+                  (when (and (consp form)
+                             (memq (car form) '(my/defhydra-state pretty-hydra-define transient-define-prefix)))
+                    (push (if (eq (car form) 'transient-define-prefix)
+                              (nth 1 form)
+                            (intern (format "%s/body" (nth 1 form)))) out))))
+            (end-of-file nil)))))
+    out))
+
+(defun manifolding-keyboard--external-p (sym)
+  "Non-nil when SYM matches an external prefix."
+  (let ((n (symbol-name sym)))
+    (cl-some (lambda (p) (string-prefix-p p n))
+             manifolding-keyboard-external-prefixes)))
+
+(defun manifolding-keyboard-validate ()
+  "Validate states/ and leaders/: priority slot, bindings, hydra shape, self-registration.
+Returns violation count; details go to *keyboard-validation*."
+  (interactive)
+  (let ((dir (manifolding-keyboard--module-dir))
+        (violations 0)
+        (hydras (manifolding-keyboard--defined-hydras)))
+    (with-current-buffer (get-buffer-create "*keyboard-validation*")
+      (erase-buffer)
+      (dolist (sub '("states/" "leaders/"))
+        (dolist (file (and (file-directory-p (expand-file-name sub dir))
+                           (directory-files (expand-file-name sub dir) t "\\.org$")))
+          (let ((rel (file-relative-name file dir))
+                (singles nil)
+                (invokes nil)
+                (inits nil))
+            (with-temp-buffer
+              (insert-file-contents file)
+              (unless (re-search-forward "^#\\+priority:[ \t]*20[ \t]*$" nil t)
+                (setq violations (1+ violations))
+                (with-current-buffer "*keyboard-validation*"
+                  (insert (format "%s: missing #+priority: 20\n" rel)))))
+            (dolist (blk (manifolding-emacs-concatenate-source-blocks file))
+              (with-temp-buffer
+                (insert blk)
+                (goto-char (point-min))
+                (condition-case nil
+                    (while t
+                      (let ((form (read (current-buffer))))
+                        (when (consp form)
+                          (cond
+                           ((eq (car form) 'manifolding-keyboard-define-keys)
+                            (let ((seen nil))
+                              (dolist (b (cadr (plist-get (cdr form) :bind)))
+                                (when (and (consp b) (stringp (car b)))
+                                  (when (member (car b) seen)
+                                    (setq violations (1+ violations))
+                                    (with-current-buffer "*keyboard-validation*"
+                                      (insert (format "%s: duplicate key %s\n" rel (car b)))))
+                                  (push (car b) seen)
+                                  (let ((cmd (cdr b)))
+                                    (when (and (symbolp cmd)
+                                               (not (fboundp cmd))
+                                               (not (memq cmd hydras))
+                                               (not (manifolding-keyboard--external-p cmd)))
+                                      (setq violations (1+ violations))
+                                      (with-current-buffer "*keyboard-validation*"
+                                        (insert (format "%s: unbound %s on %s\n" rel cmd (car b))))))))))
+                           ((eq (car form) 'my/defhydra-state)
+                            (unless (null (nth 2 form))
+                              (setq violations (1+ violations))
+                              (with-current-buffer "*keyboard-validation*"
+                                (insert (format "%s: non-nil hydra state (must stay hydra-only)\n" rel)))))
+                           ((eq (car form) 'manifolding-keyboard-define-state)
+                            (push (cadr form) invokes)
+                            (let ((init (plist-get (cddr form) :init)))
+                              (when init
+                                (push (if (and (consp init) (eq (car init) 'function))
+                                          (cadr init)
+                                        init)
+                                      inits))))))))
+                  (end-of-file nil))))
+            (dolist (st singles)
+              (unless (member st invokes)
+                (setq violations (1+ violations))
+                (with-current-buffer "*keyboard-validation*"
+                  (insert (format "%s: state %s bound but never invoked\n" rel st)))))
+            (dolist (fn inits)
+              (unless (and (symbolp fn) (fboundp fn))
+                (setq violations (1+ violations))
+                (with-current-buffer "*keyboard-validation*"
+                  (insert (format "%s: :init %s unbound\n" rel fn))))))))
+      ;; 6. menu-desc convention: commands BOUND in this run (collected
+      ;; in steps 2-4) should carry a one-line docstring — states menus
+      ;; derive descriptions from it. Warn-only: missing docs never break
+      ;; anything, and externals/generated bodies are exempt.
+      (dolist (sub '("states/" "leaders/"))
+        (dolist (file (and (file-directory-p (expand-file-name sub dir))
+                           (directory-files (expand-file-name sub dir) t "\\.org$")))
+          (let ((rel (file-relative-name file dir))
+                (bound nil))
+            (dolist (blk (manifolding-emacs-concatenate-source-blocks file))
+              (with-temp-buffer
+                (insert blk)
+                (goto-char (point-min))
+                (condition-case nil
+                    (while t
+                      (let ((form (read (current-buffer))))
+                        (when (consp form)
+                          (cond
+                           ((eq (car form) 'manifolding-keyboard-define-keys)
+                            (dolist (b (cadr (plist-get (cdr form) :bind)))
+                              (when (and (consp b) (stringp (car b))
+                                         (symbolp (cdr b)))
+                                (push (cdr b) bound))))
+                           ((eq (car form) 'my/defhydra-state)
+                            (let ((spec (nthcdr 5 form)))
+                              (while spec
+                                (dolist (h (cadr spec))
+                                  (when (symbolp (nth 1 h))
+                                    (push (nth 1 h) bound)))
+                                (setq spec (cddr spec)))))))))
+                  (end-of-file nil))))
+            (dolist (cmd (delete-dups bound))
+              (when (and (fboundp cmd)
+                         (not (documentation cmd))
+                         (not (manifolding-keyboard--external-p cmd))
+                         (not (memq cmd hydras)))
+                (setq violations (1+ violations))
+                (with-current-buffer "*keyboard-validation*"
+                  (insert (format "%s: no docstring on %s (menu desc falls back to blank)\n"
+                                  rel cmd))))))))
+      ;; 7. eval-order: every state referenced in a define-keys :states
+      ;; list must be invoked in the same file or an alphabetically
+      ;; earlier one (directory eval order). Catches the universal-after
+      ;; -visual class of void-keymap boot errors structurally.
+      (let ((invoked-by-file nil))
+        (dolist (file (and (file-directory-p (expand-file-name "states/" dir))
+                           (directory-files (expand-file-name "states/" dir) t "\\.org$")))
+          (let ((rel (file-relative-name file dir))
+                (invokes nil)
+                (refs nil))
+            (dolist (blk (manifolding-emacs-concatenate-source-blocks file))
+              (with-temp-buffer
+                (insert blk)
+                (goto-char (point-min))
+                (condition-case nil
+                    (while t
+                      (let ((form (read (current-buffer))))
+                        (when (consp form)
+                          (cond
+                           ((eq (car form) 'manifolding-keyboard-define-state)
+                            (push (cadr form) invokes))
+                           ((eq (car form) 'manifolding-keyboard-define-keys)
+                            (dolist (st (cadr (plist-get (cdr form) :states)))
+                              (push st refs)))))))
+                  (end-of-file nil))))
+            (push (cons rel invokes) invoked-by-file)
+            (let ((earlier (apply #'append
+                                  (mapcar #'cdr
+                                          (cl-remove-if-not
+                                           (lambda (e) (string< (car e) rel))
+                                           invoked-by-file)))))
+              (dolist (st refs)
+                (unless (or (member st invokes) (member st earlier))
+                  (setq violations (1+ violations))
+                  (with-current-buffer "*keyboard-validation*"
+                    (insert (format "%s: state %s bound before invocation (order violation)\n"
+                                    rel st)))))))))
+      (insert (format "\nValidation done: %d violation(s).\n" violations))
+      (display-buffer (current-buffer)))
+    (message "Keyboard validation: %d violation(s)" violations)
+    violations))
+#+end_src

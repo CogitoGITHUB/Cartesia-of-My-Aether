@@ -1,0 +1,15 @@
+#+title:      Register Prompt
+#+priority:   14
+
+* REGISTER :unfolding:dictionary:
+:PROPERTIES:
+:UNFOLDING: register
+:END:
+** TODO
+** formal
+** informal
+** slang
+** technical
+** archaic
+** literary
+** colloquial

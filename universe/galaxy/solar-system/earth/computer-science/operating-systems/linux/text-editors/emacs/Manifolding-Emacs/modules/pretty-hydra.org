@@ -1,0 +1,11 @@
+#+title:      pretty-hydra
+#+identifier:
+#+filetags:   :emacs-package:ui:
+
+* PRETTY-HYDRA — Formatted Hydra Menus #emacs-package
+:PROPERTIES:
+:ID:
+:PACKAGE:  pretty-hydra
+:STRAIGHT: (pretty-hydra :type git :host github :repo "jerrypnz/major-mode-hydra.el" :files ("pretty-hydra.el"))
+:CATEGORY: ui
+:END:

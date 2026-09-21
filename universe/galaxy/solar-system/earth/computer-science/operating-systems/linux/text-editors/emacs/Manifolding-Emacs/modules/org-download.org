@@ -1,0 +1,17 @@
+#+title:      org-download
+#+filetags:   :emacs-package:editing:
+
+* ORG-DOWNLOAD — Drag and Drop Images to Org #emacs-package
+:PROPERTIES:
+:ID:
+:PACKAGE:  org-download
+:STRAIGHT: (org-download :type git :host github :repo "abo-abo/org-download")
+:CATEGORY: editing
+:END:
+
+** Config
+#+begin_src emacs-lisp
+(setq org-download-image-dir
+      (expand-file-name "attachments" (my/manifolding-atlas-root-dir)))
+(org-download-enable)
+#+end_src

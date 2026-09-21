@@ -1,0 +1,110 @@
+#+title: Manifolding Atlas Day Agenda
+#+priority: 17
+
+One cross-engine due surface: routine entries and protocol parents
+due today-or-overdue, grouped by engine, each annotated with the
+compliance truth its engine already owns (routine streak strips from
+routine_sessions). Read-only over org: this buffer displays dates
+Atlas wrote; it never writes, advances, or reschedules anything.
+Mastering appears only as a due count pointing at the Due Reviews
+routine — no duplicated due lists, no competing surfaces.
+
+* Day View
+
+** Due queries
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-agenda--today-int ()
+  "Today as YYYYMMDD integer."
+  (string-to-number (format-time-string "%Y%m%d")))
+
+(defun my/manifolding-atlas-agenda--due-entries ()
+  "Routine entries due: NEXT_DATE set and on-or-before today.
+Returns (ROUTINE-ID ROUTINE-TITLE ENTRY-TITLE SOURCE-ID NEXT PLANNED)
+rows ordered by routine then entry order."
+  (let ((today (my/manifolding-atlas-agenda--today-int))
+        (out nil))
+    (dolist (row (condition-case nil
+                    (emacsql (manifolding-atlas-db)
+                      [:select [routine-id source-id next-date step-duration entry-order]
+                       :from routine_entries
+                       :where (<= next-date $s1)
+                       :order :by [routine-id entry-order]]
+                      today)
+                  (error nil)))
+      (let* ((rid (nth 0 row))
+             (rnote (manifolding-atlas-db-get-by-id rid))
+             (snote (manifolding-atlas-db-get-by-id (nth 1 row))))
+        (push (list rid
+                    (if rnote (manifolding-atlas-note-title rnote) rid)
+                    (if snote (manifolding-atlas-note-title snote) (nth 1 row))
+                    (nth 1 row) (nth 2 row) (nth 3 row))
+              out)))
+    (nreverse out)))
+
+(defun my/manifolding-atlas-agenda--due-protocols ()
+  "Protocol parents due: PNEXT set and on-or-before today.
+Returns (NOTE-ID TITLE PNEXT) rows."
+  (let ((today (my/manifolding-atlas-agenda--today-int))
+        (out nil))
+    (dolist (row (condition-case nil
+                    (emacsql (manifolding-atlas-db)
+                      [:select [note-id pnext] :from protocols
+                       :where (<= pnext $s1)]
+                      today)
+                  (error nil)))
+      (let ((note (manifolding-atlas-db-get-by-id (nth 0 row))))
+        (push (list (nth 0 row)
+                    (if note (manifolding-atlas-note-title note) (nth 0 row))
+                    (nth 1 row))
+              out)))
+    (nreverse out)))
+#+end_src
+
+** Day buffer
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-agenda-day ()
+  "Cross-engine due surface: routines + protocols due, streak strips.
+Mastering shows only as a due count (run Due Reviews to practice)."
+  (interactive)
+  (let ((entries (my/manifolding-atlas-agenda--due-entries))
+        (protos (my/manifolding-atlas-agenda--due-protocols))
+        (today (format-time-string "%Y-%m-%d")))
+    (with-current-buffer (get-buffer-create "*atlas-day*")
+      (erase-buffer)
+      (org-mode)
+      (insert (format "* Atlas Day — %s\n\n" today))
+      (insert "** Routines due\n")
+      (if (null entries)
+          (insert "- nothing due\n")
+        (let ((last-rid nil))
+          (dolist (e entries)
+            (unless (equal (nth 0 e) last-rid)
+              (setq last-rid (nth 0 e))
+              (insert (format "- %s  streak %s\n"
+                              (nth 1 e)
+                              (if (fboundp 'my/manifolding-atlas-routines--streak-strip)
+                                  (my/manifolding-atlas-routines--streak-strip
+                                   last-rid)
+                                "—"))))
+            (insert (format "  - [[id:%s][%s]]%s\n"
+                            (nth 3 e) (nth 2 e)
+                            (if (nth 5 e)
+                                (format "  (%s planned)" (nth 5 e))
+                              ""))))))
+      (insert "\n** Protocols due\n")
+      (if (null protos)
+          (insert "- nothing due\n")
+        (dolist (p protos)
+          (insert (format "- [[id:%s][%s]]\n" (nth 0 p) (nth 1 p)))))
+      (insert "\n** Mastering\n")
+      (insert (format "- due notes: %s (run Due Reviews to practice)\n"
+                      (if (fboundp 'my/manifolding-atlas-mastering--due-count)
+                          (number-to-string
+                           (my/manifolding-atlas-mastering--due-count))
+                        "—")))
+      (insert "\n** Agenda\n- [[elisp:(org-agenda-list)][open org agenda for today]]\n")
+      (goto-char (point-min))
+      (display-buffer (current-buffer)))
+    (message "Atlas day: %d entries, %d protocols due"
+             (length entries) (length protos))))
+#+end_src

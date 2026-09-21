@@ -1,0 +1,167 @@
+#+title: Manifolding Keyboard — Boon Core
+#+priority: 20
+
+Shared Boon-extracted editing primitives (https://github.com/jyp/boon, GPL, same terms as upstream): region algebra, highlight engine, syntax predicates. Multi-caller callees live here; bound commands stay in states/ and call in.
+
+** Region algebra core
+#+begin_src emacs-lisp
+(defun my/reg-mk (mrk pnt &optional cursor)
+  "Make a region with MRK, PNT and CURSOR, as the list (mark point cursor)."
+  (list mrk pnt cursor))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/reg-mark  (reg) (nth 0 reg))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/reg-point (reg) (nth 1 reg))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/reg-begin (reg)
+  "The beginning of region REG."
+  (min (my/reg-point reg) (my/reg-mark reg)))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/reg-end (reg)
+  "The end of region REG."
+  (max (my/reg-point reg) (my/reg-mark reg)))
+#+end_src
+** Highlight core
+#+begin_src emacs-lisp
+(defcustom my/hl-face-defaults
+  '(hi-yellow hi-pink hi-green hi-blue hi-salmon hi-aquamarine
+    hi-black-b hi-blue-b hi-red-b hi-green-b hi-black-hb)
+  "Default faces for my/hl."
+  :group 'manifolding-keyboard
+  :type '(repeat face))
+#+end_src
+#+begin_src emacs-lisp
+(defvar-local my/hl-patterns nil
+  "Patterns provided to my/hl.  Should not be changed.")
+#+end_src
+#+begin_src emacs-lisp
+(defvar-local my/hl-unused-faces nil
+  "Faces available for highlighting new text.")
+#+end_src
+#+begin_src emacs-lisp
+(defun my/hl-read-face-name ()
+  "Return the next available highlight face (or read one with a prefix arg)."
+  (unless my/hl-unused-faces
+    (setq my/hl-unused-faces my/hl-face-defaults))
+  (let* ((defaults (append my/hl-unused-faces my/hl-face-defaults))
+         (face (if current-prefix-arg
+                   (intern (completing-read
+                            (format-prompt "Highlight using face" (car defaults))
+                            obarray 'facep t nil 'face-name-history
+                            (mapcar #'symbol-name defaults)))
+                 (car defaults))))
+    (setq my/hl-unused-faces (remove face my/hl-unused-faces))
+    (add-to-list 'my/hl-face-defaults face t)
+    face))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/hl-add (regexp face &optional lighter case-fold spaces-regexp)
+  "Highlight matches of REGEXP with FACE; LIGHTER is a human label.
+CASE-FOLD ignores case; SPACES-REGEXP substitutes spaces in font-lock search.
+Each highlight stores a keyword closure supporting both forward and backward
+search, so it can be jumped between."
+  (let ((id (list regexp case-fold spaces-regexp)))
+    (let ((ix (cl-position id my/hl-patterns
+                           :key (lambda (p) (plist-get (cdr p) :id))
+                           :test #'equal)))
+      (if ix
+          (progn
+            (setq my/hl-patterns
+                  (cons (nth ix my/hl-patterns)
+                        (append (cl-subseq my/hl-patterns 0 ix)
+                                (cl-subseq my/hl-patterns (1+ ix)))))
+            (nth 0 my/hl-patterns))
+        (setq face (or face (my/hl-read-face-name)))
+        (let ((kw (list (lambda (limit &optional backward)
+                          (let ((case-fold-search case-fold)
+                                (search-spaces-regexp spaces-regexp))
+                            (if backward
+                                (re-search-backward regexp limit t)
+                              (re-search-forward regexp limit t))))
+                        (list 0 (list 'quote face) 'prepend))))
+          (let ((entry (list (or lighter regexp) :kw kw :face face :id id)))
+            (push entry my/hl-patterns)
+            (font-lock-add-keywords nil (list kw) t)
+            (font-lock-flush)
+            entry))))))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/hl-regexp (regexp &optional face)
+  "Highlight each match of REGEXP with FACE (chosen from defaults if nil)."
+  (interactive
+   (list (hi-lock-regexp-okay (read-regexp "Regexp to highlight"
+                                           'regexp-history-last))))
+  (my/hl-add regexp face nil
+             (if (and case-fold-search search-upper-case)
+                 (isearch-no-upper-case-p regexp t)
+               case-fold-search)
+             search-whitespace-regexp))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/hl-symbol (string &optional face)
+  "Highlight whole words matching STRING with FACE."
+  (interactive "sSymbol to highlight:")
+  (my/hl-add (hi-lock-regexp-okay (format "\\_<%s\\_>" (regexp-quote string)))
+             face string font-lock-keywords-case-fold-search))
+#+end_src
+** Search core
+#+begin_src emacs-lisp
+(defun my/hl-search (pattern &optional direction limit)
+  "Search for highlighted PATTERN up to LIMIT.
+Search backward if DIRECTION is non-nil."
+  (funcall (car (plist-get (cdr pattern) :kw)) limit direction))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/qsearch (forward &optional pattern)
+  "Search for the current highlight PATTERN in direction FORWARD.
+Move point to the start of the match, wrapping around with feedback."
+  (if-let* ((pattern (or pattern (my/hl-current-pattern))))
+      (setq isearch-success
+            (save-excursion
+              (goto-char (if forward (1+ (point)) (1- (point))))
+              (or (my/hl-search pattern (not forward))
+                  (if isearch-success
+                      (prog1 nil
+                        (message "No more occurrences %s"
+                                 (if forward "below" "above")))
+                    (message "Wrapping around")
+                    (goto-char (if forward (point-min) (point-max)))
+                    (my/hl-search pattern (not forward))))))
+    (error "Nothing to search: highlight something before using my/qsearch."))
+  (when isearch-success (goto-char (match-beginning 0))))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/hl-current-pattern ()
+  "Return the current highlight search pattern (most recent hl), or nil."
+  (car my/hl-patterns))
+#+end_src
+** Syntax predicates
+#+begin_src emacs-lisp
+(defun my/in-string-p (&optional pos)
+  "Return whether POS (default point) is inside a string literal."
+  (save-mark-and-excursion
+    (when pos (goto-char pos))
+    (nth 3 (syntax-ppss))))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/line-comment-start-p ()
+  "Non-nil if point is at a line comment start (and not inside a string)."
+  (and (bound-and-true-p comment-start)
+       (looking-at comment-start)
+       (not (my/in-string-p))))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/looking-at-comment (how-many)
+  "Non-nil if point is at the start of HOW-MANY comments (negative = backward)."
+  (save-excursion (forward-comment how-many)))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/col-relative-to-indent ()
+  "Return the position of point relative to the line's indentation.
+Can be negative when point is before the indentation column."
+  (- (point) (save-excursion (back-to-indentation) (point))))
+#+end_src

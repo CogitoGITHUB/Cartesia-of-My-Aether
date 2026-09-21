@@ -1,0 +1,443 @@
+#+title:      Manifolding Atlas Contacts Plugin
+#+priority:   15
+
+Vendored engine: the org-contacts package is embedded below as a
+loader-managed source block (no straight).  Adapted to the Manifolding
+Atlas vault: contacts live one-per-file under
+<admin>/contacts/ inside (my/manifolding-atlas-root-dir).
+#+begin_src emacs-lisp
+(defvar org-contacts-icon-size 16
+  "Icon size for org-contacts avatars (stub).")
+(defvar org-contacts-icon-property "AVATAR")
+(defvar org-contacts-email-property "EMAIL")
+(defvar org-contacts-icon-use-gravatar nil)
+(defun org-contacts-files () nil)
+(defun org-contacts-split-property (_str) nil)
+(defun org-contacts-strip-link (s) s)
+#+end_src
+* Vendored org-contacts engine
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+(defun org-contacts-get-avatar-icon (&optional pom)
+  "Get icon for contact at POM and return the avatar icon image object."
+  (setq pom (or pom (point)))
+  (catch 'icon
+    ;; Use `org-contacts-icon-property'
+    (let* ((link-matcher-regexp
+            "\\[\\[\\([^]]*\\)\\]\\(\\[\\(.*\\)\\]\\)?\\]")
+           (contacts-dir (file-name-directory (car (org-contacts-files))))
+           (image-path
+            (if-let* ((avatar (org-entry-get pom org-contacts-icon-property)))
+                (cond
+                 ;; [[file:dir/filename.png]]
+                 ((string-match-p "\\[\\[.*\\]\\]" avatar)
+                  ;; FIXME: What if avatar matches the above regexp but the one below?
+                  (when (string-match link-matcher-regexp avatar)
+                    ;; FIXME: 5 seems to be the length of `file:' but I can't see anything that
+                    ;; guarantees that the submatch 1 starts with `file:'.
+                    (expand-file-name (substring (match-string-no-properties 1 avatar) 5 nil)
+                                      contacts-dir)))
+                 ;; "" (empty string)
+                 ((string-empty-p avatar) nil)
+                 (t (expand-file-name avatar contacts-dir))))))
+      (when image-path
+        (throw 'icon
+               (if (featurep 'imagemagick)
+                   (create-image image-path 'imagemagick nil :ascent 100 :height org-contacts-icon-size)
+                 (create-image image-path nil nil :ascent 100 :height org-contacts-icon-size)))))
+    ;; Next, try Gravatar
+    (when org-contacts-icon-use-gravatar)))
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun my/org-contacts--gravatar-fallback (pom)
+  "Fallback gravatar lookup for POM (stub for split block)."
+  (let* ((gravatar-size org-contacts-icon-size)
+         (email-list (org-entry-get pom org-contacts-email-property))
+         (gravatar
+          (when email-list
+            (cl-loop for email in (org-contacts-split-property email-list)
+                     for gravatar = (gravatar-retrieve-synchronously (org-contacts-strip-link email))
+                     if (and gravatar
+                             (not (eq gravatar 'error)))
+                     return gravatar))))
+    (when gravatar (throw 'icon gravatar))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+* Manifolding Atlas Adaptation
+#+begin_src emacs-lisp
+#+end_src
+* Contact Commands
+#+begin_src emacs-lisp
+#+end_src
+** Body capture opener
+#+begin_src emacs-lisp
+#+end_src
+** New contact
+#+begin_src emacs-lisp
+#+end_src
+** Find and default filter
+#+begin_src emacs-lisp
+#+end_src
+* Transient Menu
+#+begin_src emacs-lisp
+#+end_src

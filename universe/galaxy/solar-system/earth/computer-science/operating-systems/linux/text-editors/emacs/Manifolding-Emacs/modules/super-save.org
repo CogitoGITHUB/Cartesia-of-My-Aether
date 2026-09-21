@@ -1,0 +1,65 @@
+#+title:      super-save
+#+identifier: 
+#+filetags:   :emacs-package:files:
+
+* SUPER-SAVE — Auto-save Buffers on Activity #emacs-package
+:PROPERTIES:
+:ID:       
+:PACKAGE:  super-save
+:STRAIGHT: (super-save :type git :host github :repo "bbatsov/super-save")
+:CATEGORY: files
+:END:
+
+** Config
+#+begin_src emacs-lisp
+;; Save silently — no echo area noise
+(setq super-save-silent t)
+
+(setq
+ ;; Also save on idle after 10 seconds
+ super-save-auto-save-when-idle t
+ super-save-idle-duration 10
+
+ ;; Save all modified buffers, not just the current one
+ ;; (useful for occur-edit, project-wide replace, etc.)
+ super-save-all-buffers t
+
+ ;; Don't save remote (TRAMP) files — avoid hangs
+ super-save-remote-files nil
+
+ ;; Clean up trailing whitespace on save, but spare the current line
+ ;; super-save-delete-trailing-whitespace 'except-current-line
+
+ ;; Skip huge files (characters) — avoid slow saves
+ super-save-max-buffer-size 10000000
+
+ ;; Exclude GPG files and anything in /tmp
+ super-save-exclude '("\\.gpg\\'" "/tmp/")
+
+ ;; Handle org-src and edit-indirect buffers natively
+ super-save-handle-org-src t
+ super-save-handle-edit-indirect t)
+
+;; Save org-src edit buffers (C-c ' blocks) and edit-indirect buffers automatically
+(setq super-save-handle-org-src t)
+(setq super-save-handle-edit-indirect t)
+
+;; Guard expensive before-save-hook functions during auto-saves
+(add-hook 'before-save-hook
+          (lambda ()
+            (unless super-save-in-progress
+              (when (fboundp 'my-expensive-formatting-function)
+                (my-expensive-formatting-function)))))
+
+;; Enable deleting trailing white spaces before saving (except for the current line)
+(setq super-save-delete-trailing-whitespace 'except-current-line)
+
+(super-save-mode +1)
+(auto-save-visited-mode +1)
+
+;; Save all buffers on exit — last line of defense
+(add-hook 'kill-emacs-hook #'save-some-buffers t)
+
+;; Disable the old crash-recovery auto-save — super-save replaces it
+(setq auto-save-default nil)
+#+end_src

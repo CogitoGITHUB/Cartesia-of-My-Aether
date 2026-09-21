@@ -1,0 +1,15 @@
+#+title:      State Validation Prompt
+#+priority:   5
+
+* STATE_VALIDATION :unfolding:file:heading:task:
+:PROPERTIES:
+:REQUIRED: t
+:UNFOLDING: state-validation
+:END:
+** TODO
+** WARNING
+** DRAFT
+** REVIEWED
+** VALIDATED
+** FAILED
+** SUPERSEDED

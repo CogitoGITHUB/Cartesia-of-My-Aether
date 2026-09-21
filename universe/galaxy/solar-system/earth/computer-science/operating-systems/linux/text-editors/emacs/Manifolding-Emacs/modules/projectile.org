@@ -1,0 +1,25 @@
+#+title:      projectile
+#+identifier:
+#+filetags:   :emacs-package:project:
+#+PRIORITY: 1
+
+* PROJECTILE — Project Interaction Library
+:PROPERTIES:
+:ID:
+:PACKAGE:  projectile
+:STRAIGHT: (projectile :type git :host github :repo "bbatsov/projectile")
+:CATEGORY: project
+:END:
+
+** Guix
+#+begin_src scheme
+#+end_src
+
+** Config
+#+begin_src emacs-lisp
+  (setq projectile-completion-system    'default
+        projectile-enable-caching       t
+        projectile-indexing-method      'alien)
+
+  (projectile-mode 1)
+#+end_src

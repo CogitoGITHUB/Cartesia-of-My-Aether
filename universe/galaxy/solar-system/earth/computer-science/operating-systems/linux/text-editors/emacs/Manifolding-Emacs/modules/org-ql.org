@@ -1,0 +1,68 @@
+#+title:    org-ql
+#+filetags: :emacs-package:org:query:
+#+PRIORITY: 20
+
+* TODO Org QL
+:PROPERTIES:
+:PACKAGE:  org-ql
+:STRAIGHT: (org-ql :type git :host github :repo "alphapapa/org-ql" :files (:defaults (:exclude "helm-org-ql.el")))
+:CATEGORY: org
+:END:
+
+** Purpose
+Query language for Org files — like SQL for your TODOs. Write views like
+"all TODOs tagged :guix: modified in the last 7 days." Pairs with
+org-ql-view for saved, reusable searches.
+
+** Setup
+
+*** Config
+#+begin_src emacs-lisp
+(advice-add 'global-hl-line-highlight :around
+  (lambda (orig &rest args)
+    (ignore-errors (apply orig args))))
+
+(defun my/org-ql-search ()
+  (interactive)
+  (org-ql-search (org-agenda-files) '(todo)))
+#+end_src
+
+** Saved Views
+
+*** Config
+#+begin_src emacs-lisp
+(setq org-ql-views
+      '(("Guix — last 7 days"
+         :buffers-files org-agenda-files
+         :query (and (todo)
+                     (tags "guix")
+                     (ts :from -7))
+         :sort (date priority)
+         :title "Guix — last 7 days")
+
+        ("MappingOS — in progress"
+         :buffers-files org-agenda-files
+         :query (and (todo "DOING")
+                     (tags "mappingos"))
+         :sort (date priority)
+         :title "MappingOS — in progress")
+
+        ("High priority — all"
+         :buffers-files org-agenda-files
+         :query (and (todo)
+                     (priority "A"))
+         :sort (date)
+         :title "High priority — all")))
+#+end_src
+
+* Org QL View
+:PROPERTIES:
+:PACKAGE:  org-ql-view
+:CATEGORY: org
+:END:
+
+* Org QL Search
+:PROPERTIES:
+:PACKAGE:  org-ql-search
+:CATEGORY: org
+:END:

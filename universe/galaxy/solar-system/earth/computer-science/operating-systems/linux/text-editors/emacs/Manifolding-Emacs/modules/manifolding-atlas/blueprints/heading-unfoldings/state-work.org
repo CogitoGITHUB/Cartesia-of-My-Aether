@@ -1,0 +1,16 @@
+#+title:      State Work Prompt
+#+priority:   5
+
+* STATE_WORK :unfolding:file:heading:task:
+:PROPERTIES:
+:REQUIRED: t
+:UNFOLDING: state-work
+:END:
+** TODO
+** WARNING
+** ACTIVE
+** PAUSED
+** BLOCKED
+** WAITING
+** ABANDONED
+** COMPLETE

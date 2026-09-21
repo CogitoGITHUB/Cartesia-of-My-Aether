@@ -1,0 +1,23 @@
+#+title:      org-sticky-header
+#+identifier: 
+#+filetags:   :emacs-package:org:ui:
+
+* ORG-STICKY-HEADER — Sticky Heading in Header Line #emacs-package
+:PROPERTIES:
+:ID:       
+:PACKAGE:  org-sticky-header
+:STRAIGHT: (org-sticky-header :type git :host github :repo "alphapapa/org-sticky-header")
+:CATEGORY: ui
+:END:
+
+** Guix
+#+begin_src scheme ~/.config/guix/Operating-System/user-space/root/editors/emacs-packages/ui/org-sticky-header.scm
+#+end_src
+
+** Config
+#+begin_src emacs-lisp
+(setq org-sticky-header-prefix    " 🌹 "
+      org-sticky-header-full-path 'full)
+
+(add-hook 'org-mode-hook #'org-sticky-header-mode)
+#+end_src

@@ -1,0 +1,106 @@
+#+title: Manifolding Keyboard — Meow Core
+#+priority: 20
+
+Shared Meow-extracted infrastructure (meow 1.5.0, GPLv3): TUI ESC handling and the atomic-undo macro. Bound commands stay in states/ and call in.
+
+** TUI ESC / Meta disambiguation (Meow-extracted, ~my/esc-mode~)
+Extracted from ~meow-esc.el~ (meow 1.5.0, GPLv3). In the terminal, ESC can
+double as META because they share a keycode. This mode rewires the terminal's
+~input-decode-map~ binding for ESC through a ~:filter~ that waits
+~my/esc-delay~: if another key follows within the delay it is treated as a Meta
+combo, otherwise a standalone ESC. This gives BOTH standalone-ESC and Meta /
+ESC-prefix usage in the TUI simultaneously. Layout-independent, Dvorak-safe.
+~my/smart-escape~ (above) handles *state* selection on ESC; this handles the
+terminal input layer. Not enabled by default — call ~(my/esc-mode 1)~ to turn on.
+#+begin_src emacs-lisp
+(defcustom my/esc-delay 0.1
+  "Maximum time in seconds between ESC and the following key to be treated
+as a Meta / ESC-prefix combo rather than a standalone ESC, when
+~my/esc-mode~ is active in the terminal."
+  :type 'number
+  :group 'manifolding-keyboard)
+
+(defvar my/esc-sequence [?\e]
+  "The key sequence used to reach the terminal's original ESC binding.")
+
+(define-minor-mode my/esc-mode
+  "Ensure ESC works as a standalone key AND as Meta/prefix in the terminal.
+When enabled, the terminal ~input-decode-map~'s ESC binding is wrapped in a
+filter (see ~my/esc~) that waits ~my/esc-delay~: a key pressed within the delay
+is read as a Meta/ESC-prefix combo; otherwise it is a standalone ESC."
+  :init-value nil
+  :global t
+  (if my/esc-mode
+      (progn
+        (add-hook 'after-make-frame-functions #'my/esc-init-if-tui)
+        (mapc #'my/esc-init-if-tui (frame-list)))
+    (progn
+      (remove-hook 'after-make-frame-functions #'my/esc-init-if-tui)
+      (mapc #'my/esc-deinit-if-tui (frame-list)))))
+
+(defun my/esc-init-if-tui (frame)
+  "Wrap FRAME's terminal ESC binding with the ~my/esc~ filter, if in TUI."
+  (with-selected-frame frame
+    (unless window-system
+      (let ((term (frame-terminal frame)))
+        (when (not (terminal-parameter term 'my-esc-map))
+          (let ((my-esc-map (lookup-key input-decode-map [?\e])))
+            (set-terminal-parameter term 'my-esc-map my-esc-map)
+            (define-key input-decode-map my/esc-sequence
+              `(menu-item "" ,my-esc-map :filter ,#'my/esc))))))))
+
+(defun my/esc-deinit-if-tui (frame)
+  "Restore FRAME's terminal ESC binding, removing the ~my/esc~ filter."
+  (with-selected-frame frame
+    (unless window-system
+      (let ((term (frame-terminal frame)))
+        (when (terminal-live-p term)
+          (let ((my-esc-map (terminal-parameter term 'my-esc-map)))
+            (when my-esc-map
+              (define-key input-decode-map my/esc-sequence my-esc-map)
+              (set-terminal-parameter term 'my-esc-map nil))))))))
+
+(defun my/esc (map)
+  "Menu-item filter for ESC in the terminal.
+
+If the ESC is promptly followed by another key (within ~my/esc-delay~),
+return MAP (allowing the Meta / ESC-prefix keymap to handle it); otherwise
+return [escape] (a standalone ESC). MAP is the original ESC keymap."
+  (if (and (let ((keys (this-single-command-keys)))
+             (and (> (length keys) 0)
+                  (= (aref keys (1- (length keys))) ?\e)))
+           (sit-for my/esc-delay))
+      (prog1 [escape]
+        (when defining-kbd-macro
+          (end-kbd-macro)
+          (setq last-kbd-macro (vconcat last-kbd-macro [escape]))
+          (start-kbd-macro t t)))
+    map))
+#+end_src
+#+begin_src emacs-lisp
+(defmacro my/wrap-collapse-undo (&rest body)
+  "Like `progn' but perform BODY with its edits collapsed into one undo step.
+
+If BODY completes, its changes are accepted and amalgamated with the preceding
+undo entry so they undo as a single action. If BODY signals an error, the
+change group is cancelled (no partial changes, no undo entry)."
+  (declare (indent 0) (debug t))
+  (let ((handle (make-symbol "--change-group-handle--"))
+        (success (make-symbol "--change-group-success--")))
+    `(let ((,handle (prepare-change-group))
+           ;; Don't truncate any undo data in the middle of this.
+           (undo-outer-limit nil)
+           (undo-limit most-positive-fixnum)
+           (undo-strong-limit most-positive-fixnum)
+           (,success nil))
+       (unwind-protect
+           (progn
+             (activate-change-group ,handle)
+             (prog1 ,(macroexp-progn body)
+               (setq ,success t)))
+         (if ,success
+             (progn
+               (accept-change-group ,handle)
+               (undo-amalgamate-change-group ,handle))
+           (cancel-change-group ,handle))))))
+#+end_src

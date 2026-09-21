@@ -1,0 +1,16 @@
+#+title:      svg-tag-mode
+#+identifier: 16ab9a49-94d5-4e29-9cf3-173bf91c54f4
+#+filetags:   :emacs-package:appearance:
+
+* svg-tag-mode
+:PROPERTIES:
+:ID:       16ab9a49-94d5-4e29-9cf3-173bf91c54f4
+:PACKAGE:  svg-tag-mode
+:CATEGORY: appearance
+:STRAIGHT: (svg-tag-mode :type git :host github :repo "rougier/svg-tag-mode")
+:END:
+
+** Config :config:
+#+begin_src emacs-lisp
+
+#+end_src

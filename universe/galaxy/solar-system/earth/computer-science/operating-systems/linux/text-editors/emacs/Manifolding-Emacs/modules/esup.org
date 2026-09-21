@@ -1,0 +1,16 @@
+#+title:      esup
+#+identifier: 8092dbff-77cb-4e98-a822-51f210049a1d
+#+filetags:   :emacs-package:profiling:
+
+* esup
+:PROPERTIES:
+:ID:       8092dbff-77cb-4e98-a822-51f210049a1d
+:PACKAGE:  esup
+:CATEGORY: profiling
+:STRAIGHT: (esup :type git :host github :repo "jschaf/esup")
+:END:
+
+** Config :config:
+#+begin_src emacs-lisp
+
+#+end_src

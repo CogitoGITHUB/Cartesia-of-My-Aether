@@ -1,0 +1,16 @@
+#+title:      Cook Time Prompt
+#+priority:   29
+
+* Cook Time Prompt
+#+begin_src emacs-lisp
+(my/manifolding-atlas-register-prompt
+  :key 'cook-time
+  :name 'cook-time
+  :label "Cook time"
+  :contexts '(recipe)
+  :prompt-fn (lambda ()
+               (let ((val (read-string "Cook time (e.g. 30 min): " nil nil nil "⚠ WARNING")))
+                 (if (or (string-empty-p val) (string-equal val "⚠ WARNING")) "WARNING" val)))
+  :to-plist (lambda (val _ctx)
+              `(:unfoldings (("COOK_TIME" . ,val)))))
+#+end_src

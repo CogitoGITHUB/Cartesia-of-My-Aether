@@ -1,0 +1,10 @@
+#+title:      Hypotheses Prompt
+#+priority:   39
+
+* HYPOTHESES :inline:file:heading:task:
+** TODO
+** WARNING
+** OPEN
+** TESTING
+** SUPPORTED
+** REJECTED

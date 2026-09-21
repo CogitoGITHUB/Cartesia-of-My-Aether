@@ -1,0 +1,16 @@
+#+title:      multifiles
+#+identifier: 1691de08-fe8b-43d1-addd-20010b7ce944
+#+filetags:   :emacs-package:files:
+
+* multifiles
+:PROPERTIES:
+:ID:       1691de08-fe8b-43d1-addd-20010b7ce944
+:PACKAGE:  multifiles
+:CATEGORY: files
+:STRAIGHT: (multifiles :type git :host github :repo "magnars/multifiles.el")
+:END:
+
+** Config :config:
+#+begin_src emacs-lisp
+
+#+end_src

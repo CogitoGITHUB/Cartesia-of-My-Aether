@@ -1,0 +1,9 @@
+#+title:      Traps External Prompt
+#+priority:   36
+
+* TRAPS_EXTERNAL :inline:file:heading:task:
+** TODO
+** WARNING
+** DESIGNED
+** SPRUNG
+** RETIRED

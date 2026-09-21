@@ -1,0 +1,16 @@
+#+title:      multiple-cursors
+#+identifier: 4a77025c-ee6b-47cd-99d5-5e47a22e52fa
+#+filetags:   :emacs-package:editing:
+
+* multiple-cursors
+:PROPERTIES:
+:ID:       4a77025c-ee6b-47cd-99d5-5e47a22e52fa
+:PACKAGE:  multiple-cursors
+:CATEGORY: editing
+:STRAIGHT: (multiple-cursors :type git :host github :repo "magnars/multiple-cursors.el")
+:END:
+
+** Config :config:
+#+begin_src emacs-lisp
+
+#+end_src

@@ -1,0 +1,1205 @@
+#+title: Manifolding Keyboard — Universal Bindings
+#+priority: 20
+
+Bindings shared across states (merged define-keys per state-set) plus every shared my/ command. Sources: Meow/Boon/ryo/key-chord/Embark extractions (GPL, same terms as upstream) and original my/ code. Single-state helpers live in their state file, not here.
+
+Filename is load order: zz- sorts last in states/, which this file
+requires — its bindings reference other states' keymaps, so every
+state invocation must have evaluated first. Do not rename without
+moving those references.
+
+** Shared bindings
+#+begin_src emacs-lisp
+(manifolding-keyboard-define-keys
+  :states '("normal" "visual" "org" "motion" "dired")
+  :bind
+  `(("<wheel-up>"   . mwheel-scroll)
+    ("<wheel-down>" . mwheel-scroll)
+    ("C-<wheel-up>"   . text-scale-increase)
+    ("C-<wheel-down>" . text-scale-decrease)
+    ("P" . ks-action-goto-window)
+    ("T" . centaur-tabs-ace-jump)
+    ("H" . tab-bar-switch-to-prev-tab)
+    ("S" . tab-bar-switch-to-next-tab)
+    ("s" . my/select-hydra/body)
+    ("w" . my/save-all)
+    ("q" . save-buffers-kill-terminal)))
+#+end_src
+*** Shared: normal + visual + org + motion + dired + ibuffer + mindmap
+#+begin_src emacs-lisp
+(manifolding-keyboard-define-keys
+  :states '("normal" "visual" "org" "motion" "dired" "ibuffer" "mindmap")
+  :bind
+  `(
+    ("SPC" . my/main-hydra/body)
+))
+#+end_src
+*** Shared: normal + org + motion + presentation
+#+begin_src emacs-lisp
+(manifolding-keyboard-define-keys
+  :states '("normal" "org" "motion" "presentation")
+  :bind
+  `(
+    ("A" . ks-goto-line)
+))
+#+end_src
+*** Shared: motion + dired + presentation
+#+begin_src emacs-lisp
+(manifolding-keyboard-define-keys
+  :states '("motion" "dired" "presentation")
+  :bind
+  `(
+    ("n" . next-line)
+))
+#+end_src
+*** Shared: motion + ibuffer
+#+begin_src emacs-lisp
+(manifolding-keyboard-define-keys
+  :states '("motion" "ibuffer")
+  :bind
+  `(
+    ("ESC" . my/normal-state)
+))
+#+end_src
+*** Shared: normal + org + motion
+#+begin_src emacs-lisp
+(manifolding-keyboard-define-keys
+  :states '("normal" "org" "motion")
+  :bind
+  `(
+    ("a" . ks-goto-char-timer)
+    ("d" . my/dired-here)
+))
+#+end_src
+*** Shared: dired + presentation
+#+begin_src emacs-lisp
+(manifolding-keyboard-define-keys
+  :states '("dired" "presentation")
+  :bind
+  `(
+    ("s" . previous-line)
+))
+#+end_src
+*** Shared: normal + motion
+#+begin_src emacs-lisp
+(manifolding-keyboard-define-keys
+  :states '("normal" "motion")
+  :bind
+  `(
+    ("'" . my/qsearch-next-at-point)
+    ("," . my/count-and-execute)
+    ("-" . my/fix-a-space)
+    ("." . my/yank-line-content)
+    ("/" . my/hl-next-at-point)
+    ("0" . my/reindent-block)
+    ("1" . my/find-char-forward)
+    ("2" . my/find-char-backward)
+    ("3" . my/modal-bindings)
+    ("4" . my/set-key)
+    ("5" . my/command-then-modal)
+    ("6" . my/chord-define-global)
+    ("7" . my/chord-describe)
+    ("8" . my/act)
+    ("9" . my/dwim)
+    (";" . my/navigate-forward)
+    ("=" . my/repeat-last)
+    ("C" . my/act-cycle)
+    ("M" . my/act-all)
+    ("R" . my/act-highlight)
+    ("[" . my/smarter-upward)
+    ("]" . my/smarter-downward)
+    ("`" . my/quote-character)
+    ("b" . my/select-inside-delimiters)
+    ("c" . my/select-syntax-context)
+    ("f" . my/jump-to-symbol)
+    ("g" . my/indent-to-match)
+    ("j" . my/pop-to-mark)
+    ("k" . my/unpop-to-mark)
+    ("l" . my/toggle-line-numbers)
+    ("r" . my/reveal-at-point)
+    ("v" . my/smarter-forward)
+    ("x" . my/smarter-backward)
+    ("y" . my/line-beginning)
+    ("z" . my/line-end)
+))
+#+end_src
+*** Shared: normal + org
+#+begin_src emacs-lisp
+(manifolding-keyboard-define-keys
+  :states '("normal" "org")
+  :bind
+  `(
+    ("F" . my/treemacs-toggle)
+    ("U" . git-timemachine)
+    ("u" . vundo)
+))
+#+end_src
+*** Shared: org + atlas-pick
+#+begin_src emacs-lisp
+(manifolding-keyboard-define-keys
+  :states '("org" "atlas-pick")
+  :bind
+  `(
+    ("H" . org-backward-heading-same-level)
+    ("T" . org-forward-heading-same-level)
+    ("h" . org-previous-visible-heading)
+    ("n" . org-cycle)
+    ("t" . org-next-visible-heading)
+))
+#+end_src
+** Shared functions
+#+begin_src emacs-lisp
+(defun my/treemacs-toggle ()
+  "Toggle treemacs. If focused, close it. If open, focus it."
+  (interactive)
+  (if (treemacs-is-treemacs-window? (selected-window))
+      (treemacs-quit)
+    (treemacs-select-window)))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/unpop-to-mark ()
+  "Unpop off the mark ring (move forward to a newer position). Does nothing
+if the mark ring is empty."
+  (interactive)
+  (deactivate-mark)
+  (when mark-ring
+    (setq mark-ring (cons (copy-marker (mark-marker)) mark-ring))
+    (set-marker (mark-marker) (car (last mark-ring)) (current-buffer))
+    (setq mark-ring (nbutlast mark-ring))
+    (goto-char (marker-position (car (last mark-ring))))))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/pop-to-mark ()
+  "Jump to an older mark-ring position, saving the current point first."
+  (interactive)
+  (deactivate-mark)
+  (unless (member last-command
+                  '(my/pop-to-mark my/unpop-to-mark my/pop-or-unpop-to-mark))
+    (setq mark-ring (append mark-ring (list (point-marker)))))
+  (pop-to-mark-command))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/jump-to-symbol ()
+  "Pick any symbol/word in the buffer, then jump to its next occurrence.
+
+Collects symbols/words from the whole buffer via ~completing-read~ and moves
+point to the next match (wrapping to the top on reaching the buffer end)."
+  (interactive)
+  (let ((target (my/prompt-symbol-and-words "Jump to symbol: "
+                                             (point-min) (point-max))))
+    (when target
+      (unless (re-search-forward target nil t)
+        (goto-char (point-min))
+        (unless (re-search-forward target nil t)
+          (message "No occurrence of %s" target))))))
+#+end_src
+*inline helper for my/jump-to-symbol*
+#+begin_src emacs-lisp
+(defun my/prompt-symbol-and-words (prompt beg end &optional disallow-empty)
+  "Completion with PROMPT for symbols and words from BEG to END.
+
+Returns the chosen symbol, or — when ~my/symbol-collect-sanitize~ is non-nil —
+its word-boundary regexp ~\\_<SYMBOL\\_>~. If DISALLOW-EMPTY, requests again
+until a non-empty selection is made."
+  (let ((completions))
+    (save-mark-and-excursion
+      (goto-char beg)
+      (while (re-search-forward "\\_<\\(\\sw\\|\\s_\\)+\\_>" end t)
+        (let ((result (match-string-no-properties 0)))
+          (when (>= (length result) my/symbol-collect-min-length)
+            (if my/symbol-collect-sanitize
+                (push (cons result (format "\\_<%s\\_>" (regexp-quote result)))
+                      completions)
+              (push (format "\\_<%s\\_>" (regexp-quote result))
+                    completions))))))
+    (setq completions (delete-dups completions))
+    (let ((selected (completing-read prompt completions nil nil)))
+      (while (and (string-empty-p selected) disallow-empty)
+        (setq selected (completing-read
+                        (concat "[Input must be non-empty] " prompt)
+                        completions nil nil)))
+      (if my/symbol-collect-sanitize
+          (or (cdr (assoc selected completions))
+              (regexp-quote selected))
+        selected))))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/select-inside-delimiters ()
+  "Activate the INNER content of the innermost enclosing ~() [] {} <>~ around point.
+
+Finds the nearest balanced delimiter pair surrounding point, sets point and
+mark to the text strictly between the delimiters, and enters visual state."
+  (interactive)
+  (let ((pairs '(("\\\\(" . "\\\\)") ("\\\\[" . "\\\\]") ("{" . "}") ("<" . ">")))
+        (best nil))
+    (dolist (p pairs)
+      (let* ((found (my/thing-pair-function (car p) (cdr p) nil))
+             (beg (and found (car found)))
+             (end (and found (cdr found))))
+        (when (and beg end (<= beg (point) end)
+                   (or (null best) (> beg (car best))))
+          (setq best (cons beg end)))))
+    (if best
+        (progn
+          (goto-char (car best))
+          (push-mark (1+ (point)) t t)
+          (goto-char (1- (cdr best)))
+          (activate-mark)
+          (manifolding-keyboard-set-state "visual"))
+      (message "No enclosing delimiter pair"))))
+#+end_src
+*inline helper for my/select-inside-delimiters*
+#+begin_src emacs-lisp
+(defun my/thing-parse-pair-search (push-token pop-token back near)
+  "Search for the nearest PUSH-TOKEN or POP-TOKEN (regexps) around point.
+
+When BACK is non-nil search backward, else forward. Returns (push|pop . POS)
+with POS at the delimiter boundary; moves point to the token start for the
+next iteration. Returns nil if neither token is found."
+  (let* ((search-fn (if back #'re-search-backward #'re-search-forward))
+         (match-fn (if back #'match-end #'match-beginning))
+         (cmp-fn (if back #'> #'<))
+         (push-next-pos nil)
+         (pop-next-pos nil)
+         (push-pos (save-mark-and-excursion
+                     (when (funcall search-fn push-token nil t)
+                       (setq push-next-pos (point))
+                       (if near (funcall match-fn 0) (point)))))
+         (pop-pos (save-mark-and-excursion
+                    (when (funcall search-fn pop-token nil t)
+                      (setq pop-next-pos (point))
+                      (if near (funcall match-fn 0) (point))))))
+    (cond
+     ((and (not pop-pos) (not push-pos)) nil)
+     ((not pop-pos) (goto-char push-next-pos) (cons 'push push-pos))
+     ((not push-pos) (goto-char pop-next-pos) (cons 'pop pop-pos))
+     ((funcall cmp-fn push-pos pop-pos)
+      (goto-char push-next-pos) (cons 'push push-pos))
+     (t
+      (goto-char pop-next-pos) (cons 'pop pop-pos)))))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/thing-pair-function (push-token pop-token near)
+  "Return (beg . end) of the balanced pair of regexps PUSH-TOKEN/POP-TOKEN
+surrounding point, or nil. With NEAR, boundaries hug the delimiters; else beg
+is the opening token's position and end is just past the closing token."
+  (let* ((found nil)
+         (depth 0)
+         (beg (save-mark-and-excursion
+                (prog1
+                    (let ((case-fold-search nil))
+                      (while (and (<= depth 0)
+                                  (setq found (my/thing-parse-pair-search
+                                               push-token pop-token t near)))
+                        (let ((push-or-pop (car found)))
+                          (if (eq 'push push-or-pop)
+                              (cl-incf depth)
+                            (cl-decf depth))))
+                      (when (> depth 0) (cdr found)))
+                  (setq depth 0 found nil))))
+         (end (save-mark-and-excursion
+                (let ((case-fold-search nil))
+                  (while (and (>= depth 0)
+                              (setq found (my/thing-parse-pair-search
+                                           push-token pop-token nil near)))
+                    (let ((push-or-pop (car found)))
+                      (if (eq 'push push-or-pop)
+                          (cl-incf depth)
+                        (cl-decf depth))))
+                  (when (< depth 0) (cdr found))))))
+    (when (and beg end)
+      (cons beg end))))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/select-syntax-context ()
+  "Select the enclosing STRING or COMMENT containing point (visual state).
+
+If point is inside a string literal, selects the whole literal; if inside a
+comment, selects the whole comment (block comments to their terminator, line
+comments to end of line). Otherwise no-op with a message."
+  (interactive)
+  (let ((ppss (syntax-ppss)))
+    (cond
+     ((my/in-string-p)
+      (let ((start (nth 8 ppss)))
+        (goto-char start)
+        (forward-sexp 1)
+        (push-mark (1+ start) t t)
+        (activate-mark)
+        (manifolding-keyboard-set-state "visual")))
+     ((my/in-comment-p)
+      (let* ((start (nth 8 ppss))
+             (end (save-mark-and-excursion
+                    (goto-char start)
+                    (condition-case nil
+                        (progn
+                          (skip-syntax-backward " ")
+                          (if comment-end-skip
+                              (progn
+                                (re-search-forward comment-end-skip nil t)
+                                (if (and comment-end (not (equal comment-end "")))
+                                    (progn (goto-char match-beginning) (point))
+                                  (point)))
+                            (line-end-position)))
+                      (error (line-end-position))))))
+        (goto-char start)
+        (push-mark start t t)
+        (goto-char end)
+        (activate-mark)
+        (manifolding-keyboard-set-state "visual")))
+     (t
+      (message "Point is not inside a string or comment")))))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/reveal-at-point ()
+  "Reveal folded or hidden content at point."
+  (interactive)
+  (my/ensure-visible))
+#+end_src
+*inline helper for my/reveal-at-point*
+#+begin_src emacs-lisp
+(defun my/ensure-visible ()
+  "Expose invisible overlays at point so folded/hidden content becomes visible.
+
+Iterates the overlays touching the char before point and, for each that is
+invisible AND carries an ~isearch-open-invisible~ handler, invokes that handler
+(the org/outline/isearch mechanism that actually unfolds)."
+  (let ((overlays (overlays-at (1- (point))))
+        ov expose)
+    (while (setq ov (pop overlays))
+      (if (and (invisible-p (overlay-get ov 'invisible))
+               (setq expose (overlay-get ov 'isearch-open-invisible)))
+          (funcall expose ov)))))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/indent-to-match ()
+  "Indent the current line to match the nearest preceding non-blank line.
+
+Scans upward for the previous non-empty line and sets this line's leading
+whitespace to that line's indentation column."
+  (interactive)
+  (let ((target nil))
+    (save-excursion
+      (goto-char (line-beginning-position))
+      (while (and (not target) (not (bobp)))
+        (forward-line -1)
+        (unless (my/empty-line-p)
+          (setq target (my/get-indent)))))
+    (if (not target)
+        (message "No preceding non-blank line to match")
+      (let ((line-start (line-beginning-position)))
+        (goto-char line-start)
+        (delete-region line-start (progn (skip-chars-forward " \t") (point)))
+        (indent-to target)
+        (back-to-indentation)))))
+#+end_src
+*inline helper for my/indent-to-match*
+#+begin_src emacs-lisp
+(defun my/get-indent ()
+  "Get the indentation column of the current line."
+  (save-mark-and-excursion
+    (back-to-indentation)
+    (- (point) (line-beginning-position))))
+#+end_src
+*inline helper for my/indent-to-match*
+#+begin_src emacs-lisp
+(defun my/empty-line-p ()
+  "Return whether the current line is blank (only whitespace)."
+  (string-match-p "^ *$" (buffer-substring-no-properties
+                          (line-beginning-position)
+                          (line-end-position))))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/toggle-line-numbers ()
+  "Toggle line numbers on/off (relative in normal/motion, absolute in insert)."
+  (interactive)
+  (if display-line-numbers
+      (display-line-numbers-mode -1)
+    (display-line-numbers-mode 1)
+    (my/update-relative-line-numbers)))
+#+end_src
+*inline helper for my/toggle-line-numbers*
+#+begin_src emacs-lisp
+(defun my/update-relative-line-numbers ()
+  "Show relative line numbers, switching to absolute in insert state."
+  (when display-line-numbers
+    (setq display-line-numbers
+          (if (equal manifolding-keyboard-state "insert") t 'relative))))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/line-beginning ()
+  "Move point to first non-whitespace on the line; else to true line start.
+Skips folded (invisible) outline text at the beginning of line."
+  (interactive)
+  (let ((oldpos (point)))
+    (back-to-indentation)
+    (when (or (and (fboundp 'outline-invisible-p)
+                   (outline-invisible-p))
+              (= oldpos (point)))
+      (beginning-of-line)
+      (while (bound-and-true-p outline-invisible-p)
+        (backward-char 1)
+        (beginning-of-line 1)))))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/line-end ()
+  "Move point to the end of the line, cycling through smart positions.
+Cycles: last non-comment char, then last non-blank char, then true end of line."
+  (interactive)
+  (let* ((orig (point))
+         (orig-eol (eolp))
+         (progress (lambda () (and (not (bolp)) (or orig-eol (> (point) orig))))))
+    (beginning-of-line)
+    (while (not (or (my/line-comment-start-p) (eolp)))
+      (forward-char))
+    (skip-chars-backward "\n\t " (line-beginning-position))
+    (unless (funcall progress)
+      (end-of-line)
+      (skip-chars-backward "\n\t " (line-beginning-position))
+      (unless (funcall progress)
+        (end-of-line)))))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/smarter-backward (count)
+  "Move point backward over COUNT whole syntactic units."
+  (interactive "p")
+  (dotimes (_number count)
+    (my/jump-over-blanks-backward)
+    (let ((back-limit (- (point) 5)))
+      (cond
+       ((my/looking-at-comment -1)
+        (forward-comment -1))
+       ((looking-back "\\s\"" back-limit)
+        (backward-char)
+        (when-let ((char (nth 8 (syntax-ppss))))
+          (goto-char char)))
+       ((looking-back "\\s)" back-limit)
+        (backward-list))
+       ((looking-back "\\s$" back-limit)
+        (condition-case nil
+            (let ((end-pos (scan-sexps (point) -1)))
+              (if (>= end-pos (line-beginning-position))
+                  (goto-char end-pos)
+                (backward-char)))
+          (scan-error
+           (message "matching thing not found")
+           (backward-char))))
+       ((looking-back "\\s." back-limit)
+        (skip-syntax-backward "."))
+       ((looking-back "\\s(" back-limit)
+        (backward-char))
+       ((looking-back "\\s!" back-limit)
+        (skip-syntax-backward "!"))
+       ((and (fboundp 'subword-backward)
+             (bound-and-true-p subword-mode)
+             (looking-at "\\sw")
+             (looking-back "\\sw" (1- (point))))
+        (subword-backward))
+       ((looking-back "\\sw\\|\\s_" back-limit)
+        (if (looking-at "\\sw\\|\\s_")
+            (progn
+              (skip-syntax-backward "_")
+              (skip-syntax-backward "w"))
+          (skip-syntax-backward "w_")))
+       (t
+        (backward-char))))))
+#+end_src
+*inline helper for my/smarter-backward*
+#+begin_src emacs-lisp
+(defun my/jump-over-blanks-backward ()
+  "Jump over blank characters (newline, tab, space), backward."
+  (interactive)
+  (skip-chars-backward "\n\t "))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/smarter-forward (count)
+  "Move point forward over COUNT whole syntactic units."
+  (interactive "p")
+  (dotimes (_number count)
+    (my/jump-over-blanks-forward)
+    (cond
+     ((my/line-comment-start-p)
+      (end-of-line)
+      (my/jump-over-blanks-forward))
+     ((my/looking-at-comment 1)
+      (forward-comment 1))
+     ((looking-at "\\s\"")
+      (forward-char)
+      (when-let ((char (nth 8 (syntax-ppss))))
+        (goto-char char)
+        (forward-sexp)))
+     ((looking-at "\\s(")
+      (forward-list))
+     ((looking-at "\\s)")
+      (forward-char))
+     ((looking-at "\\s$")
+      (condition-case nil
+          (let ((end-pos (scan-sexps (point) 1)))
+            (if (<= end-pos (line-end-position))
+                (goto-char end-pos)
+              (forward-char)))
+        (scan-error
+         (message "matching thing not found")
+         (forward-char))))
+     ((looking-at "\\s.")
+      (skip-syntax-forward "."))
+     ((looking-at "\\s!")
+      (skip-syntax-forward "!"))
+     ((and (fboundp 'subword-forward)
+           (bound-and-true-p subword-mode)
+           (looking-at "\\sw")
+           (looking-back "\\sw" (1- (point))))
+      (subword-forward))
+     ((looking-at "\\sw\\|\\s_")
+      (if (looking-back "\\sw\\|\\s_" (1- (point)))
+          (progn
+            (skip-syntax-forward "_")
+            (skip-syntax-forward "w"))
+        (skip-syntax-forward "w_")))
+     (t
+      (forward-char)))))
+#+end_src
+*inline helper for my/smarter-forward*
+#+begin_src emacs-lisp
+(defun my/jump-over-blanks-forward ()
+  "Jump over blank characters (newline, tab, space), forward."
+  (interactive)
+  (skip-chars-forward "\n\t "))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/smarter-upward (count)
+  "Move upward, to a line with the same level of indentation or less, COUNT times."
+  (interactive "p")
+  (back-to-indentation)
+  (dotimes (_number count)
+    (previous-logical-line)
+    (while (< (my/col-relative-to-indent) 0) (previous-logical-line)))
+  (back-to-indentation))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/smarter-downward (count)
+  "Move downward, to a line with the same level of indentation or less, COUNT times."
+  (interactive "p")
+  (back-to-indentation)
+  (dotimes (_number count)
+    (next-logical-line)
+    (while (< (my/col-relative-to-indent) 0) (next-logical-line)))
+  (back-to-indentation))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/yank-line-content ()
+  "Copy the code content of the current line to the kill-ring.
+Drops leading indentation and trailing blank; uses marker-safe regions so the
+copy is unaffected by edits. Does not delete anything."
+  (interactive)
+  (save-excursion
+    (let* ((beg (progn (back-to-indentation) (point)))
+           (end (progn (end-of-line) (skip-chars-backward " \t") (point)))
+           (reg (my/reg-to-markers (my/reg-mk beg end nil))))
+      (when (> end beg)
+        (kill-ring-save (my/reg-mark reg) (my/reg-point reg))))))
+#+end_src
+*inline helper for my/yank-line-content*
+#+begin_src emacs-lisp
+(defun my/reg-to-markers (reg)
+  "Return a COPY of region REG whose borders are markers (edit-safe)."
+  (my/reg-mk (copy-marker (my/reg-mark reg))
+             (copy-marker (my/reg-point reg))
+             (my/reg-cursor reg)))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/count-and-execute ()
+  "Read a count and a command key, then run that command with the count.
+Type digits for a count (optional), then a single command key from the active
+keymaps; the command is invoked with the count as ~current-prefix-arg~ so it
+repeats / behaves as a counted operator."
+  (interactive)
+  (let ((sel (my/spec-selector "count")))
+    (when sel
+      (let ((current-prefix-arg (car sel)))
+        (call-interactively (cdr sel))))))
+#+end_src
+*inline helper for my/count-and-execute*
+#+begin_src emacs-lisp
+(defun my/spec-selector (msg)
+  "Read a decimal count and a single command key, returning (count . command).
+MSG is used as the prompt. If no digits are typed, count is nil. Digits are
+accumulated into a decimal number exactly like Boon, then a single key is read
+and resolved against the currently active keymaps (which include M-K's state
+keymaps). Returns nil if the key is not a command."
+  (let ((count 0)
+        (maps (current-active-maps t)))
+    (while (let ((ch (read-event (format "%s %s" msg count))))
+             (and (integerp ch) (>= ch ?0) (<= ch ?9)
+                  (setq count (+ (- ch ?0) (* 10 count)))))
+      nil)
+    (if (zerop count) (setq count nil))
+    (let ((cmd (lookup-key maps (vector last-input-event))))
+      (when (commandp cmd)
+        (cons count cmd)))))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/hl-next-at-point ()
+  "Highlight the symbol at point (if not already) and jump to its next match.
+This makes the highlighted symbol searchable and navigable."
+  (interactive)
+  (my/hl-symbol (thing-at-point 'symbol t))
+  (let ((pattern (car my/hl-patterns)))
+    (when pattern
+      (unless (my/hl-search pattern nil nil)
+        (goto-char (point-min))
+        (my/hl-search pattern nil nil)))))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/fix-a-space ()
+  "Fix the text to have the correct amount of spacing at point.
+Return non-nil if any change was made."
+  (interactive)
+  (let ((back-limit (1- (point))))
+    (cond ((bolp) nil)
+          ((looking-at " ")
+           (when (or (bolp) (looking-back "\\s-\\|\\s(" back-limit))
+             (delete-char 1)
+             t))
+          ((looking-back " " back-limit)
+           (when (or (eolp) (looking-at "\\s-\\|\\s)\\|\\s."))
+             (delete-char -1)
+             t))
+          ((my/need-space)
+           (insert " ")
+           t)
+          (t nil))))
+#+end_src
+*inline helper for my/fix-a-space*
+#+begin_src emacs-lisp
+(defun my/need-space ()
+  "Return t if a space is needed here to separate words or expressions."
+  (let ((back-limit (1- (point))))
+    (and (not (or (eolp) (looking-at "\\s-") (looking-at "\\s)")))
+         (not (or (bolp) (looking-back "\\s-" back-limit)
+                  (looking-back "\\s(" back-limit)))
+         (or (and (looking-back "\\sw\\|\\s_\\|\\s.\\|\\s)" back-limit)
+                  (looking-at "\\sw\\|\\s_\\|\\s("))))))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/qsearch-next-at-point ()
+  "Highlight the text at point then jump to its next match."
+  (interactive)
+  (my/hl-symbol (my/stuff-at-point))
+  (my/qsearch t)
+  (deactivate-mark))
+#+end_src
+*inline helper for my/qsearch-next-at-point*
+#+begin_src emacs-lisp
+(defun my/stuff-at-point ()
+  "Return meaningful text at point (region if active, else symbol).
+Signal an error if nothing relevant is there."
+  (interactive)
+  (if (use-region-p)
+      (buffer-substring-no-properties (region-beginning) (region-end))
+    (or (thing-at-point 'symbol)
+        (error "Nothing relevant at point; move to a symbol or select a region"))))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/navigate-forward ()
+  "Go to the next item of interest."
+  (interactive)
+  (my/navigate t))
+#+end_src
+*inline helper for my/navigate-forward*
+#+begin_src emacs-lisp
+(defun my/navigate (forward)
+  "Go to the next item of interest, FORWARD or backwards."
+  (cond
+   ((my/hl-current-pattern)
+    (my/qsearch forward))
+   (t (next-error (if forward 1 -1)))))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/find-char-forward (char)
+  "Move forward to the next occurrence of character CHAR, stepping onto it."
+  (interactive "cType the character to find")
+  (search-forward (make-string 1 char))
+  (backward-char 1))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/find-char-backward (char)
+  "Move backward to the previous occurrence of character CHAR, stepping onto it."
+  (interactive "cType the character to find")
+  (search-backward (make-string 1 char))
+  (forward-char 1))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/quote-character (char)
+  "Execute the command bound to character CHAR as if the M-K modal layer were off."
+  (interactive (list (read-char)))
+  (let* ((mk-maps
+          (cl-loop for sym being the symbols
+                   when (and (symbolp sym)
+                             (string-prefix-p "manifolding-keyboard-"
+                                              (symbol-name sym))
+                             (string-suffix-p "-state-keymap" (symbol-name sym))
+                             (boundp sym))
+                   collect (symbol-value sym)))
+         (keymap (make-composed-keymap
+                  (cl-remove-if (lambda (m) (memq m mk-maps))
+                                (current-active-maps))))
+         (cmd (lookup-key keymap (vector char)))
+         (cmd (or (command-remapping cmd nil keymap) cmd)))
+    (setq last-command-event char)
+    (setq this-command cmd)
+    (message "Executing the command bound to %c" char)
+    (call-interactively cmd nil [char])))
+#+end_src
+#+begin_src emacs-lisp
+(defvar my/last-command nil
+  "Last command run from an M-K state keymap, for ~my/repeat-last~.")
+#+end_src
+#+begin_src emacs-lisp
+(defvar my/last-command-prefix-arg nil
+  "Prefix arg of the last M-K-state command.")
+#+end_src
+#+begin_src emacs-lisp
+(defvar my/non-repeating-commands '(my/repeat-last)
+  "Commands that ~my/repeat-last~ must not repeat.")
+#+end_src
+#+begin_src emacs-lisp
+(defun my/maybe-store-last-command ()
+  "Remember THIS-COMMAND + its prefix arg if it came from an M-K state keymap."
+  (when (commandp this-command)
+    (let ((in-state-map
+           (cl-remove-if-not
+            (lambda (map)
+              (and (symbolp map)
+                   (string-prefix-p "manifolding-keyboard-" (symbol-name map))
+                   (string-suffix-p "-state-keymap" (symbol-name map))))
+            (current-active-maps))))
+      (when (and in-state-map
+                 (not (member this-command my/non-repeating-commands)))
+        (setq my/last-command-prefix-arg last-prefix-arg)
+        (setq my/last-command this-command)))))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/repeat-last ()
+  "Repeat the last command run from an M-K state keymap, with its prefix arg."
+  (interactive)
+  (when my/last-command
+    (setf current-prefix-arg my/last-command-prefix-arg)
+    (command-execute my/last-command nil nil t)))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/reindent-block ()
+  "Re-indent the current line and the two lines below (chained via ~my/chain~)."
+  (interactive)
+  (my/chain 'my/indent-to-match
+            nil
+            '(my/smarter-downward my/indent-to-match
+              my/smarter-downward my/indent-to-match)))
+#+end_src
+*inline helper for my/reindent-block*
+#+begin_src emacs-lisp
+(defun my/chain (command &optional first then)
+  "Run FIRST commands, then COMMAND, then THEN commands.
+Each element of FIRST/THEN is called interactively if a command, else applied
+with no arguments. `this-command' stays COMMAND throughout the chain."
+  (let ((real-this-command command))
+    (dolist (f first)
+      (if (commandp f) (call-interactively f) (apply f nil)))
+    (call-interactively command)
+    (dolist (f then)
+      (if (commandp f) (call-interactively f) (apply f nil)))))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/modal-bindings ()
+  "Display a sorted buffer of M-K normal + motion state bindings."
+  (interactive)
+  (with-output-to-temp-buffer "*my-modal-bindings*"
+    (princ "M-K Modal Bindings\n\n")
+    (dolist (state '(manifolding-keyboard-normal-state-keymap
+                     manifolding-keyboard-motion-state-keymap))
+      (let ((entries (my/keymap-entries (symbol-value state))))
+        (princ (format "%s\n%s\n" (symbol-name state) (make-string 40 ?-)))
+        (cl-loop for (key . cmd) in entries
+                 do (princ (format "%-12s %s\n" key (prin1-to-string cmd))))
+        (princ "\n")))))
+#+end_src
+*inline helper for my/modal-bindings*
+#+begin_src emacs-lisp
+(defun my/keymap-entries (keymap)
+  "Return sorted (key-description . command) pairs from KEYMAP object."
+  (let (pairs)
+    (map-keymap (lambda (key binding)
+                  (when (commandp binding)
+                    (push (cons (key-description (vector key)) binding) pairs)))
+                keymap)
+    (sort pairs (lambda (a b) (string< (car a) (car b))))))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/set-key (key command)
+  "Give KEY a binding as COMMAND in the M-K normal-state keymap.
+For interactive temporary overrides. See `global-set-key'."
+  (interactive "KSet M-K key: \nCSet M-K key %s to command: ")
+  (or (vectorp key) (stringp key)
+      (signal 'wrong-type-argument (list 'arrayp key)))
+  (define-key manifolding-keyboard-normal-state-keymap key command))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/unset-key (key)
+  "Remove the M-K normal-state keymap binding of KEY.
+KEY is a string or vector. For interactive temporary unbinds."
+  (interactive "kUnset M-K key: ")
+  (define-key manifolding-keyboard-normal-state-keymap key nil))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/command-then-modal ()
+  "Prompt for a command, run it, then switch to the normal (modal) state."
+  (interactive)
+  (let ((command (read-command "Command, then modal: ")))
+    (call-interactively command)
+    (manifolding-keyboard-set-state "normal")))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/chord-describe ()
+  "List all defined key chords in a help buffer."
+  (interactive)
+  (describe-bindings [my/chord]))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/act ()
+  "Act on the thing at point.
+Find the contextual target under point, classify its type, and run a
+type-appropriate default action (Embark-extracted). The per-type actions REUSE
+existing M-K functions where they already cover a type — no parallel duplicates:
+
+  - active region     -> ks-kill-ring-save-region (copy region)
+  - existing file     -> find-file (open it)
+  - URL               -> browse-url
+  - live buffer       -> switch-to-buffer
+  - symbol / word     -> my/jump-to-symbol (search-jump to its occurrence)
+
+If nothing matches, reports the detected target and type in the echo area."
+  (interactive)
+  (let* ((bounds (or (and (region-active-p)
+                          (cons (region-beginning) (region-end)))
+                     (bounds-of-thing-at-point 'filename)
+                     (bounds-of-thing-at-point 'url)
+                     (bounds-of-thing-at-point 'buffer)
+                     (bounds-of-thing-at-point 'symbol)
+                     (bounds-of-thing-at-point 'word)))
+         (value (and bounds
+                     (buffer-substring-no-properties (car bounds) (cdr bounds))))
+         (act (cond
+               ((region-active-p) 'ks-kill-ring-save-region)
+               ((and value (file-exists-p value)) 'find-file)
+               ((and value (string-prefix-p "http" value)) 'browse-url)
+               ((and value (get-buffer value)) 'switch-to-buffer)
+               (value 'my/jump-to-symbol))))
+    (cond
+     (act
+      (when bounds (goto-char (car bounds)))
+      (message "Act on %s: %s"
+               (if (region-active-p) "region" "thing")
+               value)
+      (call-interactively act))
+     (t
+      (message "No known target at point%s"
+               (if value (format ": %s" value) ""))))))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/dwim ()
+  "Run the default action on the thing at point (Do What I Mean).
+Like my/act (E01) but runs the target type's DEFAULT action immediately, with
+the target pre-supplied (no action menu, no re-typing). Reuses existing M-K /
+builtin machinery per the no-duplication plan:
+
+  - active region   -> ks-kill-ring-save-region (copy region, no prompt)
+  - existing file   -> find-file on it (no prompt)
+  - URL             -> browse-url on it (no prompt)
+  - live buffer     -> switch-to-buffer on it (no prompt)
+  - symbol / word   -> jump to the next occurrence (no prompt, wraps)
+
+If nothing matches, reports the detected target and type in the echo area."
+  (interactive)
+  (let* ((bounds (or (and (region-active-p)
+                          (cons (region-beginning) (region-end)))
+                     (bounds-of-thing-at-point 'filename)
+                     (bounds-of-thing-at-point 'url)
+                     (bounds-of-thing-at-point 'buffer)
+                     (bounds-of-thing-at-point 'symbol)
+                     (bounds-of-thing-at-point 'word)))
+         (value (and bounds
+                     (buffer-substring-no-properties (car bounds) (cdr bounds)))))
+    (cond
+     ((and bounds (region-active-p))
+      (call-interactively 'ks-kill-ring-save-region)
+      (message "Copied region (%d chars)" (- (cdr bounds) (car bounds))))
+     ((and value (file-exists-p value))
+      (find-file value))
+     ((and value (string-prefix-p "http" value))
+      (browse-url value))
+     ((and value (get-buffer value))
+      (switch-to-buffer value))
+     ((and bounds value)
+      (goto-char (cdr bounds))          ; past the current thing
+      (or (re-search-forward (regexp-quote value) nil t)
+          (progn (goto-char (point-min))
+                 (re-search-forward (regexp-quote value) nil t)))
+      (goto-char (match-beginning 0))
+      (message "Next: %s" value))
+     (t
+      (message "No known target at point%s"
+               (if value (format ": %s" value) ""))))))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/act-cycle ()
+  "Cycle to the next candidate thing at point (Embark-extracted).
+When several things overlap at point (a word inside a symbol inside a sexp),
+Embark lets you cycle among them; the current one becomes the target of a
+following my/act (8) / my/dwim (9). This port moves point to the start of the
+NEXT candidate (wrapping) and reports its type and value."
+  (interactive)
+  (let* ((cands (my/act-targets))
+         (pt (point)))
+    (if (null cands)
+        (message "No candidate things at point")
+      (let* ((idx (or (cl-position-if
+                       (lambda (c) (and (<= (nth 1 c) pt) (< pt (nth 2 c))))
+                       cands)
+                      -1))
+             (chosen (nth (mod (1+ idx) (length cands)) cands)))
+        (goto-char (nth 1 chosen))
+(message "%s: %s"
+                  (nth 0 chosen)
+                  (buffer-substring-no-properties (nth 1 chosen)
+                                                  (nth 2 chosen)))))))
+#+end_src
+*inline helper for my/act-cycle*
+#+begin_src emacs-lisp
+(defun my/act-targets ()
+  "Return candidate things at point as a list (TYPE BEG END).
+Embark-style target collection via builtin ~thing-at-point~, ordered by
+specificity (sexp, symbol, word) and deduplicated by bounds. Used by
+~my/act-cycle~ to walk alternate interpretations of the thing at point."
+  (let (result)
+    (dolist (type '(sexp symbol word))
+      (when-let* ((b (bounds-of-thing-at-point type)))
+        (push (list type (car b) (cdr b)) result)))
+    (nreverse
+     (cl-delete-duplicates result :test (lambda (a c)
+                                          (and (equal (cadr a) (cadr c))
+                                               (equal (caddr a) (caddr c))))))))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/act-highlight ()
+  "Highlight (or clear) the current act target at point.
+Embark-extracted: Embark draws an overlay over the target's bounds while acting
+and removes it on cleanup. This port toggles a highlight overlay on the thing at
+point, using the same target priority as my/act (8) / my/dwim (9) — region,
+file, URL, buffer, symbol, word — so the 'current target' is visually explicit.
+Re-invoking removes the overlay."
+  (interactive)
+  (if (and my/act-highlight-overlay
+           (overlay-buffer my/act-highlight-overlay))
+      (progn
+        (delete-overlay my/act-highlight-overlay)
+        (setq my/act-highlight-overlay nil)
+        (message "Highlight cleared"))
+    (let* ((bounds (or (and (region-active-p)
+                            (cons (region-beginning) (region-end)))
+                       (bounds-of-thing-at-point 'filename)
+                       (bounds-of-thing-at-point 'url)
+                       (bounds-of-thing-at-point 'buffer)
+                       (bounds-of-thing-at-point 'symbol)
+                       (bounds-of-thing-at-point 'word))))
+      (if bounds
+          (progn
+            (setq my/act-highlight-overlay
+                  (make-overlay (car bounds) (cdr bounds)))
+            (overlay-put my/act-highlight-overlay 'face 'highlight)
+            (overlay-put my/act-highlight-overlay 'priority 1000)
+            (message "Highlight: %s"
+                     (buffer-substring-no-properties (car bounds)
+                                                     (cdr bounds))))
+        (message "No target at point")))))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/act-all ()
+  "Act on all occurrences of the thing at point (Embark-extracted).
+Embark's act-all performs one action on EVERY candidate, not just the thing at
+point. This port collects all buffer occurrences of the symbol/word at point and
+offers a plain-key action on all of them:
+
+  k  kill all occurrences (destructive — asks confirmation)
+  c  copy all occurrences to the kill ring (non-destructive)
+
+Any other key cancels. Distinct from the occurrence highlighters/jumpers (B06,
+Meow #04): this batches an action on every occurrence."
+  (interactive)
+  (let* ((b (or (bounds-of-thing-at-point 'symbol)
+                (bounds-of-thing-at-point 'word)))
+         (thing (and b (buffer-substring-no-properties (car b) (cdr b)))))
+    (if (null thing)
+        (message "No symbol/word at point")
+      (let* ((markers (my/act-all-markers thing))
+             (n (length markers)))
+        (message "%s: %d occurrence%s" thing n (if (= n 1) "" "s"))
+        (when (> n 1)
+          (let ((choice (read-char-choice "Act on all: (k)ill, (c)opy, any key cancels"
+                                          '(?k ?c))))
+            (pcase choice
+              (?k (when (y-or-n-p (format "Kill all %d occurrences of %s? " n thing))
+                     (my/act-all-delete thing markers)))
+              (?c (my/act-all-copy thing markers))
+              (_ (message "Canceled")))))))))
+#+end_src
+*inline helper for my/act-all*
+#+begin_src emacs-lisp
+(defun my/act-all-markers (thing)
+  "Return markers for every occurrence of THING in the buffer, in order."
+  (let (markers)
+    (save-excursion
+      (goto-char (point-min))
+      (while (re-search-forward (regexp-quote thing) nil t)
+        (push (cons (copy-marker (match-beginning 0))
+                    (copy-marker (match-end 0)))
+              markers)))
+    (nreverse markers)))
+#+end_src
+*inline helper for my/act-all*
+#+begin_src emacs-lisp
+(defun my/act-all-delete (thing markers)
+  "Delete every occurrence of THING marked by MARKERS."
+  (dolist (m markers)
+    (let ((beg (car m)) (end (cdr m)))
+      (when (and (marker-buffer beg) (<= (point-min) beg end (point-max)))
+        (delete-region beg end))))
+  (message "Deleted all %s" thing))
+#+end_src
+*inline helper for my/act-all*
+#+begin_src emacs-lisp
+(defun my/act-all-copy (thing markers)
+  "Copy every occurrence of THING marked by MARKERS to the kill ring."
+  (let ((text (mapconcat (lambda (m)
+                           (buffer-substring-no-properties (car m) (cdr m)))
+                         markers "\n")))
+    (kill-new text)
+    (message "Copied %s: %d occurrence(s)" thing (length markers))))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/insert-state ()
+  "Switch to insert state."
+  (interactive)
+  (manifolding-keyboard-set-state "insert"))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/normal-state ()
+  "Switch to normal state."
+  (interactive)
+  (manifolding-keyboard-set-state "normal"))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/chord-describe ()
+  "List all defined key chords in a help buffer."
+  (interactive)
+  (describe-bindings [my/chord]))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/chord-define-global (keys command)
+  "Globally define a chord of the two keys in KEYS calling COMMAND."
+  (interactive "sSet key chord globally (2 keys): \nCSet chord \"%s\" to command: ")
+  (my/chord-define (current-global-map) keys command))
+#+end_src
+#+begin_src emacs-lisp
+(defun ks-goto-char-timer (&optional arg)
+  "Read one or many consecutive chars and jump to the first one.
+The window scope is determined by `ks-all-windows' (ARG negates it)."
+  (interactive "P")
+  (let ((ks-all-windows (if arg
+                             (not ks-all-windows)
+                           ks-all-windows)))
+    (ks-with ks-goto-char-timer
+      (setq ks--old-cands (ks--read-candidates))
+      (ks-process ks--old-cands))))
+#+end_src
+#+begin_src emacs-lisp
+(defun ks-goto-line (&optional arg)
+  "Jump to a line start in current buffer.
+
+When ARG is 1, jump to lines currently visible, with the option
+to cancel to `goto-line' by entering a number.
+
+When ARG is 4, negate the window scope determined by
+`ks-all-windows'.
+
+Otherwise, forward to `goto-line' with ARG."
+  (interactive "p")
+  (setq arg (or arg 1))
+  (if (not (memq arg '(1 4)))
+      (progn
+        (goto-char (point-min))
+        (forward-line (1- arg)))
+    (ks-with ks-goto-line
+      (let* ((ks-handler-old ks-handler-function)
+             (ks-handler-function
+              (lambda (char)
+                (if (or (< char ?0)
+                        (> char ?9))
+                    (funcall ks-handler-old char)
+                  (let ((line (read-from-minibuffer
+                               "Goto line: " (string char))))
+                    (when line
+                      (ks-push-mark)
+                      (save-restriction
+                        (widen)
+                        (goto-char (point-min))
+                        (forward-line (1- (string-to-number line))))
+                      (throw 'done 'exit))))))
+             (r (ks--line (eq arg 4))))
+        (when (and (not (memq r '(t nil))) (eq ks-action #'identity))
+          (ks-action-goto r))))))
+#+end_src
+** Companion variables
+#+begin_src emacs-lisp
+(defcustom my/symbol-collect-min-length 1
+  "Minimal length for a symbol/word to be collected as a completion candidate."
+  :type 'integer
+  :group 'manifolding-keyboard)
+#+end_src
+#+begin_src emacs-lisp
+(defcustom my/symbol-collect-sanitize t
+  "If non-nil, present each candidate as its ~\\_<...\\_>~ word-boundary regexp."
+  :type 'boolean
+  :group 'manifolding-keyboard)
+#+end_src
+#+begin_src emacs-lisp
+(defvar my/act-highlight-overlay nil
+  "Overlay used by my/act-highlight to mark the current act target.")
+#+end_src
+** Late companions (missed in first pass, verified same-owner)
+#+begin_src emacs-lisp
+(defun my/in-comment-p (&optional pos)
+  "Return whether POS (default point) is inside a comment."
+  (save-mark-and-excursion
+    (when pos (goto-char pos))
+    (nth 4 (syntax-ppss))))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/reg-cursor (reg) (nth 2 reg))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/qsearch-previous-at-point ()
+  "Highlight the text at point then jump to its previous match."
+  (interactive)
+  (my/hl-symbol (my/stuff-at-point))
+  (my/qsearch nil)
+  (deactivate-mark))
+#+end_src
+** Companion command (missed in first pass, universal-shared)
+#+begin_src emacs-lisp
+(defun my/save-all ()
+  "Save all modified buffers."
+  (interactive)
+  (let ((modified (seq-some #'buffer-modified-p (buffer-list))))
+    (save-some-buffers t)
+    (message (if modified "Saved." "Nothing to save."))))
+#+end_src

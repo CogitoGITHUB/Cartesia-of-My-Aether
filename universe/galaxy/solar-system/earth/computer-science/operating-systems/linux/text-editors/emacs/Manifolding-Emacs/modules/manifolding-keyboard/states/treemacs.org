@@ -1,0 +1,22 @@
+#+title: Manifolding Keyboard — Treemacs Map
+#+priority: 20
+
+Direct keymap bindings for treemacs-mode.
+
+** Treemacs
+#+begin_src emacs-lisp
+(with-eval-after-load 'treemacs
+  (define-key treemacs-mode-map (kbd "h") #'treemacs-goto-parent-node)
+  (define-key treemacs-mode-map (kbd "t") #'treemacs-next-line)
+  (define-key treemacs-mode-map (kbd "n") #'treemacs-previous-line)
+  (define-key treemacs-mode-map (kbd "o") #'treemacs-RET-action)
+  (define-key treemacs-mode-map (kbd "r") #'treemacs-rename-file)
+  (define-key treemacs-mode-map (kbd "c") #'treemacs-create-file)
+  (define-key treemacs-mode-map (kbd "C") #'treemacs-create-dir)
+  (define-key treemacs-mode-map (kbd "d") #'treemacs-delete-file)
+  (define-key treemacs-mode-map (kbd "f") #'treemacs-find-file)
+  (define-key treemacs-mode-map (kbd "p") #'treemacs-add-project-to-workspace)
+  (define-key treemacs-mode-map (kbd "q") #'treemacs-quit)
+  (define-key treemacs-mode-map (kbd "F") #'my/treemacs-toggle)
+  (define-key treemacs-mode-map (kbd "R") #'treemacs-refresh))
+#+end_src

@@ -1,0 +1,16 @@
+#+title:      cape
+#+identifier: 5b1c4e3f-7d2a-4f8e-cd89-4f2b6d8e3c5f
+#+filetags:   :emacs-package:completion:
+
+* CAPE — Completion Extensions #emacs-package #completion
+:PROPERTIES:
+:ID:       5b1c4e3f-7d2a-4f8e-cd89-4f2b6d8e3c5f
+:PACKAGE:  cape
+:STRAIGHT: (cape :type git :host github :repo "minad/cape")
+:CATEGORY: completion
+:END:
+
+** Config
+#+begin_src emacs-lisp
+
+#+end_src

@@ -1,0 +1,14 @@
+#+title:      org-mindmap
+#+filetags:   :emacs-package:org:
+
+* ORG-MINDMAP — Editable Mindmaps for Org-mode
+:PROPERTIES:
+:PACKAGE:  org-mindmap
+:STRAIGHT: (org-mindmap :type git :host github :repo "krvkir/org-mindmap")
+:CATEGORY: org
+:END:
+
+** Config
+#+begin_src emacs-lisp
+(add-hook 'org-mode-hook #'org-mindmap-mode)
+#+end_src

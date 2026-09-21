@@ -1,0 +1,142 @@
+#+PRIORITY: 50
+#+DISABLED: t
+#+TITLE: Package Template
+
+# ─────────────────────────────────────────────────────────────────────
+# HOW THIS FILE WORKS
+#
+# This is a template for creating new module files in modules/.
+# Every block in this file is :tangle no — nothing executes.
+#
+# FILE STRUCTURE:
+#   #+PRIORITY: N       lower number = loads earlier (default 10)
+#   * Topic             top-level topic, no :PACKAGE:
+#   ** Bare blocks      evaluated directly, no require, in order
+#   ** Package          :PACKAGE: headline, wraps blocks in leaf form
+#   ** Post-config      bare blocks after packages, in order
+#
+# BLOCK TAGGING:
+#   :init:              runs INSIDE the leaf :init keyword
+#   :config:            runs INSIDE the leaf :config keyword (default)
+#   no tag              defaults to :config:
+#   other tags          any valid leaf keyword works (e.g. :straight:, :general:)
+#                       Use :KEYWORD: property as an alternative to tagging
+#
+# BLOCK HEADER :tangle:
+#   omitted             block is compiled and loaded
+#   :tangle no          block is skipped entirely (documentation)
+#
+# PROPERTIES:
+#   :PACKAGE:  name     REQUIRED — feature name for require / leaf
+#                       (aliases: :USE_PACKAGE:, :USE-PACKAGE:, :LEAF:)
+#   :STRAIGHT: recipe   OPTIONAL — straight.el recipe
+#                       Accepted: :type git, :type file/:type local, :type built-in,
+#                       or omitted :type when :host/:repo are provided
+#   :CATEGORY: name     OPTIONAL — for grouping
+#   :KEYWORD:  name     OPTIONAL — override leaf keyword (e.g. :KEYWORD: init)
+#                       Detected automatically from Org tag otherwise
+#   :DEPENDS:  (pkg ...)  OPTIONAL — straight.el dependencies, merged into :STRAIGHT:
+#                       Ignored if no :STRAIGHT: property on same heading
+#
+# NOTES:
+#   - :require t is auto-injected into every generated leaf block
+#   - :package keyword is filtered from leaf output
+#   - Properties are inherited from parent headings
+#   - Blocks with no tag under :PACKAGE: default to :config:
+#   - :STRAIGHT: validation: :type git, :type file/:type local, and :type built-in
+#     are allowed. Omitted :type with :host/:repo is also accepted (implies :type git).
+#     Other sources are rejected.
+#   - Multiple :PACKAGE: headings in one file are independent
+#   - Heading properties are NOT filtered by :tangle no on blocks
+#     (to exclude a file entirely, rename to .org.disabled or prefix filename with #)
+#   - Files starting with # in the filename are excluded by the finder.
+#     This template uses both # prefix and #+DISABLED: t.
+# ─────────────────────────────────────────────────────────────────────
+
+* Topic Name
+
+The top-level headline is the domain or topic, not the package name.
+Prose here is never executed. Use it to describe what this file covers.
+
+** Bare Pre-configuration
+
+Blocks outside any :PACKAGE: heading are evaluated directly.
+Use for settings that must exist before packages load.
+
+#+begin_src emacs-lisp :tangle no
+(setq some-var-that-must-exist-early t)
+#+end_src
+
+** Package Name
+:PROPERTIES:
+:PACKAGE:  package-name
+:STRAIGHT: (package-name :type git :host github :repo "user/package-name")
+:CATEGORY: tools
+:END:
+
+Prose about this package — what it does, why you use it.
+Never executed by the loader.
+
+*** Init :init:
+
+Blocks tagged :init: run inside the leaf :init keyword.
+Use them for variables the package reads during initialization.
+
+#+begin_src emacs-lisp :tangle no
+(setq package-name-pre-init-var 'value)
+#+end_src
+
+*** Config :config:
+
+Blocks tagged :config: (or with no tag) run inside leaf :config.
+This is your main configuration block.
+
+#+begin_src emacs-lisp :tangle no
+(setq package-name-main-option "value")
+(package-name-mode 1)
+#+end_src
+
+*** Reference (skipped)
+
+Blocks with :tangle no are skipped by the loader.
+Use them for upstream manual examples you want to keep.
+
+#+begin_src emacs-lisp :tangle no
+(setq package-name-example "/path/to/example/")
+#+end_src
+
+Multiple blocks under one :PACKAGE: are collected in order.
+
+#+begin_src emacs-lisp :tangle no
+(define-key package-name-mode-map (kbd "C-c p") #'package-name-command)
+#+end_src
+
+*** Nested Subheadings
+
+Sub-headings without their own :PACKAGE: are part of the parent subtree.
+Their blocks are collected as part of the parent package config.
+
+#+begin_src emacs-lisp :tangle no
+(global-set-key (kbd "C-c x") #'package-name-other-command)
+#+end_src
+
+** Related Package
+:PROPERTIES:
+:PACKAGE:  related-package
+:CATEGORY: tools
+:END:
+
+A sibling :PACKAGE: heading — loaded independently, in document order.
+
+#+begin_src emacs-lisp :tangle no
+(setq related-package-option t)
+#+end_src
+
+** Bare Post-configuration
+
+Blocks outside any :PACKAGE: heading, after all packages — evaluated
+directly in order. Use for config that depends on multiple packages.
+
+#+begin_src emacs-lisp :tangle no
+(setq something-that-needs-both-packages t)
+#+end_src

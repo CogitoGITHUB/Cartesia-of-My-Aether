@@ -1,0 +1,53 @@
+#+title: Manifolding Keyboard — Key-Select Leader
+#+priority: 20
+
+SPC a: key selection tree.
+
+** SPC a — Key Selection
+#+begin_src emacs-lisp
+(my/defhydra-state my/ks-hydra nil "Key Selection" (my/main-hydra/body "main menu")
+  "Submenus"
+  (("c" my/ks-char-hydra/body "char"      :exit t)
+   ("w" my/ks-word-hydra/body "word/line" :exit t)
+   ("k" my/ks-kill-hydra/body "copy/kill" :exit t)
+   ("m" my/ks-move-hydra/body "move"      :exit t)
+   ("z" my/ks-zap-hydra/body  "zap"       :exit t)))
+(my/defhydra-state my/ks-char-hydra nil "Key Selection › Char" (my/ks-hydra/body "key sel")
+  "Char"
+  (("a" ks-goto-char-timer "char timer" :exit t)
+   ("o" ks-goto-char       "char"       :exit t)
+   ("e" ks-goto-char-2     "char 2"     :exit t)))
+(my/defhydra-state my/ks-word-hydra nil "Key Selection › Word / Line" (my/ks-hydra/body "key sel")
+  "Word / Line"
+  (("u" ks-goto-word-1      "word (1 char)"  :exit t)
+   ("i" ks-goto-word-0      "word (0 chars)" :exit t)
+   ("d" ks-goto-line        "line"           :exit t)
+   ("h" ks-goto-end-of-line "end of line"    :exit t)))
+(my/defhydra-state my/ks-kill-hydra nil "Key Selection › Copy / Kill" (my/ks-hydra/body "key sel")
+  "Copy / Kill"
+  (("t" ks-copy-line             "copy line"      :exit t)
+   ("n" ks-copy-region           "copy region"    :exit t)
+   ("s" ks-kill-ring-save-region "kill ring save" :exit t)
+   ("S" ks-kill-region           "kill region"    :exit t)))
+(my/defhydra-state my/ks-move-hydra nil "Key Selection › Move" (my/ks-hydra/body "key sel")
+  "Move"
+  (("t" ks-move-line   "move line"   :exit t)
+   ("n" ks-move-region "move region" :exit t)))
+(my/defhydra-state my/ks-zap-hydra nil "Key Selection › Zap" (my/ks-hydra/body "key sel")
+  "Zap"
+  (("z" my/ks-zap-to-char-atomic "zap to char (atomic)" :exit t)))
+#+end_src
+** Owned commands
+#+begin_src emacs-lisp
+(defun my/ks-zap-to-char-atomic ()
+  "Zap to a key-selection-selected char as ONE atomic undo step.
+
+Like ~my/ks-zap-to-char-inclusive~ but the timer jump + kill happen inside
+~my/wrap-collapse-undo~, so undoing (vundo) reverts the whole zap at once."
+  (interactive)
+  (my/wrap-collapse-undo
+    (let ((start (point)))
+      (ks-goto-char-timer)
+      (forward-char 1)
+      (kill-region start (point)))))
+#+end_src

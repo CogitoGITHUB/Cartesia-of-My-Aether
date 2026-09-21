@@ -1,0 +1,17 @@
+#+title:      svg-lib
+#+identifier: 3f9d1b7e-5c2a-4f8d-bf78-4c6a8d2f5b7e
+#+filetags:   :emacs-package:ui:
+
+* SVG-LIB — SVG Tags and Icons #emacs-package #ui
+:PROPERTIES:
+:ID:       3f9d1b7e-5c2a-4f8d-bf78-4c6a8d2f5b7e
+:PACKAGE:  svg-lib
+:STRAIGHT: (svg-lib :type git :host github :repo "rougier/svg-lib")
+:CATEGORY: ui
+:END:
+
+** Config
+#+begin_src emacs-lisp
+(setq svg-lib-icons-dir
+      (expand-file-name "svg-icons/" user-emacs-directory))
+#+end_src

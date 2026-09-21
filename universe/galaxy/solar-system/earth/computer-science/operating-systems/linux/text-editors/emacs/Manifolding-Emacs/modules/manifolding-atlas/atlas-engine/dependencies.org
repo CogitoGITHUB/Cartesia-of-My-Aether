@@ -1,0 +1,18 @@
+#+title:      manifolding-atlas external dependencies
+#+priority:   -31
+
+* manifolding-atlas External Dependencies
+:PROPERTIES:
+:CATEGORY: manifolding-atlas-core
+:END:
+#+begin_src emacs-lisp
+(straight-use-package '(dash))
+(straight-use-package '(s))
+(straight-use-package '(emacsql :files ("*.el")))
+;; PostgreSQL wire protocol for the emacsql-pg backend (db.org).
+;; Provides pg-connect-plist/pg-exec/pg-result; required at connect
+;; time on the pg backend only — the sqlite path never loads it.
+(straight-use-package '(pg))
+(straight-use-package '(vui :repo "d12frosted/vui.el" :host github :type git))
+(straight-use-package '(consult :type git :host github :repo "minad/consult"))
+#+end_src

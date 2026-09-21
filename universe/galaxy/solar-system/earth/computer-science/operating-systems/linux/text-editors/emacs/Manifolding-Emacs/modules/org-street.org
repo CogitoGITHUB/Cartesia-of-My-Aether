@@ -1,0 +1,16 @@
+#+title:      org-street
+#+identifier: fff8ca1b-0a74-4dd2-b054-1ae806b7f259
+#+filetags:   :emacs-package:org:
+
+* org-street
+:PROPERTIES:
+:ID:       fff8ca1b-0a74-4dd2-b054-1ae806b7f259
+:PACKAGE:  org-street
+:CATEGORY: org
+:STRAIGHT: (org-street :type git :host codeberg :repo "emacs-weirdware/org-street")
+:END:
+
+** Config :config:
+#+begin_src emacs-lisp
+
+#+end_src

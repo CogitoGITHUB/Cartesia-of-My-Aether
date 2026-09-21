@@ -1,0 +1,10 @@
+#+title:      Mind Map Placement Prompt
+#+priority:   6
+
+* MIND_MAP_PLACEMENT :mindmap:file:task:
+** TODO
+** WARNING
+** parent
+** child
+** sibling
+** root

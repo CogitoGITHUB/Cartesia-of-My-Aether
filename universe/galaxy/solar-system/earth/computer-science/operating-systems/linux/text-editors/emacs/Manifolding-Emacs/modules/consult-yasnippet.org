@@ -1,0 +1,20 @@
+#+title:      consult-yasnippet
+#+identifier: 7a3d1f5c-2e8b-4c6a-ef23-4b9d2f1a7c3e
+#+filetags:   :emacs-package:completion:snippets:
+
+* CONSULT-YASNIPPET — Consult Interface for Yasnippet #emacs-package
+:PROPERTIES:
+:ID:       7a3d1f5c-2e8b-4c6a-ef23-4b9d2f1a7c3e
+:PACKAGE:  consult-yasnippet
+:STRAIGHT: (consult-yasnippet :type git :host github :repo "mohkale/consult-yasnippet")
+:CATEGORY: completion
+:END:
+
+** Guix
+#+begin_src scheme ~/.config/guix/Operating-System/user-space/root/editors/emacs-packages/completion/consult-yasnippet.scm
+#+end_src
+
+** Config
+#+begin_src emacs-lisp
+(global-set-key (kbd "C-c y") #'consult-yasnippet)
+#+end_src

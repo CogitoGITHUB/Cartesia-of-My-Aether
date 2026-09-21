@@ -1,0 +1,16 @@
+#+title:      Prep Time Prompt
+#+priority:   30
+
+* Prep Time Prompt
+#+begin_src emacs-lisp
+(my/manifolding-atlas-register-prompt
+  :key 'prep-time
+  :name 'prep-time
+  :label "Prep time"
+  :contexts '(recipe)
+  :prompt-fn (lambda ()
+               (let ((val (read-string "Prep time (e.g. 15 min): " nil nil nil "⚠ WARNING")))
+                 (if (or (string-empty-p val) (string-equal val "⚠ WARNING")) "WARNING" val)))
+  :to-plist (lambda (val _ctx)
+              `(:unfoldings (("PREP_TIME" . ,val)))))
+#+end_src

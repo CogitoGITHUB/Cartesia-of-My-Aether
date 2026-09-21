@@ -1,0 +1,10 @@
+#+title:      Traps Internal Prompt
+#+priority:   35
+
+* TRAPS_INTERNAL :inline:file:heading:task:
+** TODO
+** WARNING
+** MAPPED
+** ACTIVE
+** TAMED
+** UNKNOWN

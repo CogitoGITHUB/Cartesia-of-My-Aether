@@ -1,0 +1,16 @@
+#+title:      Ready In Prompt
+#+priority:   28
+
+* Ready In Prompt
+#+begin_src emacs-lisp
+(my/manifolding-atlas-register-prompt
+  :key 'ready-in
+  :name 'ready-in
+  :label "Ready in"
+  :contexts '(recipe)
+  :prompt-fn (lambda ()
+               (let ((val (read-string "Ready in total: ")))
+                 (if (string-empty-p val) "WARNING" val)))
+  :to-plist (lambda (val _ctx)
+              `(:unfoldings (("READY_IN" . ,val)))))
+#+end_src

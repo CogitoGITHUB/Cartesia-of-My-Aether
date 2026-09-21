@@ -1,0 +1,17 @@
+#+title:      org-web-tools
+#+filetags:   :emacs-package:editing:
+
+* ORG-WEB-TOOLS — Web Page Capture for Org #emacs-package
+:PROPERTIES:
+:ID:
+:PACKAGE:  org-web-tools
+:STRAIGHT: (org-web-tools :type git :host github :repo "alphapapa/org-web-tools")
+:CATEGORY: editing
+:END:
+
+** Config
+#+begin_src emacs-lisp
+(global-set-key (kbd "C-c w w") #'org-web-tools-insert-web-page-as-entry)
+(global-set-key (kbd "C-c w l") #'org-web-tools-insert-link-with-desc)
+(global-set-key (kbd "C-c w s") #'org-web-tools-insert-link-with-desc-by-title)
+#+end_src

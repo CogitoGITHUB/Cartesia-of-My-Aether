@@ -1,0 +1,41 @@
+#+title: Manifolding Keyboard — Git-Timemachine Map
+#+priority: 20
+
+Direct keymap bindings plus the restore command.
+
+** Git Timemachine
+#+begin_src emacs-lisp
+(with-eval-after-load 'git-timemachine
+  (add-hook 'git-timemachine-mode-hook
+            (lambda () (manifolding-keyboard-set-state nil)))
+  (define-key git-timemachine-mode-map (kbd "h")
+    #'git-timemachine-show-previous-revision)
+  (define-key git-timemachine-mode-map (kbd "t")
+    #'git-timemachine-show-next-revision)
+  (define-key git-timemachine-mode-map (kbd "r") #'my/git-timemachine-restore)
+  (define-key git-timemachine-mode-map (kbd "q") #'git-timemachine-quit)
+  (define-key git-timemachine-mode-map (kbd "g")
+    #'git-timemachine-show-nth-revision)
+  (define-key git-timemachine-mode-map (kbd "w")
+    #'git-timemachine-kill-abbreviated-revision)
+  (define-key git-timemachine-mode-map (kbd "W")
+    #'git-timemachine-kill-abbreviated-revision)
+  (define-key git-timemachine-mode-map (kbd "b") #'git-timemachine-blame))
+#+end_src
+** Restore command
+#+begin_src emacs-lisp
+(defun my/git-timemachine-restore ()
+  "Restore the file on disk to the currently viewed revision."
+  (interactive)
+  (let* ((hash (car git-timemachine-revision))
+         (file (buffer-file-name)))
+    (when (yes-or-no-p (format "Restore %s to revision %s? "
+                               (file-name-nondirectory file)
+                               (substring hash 0 7)))
+      (git-timemachine-quit)
+      (shell-command (format "git checkout %s -- %s"
+                             hash (shell-quote-argument file)))
+      (revert-buffer t t)
+      (message "Restored %s to %s"
+               (file-name-nondirectory file) (substring hash 0 7)))))
+#+end_src

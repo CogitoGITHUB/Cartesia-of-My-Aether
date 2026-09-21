@@ -1,0 +1,15 @@
+#+title: Manifolding Keyboard — Registers Leader
+#+priority: 20
+
+SPC r: registers menu.
+
+** SPC r — Registers
+#+begin_src emacs-lisp
+(my/defhydra-state my/registers-hydra nil "Registers" (my/main-hydra/body "main menu")
+  "Registers"
+  (("l" point-to-register     "store position" :exit t)
+   ("j" jump-to-register      "jump"           :exit t)
+   ("n" number-to-register    "store number"   :exit t)
+   ("f" frame-configuration-to-register "store frame" :exit t)
+   ("w" window-configuration-to-register "store window" :exit t)))
+#+end_src

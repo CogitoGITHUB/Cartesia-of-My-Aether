@@ -1,0 +1,17 @@
+#+title:      org-ref
+#+identifier: 1b5a8c7e-3d4f-4e9a-bc12-8d6f2e4a7b3c
+#+filetags:   :emacs-package:org:citations:
+#+PRIORITY: 5
+
+* org-ref
+:PROPERTIES:
+:ID:       1b5a8c7e-3d4f-4e9a-bc12-8d6f2e4a7b3c
+:PACKAGE:  org-ref
+:CATEGORY: org
+:STRAIGHT: (org-ref :type git :host github :repo "jkitchin/org-ref" :files (:defaults "org-ref.org" "org-ref.bib" "citeproc"))
+:END:
+
+** Config :config:
+#+begin_src emacs-lisp
+
+#+end_src

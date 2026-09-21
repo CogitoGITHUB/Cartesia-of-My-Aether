@@ -1,0 +1,18 @@
+#+title:      org-tree-slide
+#+identifier: 7a3f2b9c-1e4d-4f8a-b2c5-9d6e3a7f1b4c
+#+filetags:   :emacs-package:presentation:org:
+* ORG-TREE-SLIDE — Presentation Tool for Org Mode #emacs-package
+:PROPERTIES:
+:ID:       7a3f2b9c-1e4d-4f8a-b2c5-9d6e3a7f1b4c
+:PACKAGE:  org-tree-slide
+:STRAIGHT: (org-tree-slide :type git :host github :repo "takaxp/org-tree-slide")
+:CATEGORY: presentation
+:END:
+** Guix
+#+begin_src scheme ~/.config/guix/Operating-System/user-space/root/editors/emacs-packages/presentation/org-tree-slide.scm
+#+end_src
+** Config
+#+begin_src emacs-lisp
+(setq org-tree-slide-activate-message ""
+      org-tree-slide-deactivate-message "")
+#+end_src

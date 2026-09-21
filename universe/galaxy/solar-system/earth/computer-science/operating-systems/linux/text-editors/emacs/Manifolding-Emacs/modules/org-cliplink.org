@@ -1,0 +1,16 @@
+#+title:      org-cliplink
+#+identifier: 27a7fd95-cd5f-458d-9250-6b492e257026
+#+filetags:   :emacs-package:browsing:
+
+* org-cliplink
+:PROPERTIES:
+:ID:       27a7fd95-cd5f-458d-9250-6b492e257026
+:PACKAGE:  org-cliplink
+:CATEGORY: browsing
+:STRAIGHT: (org-cliplink :type git :host github :repo "rexim/org-cliplink")
+:END:
+
+** Config :config:
+#+begin_src emacs-lisp
+
+#+end_src

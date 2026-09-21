@@ -1,0 +1,13 @@
+#+title:      State Source Prompt
+#+priority:   5
+
+* STATE_SOURCE :unfolding:file:heading:task:
+:PROPERTIES:
+:REQUIRED: t
+:UNFOLDING: state-source
+:END:
+** TODO
+** WARNING
+** UNSOURCED
+** PARTIAL
+** SOURCED

@@ -1,0 +1,16 @@
+#+title: Manifolding Keyboard — Buffers Leader
+#+priority: 20
+
+SPC h: buffers menu.
+
+** SPC h — Buffers
+#+begin_src emacs-lisp
+(my/defhydra-state my/buffers-hydra nil "Buffers" (my/main-hydra/body "main menu")
+  "Buffer Management"
+  (("b" consult-buffer          "buffer list"  :exit t)
+   ("i" ibuffer                "ibuffer"      :exit t)
+   ("x" kill-current-buffer    "kill current" :exit t))
+  "Window Layout"
+   (   ("n" my/ks-ibuffer-visit   "key sel visit"    :exit t)
+    ("m" my/ibuffer-open-dwim   "open dwim"    :exit t)))
+#+end_src

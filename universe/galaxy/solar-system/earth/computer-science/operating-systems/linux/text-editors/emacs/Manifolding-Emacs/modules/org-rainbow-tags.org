@@ -1,0 +1,16 @@
+#+title:      org-rainbow-tags
+#+identifier: e6347c37-4da8-4911-a06e-50bdf238541e
+#+filetags:   :emacs-package:org:
+
+* org-rainbow-tags
+:PROPERTIES:
+:ID:       e6347c37-4da8-4911-a06e-50bdf238541e
+:PACKAGE:  org-rainbow-tags
+:CATEGORY: org
+:STRAIGHT: (org-rainbow-tags :type git :host github :repo "KaratasFurkan/org-rainbow-tags")
+:END:
+
+** Config :config:
+#+begin_src emacs-lisp
+
+#+end_src

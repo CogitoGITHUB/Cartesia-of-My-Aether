@@ -1,0 +1,35 @@
+#+title: Manifolding Keyboard — Windows Leader
+#+priority: 20
+
+SPC w: windows menu.
+
+** SPC w — Windows
+#+begin_src emacs-lisp
+(my/defhydra-state my/windows-hydra nil "Windows" (my/main-hydra/body "main menu")
+  "Navigate"
+  (("h" windmove-left   "left"   :exit nil)
+   ("t" windmove-right  "right"  :exit nil)
+   ("n" windmove-down   "down"   :exit nil)
+   ("s" windmove-up     "up"     :exit nil)
+   ("b" consult-buffer   "buffer" :exit t))
+  "Split / Delete"
+  (("|" my/split-window-right   "split right"   :exit nil)
+   ("-" my/split-window-below   "split below"   :exit nil)
+   ("d" my/delete-current-window "delete"        :exit nil)
+   ("D" delete-other-windows     "delete others" :exit nil))
+  "Resize"
+  (("[" my/shrink-window-horizontally "shrink ←"  :exit nil)
+   ("]" my/enlarge-window-horizontally "grow →"    :exit nil)
+   ("{" my/shrink-window              "shrink ↑"  :exit nil)
+   ("}" my/enlarge-window             "grow ↓"    :exit nil))
+  "Move"
+  (("H" buf-move-left    "move ←"  :exit nil)
+   ("T" buf-move-right   "move →"  :exit nil)
+   ("N" buf-move-down    "move ↓"  :exit nil)
+   ("S" buf-move-up      "move ↑"  :exit nil))
+  "Swap"
+  (("p" (lambda () (interactive) (my/swap-windows-left 1)) "swap ←" :exit nil)
+   ("P" (lambda () (interactive) (my/swap-windows-left 2)) "swap 2←" :exit nil)
+   ("f" (lambda () (interactive) (my/swap-windows-right 1)) "swap →" :exit nil)
+   ("F" (lambda () (interactive) (my/swap-windows-right 2)) "swap 2→" :exit nil)))
+#+end_src

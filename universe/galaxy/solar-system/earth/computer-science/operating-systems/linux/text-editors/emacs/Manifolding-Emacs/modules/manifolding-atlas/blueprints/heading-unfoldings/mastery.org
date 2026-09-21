@@ -1,0 +1,10 @@
+#+title:      Mastery Prompt
+#+priority:   41
+
+* MASTERY :inline:file:heading:task:
+** TODO
+** WARNING
+** INTERNALIZED
+** INTERNALIZING
+** FAMILIAR
+** UNKNOWN

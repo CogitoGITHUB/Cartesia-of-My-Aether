@@ -1,0 +1,35 @@
+#+title:    vundo
+#+filetags: :emacs-package:editing:undo:
+#+PRIORITY: 20
+
+* TODO Vundo
+:PROPERTIES:
+:PACKAGE:  vundo
+:CATEGORY: editing
+:STRAIGHT: (vundo :type git :host github :repo "casouri/vundo")
+:END:
+
+** Purpose
+Visualizes the undo history as a tree, letting you navigate to any
+previous buffer state. Replaces linear undo with a branching model
+so no history is ever lost.
+
+** Setup
+
+*** Guix
+#+begin_src scheme
+(@ (gnu packages emacs-xyz) emacs-vundo)
+#+end_src
+
+*** Config
+#+begin_src emacs-lisp
+(with-eval-after-load 'evil
+  (evil-define-key 'motion vundo-mode-map
+    (kbd "h") #'vundo-backward
+    (kbd "t") #'vundo-forward
+    (kbd "n") #'vundo-next
+    (kbd "p") #'vundo-previous
+    (kbd "s") #'vundo-previous
+    (kbd "q") #'vundo-quit
+    (kbd "<return>") #'vundo-confirm))
+#+end_src

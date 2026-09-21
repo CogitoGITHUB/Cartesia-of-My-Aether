@@ -1,0 +1,46 @@
+#+title:    consult-todo
+#+filetags: :emacs-package:consult:todo:
+#+PRIORITY: 20
+
+* TODO Consult Todo
+:PROPERTIES:
+:PACKAGE:  consult-todo
+:STRAIGHT: (consult-todo :type git :host github :repo "eki3z/consult-todo")
+:CATEGORY: consult
+:END:
+
+** Purpose
+Fast, no-frills search across TODO/FIXME/BUG/HACK keywords in buffers
+and projects using consult. No views, no query language — just a live
+picker that lands you on the line.
+
+** Setup
+
+*** Guix
+#+begin_src scheme
+emacs-consult-todo  ; custom declaration in config.scm
+#+end_src
+
+** Customization
+
+*** Config
+#+begin_src emacs-lisp
+(setq consult-todo-narrow
+      '((?t . "TODO")
+        (?f . "FIXME")
+        (?b . "BUG")
+        (?h . "HACK")
+        (?n . "NOTE")))
+#+end_src
+
+* HL Todo
+:PROPERTIES:
+:PACKAGE:  hl-todo
+:STRAIGHT: (hl-todo :type git :host github :repo "tarsius/hl-todo")
+:CATEGORY: consult
+:END:
+
+** Config
+#+begin_src emacs-lisp
+(global-hl-todo-mode 1)
+#+end_src

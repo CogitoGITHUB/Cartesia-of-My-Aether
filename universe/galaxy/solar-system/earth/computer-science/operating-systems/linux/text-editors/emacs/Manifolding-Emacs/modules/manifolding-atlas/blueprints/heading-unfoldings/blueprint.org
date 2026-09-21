@@ -1,0 +1,10 @@
+#+title:      Blueprint Prompt
+#+priority:   22
+
+* BLUEPRINT :inline:file:heading:task:
+** TODO
+** WARNING
+** DRAFT
+** STABLE
+** CHANGED
+** SUPERSEDED

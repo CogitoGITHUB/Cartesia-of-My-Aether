@@ -1,0 +1,17 @@
+#+title:      leaf
+#+identifier: 7a3f2c1d-4b8e-4d9a-bf23-6e1c5d2a8f4b
+#+filetags:   :emacs-package:core:
+
+* LEAF — Package Configuration #emacs-package
+:PROPERTIES:
+:ID:       7a3f2c1d-4b8e-4d9a-bf23-6e1c5d2a8f4b
+:PACKAGE:  leaf
+:STRAIGHT: (leaf :type git :host github :repo "conao3/leaf.el")
+:CATEGORY: core
+:END:
+
+** Config
+#+begin_src emacs-lisp
+;; leaf is auto-injected with :require t by manifolding-emacs.
+;; Add leaf-specific settings here if needed.
+#+end_src

@@ -1,0 +1,9 @@
+#+title:      Advantages Prompt
+#+priority:   30
+
+* ADVANTAGES :inline:file:heading:task:
+** TODO
+** WARNING
+** VERIFIED
+** ASSUMED
+** EXPIRED

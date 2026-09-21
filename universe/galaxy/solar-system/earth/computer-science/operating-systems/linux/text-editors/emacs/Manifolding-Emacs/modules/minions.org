@@ -1,0 +1,16 @@
+#+title:      minions
+#+identifier: 2a24d19f-009a-4270-9c42-8e9086327161
+#+filetags:   :emacs-package:mode-line:
+
+* minions
+:PROPERTIES:
+:ID:       2a24d19f-009a-4270-9c42-8e9086327161
+:PACKAGE:  minions
+:CATEGORY: mode-line
+:STRAIGHT: (minions :type git :host github :repo "tarsius/minions")
+:END:
+
+** Config :config:
+#+begin_src emacs-lisp
+
+#+end_src

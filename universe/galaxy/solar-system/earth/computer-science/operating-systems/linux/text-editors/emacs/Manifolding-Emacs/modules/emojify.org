@@ -1,0 +1,16 @@
+#+title:      emojify
+#+identifier: 36c6b37e-27ca-4de8-b0f8-e860bb8032a7
+#+filetags:   :emacs-package:appearance:
+
+* emojify
+:PROPERTIES:
+:ID:       36c6b37e-27ca-4de8-b0f8-e860bb8032a7
+:PACKAGE:  emojify
+:CATEGORY: appearance
+:STRAIGHT: (emojify :type git :host github :repo "iqbalansari/emacs-emojify" :files (:defaults "data" "images"))
+:END:
+
+** Config :config:
+#+begin_src emacs-lisp
+
+#+end_src

@@ -1,0 +1,2165 @@
+#+title:      Manifolding Emacs — the literate package manager
+#+filetags:   :emacs-core:boot:
+#+auto_tangle: t
+
+* Manifolding Emacs
+:PROPERTIES:
+:header-args:emacs-lisp: :tangle manifolding-emacs.el
+:END:
+
+#+begin_src emacs-lisp :tangle manifolding-emacs.el
+;;; -*- lexical-binding: t -*-
+#+end_src
+
+The loader itself, as Org.  This file IS the package manager —
+evaluated directly by init.el (see ~my/load-literate-loader~ there).
+Now tangles to .el for fast loading, with a lexical-binding cookie.
+
+Failures here are LOUD on purpose: this code is too critical to be
+loaded silently.  A broken block fails the boot visibly.
+
+The old lisp/manifolding-emacs/*.el files were converted verbatim
+into the sections below and then retired.  Sections follow the old
+require chain so dependencies always precede their users.
+
+** Prologue — requirements
+#+begin_src emacs-lisp
+(require 'cl-lib)
+(require 'seq)
+(require 'subr-x)
+(require 'org)
+(require 'org-element)
+(require 'ob-core)
+(require 'url)
+(require 'recentf)
+(require 'ffap)
+(setq recentf-auto-cleanup 'never)
+
+(defvar straight-current-profile)
+#+end_src
+
+** Vars — group & package macro configuration
+#+begin_src emacs-lisp
+(defgroup manifolding-emacs nil
+  "A literate, org-based Emacs package manager built on leaf and straight."
+  :group 'emacs
+  :prefix "manifolding-emacs-")
+
+(defcustom manifolding-emacs-package-method 'leaf
+  "Method to use for package management."
+  :type '(choice (const :tag "use-package" use-package)
+                 (const :tag "use-package!" use-package!)
+                 (const :tag "leaf" leaf))
+  :group 'manifolding-emacs)
+
+(defcustom manifolding-emacs-wrap-statements-in-condition t
+  "Wrap :config/:init bodies in `condition-case', baked into the
+generated code itself.  This is what lets one broken package fail
+without taking the rest of your config down with it, and what lets
+that protection still work even when the body runs later via
+`:leaf-defer' — long after boot's own error handling has gone out of
+scope.  Disable only for debugging; `manifolding-emacs-preview' does
+this locally so the expansion it shows is easier to read."
+  :type 'boolean
+  :group 'manifolding-emacs)
+
+(defcustom manifolding-emacs-package-keywords-extra
+  '(:straight :general :ghook :gfhook :general-config)
+  "Extra keywords beyond the active macro's own canonical set.
+Keywords already present in that canonical set are ignored here (see
+`manifolding-emacs-package-keywords' in the package-builder section)
+— this is only for keywords the macro doesn't already know about."
+  :type '(repeat symbol)
+  :group 'manifolding-emacs)
+
+(defcustom manifolding-emacs-condition-case-keywords
+  '(:config :init)
+  "Keywords whose body gets wrapped in `condition-case'."
+  :type '(repeat symbol)
+  :group 'manifolding-emacs)
+
+(defcustom manifolding-emacs-leaf-force-require 'auto
+  "Whether to force `:require t' onto every leaf package.
+
+- t     Always append it (the old, unconditional behavior).
+- nil   Never append it; trust leaf's own deferral entirely.
+- auto  Append it only when the package has no deferring keyword of
+        its own (:bind :bind* :hook :mode :interpreter :magic
+        :magic-fallback :commands :after) and no explicit :require
+        already — i.e. only when nothing else would ever load it.
+
+`auto' is the default because unconditionally forcing :require t
+silently defeats `:leaf-defer' for every single package, which is the
+single biggest lever leaf gives you for boot-time cost."
+  :type '(choice (const t) (const nil) (const auto))
+  :group 'manifolding-emacs)
+#+end_src
+
+** Vars — directories
+#+begin_src emacs-lisp
+(defcustom manifolding-emacs-org-directory
+  (expand-file-name "org" user-emacs-directory)
+  "Directory where the Org files are stored."
+  :type 'string :group 'manifolding-emacs)
+
+(defcustom manifolding-emacs-output-directory
+  (expand-file-name "manifolding-emacs" user-emacs-directory)
+  "Directory where tangled/aggregated output is written."
+  :type 'string :group 'manifolding-emacs)
+
+(defcustom manifolding-emacs-remote-org-directory
+  (expand-file-name "remote-org" user-emacs-directory)
+  "Directory where downloaded remote Org files are cached."
+  :type 'string :group 'manifolding-emacs)
+
+(defcustom manifolding-emacs-remote-output-directory
+  (expand-file-name "remote-manifolding-emacs" user-emacs-directory)
+  "Directory where remote-file output is written."
+  :type 'string :group 'manifolding-emacs)
+
+(defcustom manifolding-emacs-todo-file
+  (expand-file-name "modules/TODO.org" user-emacs-directory)
+  "Org file that boot errors get filed to by
+`manifolding-emacs-add-error-to-todo'."
+  :type 'string :group 'manifolding-emacs)
+
+(defcustom manifolding-emacs-error-log-file
+  (expand-file-name "manifolding-emacs-errors.log.el" user-emacs-directory)
+  "Where the structured boot error/warning/status log is persisted, as
+a single readable Elisp form (not human prose) so it can be read back
+with `read' next session."
+  :type 'string :group 'manifolding-emacs)
+#+end_src
+
+** Vars — behavior toggles
+#+begin_src emacs-lisp
+(defcustom manifolding-emacs-force-compile nil
+  "Force recompilation even if output looks up to date."
+  :type 'boolean :group 'manifolding-emacs)
+
+(defcustom manifolding-emacs-force-download nil
+  "Force re-download of remote Org files even if already present."
+  :type 'boolean :group 'manifolding-emacs)
+
+(defcustom manifolding-emacs-default-profile nil
+  "Straight profile symbol used for files with no #+PROFILE: property.
+Only meaningful if you've configured `straight-profiles' yourself;
+manifolding-emacs never defines profiles, it only tells straight which
+one is active while a given file's packages register."
+  :type '(choice (const nil) symbol) :group 'manifolding-emacs)
+
+(defcustom manifolding-emacs-idle-sweep-enabled t
+  "If non-nil, force-require every known package a few seconds after
+boot finishes, so a deferred-load error surfaces immediately instead
+of whenever you happen to trigger that package."
+  :type 'boolean :group 'manifolding-emacs)
+
+(defcustom manifolding-emacs-idle-sweep-delay 8
+  "Idle seconds to wait after boot before the doctor sweep runs.  Kept
+out of the critical boot path on purpose: this only affects when
+errors get discovered, never how fast Emacs starts."
+  :type 'number :group 'manifolding-emacs)
+
+(defcustom manifolding-emacs-mode-line-indicator t
+  "If non-nil, show a package-health segment in the mode line."
+  :type 'boolean :group 'manifolding-emacs)
+#+end_src
+
+** Vars — dynamic / working state
+#+begin_src emacs-lisp
+(defvar manifolding-emacs-packages nil
+  "Working plist of package-name -> keyword-plist for whatever is
+currently being compiled.  Always dynamically `let'-bound around a
+compile pass; never meaningful at top level.")
+
+(defvar manifolding-emacs-compiling-remote nil
+  "Non-nil while compiling a file pulled from
+`manifolding-emacs-remote-org-directory'; changes which directory pair
+`manifolding-emacs-get-org-directory'/`manifolding-emacs-get-output-directory'
+resolve to.")
+
+(defvar manifolding-emacs--booting nil
+  "Non-nil for the duration of `manifolding-emacs-boot'.")
+
+(defvar manifolding-emacs--boot-phase :loading
+  "Current boot phase, `:compiling' or `:loading', for splash labeling.")
+#+end_src
+
+** Vars — generic utilities
+#+begin_src emacs-lisp
+(defun manifolding-emacs-indent (string n)
+  "Indent every line of STRING by N spaces."
+  (let ((indentation (make-string n ?\s)))
+    (replace-regexp-in-string "^" indentation string)))
+
+(defun manifolding-emacs-plist-keys (plist)
+  "Return the keys of PLIST, in order."
+  (let (keys)
+    (while plist
+      (push (car plist) keys)
+      (setq plist (cddr plist)))
+    (nreverse keys)))
+
+(defun manifolding-emacs-get-org-directory ()
+  "Return the active Org source directory."
+  (if manifolding-emacs-compiling-remote
+      (expand-file-name manifolding-emacs-remote-org-directory)
+    (expand-file-name manifolding-emacs-org-directory)))
+
+(defun manifolding-emacs-get-output-directory ()
+  "Return the active output directory."
+  (if manifolding-emacs-compiling-remote
+      (expand-file-name manifolding-emacs-remote-output-directory)
+    (expand-file-name manifolding-emacs-output-directory)))
+#+end_src
+
+** Errors — data shape
+Three isolation tiers all report through this file:
+part / package / file.  See upstream commentary for the model.
+#+begin_src emacs-lisp
+(cl-defstruct (manifolding-emacs-error-entry
+               (:constructor manifolding-emacs--make-error-entry))
+  level file line package keyword message time)
+
+(defvar manifolding-emacs--boot-errors '()
+  "List of `manifolding-emacs-error-entry', most recent first.")
+
+(defvar manifolding-emacs--boot-warnings '()
+  "List of (:type TYPE :message MESSAGE :time TIME), most recent first.")
+
+(defvar manifolding-emacs--package-status
+    (make-hash-table :test 'equal)
+  "PACKAGE-NAME (string) -> plist (:status 'ok|'error :file F :message M
+:time TIME).  Persists across boots this session; only ever updated
+per-package, never mass-cleared, so a partial reload doesn't erase
+status for files it didn't touch.")
+
+(defvar manifolding-emacs--inside-tier2-eval nil
+  "Bound to t only during the synchronous per-package eval in the
+compiler.  Prevents double-recording of synchronous part failures.")
+#+end_src
+
+** Errors — recording
+#+begin_src emacs-lisp
+(cl-defun manifolding-emacs-record-error
+    (&key level file line package keyword message)
+  "Record a failure and, unless still booting, surface it immediately."
+  (let ((entry (manifolding-emacs--make-error-entry
+                :level level :file file :line line :package package
+                :keyword keyword :message message :time (float-time))))
+    (push entry manifolding-emacs--boot-errors)
+    (when package
+      (manifolding-emacs-record-status package 'error file message))
+    (message "manifolding-emacs ERROR %s%s%s: %s"
+             (or file "?") (if line (format ":%s" line) "")
+             (if package (format " [%s]" package) "") message)
+    (unless manifolding-emacs--booting
+      (display-warning
+       'manifolding-emacs
+       (format "%s%s%s: %s"
+               (or file "") (if line (format ":%s" line) "")
+               (if package (format " [%s]" package) "") message)
+       :error))
+    entry))
+
+(defun manifolding-emacs-record-warning (type message)
+  (push (list :type type :message message :time (float-time))
+        manifolding-emacs--boot-warnings))
+
+(defun manifolding-emacs-record-status (package-name status
+                                        &optional file message)
+  (puthash (format "%s" package-name)
+           (list :status status :file file :message message
+                 :time (float-time))
+           manifolding-emacs--package-status))
+#+end_src
+
+** Errors — accessors & clearing
+#+begin_src emacs-lisp
+(defun manifolding-emacs-errors-list () manifolding-emacs--boot-errors)
+(defun manifolding-emacs-warnings-list () manifolding-emacs--boot-warnings)
+
+(defun manifolding-emacs-package-status (package-name)
+  (gethash (format "%s" package-name) manifolding-emacs--package-status))
+
+(defun manifolding-emacs-all-package-statuses ()
+  (let (result)
+    (maphash (lambda (k v) (push (cons k v) result))
+             manifolding-emacs--package-status)
+    result))
+
+(defun manifolding-emacs-errors-clear-boot-state ()
+  "Clear the transient per-boot lists.  Does NOT touch
+`manifolding-emacs--package-status'."
+  (setq manifolding-emacs--boot-errors '()
+        manifolding-emacs--boot-warnings '()))
+
+(defun manifolding-emacs-errors-clear-all-status ()
+  "Wipe all recorded package statuses.  Manual escape hatch for when
+your module set has changed enough that stale entries are more
+confusing than useful."
+  (interactive)
+  (clrhash manifolding-emacs--package-status)
+  (message "manifolding-emacs: cleared all package status history"))
+#+end_src
+
+** Errors — warning capture
+#+begin_src emacs-lisp
+(defun manifolding-emacs--warning-advice (type message &rest _)
+  (manifolding-emacs-record-warning type message))
+
+(defmacro manifolding-emacs-with-warning-capture (&rest body)
+  "Run BODY with `display-warning' captured into
+`manifolding-emacs--boot-warnings' instead of shown immediately."
+  `(unwind-protect
+       (progn (advice-add 'display-warning :before
+                          #'manifolding-emacs--warning-advice)
+              ,@body)
+     (advice-remove 'display-warning
+                    #'manifolding-emacs--warning-advice)))
+#+end_src
+
+** Errors — safe reading
+#+begin_src emacs-lisp
+(defun manifolding-emacs--first-bad-line (string)
+  "Locate the first syntactically broken s-expression in STRING.
+Uses only built-in motion (`forward-sexp', `forward-comment').
+Returns (REL-LINE TEXT) of the offender, or nil when STRING reads
+clean.  REL-LINE is 1-based relative to the start of STRING."
+  (with-temp-buffer
+    (delay-mode-hooks (emacs-lisp-mode))
+    (insert string)
+    (goto-char (point-min))
+    (condition-case nil
+        (progn
+          (while (not (eobp))
+            (forward-comment (point-max))
+            (unless (eobp) (forward-sexp)))
+          nil)
+       (scan-error
+        (list (line-number-at-pos (point))
+              (string-trim
+               (buffer-substring (line-beginning-position)
+                                 (line-end-position))))))))
+
+#+end_src
+
+** Block paren validation
+
+Validates code blocks for balanced parens BEFORE attempting to read.
+Provides extreme detail: exact counts, error location, context.
+
+#+begin_src emacs-lisp
+(defun manifolding-emacs--validate-block-parens (string file line)
+  "Validate STRING for balanced parens, strings, and comments.
+Returns nil if valid, or a detailed error plist with:
+  :file    - source file path
+  :line    - block starting line number
+  :type    - error type (unbalanced-parens, unterminated-string, etc.)
+  :opens   - total open parens (outside strings/comments)
+  :closes  - total close parens (outside strings/comments)
+  :diff    - difference (opens - closes)
+  :depth   - paren depth at point of failure
+  :context - text around the error location"
+  (let ((opens 0) (closes 0) (max-depth 0) (depth 0)
+        (in-string nil) (string-char nil) (in-comment nil)
+        (pos 0) (error-pos nil) (error-depth nil) (error-context nil)
+        type)
+    (cl-block nil
+      (while (< pos (length string))
+        (let ((char (aref string pos)))
+          (cond
+           (in-comment
+            (when (eq char ?\n) (setq in-comment nil)))
+           (in-string
+            (cond ((eq char ?\\) (setq pos (1+ pos)))
+                  ((eq char string-char)
+                   (setq in-string nil string-char nil))))
+           ((and (eq char ?\;) (not in-string))
+            (setq in-comment t))
+           ((and (eq char ?\") (not in-string))
+            (setq in-string t string-char ?\"))
+           ((eq char ?\()
+            (setq depth (1+ depth))
+            (setq max-depth (max max-depth depth))
+            (setq opens (1+ opens)))
+           ((eq char ?\))
+            (setq closes (1+ closes))
+            (setq depth (1- depth))
+            (when (< depth 0)
+              (setq error-pos pos)
+              (setq error-depth depth)
+              (setq type 'unbalanced-close)
+              (setq error-context
+                    (string-trim
+                     (substring string
+                      (max 0 (- pos 40))
+                      (min (length string) (+ pos 40)))))
+              (cl-return nil))))
+          (setq pos (1+ pos))))
+    (cond
+     (in-string
+      (list :file file :line line :type 'unterminated-string
+            :opens opens :closes closes :diff (- opens closes)
+            :depth depth
+            :context (string-trim
+                      (substring string
+                       (max 0 (- (length string) 40))
+                       (length string)))
+            :message (format "Unterminated string starting with %c" string-char)))
+     ((> opens closes)
+      (list :file file :line line :type 'unbalanced-parens
+            :opens opens :closes closes :diff (- opens closes)
+            :depth depth
+            :context (string-trim
+                      (substring string
+                       (max 0 (- (length string) 40))
+                       (length string)))
+            :message (format "Missing %d closing paren(s)" (- opens closes))))
+     ((< opens closes)
+      (list :file file :line line :type 'unbalanced-parens
+            :opens opens :closes closes :diff (- opens closes)
+            :depth depth
+            :context (string-trim
+                      (substring string
+                       (max 0 (- (length string) 40))
+                       (length string)))
+            :message (format "Extra %d closing paren(s)" (- closes opens))))
+     (t nil)))))
+#+end_src
+
+** Safe read with error context
+
+#+begin_src emacs-lisp
+(defun manifolding-emacs-safe-read (string file &optional line)
+  "Read STRING, tagging any read error with FILE/LINE for context.
+Pre-validates block for balanced parens with extreme detail.
+Read failures pinpoint the exact location, show context, and display
+the problematic code block."
+  ;; First: detailed paren validation
+  (when-let ((err (manifolding-emacs--validate-block-parens string file line)))
+    (let* ((msg (format "PAREN ERROR in %s:%s\n  Type: %s\n  Opens: %d  Closes: %d  Diff: %d\n  Depth: %d\n  Context: %s\n  Message: %s"
+                        (file-name-nondirectory file)
+                        (or line "?")
+                        (plist-get err :type)
+                        (plist-get err :opens)
+                        (plist-get err :closes)
+                        (plist-get err :diff)
+                        (plist-get err :depth)
+                        (plist-get err :context)
+                        (plist-get err :message)))
+           ;; Extract the actual code block content for display
+           (code-snippet (manifolding-emacs--extract-error-code string file line)))
+      (signal 'error (list (concat msg "\n\n--- CODE BLOCK ---\n" code-snippet)))))
+  ;; Then: safe read with error context
+  (condition-case err
+      (read string)
+    (error
+     (let* ((base (concat (if line
+                              (format "Read error in %s:%s" file line)
+                            (format "Read error in %s" file))
+                          ": "
+                          (error-message-string err)))
+            (scan (and (memq (car err)
+                             '(end-of-file invalid-read-syntax scan-error))
+                       (manifolding-emacs--first-bad-line string)))
+            (code-snippet (manifolding-emacs--extract-error-code string file line))
+            (msg (concat base
+                        (when scan (format " — bad form at +%d: %s"
+                                           (nth 0 scan) (nth 1 scan)))
+                        "\n\n--- CODE BLOCK ---\n" code-snippet)))
+       (signal 'error (list msg))))))
+#+end_src
+
+** Extract error code helper
+
+#+begin_src emacs-lisp
+(defun manifolding-emacs--extract-error-code (string file line)
+  "Extract the problematic code block from FILE at LINE for display.
+Returns a string with the code block content, truncated if very long."
+  (condition-case nil
+      (with-temp-buffer
+        (insert string)
+        (goto-char (point-min))
+        ;; Truncate very long blocks for readability
+        (if (> (buffer-size) 500)
+            (progn
+              (goto-char 500)
+              (buffer-substring (point-min) (point)))
+          (buffer-string)))
+    (error "Could not extract code block")))
+#+end_src
+
+** Error navigation helper
+
+When an error occurs, use ~manifolding-emacs-jump-to-error~ to open the
+file and jump to the problematic code block.
+
+#+begin_src emacs-lisp
+(defun manifolding-emacs-jump-to-error (file line)
+  "Open FILE at LINE to jump to the problematic code block.
+If FILE is nil, prompt for the file. If LINE is nil, search for
+the last error location."
+  (interactive
+   (list (read-file-name "File: ")
+         (read-number "Line: ")))
+  (when file
+    (find-file file)
+    (when line
+      (goto-char (point-min))
+      (forward-line (1- line)))
+    (recenter)))
+
+(defun manifolding-emacs--find-block-at-line (file line)
+  "Find the begin_src block containing LINE in FILE.
+Returns (START . END) of the block, or nil if not found."
+  (with-temp-buffer
+    (insert-file-contents file)
+    (goto-char (point-min))
+    (let ((start nil)
+          (end nil)
+          (current-line 1))
+      (while (and (not end) (<= current-line line))
+        (cond
+         ((looking-at "^#+begin_src")
+          (setq start current-line))
+         ((looking-at "^#+end_src")
+          (when start
+            (setq end current-line))))
+        (forward-line 1)
+        (setq current-line (1+ current-line)))
+      (when start
+        (cons start (or end line))))))
+#+end_src
+
+** Errors — part-level wrapping
+#+begin_src emacs-lisp
+(defun manifolding-emacs-wrap-in-condition (file part
+                                             &optional package keyword)
+  "Wrap PART's body in `condition-case', baked into the returned code so
+protection travels with it through deferred execution.  Used only for
+:config/:init parts — loose top-level statements never need this since
+they always run synchronously and the caller's own handler is enough."
+  (let* ((body (plist-get part :body))
+         (line (plist-get part :line))
+         (expression-string (string-trim-right body))
+         (expression (manifolding-emacs-safe-read
+                      (format "(progn\n%s\n)" expression-string) file line)))
+    (if manifolding-emacs-wrap-statements-in-condition
+        (pp-to-string
+         `(condition-case err
+              ,expression
+            (error
+             (unless manifolding-emacs--inside-tier2-eval
+               (manifolding-emacs-record-error
+                :level 'part :file ,(format "%s" file) :line ,line
+                :package ,(and package (format "%s" package))
+                :keyword ,keyword
+                :message (error-message-string err)))
+             (signal (car err) (cdr err)))))
+      expression-string)))
+
+(defun manifolding-emacs-validate-loose-block (file part)
+  "Validate a loose (non-package) block's syntax at build time and
+return its trimmed body string."
+  (let* ((body (plist-get part :body))
+         (line (plist-get part :line))
+         (expression-string (string-trim-right body)))
+    (manifolding-emacs-safe-read
+     (format "(progn\n%s\n)" expression-string) file line)
+    expression-string))
+#+end_src
+
+** Errors — TODO filing
+#+begin_src emacs-lisp
+(defun manifolding-emacs--error-heading (entry)
+  (format "** TODO Fix: %s%s"
+          (if (manifolding-emacs-error-entry-file entry)
+              (car (last (split-string
+                          (manifolding-emacs-error-entry-file entry)
+                          "/")))
+            "(no file)")
+          (if (manifolding-emacs-error-entry-package entry)
+              (format " (%s)" (manifolding-emacs-error-entry-package entry))
+            "")))
+
+(defun manifolding-emacs-add-error-to-todo (entry)
+  "Append ENTRY to `manifolding-emacs-todo-file' as a TODO item."
+  (unless (file-exists-p manifolding-emacs-todo-file)
+    (user-error "TODO file not found at %s" manifolding-emacs-todo-file))
+  (with-current-buffer (find-file-noselect manifolding-emacs-todo-file)
+    (widen)
+    (goto-char (point-max))
+    (insert (format "\n%s\n" (manifolding-emacs--error-heading entry)))
+    (insert (format "Error from manifolding-emacs boot (%s), level %s:\n"
+                    (format-time-string "%Y-%m-%d")
+                    (manifolding-emacs-error-entry-level entry)))
+    (when (manifolding-emacs-error-entry-file entry)
+      (insert (format "[[file:%s::%s][%s:%s]]\n"
+                       (manifolding-emacs-error-entry-file entry)
+                       (or (manifolding-emacs-error-entry-line entry) 1)
+                       (manifolding-emacs-error-entry-file entry)
+                       (or (manifolding-emacs-error-entry-line entry) 1))))
+    (insert (format "%s\n"
+                    (manifolding-emacs-error-entry-message entry)))
+    (save-buffer)))
+#+end_src
+
+** Errors — under-point lookup & splash actions
+#+begin_src emacs-lisp
+(defun manifolding-emacs-error-under-point ()
+  "Return the error entry linked at point in a splash/doctor buffer."
+  (save-excursion
+    (beginning-of-line)
+    (when (looking-at "^[[:space:]]*\u231e")
+      (forward-line -1) (beginning-of-line))
+    (when (looking-at "^\\[\\[file:\\([^]]+\\)::\\([0-9]+\\)")
+      (let ((file (match-string-no-properties 1))
+            (line (string-to-number (match-string-no-properties 2))))
+        (cl-find-if (lambda (e)
+                      (and (equal (manifolding-emacs-error-entry-file e)
+                                  file)
+                           (eql (manifolding-emacs-error-entry-line e)
+                                line)))
+                    manifolding-emacs--boot-errors)))))
+
+(defun manifolding-emacs-splash-add-error-at-point ()
+  (interactive)
+  (let ((e (manifolding-emacs-error-under-point)))
+    (if e (progn (manifolding-emacs-add-error-to-todo e)
+                 (message "Error added to %s" manifolding-emacs-todo-file))
+      (user-error "No error found at point"))))
+
+(defun manifolding-emacs-splash-add-all-errors ()
+  (interactive)
+  (if (not manifolding-emacs--boot-errors)
+      (user-error "No errors to add")
+    (dolist (e manifolding-emacs--boot-errors)
+      (manifolding-emacs-add-error-to-todo e))
+    (message "All %d errors added to %s"
+             (length manifolding-emacs--boot-errors)
+             manifolding-emacs-todo-file)))
+#+end_src
+
+** Errors — persistence
+#+begin_src emacs-lisp
+(defun manifolding-emacs--entry-to-plist (entry)
+  (list :level (manifolding-emacs-error-entry-level entry)
+        :file (manifolding-emacs-error-entry-file entry)
+        :line (manifolding-emacs-error-entry-line entry)
+        :package (manifolding-emacs-error-entry-package entry)
+        :keyword (manifolding-emacs-error-entry-keyword entry)
+        :message (manifolding-emacs-error-entry-message entry)
+        :time (manifolding-emacs-error-entry-time entry)))
+
+(defun manifolding-emacs-errors-save-log ()
+  "Persist this session's errors/warnings/status as one readable form."
+  (interactive)
+  (let ((data (list :errors (mapcar #'manifolding-emacs--entry-to-plist
+                                    manifolding-emacs--boot-errors)
+                     :warnings manifolding-emacs--boot-warnings
+                     :status (manifolding-emacs-all-package-statuses)
+                     :saved-at (current-time-string))))
+    (with-temp-file manifolding-emacs-error-log-file
+      (insert ";; -*- lisp-data -*-\n;; manifolding-emacs error log. Read, don't hand-edit.\n")
+      (pp data (current-buffer)))))
+
+(defun manifolding-emacs-errors-load-log ()
+  "Read back the persisted log, or nil if there isn't one yet."
+  (when (file-exists-p manifolding-emacs-error-log-file)
+    (with-temp-buffer
+      (insert-file-contents manifolding-emacs-error-log-file)
+      (goto-char (point-min))
+      (condition-case nil
+          (progn (forward-line 2) (read (current-buffer)))
+        (error nil)))))
+#+end_src
+
+** Org parse — property readers
+Pure readers over Org buffers/files — nothing here mutates state.
+#+begin_src emacs-lisp
+(defun manifolding-emacs-find-property (property)
+  "Find PROPERTY on the current Org element or nearest ancestor."
+  (save-excursion
+    (condition-case nil
+        (progn
+          (while (not (org-element-property property (org-element-context)))
+            (org-up-element))
+          (intern (org-element-property property (org-element-context))))
+      (error nil))))
+
+(defun manifolding-emacs-find-tags ()
+  (save-excursion
+    (condition-case nil
+        (progn
+          (while (not (org-element-property :tags
+                          (org-element-lineage (org-element-context)
+                                               '(headline) t)))
+            (org-up-element))
+          (org-element-property :tags
+              (org-element-lineage (org-element-context) '(headline) t)))
+      (error nil))))
+
+(defun manifolding-emacs-find-tag (keywords)
+  "KEYWORDS is the active macro's ordered keyword list."
+  (let ((tag (car (seq-filter
+                   (lambda (tag)
+                     (member (intern (concat ":" tag)) keywords))
+                   (manifolding-emacs-find-tags)))))
+    (when tag
+      (replace-regexp-in-string "_" "-"
+        (replace-regexp-in-string "_$" "*" tag)))))
+
+(defun manifolding-emacs-find-package ()
+  (or (manifolding-emacs-find-property :PACKAGE)
+      (manifolding-emacs-find-property :USE_PACKAGE)
+      (manifolding-emacs-find-property :USE-PACKAGE)
+      (manifolding-emacs-find-property :LEAF)))
+
+(defun manifolding-emacs-find-property-string (key)
+  (when-let* ((value (or (manifolding-emacs-find-property
+                          (intern (downcase (format "%s" key))))
+                         (manifolding-emacs-find-property
+                          (intern (upcase (format "%s" key))))))
+              (str (and value (symbol-name value))))
+    (prin1-to-string (read str))))
+
+(defun manifolding-emacs-find-keyword ()
+  (when-let* ((keyword (manifolding-emacs-find-property :KEYWORD)))
+    (replace-regexp-in-string "^:" "" (symbol-name keyword))))
+
+(defun manifolding-emacs-get-use-package-package (keywords)
+  "Return (PACKAGE-NAME PARAMETER) for the current source block, or nil."
+  (when-let* ((package (manifolding-emacs-find-package)))
+    (list package (or (manifolding-emacs-find-keyword)
+                      (manifolding-emacs-find-tag keywords)
+                      "config"))))
+#+end_src
+
+** Org parse — file-level properties
+#+begin_src emacs-lisp
+(defun manifolding-emacs-file-properties (file)
+  "Return the #+KEY: value file-level properties of FILE."
+  (with-temp-buffer
+    (insert-file-contents file)
+    (let (org-mode-hook) (org-mode))
+    (let (properties)
+      (goto-char (point-min))
+      (while (re-search-forward
+              "^\\(?:;;[ \t]*\\)?#\\+\\([A-Za-z0-9_]+\\):[ \t]*\\(.*\\)$"
+              nil t)
+        (push (cons (intern (downcase (match-string 1)))
+                    (match-string 2))
+              properties))
+      properties)))
+
+(defun manifolding-emacs-file-priority (file)
+  (let ((priority (string-trim
+                   (alist-get 'priority
+                              (manifolding-emacs-file-properties file)
+                              "10"))))
+    (if (string-match-p "^-?[0-9]+$" priority)
+        (string-to-number priority)
+      10)))
+
+(defun manifolding-emacs-file-remote (file)
+  (when-let* ((remote (alist-get 'remote
+                                 (manifolding-emacs-file-properties file))))
+    (read remote)))
+
+(defun manifolding-emacs-file-lexical-binding (file)
+  (not (equal (alist-get 'lexical_binding
+                         (manifolding-emacs-file-properties file) "t")
+              "nil")))
+
+(defun manifolding-emacs-file-disabled-p (file)
+  (alist-get 'disabled (manifolding-emacs-file-properties file)))
+
+(defun manifolding-emacs-file-profile (file)
+  "Return FILE's #+PROFILE: as a symbol, or `manifolding-emacs-default-profile'."
+  (let ((profile (alist-get 'profile
+                            (manifolding-emacs-file-properties file))))
+    (if profile (intern (string-trim profile))
+      manifolding-emacs-default-profile)))
+
+(defun manifolding-emacs-file-package-names (file)
+  "Distinct package names declared anywhere in FILE."
+  (with-temp-buffer
+    (insert-file-contents file)
+    (let (org-mode-hook) (org-mode))
+    (let (names)
+      (org-map-entries
+       (lambda ()
+         (when-let* ((name (manifolding-emacs-find-package)))
+           (cl-pushnew name names))))
+      (nreverse names))))
+
+(defun manifolding-emacs-get-files (extension directory)
+  "Return all files matching EXTENSION under DIRECTORY, priority-sorted."
+  (if (file-directory-p directory)
+      (let ((files (directory-files-recursively directory extension)))
+        (sort files (lambda (a b)
+                      (< (manifolding-emacs-file-priority a)
+                         (manifolding-emacs-file-priority b)))))
+    (progn (message "manifolding-emacs: directory does not exist: %s"
+                    directory)
+           nil)))
+#+end_src
+
+** Package builder — keyword resolution
+#+begin_src emacs-lisp
+(defun manifolding-emacs-package-keywords ()
+  "Return the ordered keyword list for the active package macro.
+Preserves the macro's own canonical order — this matters, because leaf
+relies on that order for correctness (e.g. `:disabled' has to stay
+first to short-circuit everything after it).  Extras from
+`manifolding-emacs-package-keywords-extra' the macro doesn't already
+know about are appended at the end, never interleaved."
+  (let ((base (pcase manifolding-emacs-package-method
+                ('leaf (when (and (require 'leaf nil t)
+                                  (fboundp 'leaf-available-keywords))
+                         (leaf-available-keywords)))
+                ((or 'use-package 'use-package!)
+                 (when (and (require 'use-package-core nil t)
+                            (boundp 'use-package-keywords))
+                   use-package-keywords))
+                (_ '()))))
+    (append base
+            (cl-remove-if (lambda (k) (memq k base))
+                          manifolding-emacs-package-keywords-extra))))
+
+(defun manifolding-emacs-put-package-parameter (package-name parameter value)
+  (setq manifolding-emacs-packages
+        (plist-put manifolding-emacs-packages package-name
+                   (plist-put (plist-get manifolding-emacs-packages
+                                         package-name)
+                              parameter value))))
+
+(defun manifolding-emacs-merge-bodies (file xs)
+  "Merge the :body entries of XS (a list of (:body S :line N)) into one form."
+  (let (result)
+    (dolist (x xs)
+      (when-let* ((parsed (manifolding-emacs-safe-read
+                           (plist-get x :body) file (plist-get x :line))))
+        (setq result (append result parsed))))
+    (when result (prin1-to-string result))))
+#+end_src
+
+** Package builder — straight recipe validation
+#+begin_src emacs-lisp
+(defun manifolding-emacs-validate-straight-recipe (recipe-string
+                                                   package-name file line)
+  "Return t for allowed :type (built-in, local, file, git, or anything
+with explicit :host/:repo); record an error and return nil otherwise."
+  (condition-case err
+      (let* ((recipe (read recipe-string))
+             (recipe-type (plist-get (cdr recipe) :type)))
+        (cond
+         ((memq recipe-type '(built-in file local git)) t)
+         (recipe-type
+          (manifolding-emacs-record-error
+           :level 'package :file file :line line :package package-name
+           :keyword :straight
+           :message (format ":type %s is not allowed (use git, file, local, or built-in)" recipe-type))
+          nil)
+         ((or (plist-get (cdr recipe) :host) (plist-get (cdr recipe) :repo)) t)
+         (t
+          (manifolding-emacs-record-error
+           :level 'package :file file :line line :package package-name
+           :keyword :straight
+           :message "recipe has no :type and no :host/:repo (would default to MELPA)")
+          nil)))
+    (error
+     (manifolding-emacs-record-error
+      :level 'package :file file :line line :package package-name
+      :keyword :straight
+      :message (format "error reading straight recipe: %s"
+                       (error-message-string err)))
+     nil)))
+#+end_src
+
+** Package builder — string building
+Atomic upstream — kept whole.
+#+begin_src emacs-lisp
+(defun manifolding-emacs-build-package-string (package-name package file)
+  (let* ((package-macro (pcase manifolding-emacs-package-method
+                          ('leaf "leaf") ('use-package! "use-package!")
+                          (_ "use-package")))
+         (keys (manifolding-emacs-package-keywords))
+         (body-parts
+          (delq nil
+                (mapcar
+                 (lambda (key)
+                   (unless (eq key :package)
+                     (when-let* ((entry (plist-get package key)))
+                       (format "\n  %s\n%s" key
+                               (manifolding-emacs-indent
+                                (string-join
+                                 (mapcar (lambda (part)
+                                           (if (member key
+                                                 manifolding-emacs-condition-case-keywords)
+                                               (manifolding-emacs-wrap-in-condition
+                                                file part package key)
+                                             (plist-get part :body)))
+                                         entry)
+                                 "\n")
+                                2)))))
+                 keys))))
+    (string-trim-right
+     (concat (format "(%s %s" package-macro package-name)
+             (apply #'concat body-parts) ")\n\n"))))
+
+(defun manifolding-emacs--package-has-defer-keyword-p (package)
+  (cl-some (lambda (k) (plist-get package k))
+           '(:bind :bind* :hook :mode :interpreter :magic :magic-fallback
+                   :commands :after)))
+
+(defun manifolding-emacs--should-force-require (package)
+  (pcase manifolding-emacs-leaf-force-require
+    ('t t)
+    ('nil nil)
+    (_ (and (not (plist-get package :require))
+            (not (manifolding-emacs--package-has-defer-keyword-p package))))))
+
+(defun manifolding-emacs--append-require-t (package-string)
+  (let* ((trimmed (string-trim-right package-string))
+         (pos (1- (length trimmed))))
+    (concat (substring trimmed 0 pos) "\n  :require t)\n\n")))
+
+(defun manifolding-emacs-build-package (file package-name)
+  (when-let* ((package (plist-get manifolding-emacs-packages package-name)))
+    (unless (equal package-name (intern "nil"))
+      (let ((package-string
+             (manifolding-emacs-build-package-string
+              package-name package file)))
+        (when (manifolding-emacs-safe-read package-string file)
+          (if (and (eq manifolding-emacs-package-method 'leaf)
+                   (manifolding-emacs--should-force-require package))
+              (manifolding-emacs--append-require-t package-string)
+            package-string))))))
+
+(defun manifolding-emacs-build-packages (file)
+  "Build every package's string and concatenate them.  Used only by
+`manifolding-emacs-preview'."
+  (mapconcat (lambda (name)
+               (or (manifolding-emacs-build-package file name) ""))
+             (manifolding-emacs-plist-keys manifolding-emacs-packages) ""))
+#+end_src
+
+** Remote — paths & fetch
+#+begin_src emacs-lisp
+(defun manifolding-emacs-remote-plist-to-org-file (remote-file-plist)
+  (file-name-concat
+   (file-name-as-directory
+    (expand-file-name manifolding-emacs-remote-org-directory))
+   (format "%s" (plist-get remote-file-plist :repo))
+   (format "%s" (plist-get remote-file-plist :file))))
+
+(defun manifolding-emacs-remote-plist-to-output-file (remote-file-plist)
+  (file-name-concat
+   (file-name-as-directory
+    (expand-file-name manifolding-emacs-remote-output-directory))
+   (format "%s" (plist-get remote-file-plist :repo))
+   (concat (file-name-sans-extension
+            (format "%s" (plist-get remote-file-plist :file)))
+           ".el")))
+
+(defun manifolding-emacs--url-retrieve-callback (status remote-file-plist)
+  (if (plist-get status :error)
+      (manifolding-emacs-record-error
+       :level 'remote
+       :file (format "%s/%s" (plist-get remote-file-plist :repo)
+                     (plist-get remote-file-plist :file))
+       :message (format "download failed: %s"
+                        (car (last (plist-get status :error)))))
+    (goto-char url-http-end-of-headers)
+    (let ((response-body (buffer-substring-no-properties
+                          (point) (point-max)))
+          (file-path (manifolding-emacs-remote-plist-to-org-file
+                      remote-file-plist)))
+      (make-directory (file-name-directory file-path) t)
+      (with-temp-file file-path (insert response-body)))))
+
+(defun manifolding-emacs-pull-remote-file (remote-file-plist)
+  "Download REMOTE-FILE-PLIST's file if missing or if a refresh is forced."
+  (when (or (not (file-exists-p
+                  (manifolding-emacs-remote-plist-to-org-file
+                   remote-file-plist)))
+            manifolding-emacs-force-download)
+    (message "manifolding-emacs: downloading %s:%s"
+             (plist-get remote-file-plist :repo)
+             (plist-get remote-file-plist :file))
+    (let ((repo (plist-get remote-file-plist :repo))
+          (branch (or (plist-get remote-file-plist :branch) "master"))
+          (file (plist-get remote-file-plist :file)))
+      (url-retrieve
+       (format "https://raw.githubusercontent.com/%s/refs/heads/%s/%s"
+               repo branch file)
+       #'manifolding-emacs--url-retrieve-callback
+       (list remote-file-plist)))))
+
+(defun manifolding-emacs-download-all-remote-files ()
+  "Force re-download of every #+REMOTE: file in the local Org directory."
+  (interactive)
+  (let ((manifolding-emacs-force-download t))
+    (dolist (file (manifolding-emacs-get-files
+                   "^[^#]*\\.org$" (manifolding-emacs-get-org-directory)))
+      (when-let* ((remote-file-plist (manifolding-emacs-file-remote file)))
+        (manifolding-emacs-pull-remote-file remote-file-plist)))))
+#+end_src
+
+** Compiler — block extraction
+The engine.  Packages are read and eval'd ONE AT A TIME (never
+concatenated into one blob) — that's what makes per-package isolation
+possible at all.
+#+begin_src emacs-lisp
+(defcustom manifolding-emacs-lexical-binding t
+  "When non-nil, every module block/package is evaluated with lexical
+binding.  Lexical compilation makes closures capture their environment
+correctly and drastically reduces interpreter stack depth
+\(max-lisp-eval-depth pressure).  Set to nil only to roll back to the
+legacy dynamic-binding behavior."
+  :type 'boolean)
+
+(defun manifolding-emacs-concatenate-source-blocks (file)
+  "Populate `manifolding-emacs-packages' from FILE.  Return the list of
+loose (non-package) top-level statements as validated, trimmed
+strings, in file order."
+  (with-temp-buffer
+    (insert-file-contents file)
+    (let (org-mode-hook) (org-mode))
+    (let ((keywords (manifolding-emacs-package-keywords))
+          (results '()))
+      ;; Pass 1: headline PROPERTY keywords, e.g. :STRAIGHT:, :DISABLED:
+      (org-map-entries
+       (lambda ()
+         (let ((package-name (manifolding-emacs-find-package)))
+           (dolist (key keywords)
+             (when-let* ((body (manifolding-emacs-find-property-string key)))
+               (when (or (not (eq key :straight))
+                         (manifolding-emacs-validate-straight-recipe
+                          body package-name file (line-number-at-pos)))
+                 (manifolding-emacs-put-package-parameter
+                  package-name key
+                  `((:body ,body :line ,(line-number-at-pos))))))))))
+      ;; Pass 2: fold a :DEPENDS: property into the :straight recipe
+      (org-map-entries
+       (lambda ()
+         (when-let* ((package-name (manifolding-emacs-find-package))
+                     (depends-body (manifolding-emacs-find-property-string :depends))
+                     (straight-entry (plist-get
+                                      (plist-get manifolding-emacs-packages
+                                                 package-name)
+                                      :straight))
+                     (straight-body (plist-get (car straight-entry) :body)))
+           (condition-case err
+               (let ((recipe (read straight-body))
+                     (depends (read depends-body)))
+                 (when (listp depends)
+                   (manifolding-emacs-put-package-parameter
+                    package-name :straight
+                    `((:body ,(prin1-to-string
+                               (append recipe (list :depends depends)))
+                             :line ,(plist-get (car straight-entry)
+                                               :line))))))
+             (error
+              (manifolding-emacs-record-error
+               :level 'package :file file :package package-name
+               :keyword :depends :line (line-number-at-pos)
+               :message (format "failed to parse :DEPENDS: %s"
+                                (error-message-string err))))))))
+      ;; Pass 3: emacs-lisp source blocks -> package keyword body, or a
+      ;; loose top-level statement
+      (org-babel-map-src-blocks nil
+        (let* ((element (org-element-context))
+               (body (org-element-property :value element))
+               (line (line-number-at-pos
+                      (org-element-property :begin element)))
+               (language (org-element-property :language element))
+               (params (org-element-property :parameters element))
+               (tangle (when params
+                         (cdr (assq :tangle
+                                    (org-babel-parse-header-arguments
+                                     params))))))
+          (when (and (string= language "emacs-lisp")
+                     (not (equal tangle "no")))
+            (if-let* ((package
+                       (manifolding-emacs-get-use-package-package keywords)))
+                (let* ((package-name (car package))
+                       (parameter (intern (concat ":" (cadr package))))
+                       (previous (plist-get
+                                  (plist-get manifolding-emacs-packages
+                                             package-name)
+                                  parameter)))
+                  (manifolding-emacs-put-package-parameter
+                   package-name parameter
+                   (append previous `((:body ,body :line ,line)))))
+              (when (stringp body)
+                (push (manifolding-emacs-validate-loose-block
+                       file (list :body body :line line))
+                      results))))))
+      (nreverse results))))
+#+end_src
+
+** Compiler — per-package eval isolation
+#+begin_src emacs-lisp
+(defun manifolding-emacs--eval-package-string (package-name package-string file)
+  "Read and eval PACKAGE-STRING in isolation: a failure marks
+PACKAGE-NAME as errored instead of propagating to its siblings.
+On failure, prints the exact error, the file, and a snippet of the
+failing code so you never have to guess."
+  (condition-case err
+      (progn
+        (let ((manifolding-emacs--inside-tier2-eval t))
+          (eval (manifolding-emacs-safe-read
+                 (format "(progn\n%s\n)" package-string) file)
+                manifolding-emacs-lexical-binding))
+        (manifolding-emacs-record-status package-name 'ok file))
+    (error
+     (let ((snippet (if (> (length package-string) 200)
+                        (concat (substring package-string 0 200) "…")
+                      package-string)))
+       (message "manifolding-emacs ERROR [%s] %s\n  Code: %s"
+                package-name (error-message-string err) snippet)
+       (manifolding-emacs-record-error
+        :level 'package :file file :package package-name
+        :message (format "%s\n  Code: %s"
+                         (error-message-string err) snippet))))))
+
+(defun manifolding-emacs-compile-packages (file)
+  "Build and individually eval every package currently known."
+  (dolist (package-name
+             (manifolding-emacs-plist-keys manifolding-emacs-packages))
+    (when-let* ((package-string
+                 (manifolding-emacs-build-package file package-name)))
+      (manifolding-emacs--eval-package-string package-name
+                                              package-string file))))
+#+end_src
+
+** Compiler — cache salt, dir, key
+#+begin_src emacs-lisp
+(defconst manifolding-emacs-cache-salt "3"
+  "Bump to invalidate every cached module after loader changes.")
+
+(defun manifolding-emacs-cache-dir ()
+  (expand-file-name "module-cache/"
+                    (expand-file-name ".local/cache/" user-emacs-directory)))
+
+(defun manifolding-emacs-cache-path (key)
+  (expand-file-name (concat key ".cache.el")
+                    (manifolding-emacs-cache-dir)))
+
+(defun manifolding-emacs-cache-key (file)
+  (secure-hash
+   'sha256
+   (concat manifolding-emacs-cache-salt "\0"
+           (or (condition-case nil
+                   (with-temp-buffer
+                     (insert-file-contents-literally file)
+                     (buffer-string))
+                 (error ""))
+               "")
+           "\0" (symbol-name manifolding-emacs-lexical-binding))))
+
+(defun manifolding-emacs--cache-read (path)
+  (condition-case nil
+      (car (read-from-string
+            (with-temp-buffer
+              (insert-file-contents path)
+              (buffer-string))))
+    (error nil)))
+
+(defun manifolding-emacs--cache-write (path data)
+  (make-directory (file-name-directory path) t)
+  ;; print-length/print-level MUST be nil here: a bound value would
+  ;; truncate the serialized parts and silently corrupt the entry.
+  (let ((print-length nil)
+        (print-level nil))
+    (with-temp-file path
+      (insert ";; manifolding-emacs module cache\n"
+              (prin1-to-string data)))))
+#+end_src
+
+** Compiler — parts extraction & evaluation
+#+begin_src emacs-lisp
+(defun manifolding-emacs--extract-parts (file)
+  "Return (PARTS . PROFILE) mirroring compile-file's eval units.
+PARTS is an ordered list of (:kind part|package [:name N] :body S):
+all loose forms in document order, followed by package bodies."
+  (let* ((manifolding-emacs-packages nil)
+         (profile (manifolding-emacs-file-profile file))
+         (straight-current-profile
+          (or profile (and (boundp 'straight-current-profile)
+                           straight-current-profile)))
+         (loose-forms (manifolding-emacs-concatenate-source-blocks file))
+         (parts (mapcar (lambda (s) (list :kind 'part :body s))
+                        loose-forms))
+         (package-parts nil))
+    (dolist (package-name
+               (manifolding-emacs-plist-keys manifolding-emacs-packages))
+      (when-let* ((package-string
+                   (manifolding-emacs-build-package file package-name)))
+        (push (list :kind 'package :name package-name
+                    :body package-string)
+              package-parts)))
+    (cons (append parts (nreverse package-parts)) profile)))
+
+(defun manifolding-emacs--eval-parts (file parts profile
+                                      &optional signal-error)
+  "Evaluate PARTS with isolation. Reports failures with full context:
+file, detected function name, exact error message, code snippet.
+Detects silent swallowing: if PARTS is empty for a non-trivial file,
+something broke during extraction."
+  (when (and (null parts)
+             (> (or (nth 7 (file-attributes file)) 0) 10)
+             (string-match-p "/infra/\\|/domains/" file))
+    (message "manifolding-emacs ERROR [%s]: ZERO forms extracted — likely paren imbalance or nested begin_src"
+             (file-name-nondirectory file))
+    (manifolding-emacs-record-error
+     :level 'file :file file
+     :message "ZERO forms extracted — likely paren imbalance or nested begin_src markers"))
+  (let ((straight-current-profile
+         (or profile (and (boundp 'straight-current-profile)
+                          straight-current-profile))))
+    (dolist (part parts)
+      (let* ((is-package (eq (plist-get part :kind) 'package))
+             (body (plist-get part :body))
+             (fn-name (and (string-match "^(defun[ \t]+\\([^ \t\n)+]+\\)"
+                                         body)
+                           (match-string 1 body)))
+             (label (or fn-name
+                        (and is-package (plist-get part :name))
+                        "anonymous"))
+             (snippet (if (> (length body) 200)
+                          (concat (substring body 0 200) "…")
+                        body)))
+        (condition-case err
+            (progn
+              (let ((manifolding-emacs--inside-tier2-eval t))
+                (eval (manifolding-emacs-safe-read
+                       (format "(progn\n%s\n)" body) file)
+                      manifolding-emacs-lexical-binding))
+              (when is-package
+                (manifolding-emacs-record-status
+                 (plist-get part :name) 'ok file))
+              (when (and fn-name (not (fboundp (intern fn-name))))
+                (message "manifolding-emacs WARNING [%s]: %s defined but VOID"
+                         file fn-name)
+                (manifolding-emacs-record-error
+                 :level 'part :file file
+                 :message (format "%s defined but VOID — nested inside another form" fn-name))))
+          (error
+           (message "manifolding-emacs ERROR [%s] %s: %s\n  Code: %s"
+                    label file (error-message-string err) snippet)
+           (manifolding-emacs-record-error
+            :level (if is-package 'package 'part)
+            :file file
+            :package (and is-package (plist-get part :name))
+            :message (format "%s: %s" label (error-message-string err)))
+           (when signal-error
+             (signal (car err) (cdr err)))))))))
+#+end_src
+
+** Compiler — cache validation & compile entries
+#+begin_src emacs-lisp
+(defun manifolding-emacs--cache-validate (data)
+  "Return t when DATA is a well-formed cache entry."
+  (and (listp data)
+       (plist-get data :parts)
+       (consp (plist-get data :parts))
+       (stringp manifolding-emacs-cache-salt)
+       (equal (plist-get data :version) manifolding-emacs-cache-salt)
+       (cl-every
+        (lambda (p)
+          (and (listp p)
+               (plist-get p :kind)
+               (plist-get p :body)
+               (stringp (plist-get p :body))
+               (> (length (plist-get p :body)) 0)))
+        (plist-get data :parts))))
+
+(defun manifolding-emacs-compile-file-cached (file &optional _force)
+  "Compile FILE fresh. Always re-extracts and re-evaluates.
+Returns FILE, or nil when the file is disabled."
+  (unless (file-exists-p file)
+    (error "File to compile does not exist: %s" file))
+  (if (manifolding-emacs-file-disabled-p file)
+      (progn
+        (message "manifolding-emacs: skipping disabled file %s"
+                 (file-name-nondirectory file))
+        nil)
+    (pcase-let* ((`(,parts . ,profile)
+                  (manifolding-emacs--extract-parts file)))
+      (manifolding-emacs--eval-parts file parts profile)
+      file)))
+
+(defun manifolding-emacs-compile-file (file)
+  "Compile FILE.  Returns FILE, or nil if skipped (disabled).
+Always bypasses the cache: this entry point means \"the user just
+touched this file\"."
+  (unless (file-exists-p file)
+    (error "File to compile does not exist: %s" file))
+  (if (manifolding-emacs-file-disabled-p file)
+      (progn
+        (message "manifolding-emacs: skipping disabled file %s"
+                 (file-name-nondirectory file))
+        nil)
+    (message "manifolding-emacs: compiling %s"
+             (file-name-nondirectory file))
+    (pcase-let* ((`(,parts . ,profile)
+                  (manifolding-emacs--extract-parts file)))
+      (manifolding-emacs--eval-parts file parts profile)
+      file)))
+
+(defun manifolding-emacs-recompile-package (file package-name)
+  "Re-extract FILE and (re-)eval only PACKAGE-NAME, leaving every other
+package in FILE untouched.  Used by the doctor."
+  (interactive)
+  (let ((manifolding-emacs-packages nil))
+    (manifolding-emacs-concatenate-source-blocks file)
+    (if-let* ((package-string
+               (manifolding-emacs-build-package file package-name)))
+        (progn
+          (manifolding-emacs--eval-package-string package-name
+                                                  package-string file)
+          (message "manifolding-emacs: retried %s -> %s" package-name
+                   (plist-get (manifolding-emacs-package-status
+                               package-name)
+                              :status)))
+      (user-error "No such package `%s' in %s" package-name file))))
+#+end_src
+
+** Compiler — directory loop & summary
+#+begin_src emacs-lisp
+(defun manifolding-emacs-compile-directory (&optional progress-fn force)
+  "Compile every Org file under the active Org directory.
+Unchanged files replay from the content-hash cache; FORCE bypasses it.
+If PROGRESS-FN is given, call it with (CURRENT TOTAL FILE) before
+compiling each file — used to drive a splash screen without this file
+knowing anything about UI."
+  (let* ((files (manifolding-emacs-get-files
+                 "^[^#]*\\.org$" (manifolding-emacs-get-org-directory)))
+         (compiled '()) (current 0) (total (length files))
+         (paren-errors 0) (void-errors 0))
+    (dolist (file files)
+      (setq current (1+ current))
+      (when progress-fn (funcall progress-fn current total file))
+      (when-let* ((remote-plist (manifolding-emacs-file-remote file)))
+        (manifolding-emacs-pull-remote-file remote-plist))
+      (condition-case err
+          (when-let* ((output
+                       (manifolding-emacs-compile-file-cached file force)))
+            (push output compiled))
+        (error
+         (let ((msg (error-message-string err)))
+           (when (string-match-p "End of file\\|Unbalanced\\|parsing" msg)
+             (setq paren-errors (1+ paren-errors)))
+           (when (string-match-p "VOID" msg)
+             (setq void-errors (1+ void-errors)))
+           (manifolding-emacs-record-error
+            :level 'file :file file :message msg)))))
+    (cond
+     ((> paren-errors 0)
+      (message "manifolding-emacs: %d paren error(s) — run: sh ~/.config/emacs/paren-scan.sh"
+               paren-errors))
+     ((> void-errors 0)
+      (message "manifolding-emacs: %d void function(s) — check nesting in listed files"
+               void-errors)))
+    (nreverse compiled)))
+
+(defun manifolding-emacs-aggregate-directory (output-file)
+  "Concatenate every Org file's raw contents into OUTPUT-FILE."
+  (let (result)
+    (dolist (file (manifolding-emacs-get-files
+                   "^[^#]*\\.org$" (manifolding-emacs-get-org-directory)))
+      (push (with-temp-buffer
+              (insert-file-contents file) (buffer-string))
+            result))
+    (with-temp-file output-file
+      (insert (mapconcat #'identity (nreverse result) "\n")))))
+
+(defun manifolding-emacs-output-file-name (file)
+  "The .el path FILE would tangle to, if you ever wanted to tangle to
+disk instead of eval'ing directly."
+  (if (string-prefix-p (manifolding-emacs-get-org-directory)
+                       (expand-file-name file))
+      (expand-file-name
+       (concat (file-name-as-directory
+                (manifolding-emacs-get-output-directory))
+               (file-name-sans-extension
+                (substring (expand-file-name file)
+                           (length (manifolding-emacs-get-org-directory))))
+               ".el"))
+    (error "File is not under the active Org directory")))
+#+end_src
+
+** Lockfile — freeze/thaw
+#+begin_src emacs-lisp
+(declare-function straight-freeze-versions "straight")
+(declare-function straight-thaw-versions "straight")
+
+(defcustom manifolding-emacs-freeze-after-clean-boot nil
+  "If non-nil, run `straight-freeze-versions' at the end of
+`manifolding-emacs-boot', but only when that boot recorded zero
+errors.  Off by default: freezing is a deliberate act, not something
+that should happen silently just because nothing broke today."
+  :type 'boolean :group 'manifolding-emacs)
+
+(defun manifolding-emacs-freeze-versions ()
+  "Freeze package versions for all configured straight profiles."
+  (interactive)
+  (if (not (fboundp 'straight-freeze-versions))
+      (user-error "straight.el is not loaded")
+    (when (yes-or-no-p "Freeze package versions for all straight profiles? ")
+      (straight-freeze-versions)
+      (message "manifolding-emacs: froze package versions"))))
+
+(defun manifolding-emacs-thaw-versions ()
+  "Thaw (restore) package versions from the straight lockfiles."
+  (interactive)
+  (if (not (fboundp 'straight-thaw-versions))
+      (user-error "straight.el is not loaded")
+    (when (yes-or-no-p "Thaw package versions from lockfiles? This can downgrade packages. ")
+      (straight-thaw-versions)
+      (message "manifolding-emacs: thawed package versions"))))
+
+(defun manifolding-emacs-maybe-freeze-on-clean-boot ()
+  "Call `straight-freeze-versions' if enabled and this boot was clean."
+  (when (and manifolding-emacs-freeze-after-clean-boot
+             (fboundp 'straight-freeze-versions)
+             (null (manifolding-emacs-errors-list)))
+    (straight-freeze-versions)
+    (message "manifolding-emacs: boot was clean, froze package versions")))
+
+(defun manifolding-emacs-list-profiles ()
+  "Show which #+PROFILE: each module file declares, in a report buffer."
+  (interactive)
+  (let ((files (manifolding-emacs-get-files
+                "^[^#]*\\.org$" (manifolding-emacs-get-org-directory)))
+        (buf (get-buffer-create "*manifolding-emacs profiles*")))
+    (with-current-buffer buf
+      (erase-buffer)
+      (insert "Profile  ->  File\n" (make-string 40 ?-) "\n")
+      (dolist (file files)
+        (insert (format "%-8s %s\n"
+                        (or (manifolding-emacs-file-profile file)
+                            "(default)")
+                        file))))
+    (display-buffer buf)))
+#+end_src
+
+** Splash — constants & state
+Pure renderer: reads the error/warnings lists, never mutates them.
+#+begin_src emacs-lisp
+(defconst manifolding-emacs-splash--bar-width 54)
+(defconst manifolding-emacs-splash--redraw-interval 0.1
+  "Seconds between live splash redraws (throttle).")
+(defconst manifolding-emacs-splash--history-length 24
+  "How many past boot durations the sparkline remembers.")
+
+(defvar manifolding-emacs-splash--state nil
+  "Live render state: (:t0 :count :last-render :elapsed-final).")
+
+(defvar manifolding-emacs-splash--history-file
+  (expand-file-name ".local/cache/manifolding-boot-times"
+                    user-emacs-directory))
+
+(defvar manifolding-emacs--last-boot-seconds nil
+  "Duration of the most recent boot, set by the clean-finish handoff
+and displayed by the dashboard's Manifold status widget.")
+
+(defun manifolding-emacs-show-splash ()
+  (let ((buf (get-buffer-create "*Manifolding-Emacs*")))
+    (with-current-buffer buf
+      (erase-buffer)
+      (let ((org-mode-hook nil)) (org-mode)))
+    (condition-case nil
+        (switch-to-buffer buf)
+      (error nil))
+    buf))
+
+(defun manifolding-emacs-splash--record-duration (seconds)
+  (make-directory
+   (file-name-directory manifolding-emacs-splash--history-file) t)
+  (let ((times (append (manifolding-emacs-splash--read-history)
+                       (list seconds))))
+    (when (> (length times) manifolding-emacs-splash--history-length)
+      (setq times (nthcdr (- (length times)
+                              manifolding-emacs-splash--history-length)
+                          times)))
+    (with-temp-file manifolding-emacs-splash--history-file
+      (insert (prin1-to-string times)))))
+
+(defun manifolding-emacs-splash--read-history ()
+  (condition-case nil
+      (let ((raw (when (file-exists-p
+                          manifolding-emacs-splash--history-file)
+                   (car (read-from-string
+                         (with-temp-buffer
+                           (insert-file-contents
+                            manifolding-emacs-splash--history-file)
+                           (buffer-string)))))))
+        (if (listp raw) raw nil))
+    (error nil)))
+#+end_src
+
+** Splash — sparkline, centering, bar
+#+begin_src emacs-lisp
+(defun manifolding-emacs-splash--sparkline ()
+  "Render recent boot durations as a one-line block sparkline."
+  (let* ((times (manifolding-emacs-splash--read-history))
+         (chars ["▁" "▂" "▃" "▄" "▅" "▆" "▇" "█"]))
+    (if (< (length times) 2)
+        ""
+      (let* ((mn (apply #'min times))
+             (mx (apply #'max times))
+             (span (max (- mx mn) 0.001)))
+        (concat "  "
+                (mapconcat
+                 (lambda (s)
+                   (let ((idx (floor (* (- (length chars) 1)
+                                        (/ (- s mn) span)))))
+                     (aref chars (min (1- (length chars))
+                                      (max 0 idx)))))
+                 times ""))))))
+
+(defun manifolding-emacs-splash--center (text)
+  "Center each line of TEXT within the live window width."
+  (let* ((win (get-buffer-window "*Manifolding-Emacs*" t))
+         (w (if win (window-body-width win) 80))
+         (lines (split-string text "\n")))
+    (mapconcat
+     (lambda (line)
+       (let* ((len (length line))
+              (pad (if (< len w) (make-string (/ (- w len) 2) ?\s) "")))
+         (concat pad line)))
+     lines "\n")))
+
+(defun manifolding-emacs-splash--bar (current total)
+  (let* ((ratio (if (zerop total) 1.0 (/ (float current) total)))
+         (done (floor (* ratio manifolding-emacs-splash--bar-width)))
+         (todo (- manifolding-emacs-splash--bar-width done)))
+    (concat "["
+            (propertize (make-string done ?█) 'face 'bold)
+            (make-string todo ?·)
+            "]")))
+#+end_src
+
+** Splash — problem grouping & progress rendering
+Atomic upstream renderers — kept whole.
+#+begin_src emacs-lisp
+(defun manifolding-emacs-splash--group-by-file (entries)
+  "Group error/warning ENTRIES by file."
+  (let ((groups (make-hash-table :test #'equal))
+        order)
+    (dolist (e entries)
+      (let* ((f (or (if (manifolding-emacs-error-entry-p e)
+                         (manifolding-emacs-error-entry-file e)
+                       nil)
+                     "unknown"))
+             (base (file-name-nondirectory f)))
+        (unless (gethash base groups)
+          (push base order))
+        (push e (gethash base groups))))
+    (mapcar (lambda (base)
+              (cons base (nreverse (gethash base groups))))
+            (nreverse order))))
+
+(defun manifolding-emacs-splash--problems-section (label entries)
+  "Render LABEL section for grouped ENTRIES, or empty string."
+  (if (null entries)
+      ""
+    (let ((out (list (format "\n%s — %d\n" label (length entries)))))
+      (pcase-dolist (`(,base . ,items)
+                       (manifolding-emacs-splash--group-by-file entries))
+        (push (format "%s\n"
+                      (propertize (format "%s (%d)" base (length items))
+                                  'face 'bold))
+              out)
+        (dolist (e items)
+          (push (format "  %s\n"
+                        (if (manifolding-emacs-error-entry-p e)
+                            (manifolding-emacs-error-entry-message e)
+                          (plist-get e :message)))
+                out)))
+      (apply #'concat (nreverse out)))))
+
+(defun manifolding-emacs-splash--eta-line (current total)
+  (format "%d/%d · %d%%" current total
+          (if (zerop total) 100
+            (floor (* 100 (/ (float current) total))))))
+
+(defun manifolding-emacs-splash--render-progress (buf current total file)
+  (let* ((errors (manifolding-emacs-errors-list))
+         (warnings (manifolding-emacs-warnings-list))
+         (label (pcase manifolding-emacs--boot-phase
+                  (:compiling "Compiling") (:loading "Loading")
+                  (_ "Processing")))
+         (bar (manifolding-emacs-splash--bar current total))
+         (eta (manifolding-emacs-splash--eta-line current total))
+         (head (concat "MANIFOLDING-EMACS\n\n"
+                       (propertize eta 'face 'bold) "\n\n"
+                       bar "\n\n"
+                       (if file
+                           (concat
+                            (format "%s: " label)
+                            (propertize (file-name-nondirectory file)
+                                        'face 'bold))
+                         "")
+                       "\n"
+                       (format "%s%d errors · %d warnings\n"
+                               (if (alist-get :fatal
+                                        manifolding-emacs-splash--state)
+                                   "BOOT THREW — " "")
+                               (length errors) (length warnings))))
+         (body (concat head
+                       (manifolding-emacs-splash--problems-section
+                        "ERRORS" errors)
+                       (manifolding-emacs-splash--problems-section
+                        "WARNINGS" warnings))))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t)
+            (org-mode-hook nil))
+        (erase-buffer)
+        (insert (manifolding-emacs-splash--center body))
+        (goto-char (point-min))))))
+
+(defun manifolding-emacs-splash-update-progress (buf current total file)
+  (when (buffer-live-p buf)
+    (let* ((now (float-time))
+           (st manifolding-emacs-splash--state)
+           (first-call (zerop (or (plist-get st :count) 0)))
+           (changed (or (/= current (or (plist-get st :last-count) -1))
+                        (/= (length (manifolding-emacs-errors-list))
+                            (or (plist-get st :last-e) -1))
+                        (/= (length (manifolding-emacs-warnings-list))
+                            (or (plist-get st :last-w) -1)))))
+      (when first-call
+        (setq manifolding-emacs-splash--state
+              (list :t0 now :count 0 :last-render 0
+                    :last-count -1 :last-e -1 :last-w -1))
+        (setq st manifolding-emacs-splash--state))
+      (plist-put manifolding-emacs-splash--state :count current)
+      (let* ((since (and (not first-call)
+                         (- now (or (plist-get
+                                     manifolding-emacs-splash--state
+                                     :last-render)
+                                    0))))
+             (finished (>= current total)))
+        (when (or first-call finished changed
+                  (null since)
+                  (>= since manifolding-emacs-splash--redraw-interval))
+          (plist-put manifolding-emacs-splash--state :last-render now)
+          (plist-put manifolding-emacs-splash--state :last-count current)
+          (plist-put manifolding-emacs-splash--state :last-e
+                     (length (manifolding-emacs-errors-list)))
+          (plist-put manifolding-emacs-splash--state :last-w
+                     (length (manifolding-emacs-warnings-list)))
+          (manifolding-emacs-splash--render-progress buf current total file)
+          (with-current-buffer buf
+            (redisplay)))))))
+#+end_src
+
+** Splash — counts
+#+begin_src emacs-lisp
+(defun manifolding-emacs-splash--missing-prompts-count ()
+  (condition-case nil
+      (let ((path (expand-file-name
+                   "admin/MISSING PROMPTS"
+                   (if (fboundp 'my/manifolding-atlas-root-dir)
+                       (my/manifolding-atlas-root-dir)
+                     "~/test/"))))
+        (if (not (file-exists-p path))
+            0
+          (with-temp-buffer
+            (insert-file-contents path)
+            (count-matches "^\\* TODO"))))
+    (error 0)))
+
+(defun manifolding-emacs-splash--notes-count ()
+  (condition-case nil
+      (if (fboundp 'manifolding-atlas-db-query)
+          (length (manifolding-atlas-db-query))
+        0)
+    (error 0)))
+
+(defun manifolding-emacs-splash-clean-finish (buf boot-seconds)
+  "Record the duration, then hand off to the *dashboard*.
+The old splash dashboard is gone: *dashboard* IS the post-boot view.
+Non-clean boots stay in *Manifolding-Emacs* with the full report."
+  (manifolding-emacs-splash--record-duration boot-seconds)
+  (setq manifolding-emacs--last-boot-seconds boot-seconds)
+  (cond
+   ((and (fboundp 'dashboard-refresh-buffer)
+         (fboundp 'dashboard-open))
+    ;; Bury the progress screen; the vendored dashboard takes over.
+    (when (buffer-live-p buf) (bury-buffer buf))
+    (dashboard-open))
+   (t
+    (manifolding-emacs-splash-update-dashboard
+     buf boot-seconds "CLEAN BOOT"))))
+#+end_src
+
+** Splash — module todos & vault git info
+Note: --modules-dir const points at the new home.
+#+begin_src emacs-lisp
+(defvar manifolding-emacs-splash--todos-expanded nil
+  "When non-nil, the dashboard lists every module TODO instead of a few.")
+
+(defconst manifolding-emacs-splash--modules-dir
+  (expand-file-name "Manifolding-Emacs/modules/" user-emacs-directory))
+
+(defun manifolding-emacs-splash--module-todos ()
+  "Return list of (FILE-BASE . TITLE) TODO headings from modules/*.org."
+  (condition-case nil
+      (let ((results nil)
+            (files (directory-files
+                    manifolding-emacs-splash--modules-dir
+                    t "\\.org\\'")))
+        (dolist (f files)
+          (let ((base (file-name-nondirectory f)))
+            (with-temp-buffer
+              (insert-file-contents f)
+              (goto-char (point-min))
+              (while (re-search-forward
+                      "^\\*+[ \t]+TODO[ \t]+\\(.*?\\)[ \t]*$" nil t)
+                (push (cons base (match-string 1)) results)))))
+        (nreverse results))
+    (error nil)))
+
+(defun manifolding-emacs-splash--vault-git-info ()
+  "One-line git summary of the vault, or nil when unavailable."
+  (condition-case nil
+      (when (fboundp 'magit-git-lines)
+        (let ((root (if (fboundp 'my/manifolding-atlas-root-dir)
+                        (my/manifolding-atlas-root-dir)
+                      "~/test/")))
+          (let* ((branch (car (magit-git-lines "-C" root
+                                               "rev-parse" "--abbrev-ref"
+                                               "HEAD")))
+                 (last (car (magit-git-lines "-C" root
+                                             "log" "-1" "--format=%cr")))
+                 (ahead (car (magit-git-lines "-C" root
+                                              "rev-list" "--count"
+                                              "@{upstream}..HEAD"))))
+            (concat (or branch "?")
+                    (if last (format " · %s" last) " · no commits")
+                    (when (and ahead (not (string= ahead "0")))
+                      (format " · ↑%s" ahead))))))
+    (error nil)))
+#+end_src
+
+** Splash — dashboard render
+Atomic upstream renderer — kept whole.
+#+begin_src emacs-lisp
+(defun manifolding-emacs-splash-update-dashboard (buf boot-seconds banner)
+  (when (buffer-live-p buf)
+    (let* ((errors (length (manifolding-emacs-errors-list)))
+           (warnings (length (manifolding-emacs-warnings-list)))
+           (notes (manifolding-emacs-splash--notes-count))
+           (missing (manifolding-emacs-splash--missing-prompts-count))
+           (missing-path (expand-file-name
+                          "admin/MISSING PROMPTS"
+                          (if (fboundp 'my/manifolding-atlas-root-dir)
+                              (my/manifolding-atlas-root-dir)
+                            "~/test/")))
+           (git-line (manifolding-emacs-splash--vault-git-info))
+           (todos (manifolding-emacs-splash--module-todos))
+           (todo-lines
+            (when todos
+              (let* ((shown (if manifolding-emacs-splash--todos-expanded
+                                todos
+                              (let ((n 0) acc)
+                                (dolist (td todos)
+                                  (when (< n 3)
+                                    (push td acc)
+                                    (setq n (1+ n))))
+                                (nreverse acc))))
+                    (out (list (format "module TODOs: %d%s\n"
+                                       (length todos)
+                                       (if (> (length todos) 3)
+                                           (concat "  [t] "
+                                                   (if manifolding-emacs-splash--todos-expanded
+                                                       "collapse"
+                                                     "show all"))
+                                         "")))))
+                (dolist (td shown)
+                  (push (format "  %s: %s\n"
+                                (propertize (car td) 'face 'bold)
+                                (cdr td))
+                        out))
+                (apply #'concat (nreverse out)))))
+           (body (concat
+                  "MANIFOLDING ATLAS — "
+                  (propertize (or banner "READY") 'face 'bold)
+                  "\n\n"
+                  (propertize
+                   (format "boot %.1fs" boot-seconds) 'face 'bold)
+                  (manifolding-emacs-splash--sparkline)
+                  "\n\n"
+                  (format "modules compiled · errors %d · warnings %d\n"
+                          errors warnings)
+                  (format "vault notes: %d · missing prompts: %d\n"
+                          notes missing)
+                  (when git-line (format "git: %s\n" git-line))
+                  (or todo-lines "")
+                  "\n[g] reload    [m] missing prompts    [q] dismiss\n"
+                  (when (fboundp 'magit-status)
+                    "[p] push    [G] magit\n")))
+           (inhibit-read-only t))
+      (with-current-buffer buf
+        (erase-buffer)
+        (insert (manifolding-emacs-splash--center body))
+        (goto-char (point-min))
+        (use-local-map
+         (let ((map (make-sparse-keymap)))
+           (define-key map "g"
+                       (lambda () (interactive) (manifolding-emacs-reload)))
+           (define-key map "m"
+                       (lambda () (interactive)
+                         (find-file missing-path)))
+           (define-key map "q" #'quit-window)
+           (define-key map "t"
+                       (lambda () (interactive)
+                         (setq manifolding-emacs-splash--todos-expanded
+                               (not manifolding-emacs-splash--todos-expanded))
+                         (manifolding-emacs-splash-update-dashboard
+                          buf boot-seconds banner)))
+           (when (and (fboundp 'my/manifolding-atlas-root-dir)
+                      (fboundp 'my/manifolding-atlas-git--push))
+             (define-key map "p"
+                         (lambda () (interactive)
+                           (message "Manifolding Atlas: pushing notes...")
+                           (my/manifolding-atlas-git--push
+                            (expand-file-name
+                             "admin/MISSING PROMPTS"
+                             (my/manifolding-atlas-root-dir))))))
+           (when (fboundp 'magit-status)
+             (define-key map "G"
+                         (lambda () (interactive)
+                           (magit-status
+                            (if (fboundp 'my/manifolding-atlas-root-dir)
+                                (my/manifolding-atlas-root-dir)
+                              default-directory)))))
+           map))
+        (redisplay)))))
+#+end_src
+
+** Doctor — known packages & rows
+Answers "is everything actually OK?" without triggering every package
+by hand.
+#+begin_src emacs-lisp
+(defun manifolding-emacs-doctor--known-packages ()
+  "Alist of (package-name . file) for every package declared anywhere
+under the active Org directory."
+  (let (result)
+    (dolist (file (manifolding-emacs-get-files
+                   "^[^#]*\\.org$" (manifolding-emacs-get-org-directory)))
+      (unless (manifolding-emacs-file-disabled-p file)
+        (dolist (name (manifolding-emacs-file-package-names file))
+          (push (cons name file) result))))
+    (nreverse result)))
+
+(defun manifolding-emacs-doctor--collect-rows ()
+  (let (rows)
+    (dolist (pair (manifolding-emacs-doctor--known-packages))
+      (let* ((name (car pair)) (file (cdr pair))
+             (status (manifolding-emacs-package-status name)))
+        (push (list name
+                    (vector (format "%s" name)
+                            (if status (format "%s"
+                                             (plist-get status :status))
+                              "never-attempted")
+                            (or (and status (plist-get status :file))
+                                (format "%s" file))
+                            (or (and status (plist-get status :message))
+                                "")))
+              rows)))
+    (dolist (e (manifolding-emacs-errors-list))
+      (unless (manifolding-emacs-error-entry-package e)
+        (push (list nil
+                    (vector (format "(%s)"
+                                    (manifolding-emacs-error-entry-level e))
+                            "error"
+                            (or (manifolding-emacs-error-entry-file e) "")
+                            (manifolding-emacs-error-entry-message e)))
+              rows)))
+    (nreverse rows)))
+#+end_src
+
+** Doctor — mode & commands
+#+begin_src emacs-lisp
+(defvar manifolding-emacs-doctor-mode-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map tabulated-list-mode-map)
+    (define-key map "g" #'manifolding-emacs-doctor-refresh)
+    (define-key map "r" #'manifolding-emacs-doctor-retry-at-point)
+    map))
+
+(define-derived-mode manifolding-emacs-doctor-mode tabulated-list-mode
+  "Manifolding-Doctor"
+  "Major mode listing every known package's load status."
+  (setq tabulated-list-format [("Package" 28 t) ("Status" 16 t)
+                               ("File" 40 t) ("Message" 0 nil)])
+  (setq tabulated-list-sort-key (cons "Status" nil))
+  (tabulated-list-init-header))
+
+(defun manifolding-emacs-doctor-refresh ()
+  (interactive)
+  (setq tabulated-list-entries (manifolding-emacs-doctor--collect-rows))
+  (tabulated-list-print t))
+
+(defun manifolding-emacs-doctor-retry-at-point ()
+  "Recompile just the package at point and refresh the table."
+  (interactive)
+  (let ((name (tabulated-list-get-id)))
+    (if (not name)
+        (user-error "This row isn't a retriable package")
+      (let ((file (alist-get name
+                             (manifolding-emacs-doctor--known-packages)
+                             nil nil #'equal)))
+        (if (not file)
+            (user-error "Can't find the source file for %s" name)
+          (manifolding-emacs-recompile-package file name)
+          (manifolding-emacs-doctor-refresh))))))
+
+;;;###autoload
+(defun manifolding-emacs-doctor ()
+  "Open the package health dashboard."
+  (interactive)
+  (let ((buf (get-buffer-create "*Manifolding-Doctor*")))
+    (with-current-buffer buf
+      (manifolding-emacs-doctor-mode)
+      (manifolding-emacs-doctor-refresh))
+    (switch-to-buffer buf)))
+#+end_src
+
+** Doctor — mode-line indicator
+#+begin_src emacs-lisp
+(defun manifolding-emacs-doctor--mode-line-string ()
+  (let ((broken (cl-count-if (lambda (p)
+                               (eq (plist-get (cdr p) :status) 'error))
+                             (manifolding-emacs-all-package-statuses))))
+    (if (zerop broken) ""
+      (propertize (format " \u26a0%d" broken) 'face 'error
+                  'help-echo "manifolding-emacs: packages with load errors - M-x manifolding-emacs-doctor"
+                  'mouse-face 'mode-line-highlight
+                  'local-map (make-mode-line-mouse-map
+                              'mouse-1 #'manifolding-emacs-doctor)))))
+
+(define-minor-mode manifolding-emacs-doctor-indicator-mode
+  "Global minor mode showing a package-health segment in the mode line."
+  :global t :group 'manifolding-emacs
+  (let ((segment '(:eval (manifolding-emacs-doctor--mode-line-string))))
+    (setq global-mode-string
+          (if manifolding-emacs-doctor-indicator-mode
+              (append (remove segment global-mode-string) (list segment))
+            (remove segment global-mode-string)))))
+#+end_src
+
+** Doctor — idle sweep
+#+begin_src emacs-lisp
+(defvar manifolding-emacs-doctor--idle-timer nil)
+
+(defun manifolding-emacs-doctor--force-require-one (package-name)
+  "Force-`require' PACKAGE-NAME so a deferred load error surfaces now."
+  (condition-case err
+      (progn (require (intern (format "%s" package-name)) nil t)
+             (manifolding-emacs-record-status package-name 'ok))
+    (error (manifolding-emacs-record-error
+            :level 'package :package package-name
+            :message (format "idle sweep: %s"
+                             (error-message-string err))))))
+
+(defun manifolding-emacs-doctor-sweep-now ()
+  "Force-require every known package immediately (not on a timer)."
+  (interactive)
+  (dolist (pair (manifolding-emacs-doctor--known-packages))
+    (manifolding-emacs-doctor--force-require-one (car pair)))
+  (message "manifolding-emacs: idle sweep complete"))
+
+(defun manifolding-emacs-doctor-schedule-idle-sweep ()
+  "Run the sweep once, after the idle delay, if enabled."
+  (when (and manifolding-emacs-idle-sweep-enabled
+             (not manifolding-emacs-doctor--idle-timer))
+    (setq manifolding-emacs-doctor--idle-timer
+          (run-with-idle-timer manifolding-emacs-idle-sweep-delay nil
+                               (lambda ()
+                                 (setq manifolding-emacs-doctor--idle-timer
+                                       nil)
+                                 (manifolding-emacs-doctor-sweep-now))))))
+#+end_src
+
+** Entry — reload, current-buffer, preview
+#+begin_src emacs-lisp
+(defun manifolding-emacs-reload (&optional force)
+  "Recompile every Org file.
+Unchanged files replay from the content-hash cache.  With FORCE
+\(prefix argument) bypass the cache and recompile everything."
+  (interactive "P")
+  (manifolding-emacs-compile-directory nil force))
+
+(defun manifolding-emacs-reload-current-buffer ()
+  "Compile (downloading first if needed) the current Org file."
+  (interactive)
+  (let ((remote-file-plist
+         (manifolding-emacs-file-remote
+          (buffer-file-name (current-buffer)))))
+    (when remote-file-plist
+      (manifolding-emacs-pull-remote-file remote-file-plist)
+      (let ((manifolding-emacs-compiling-remote t))
+        (manifolding-emacs-compile-file
+         (manifolding-emacs-remote-plist-to-org-file remote-file-plist)))))
+  (manifolding-emacs-compile-file (buffer-file-name (current-buffer))))
+
+(defun manifolding-emacs-preview ()
+  "Show what the current buffer would expand to, without evaluating it."
+  (interactive)
+  (let* ((buffer (get-buffer-create "*manifolding-emacs preview*"))
+         (_ (display-buffer buffer))
+         (manifolding-emacs-wrap-statements-in-condition nil)
+         (file (buffer-file-name (current-buffer)))
+         (manifolding-emacs-packages nil)
+         (loose-forms (manifolding-emacs-concatenate-source-blocks file))
+         (output (concat (mapconcat #'identity loose-forms "\n") "\n"
+                         (manifolding-emacs-build-packages file))))
+    (with-current-buffer buffer
+      (emacs-lisp-mode) (read-only-mode 1)
+      (let ((inhibit-read-only t))
+        (erase-buffer) (insert output)
+        (goto-char (point-min))))))
+
+(define-minor-mode manifolding-emacs-preview-mode
+  "Keep the *manifolding-emacs preview* buffer in sync on save."
+  :lighter " manifolding-emacs-preview"
+  (if manifolding-emacs-preview-mode
+      (add-hook 'after-save-hook #'manifolding-emacs-preview nil t)
+    (remove-hook 'after-save-hook #'manifolding-emacs-preview t)))
+
+(defun manifolding-emacs--splash-progress (buf)
+  (lambda (current total file)
+    (manifolding-emacs-splash-update-progress buf current total file)))
+#+end_src
+
+** Entry — boot
+Atomic upstream — kept whole.
+#+begin_src emacs-lisp
+ (defvar fatal nil "Non-nil when boot throws an error.")
+
+ (defvar manifolding-emacs--boot-t0 nil "Boot start time for dashboard.")
+
+ (defun manifolding-emacs-boot ()
+   "Compile every Org file, with a splash screen, structured error
+ tracking, an idle sweep to surface deferred-load errors early, and
+ (optionally) an automatic version freeze if the boot was clean."
+   (interactive)
+   (let ((manifolding-emacs--booting t)
+         (boot-t0 (float-time)))
+     (setq manifolding-emacs--boot-t0 boot-t0)
+     (setq fatal nil)
+    (setq manifolding-emacs-splash--state nil)
+    (manifolding-emacs-errors-clear-boot-state)
+    (when manifolding-emacs-mode-line-indicator
+      (manifolding-emacs-doctor-indicator-mode 1))
+    (condition-case err
+        (manifolding-emacs-with-warning-capture
+         (let ((buf (manifolding-emacs-show-splash))
+               (manifolding-emacs--boot-phase :compiling))
+           (with-current-buffer buf
+             (let ((inhibit-read-only t)
+                   (org-mode-hook nil))
+               (erase-buffer)
+               (insert (manifolding-emacs-splash--center
+                        "MANIFOLDING-EMACS\n\nreading modules/ …")))
+             (redisplay))
+           (let ((message-log-max nil))
+             (message "Manifolding-Emacs: reading modules/"))
+           (manifolding-emacs-compile-directory
+            (manifolding-emacs--splash-progress buf))))
+      (error (setq fatal err)))
+    (manifolding-emacs-errors-save-log)
+    (unless fatal
+      (manifolding-emacs-maybe-freeze-on-clean-boot)
+      (manifolding-emacs-doctor-schedule-idle-sweep))
+    (message "manifolding-emacs: %s%d error(s), %d warning(s)"
+             (if fatal "BOOT THREW - " "")
+             (length (manifolding-emacs-errors-list))
+             (length (manifolding-emacs-warnings-list)))
+    ;; Void-defun sweep: verify critical functions actually exist.
+    (dolist (check
+             '(("my/manifolding-atlas-org-prompt--ask" . "org-prompts.org")
+               ("my/manifolding-atlas-collect-prompts" . "prompt-engine.org")
+               ("my/manifolding-atlas-routines-run" . "routines.org")
+                               ("manifolding-keyboard-define-keys" . "engine/state-machine.org")))
+      (unless (fboundp (intern (car check)))
+        (message "⚠ CRITICAL: %s is VOID — check %s for paren/nesting issues"
+                 (car check) (cdr check)))))
+    ;; Paren-issue detector.
+    (dolist (e (manifolding-emacs-errors-list))
+      (when (and (manifolding-emacs-error-entry-p e)
+                 (manifolding-emacs-error-entry-message e)
+                 (string-match-p
+                  "UNBALANCED PARENS\\|End of file during parsing"
+                  (manifolding-emacs-error-entry-message e)))
+        (message
+         "⚠ UNBALANCED PARENS — the error above shows the exact function and position. Fix the extra/missing closer and reload.")))
+    (let ((buf (get-buffer "*Manifolding-Emacs*")))
+      (when (buffer-live-p buf)
+        (with-current-buffer buf
+          (let ((inhibit-read-only t))
+            (goto-char (point-min))
+            (cond
+             (fatal
+              (insert (propertize
+                       (format "Boot threw: %s\n\n"
+                               (error-message-string fatal))
+                       'face 'error))
+              (insert "This escaped all three isolation tiers - check *Messages*.\n")
+              (local-set-key "q" #'quit-window))
+             ((manifolding-emacs-errors-list)
+              (insert (propertize "Boot completed with errors.\n\n"
+                                  'face 'error))
+              (insert "Press RET or `C-c C-o' on a link to jump to it.\n")
+              (insert "Press `t' to file the error at point to TODO, `T' for all.\n\n")
+              (local-set-key "q" #'quit-window)
+              (local-set-key "t" #'manifolding-emacs-splash-add-error-at-point)
+              (local-set-key "T" #'manifolding-emacs-splash-add-all-errors))
+             ((manifolding-emacs-warnings-list)
+              (insert (propertize "Boot completed with warnings.\n\n"
+                                  'face 'warning))
+              (local-set-key "q" #'quit-window)
+              (local-set-key "g"
+                             (lambda ()
+                               (interactive) (manifolding-emacs-reload))))
+               (t
+                (condition-case dash-err
+                    (manifolding-emacs-splash-clean-finish
+                     buf (- (float-time) (or manifolding-emacs--boot-t0 (float-time))))
+                   (error
+                    (message "manifolding-emacs: dashboard error %s"
+                               (error-message-string dash-err)))))))))))
+#+end_src
+
+** Entry — message redirection
+Loader chatter goes to its own buffer, never *Messages*.
+#+begin_src emacs-lisp
+(defvar manifolding-emacs--log-buffer-name "*Manifolding-Emacs*"
+  "Buffer receiving loader chatter instead of *Messages*.")
+
+(defun manifolding-emacs--redirect-message (orig fmt &rest args)
+  "Route loader-prefixed chatter into its own buffer."
+  (if (and (stringp fmt)
+           (string-prefix-p "manifolding-emacs:" fmt))
+      (progn
+        (with-current-buffer (get-buffer-create
+                              manifolding-emacs--log-buffer-name)
+          (let ((inhibit-read-only t))
+            (goto-char (point-max))
+            (insert (apply #'format fmt args) "\n")))
+        nil)
+    (apply orig fmt args)))
+
+(advice-add 'message :around #'manifolding-emacs--redirect-message)
+
+(provide 'manifolding-emacs)
+#+end_src

@@ -1,0 +1,125 @@
+#+PRIORITY: 90
+#+TITLE: Buffer Management
+#+filetags: :emacs-config:buffer-management:
+
+# ─────────────────────────────────────────────────────────────────────
+# Automatically and manually manage buffer lifecycle.
+# ─────────────────────────────────────────────────────────────────────
+
+* Buffer Terminator — Auto-Kill Stale Buffers
+:PROPERTIES:
+:PACKAGE:  buffer-terminator
+:STRAIGHT: (buffer-terminator :type git :host github :repo "jamescherti/buffer-terminator.el")
+:CATEGORY: tools
+:END:
+
+** Config :config:
+#+begin_src emacs-lisp
+(setq buffer-terminator-verbose nil
+      buffer-terminator-inactivity-timeout (* 30 60))
+(buffer-terminator-mode +1)
+#+end_src
+
+* Manual Buffer Cleanup Commands
+
+#+begin_src emacs-lisp
+(defun my/kill-orphaned-buffers ()
+  "Kill all file-visiting buffers whose file no longer exists on disk."
+  (interactive)
+  (let ((count 0))
+    (dolist (buf (buffer-list))
+      (when-let* ((file (buffer-file-name buf)))
+        (unless (file-exists-p file)
+          (kill-buffer buf)
+          (cl-incf count))))
+    (message "Killed %d orphaned buffer(s)." count)))
+
+(defun my/kill-all-buffers ()
+  "Kill all buffers unconditionally."
+  (interactive)
+  (dolist (buf (buffer-list))
+    (kill-buffer buf))
+  (message "All buffers killed."))
+#+end_src
+
+* Kill All Buffers on Quit
+#+begin_src emacs-lisp
+(add-hook 'kill-emacs-hook #'my/kill-all-buffers)
+#+end_src
+
+* Ibuffer — Interactive Buffer Manager
+:PROPERTIES:
+:PACKAGE:  ibuffer
+:STRAIGHT: (ibuffer :type built-in)
+:CATEGORY: tools
+:END:
+
+** Config :config:
+#+begin_src emacs-lisp
+(setq ibuffer-show-empty-filter-groups nil
+      ibuffer-default-sorting-mode 'alphabetic)
+(define-key ibuffer-mode-map (kbd "h") #'ibuffer-backward-line)
+(define-key ibuffer-mode-map (kbd "t") #'ibuffer-forward-line)
+(define-key ibuffer-mode-map (kbd "M") #'ibuffer-mark-by-mode)
+(define-key ibuffer-mode-map (kbd "C") #'ibuffer-clear-filter-groups)
+
+(add-hook 'ibuffer-mode-hook
+          (lambda ()
+            (ibuffer-switch-to-saved-filter-groups "default")))
+#+end_src
+
+* Bufler — Workspace Buffer Management
+:PROPERTIES:
+:PACKAGE:  bufler
+:STRAIGHT: (bufler :type git :host github :repo "alphapapa/bufler.el")
+:CATEGORY: tools
+:END:
+
+** CA cert fix for Git :init:
+#+begin_src emacs-lisp
+(when (file-exists-p "/etc/ssl/certs/ca-certificates.crt")
+  (push "GIT_SSL_CAINFO=/etc/ssl/certs/ca-certificates.crt" process-environment))
+#+end_src
+
+** Config :config:
+#+begin_src emacs-lisp
+(setq bufler-groups
+      (bufler-defgroups
+        (group (auto-workspace))
+        (group
+          (group-or "*Help/Info*"
+                     (mode-match "*Help*" (rx bos "help-"))
+                     (mode-match "*Info*" (rx bos "info-"))))
+        (group
+          (group-not "*Special"
+                      (group-or "*Special*"
+                                (mode-match "Magit" (rx bos "magit-"))
+                                (mode-match "Forge" (rx bos "forge-"))
+                                (mode-match "Dired" (rx bos "dired"))
+                                (mode-match "grep" (rx bos "grep-"))
+                                (mode-match "compilation" (rx bos "compilation-"))
+                                (auto-file)))
+          (group
+            (name-match "**Special**"
+                         (rx bos "*" (or "Messages" "Warnings" "scratch" "Backtrace") "*")))
+          (group
+            (mode-match "*Magit* (non-status)" (rx bos "magit-"))
+            (auto-directory))
+          (mode-match "*Helm*" (rx bos "helm-"))
+          (auto-mode))
+        (dir user-emacs-directory)
+        (group
+          (auto-project)
+          (mode-match "Magit" (rx bos "magit-"))
+          (mode-match "Forge" (rx bos "forge-"))
+          (auto-file)
+          (auto-directory))
+        (group
+          (auto-file)
+          (auto-directory))
+        (auto-mode)))
+(define-key bufler-list-mode-map (kbd "h") #'bufler-list-backward-section)
+(define-key bufler-list-mode-map (kbd "t") #'bufler-list-forward-section)
+(define-key bufler-list-mode-map (kbd "k") #'bufler-list-kill)
+(define-key bufler-list-mode-map (kbd "g") #'bufler-list-update)
+#+end_src

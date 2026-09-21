@@ -1,0 +1,18 @@
+#+title:    consult-org-heading
+#+filetags: :emacs-package:org:search:
+#+PRIORITY: 20
+
+* Consult Org Heading
+:PROPERTIES:
+:PACKAGE:  consult-org
+:CATEGORY: org
+:END:
+
+** Purpose
+Fuzzy search across all headings in your agenda files. Faster than
+org-agenda when you just want to jump to a specific TODO.
+
+** Config
+#+begin_src emacs-lisp
+(setq consult-org-heading-prefix-width 20)
+#+end_src

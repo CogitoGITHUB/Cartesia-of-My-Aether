@@ -1,0 +1,21 @@
+# #+title:      toodoo
+# #+identifier: 4d7e2a1f-8b5c-4e3d-cf67-2a9f1b4e7c3d
+# #+filetags:   :emacs-package:org:todo:
+
+# * TOODOO — Magit-like Interface for Org Todos #emacs-package
+# :PROPERTIES:
+# :ID:       4d7e2a1f-8b5c-4e3d-cf67-2a9f1b4e7c3d
+# :PACKAGE:  toodoo
+# :CATEGORY: todo
+# :END:
+
+# ** Guix
+# #+begin_src scheme ~/.config/guix/Operating-System/user-space/root/editors/emacs-packages/org/toodoo.scm
+# #+end_src
+
+# ** Config
+# #+begin_src emacs-lisp
+# (setq toodoo-file (expand-file-name "toodoo.org" user-emacs-directory))
+
+# (global-set-key (kbd "C-c t") #'toodoo-open-list)
+# #+end_src

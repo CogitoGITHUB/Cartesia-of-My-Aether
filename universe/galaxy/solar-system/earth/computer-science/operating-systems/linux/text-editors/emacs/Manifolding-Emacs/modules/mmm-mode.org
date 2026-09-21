@@ -1,0 +1,16 @@
+#+title:      mmm-mode
+#+identifier: 5033fb8b-5fbd-4ee9-84fb-8f491e4b055a
+#+filetags:   :emacs-package:editing:
+
+* mmm-mode
+:PROPERTIES:
+:ID:       5033fb8b-5fbd-4ee9-84fb-8f491e4b055a
+:PACKAGE:  mmm-mode
+:CATEGORY: editing
+:STRAIGHT: (mmm-mode :type git :host github :repo "dgutov/mmm-mode")
+:END:
+
+** Config :config:
+#+begin_src emacs-lisp
+
+#+end_src

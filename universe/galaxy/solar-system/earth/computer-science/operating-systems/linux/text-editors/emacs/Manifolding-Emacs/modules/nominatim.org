@@ -1,0 +1,16 @@
+#+title:      nominatim
+#+identifier: 4c8d2e9f-1b3a-4c5d-ae76-8f2b4d6e1c3a
+#+filetags:   :emacs-package:org:location:
+
+* nominatim
+:PROPERTIES:
+:ID:       4c8d2e9f-1b3a-4c5d-ae76-8f2b4d6e1c3a
+:PACKAGE:  nominatim
+:CATEGORY: location
+:STRAIGHT: (nominatim :type git :host codeberg :repo "emacs-weirdware/nominatim")
+:END:
+
+** Config :config:
+#+begin_src emacs-lisp
+
+#+end_src

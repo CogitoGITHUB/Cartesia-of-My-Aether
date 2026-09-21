@@ -1,0 +1,24 @@
+#+title:      olivetti
+#+identifier: 
+#+filetags:   :emacs-package:ui:
+
+* OLIVETTI — Distraction-Free Margins #emacs-package
+:PROPERTIES:
+:ID:       
+:PACKAGE:  olivetti
+:STRAIGHT: (olivetti :type git :host github :repo "rnkn/olivetti")
+:CATEGORY: ui
+:END:
+
+** Guix
+#+begin_src scheme ~/.config/guix/Operating-System/user-space/root/editors/emacs-packages/ui/olivetti.scm
+#+end_src
+
+** Config
+#+begin_src emacs-lisp
+(setq-default olivetti-body-width nil)
+
+(add-hook 'org-mode-hook  #'olivetti-mode)
+(add-hook 'text-mode-hook #'olivetti-mode)
+(add-hook 'dired-mode-hook #'olivetti-mode)
+#+end_src

@@ -1,0 +1,9 @@
+#+title:      Failures Prompt
+#+priority:   37
+
+* FAILURES :inline:file:heading:task:
+** TODO
+** WARNING
+** RECORDED
+** ANALYZED
+** ACTIVE

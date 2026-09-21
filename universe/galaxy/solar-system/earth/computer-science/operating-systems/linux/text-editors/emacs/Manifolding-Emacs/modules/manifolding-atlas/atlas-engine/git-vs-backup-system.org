@@ -1,0 +1,472 @@
+#+title: Manifolding Atlas Backup & Git Plugin
+#+priority: 15
+:PROPERTIES:
+:PACKAGE:  magit
+:STRAIGHT: (magit :type git :host github :repo "magit/magit" :depends (git-gutter) :files ("lisp/magit*.el" "lisp/git-*.el" "docs/magit.texi" "docs/AUTHORS.md" "LICENSE" ".dir-locals.el" ("githooks" "githooks/*") ("git-hooks" "git-hooks/*") (:exclude "lisp/magit-section.el") "magit-pkg.el"))
+:CATEGORY: git
+:PACKAGE:  git-gutter
+:END:
+#+begin_src emacs-lisp
+(require 'git-gutter)
+(global-git-gutter-mode 1)
+
+(defvar my/manifolding-atlas-git--pushing nil
+  "Non-nil while a git push is in flight.")
+
+(defvar my/manifolding-atlas-git--pending nil
+  "Non-nil when a save fired during an in-flight push.")
+
+(defvar my/manifolding-atlas-git--config-root
+  (expand-file-name "Manifolding-Emacs/" user-emacs-directory)
+  "Second watched tree: atlas config. Same auto-commit mechanism as the vault.")
+
+(defvar my/manifolding-atlas-git--save-timers nil
+  "Alist (ROOT . TIMER) for deferred per-repo auto-commit.
+Per-repo timers so rapid writes in both trees commit independently.")
+
+(defvar my/manifolding-atlas-git--pending-files nil
+  "Alist (ROOT . FILES) of config-tree files awaiting commit.
+Vault commits keep the historical add --all catch-all; config commits
+scope `git add' to these files so unrelated dotfiles never get swept
+into atlas auto-commits.")
+#+end_src
+
+*** Push Machinery
+Async push with a sentinel that logs failures to the notes .git dir
+and retries once if a save landed mid-flight.
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-git--repo-top (root)
+  "Return the git repo top containing ROOT (ROOT itself when it is one)."
+  (or (locate-dominating-file root ".git") root))
+
+(defun my/manifolding-atlas-git--push-log (&optional root)
+  "Return path to the push log file inside ROOT's git directory."
+  (expand-file-name ".git/manifolding-atlas-push.log"
+                    (my/manifolding-atlas-git--repo-top
+                     (or root (my/manifolding-atlas-root-dir)))))
+
+(defun my/manifolding-atlas-git--refresh (file)
+  "Refresh git-gutter for FILE after push."
+  (when-let ((buf (get-file-buffer file)))
+    (with-current-buffer buf
+      (when (and buffer-file-name (not (buffer-modified-p)))
+        (git-gutter)))))
+
+(defun my/manifolding-atlas-git--push-sentinel (proc _event)
+  "Sentinel for async push process."
+  (let ((file (process-get proc 'file))
+        (root (process-get proc 'root))
+        (log (my/manifolding-atlas-git--push-log
+              (process-get proc 'root))))
+    (setq my/manifolding-atlas-git--pushing nil)
+    (if (= 0 (process-exit-status proc))
+        (my/manifolding-atlas-git--refresh file)
+      (with-temp-buffer
+        (insert (format "=== push failed at %s ===\n"
+                        (format-time-string "%Y-%m-%d %H:%M:%S")))
+        (when (buffer-live-p (process-buffer proc))
+          (insert-buffer-substring (process-buffer proc)))
+        (insert "\n")
+        (make-directory (file-name-directory log) t)
+        (write-region (point-min) (point-max) log t 'quiet))
+      (message "✗ push failed — see %s" log))
+    (when (buffer-live-p (process-buffer proc))
+      (kill-buffer (process-buffer proc)))
+    (when my/manifolding-atlas-git--pending
+      (setq my/manifolding-atlas-git--pending nil)
+      (my/manifolding-atlas-git--push file root))))
+
+(defun my/manifolding-atlas-git--push (file &optional root)
+  "Start async git push for ROOT (default: file's watched root)."
+  (setq my/manifolding-atlas-git--pushing t)
+  (let* ((root (or root
+                   (my/manifolding-atlas-git--root-for file)
+                   (my/manifolding-atlas-root-dir)))
+         (default-directory (my/manifolding-atlas-git--repo-top root))
+         (buf (generate-new-buffer " *manifolding-atlas-git-push*"))
+         (proc (make-process :name "manifolding-atlas-git-push"
+                             :buffer buf
+                             :command (list magit-git-executable "push")
+                             :connection-type 'pipe
+                             :noquery t)))
+    (process-put proc 'file file)
+    (process-put proc 'root root)
+     (set-process-sentinel proc #'my/manifolding-atlas-git--push-sentinel)))
+#+end_src
+
+*** Repo Guard
+Saving or opening a watched-tree file without a repo is blocked loudly.
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-git--check-repo (&optional file)
+  "Block if FILE is in a watched tree but no git repo exists."
+  (let ((f (or file buffer-file-name)))
+    (when-let ((root (and f (my/manifolding-atlas-git--root-for f))))
+      (unless (my/manifolding-atlas-git--repo-top root)
+        (user-error "No git repo above %s" root)))))
+
+(add-hook 'find-file-hook
+          (lambda ()
+            (when-let ((root (and buffer-file-name
+                                  (my/manifolding-atlas-git--root-for
+                                   buffer-file-name))))
+              (unless (my/manifolding-atlas-git--repo-top root)
+                (warn "No git repo above %s" root)))))
+
+(defun my/manifolding-atlas-git--before-save ()
+  "Check repo exists before saving watched-tree files."
+  (my/manifolding-atlas-git--check-repo))
+
+(defun my/manifolding-atlas-git--before-save ()
+  "Check repo exists before saving watched-tree files."
+  (my/manifolding-atlas-git--check-repo))
+
+(add-hook 'before-save-hook (function my/manifolding-atlas-git--before-save))
+#+end_src
+
+*** Auto-Commit on Any Mutation
+Every write/delete/rename touching a watched tree (vault notes dir,
+atlas config dir) schedules a debounced add+commit+push in its repo.
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-git--root-for (file)
+  "Return the watched root containing FILE, or nil (.git dirs excluded)."
+  (let ((f (expand-file-name file)))
+    (cl-find-if (lambda (root)
+                  (and (file-in-directory-p f root)
+                       (not (file-in-directory-p
+                             f (expand-file-name ".git" root)))))
+                (list (my/manifolding-atlas-root-dir)
+                      my/manifolding-atlas-git--config-root))))
+
+(defun my/manifolding-atlas-git-auto-commit (&optional file)
+  "After save in a watched tree: defer git add, commit, and push.
+FILE defaults to `buffer-file-name'. Per-repo timers so rapid writes
+in both trees commit independently."
+  (let ((f (or file (buffer-file-name))))
+    (when-let ((root (and f (my/manifolding-atlas-git--root-for f))))
+      (unless (string= root (my/manifolding-atlas-root-dir))
+        (let ((cell (assoc root my/manifolding-atlas-git--pending-files)))
+          (if cell (cl-pushnew f (cdr cell) :test #'string=)
+            (push (cons root (list f)) my/manifolding-atlas-git--pending-files))))
+      (let ((cell (assoc root my/manifolding-atlas-git--save-timers)))
+        (when (cdr cell)
+          (cancel-timer (cdr cell)))
+        (if cell
+            (setcdr cell (run-with-idle-timer
+                          2 nil #'my/manifolding-atlas-git--do-auto-commit
+                          f root))
+          (push (cons root (run-with-idle-timer
+                            2 nil #'my/manifolding-atlas-git--do-auto-commit
+                            f root))
+                my/manifolding-atlas-git--save-timers))))))
+
+(defun my/manifolding-atlas-git--in-notes-p (path)
+  "Return non-nil when PATH is inside the notes directory (not its .git)."
+  (and (stringp path)
+       (not (string-empty-p path))
+       (let ((f (expand-file-name path)))
+         (and (file-in-directory-p f (my/manifolding-atlas-root-dir))
+              (not (file-in-directory-p f (expand-file-name ".git" (my/manifolding-atlas-root-dir))))))))
+
+(defun my/manifolding-atlas-git--after-write (_start _end file &rest _)
+  "Advice for `write-region': schedule a git commit after any watched write."
+  (when (my/manifolding-atlas-git--root-for file)
+    (my/manifolding-atlas-git-auto-commit file)))
+
+(defun my/manifolding-atlas-git--after-delete (file &rest _)
+  "Advice for `delete-file'/`delete-directory': commit watched deletion."
+  (when (my/manifolding-atlas-git--root-for file)
+    (my/manifolding-atlas-git-auto-commit file)))
+
+(defun my/manifolding-atlas-git--after-rename (_file _to &optional _ok-if-already-exists)
+  "Advice for `rename-file': commit renames inside watched trees."
+  (let ((from (expand-file-name _file))
+        (to   (expand-file-name _to)))
+    (when (or (my/manifolding-atlas-git--root-for from)
+              (my/manifolding-atlas-git--root-for to))
+      (my/manifolding-atlas-git-auto-commit to))))
+
+(advice-add 'write-region :after (function my/manifolding-atlas-git--after-write))
+(advice-add 'delete-file :after (function my/manifolding-atlas-git--after-delete))
+(advice-add 'delete-directory :after (function my/manifolding-atlas-git--after-delete))
+(advice-add 'rename-file :after (function my/manifolding-atlas-git--after-rename))
+#+end_src
+
+*** Commit Execution and Delete Guard
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-git--do-auto-commit (file &optional root)
+  "Run git add, commit, and push for FILE in ROOT's repo.
+ROOT defaults to FILE's watched root. The vault keeps the historical
+add --all catch-all; the config tree scopes `git add' to files saved
+since the last commit so unrelated dotfiles never get swept in."
+  (let* ((root (or root
+                   (my/manifolding-atlas-git--root-for file)
+                   (my/manifolding-atlas-root-dir)))
+         (default-directory (my/manifolding-atlas-git--repo-top root))
+         (rel (file-relative-name file root)))
+    (condition-case err
+        (progn
+          (if (string= root (my/manifolding-atlas-root-dir))
+              (call-process magit-git-executable nil nil nil "add" "--all")
+            (let ((pending (cdr (assoc root
+                                       my/manifolding-atlas-git--pending-files))))
+              (setf (alist-get root my/manifolding-atlas-git--pending-files
+                               nil nil #'string=)
+                    nil)
+              (apply #'call-process magit-git-executable nil nil nil
+                     "add" "--" (or pending (list file)))))
+          (if (= 0 (call-process magit-git-executable nil nil nil "diff" "--cached" "--quiet"))
+              nil
+            (if (= 0 (call-process magit-git-executable nil nil nil "commit" "-m"
+                                     (format "auto: %s [%s]"
+                                             rel
+                                             (format-time-string "%H:%M:%S"))))
+                (if my/manifolding-atlas-git--pushing
+                    (setq my/manifolding-atlas-git--pending t)
+                  (my/manifolding-atlas-git--push file root))
+              (message "Git commit failed for %s" rel))))
+      (error
+        (message "Git auto-commit error: %s" (error-message-string err))))))
+
+(defun my/manifolding-atlas-git--tracked-p (file)
+  "Return t if FILE is tracked by git in the notes repo."
+  (= 0 (call-process magit-git-executable nil nil nil
+                     "-C" (my/manifolding-atlas-root-dir)
+                     "ls-files" "--error-unmatch" file)))
+
+(defun my/manifolding-atlas-git--check-delete (file)
+  "Warn if FILE is in notes dir and not git-tracked."
+  (when (and file
+             (file-in-directory-p file (my/manifolding-atlas-root-dir))
+             (not (my/manifolding-atlas-git--tracked-p file)))
+    (unless (y-or-n-p (format "\"%s\" is NOT tracked by git -- delete anyway? "
+                              (file-name-nondirectory file)))
+      (user-error "Delete cancelled"))))
+
+(defun my/manifolding-atlas-git--before-dired-delete ()
+  "Check each marked dired file in notes dir is git-tracked."
+  (dolist (f (dired-get-marked-files))
+    (my/manifolding-atlas-git--check-delete f)))
+
+(add-hook 'dired-before-delete-hook #'my/manifolding-atlas-git--before-dired-delete)
+#+end_src
+
+* Backup / Restore
+** Git Helpers (for restore)
+
+*** Commit lookup and file restore
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-links--git-find-commits-for-id (note-id)
+  "Search Git log for ALL commits mentioning NOTE-ID."
+  (let ((default-directory (my/manifolding-atlas-root-dir)))
+    (magit-git-lines "log" "--all" "-S" note-id "--format=%H")))
+
+(defun my/manifolding-atlas-links--git-find-commit-for-id (note-id)
+  "Search Git log for the last commit containing NOTE-ID."
+  (car (my/manifolding-atlas-links--git-find-commits-for-id note-id)))
+
+(defun my/manifolding-atlas-links--git-restore-file (commit file-path)
+  "Restore FILE-PATH from COMMIT using git checkout."
+  (let ((default-directory (my/manifolding-atlas-root-dir)))
+    (= 0 (magit-call-git "checkout" commit "--" file-path))))
+#+end_src
+
+*** Unfolding restoration
+Falls back to COMMIT's parent if an unfolding is absent at COMMIT.
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-links--restore-unfoldings (unfoldings commit)
+  "Restore each relative path in UNFOLDINGS from COMMIT using git checkout.
+UNFOLDINGS is a space-separated string of relative paths (as stored in the
+:DELETED_UNFOLDINGS: unfolding) or a list. Returns count of unfoldings restored."
+  (let ((rel-list (if (listp unfoldings) unfoldings
+                    (when (and unfoldings (not (string-empty-p unfoldings)))
+                      (split-string unfoldings "[ \t]+" t))))
+        (count 0))
+    (dolist (rel rel-list count)
+      (let ((revs (list commit (format "%s^" commit))))
+        (when (or (my/manifolding-atlas-links--git-restore-file (car revs) rel)
+                  (my/manifolding-atlas-links--git-restore-file (cadr revs) rel))
+          (setq count (1+ count)))))))
+
+(defun my/manifolding-atlas-links--deleted-unfoldings-for-id (deleted-id)
+  "Return the DELETED_UNFOLDINGS unfolding from the ReManifold entry for
+DELETED-ID, or nil."
+  (let ((path (my/manifolding-atlas-links--deleted-files-path)))
+    (when (file-exists-p path)
+      (with-temp-buffer
+        (insert-file-contents path)
+        (org-mode)
+        (goto-char (point-min))
+        (when (re-search-forward
+               (format "^[ \t]*:DELETED_ID:[ \t]+%s$" (regexp-quote deleted-id))
+               nil t)
+          (org-back-to-heading)
+          (org-entry-get (point) "DELETED_UNFOLDINGS"))))))
+
+(defun my/manifolding-atlas-links--git-commit (path &optional msg)
+  "Git add and commit PATH with MSG for admin file changes."
+  (let ((default-directory (my/manifolding-atlas-root-dir)))
+    (when (and (stringp path)
+               (file-exists-p path)
+               (= 0 (magit-call-git "add" path)))
+      (magit-call-git "commit" "-m"
+		(or msg (format "auto: update %s [%s]"
+				(file-name-nondirectory path)
+				(format-time-string "%H:%M:%S")))))))
+#+end_src
+** Restore From Git
+
+*** Deleted-files entry cleanup
+Removes both the file-match and id-match entries after a successful restore.
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-links--remove-deleted-entry (target-file deleted-id)
+  "Delete ReManifold headings matching TARGET-FILE or DELETED-ID."
+  (let ((deleted-path (my/manifolding-atlas-links--deleted-files-path)))
+    (when (file-exists-p deleted-path)
+      (with-current-buffer (find-file-noselect deleted-path)
+        (goto-char (point-min))
+        (while (re-search-forward
+                (format "^:DELETED_FILE:[ \t]+%s$"
+                        (regexp-quote target-file))
+                nil t)
+          (org-back-to-heading)
+          (org-mark-subtree)
+          (delete-region (region-beginning) (region-end))
+          (goto-char (point-min)))
+        (when deleted-id
+          (goto-char (point-min))
+          (while (re-search-forward
+                  (format "^:DELETED_ID:[ \t]+%s$"
+                          (regexp-quote deleted-id))
+                  nil t)
+            (org-back-to-heading)
+            (org-mark-subtree)
+            (delete-region (region-beginning) (region-end))
+            (goto-char (point-min))))
+        (let ((after-save-hook nil))
+          (save-buffer))
+        (kill-buffer (current-buffer))))))
+#+end_src
+
+*** Restore command
+Searches history for the commit carrying the note's :ID:, restores
+it plus its orphaned unfoldings, then cleans up the queue entries.
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-links-restore ()
+  "Restore a deleted note from Git history."
+  (interactive)
+  (let ((deleted-id (org-entry-get (point) "DELETED_ID")))
+    (unless deleted-id
+      (user-error "No DELETED_ID found at point. Place cursor on a broken link TODO entry"))
+    (let ((deleted-note (org-entry-get (point) "DELETED_NOTE")))
+      (message "Searching Git history for %s..." deleted-note)
+      (let ((default-directory (my/manifolding-atlas-root-dir))
+            (commits (my/manifolding-atlas-links--git-find-commits-for-id deleted-id))
+            (id-re (format "^:ID:[ \t]+%s" (regexp-quote deleted-id)))
+            restore-info)
+        (unless commits
+          (user-error "Could not find %s in Git history. Was it ever committed?" deleted-note))
+        (dolist (commit commits)
+          (let ((files (magit-git-lines "show" "--name-only" "--format=" commit)))
+            (catch 'found
+              (dolist (f files)
+                (let ((content (string-join
+                                (magit-git-lines "show" (format "%s:%s" commit f))
+                                "\n")))
+                  (when (string-match-p id-re content)
+                    (setq restore-info (cons f commit))
+                    (throw 'found t)))))))
+        (unless restore-info
+          (user-error "Could not identify file for %s in Git history"
+                      deleted-note))
+        (let ((target-file (car restore-info))
+              (restore-rev (cdr restore-info)))
+          (if (my/manifolding-atlas-links--git-restore-file restore-rev target-file)
+              (progn
+                (let ((unfoldings (my/manifolding-atlas-links--deleted-unfoldings-for-id deleted-id)))
+                  (when unfoldings
+                    (my/manifolding-atlas-links--restore-unfoldings unfoldings restore-rev)))
+                (org-mark-subtree)
+                (delete-region (region-beginning) (region-end))
+                (my/manifolding-atlas-links--remove-deleted-entry target-file deleted-id)
+                (let ((after-save-hook nil))
+                  (save-buffer))
+                (my/manifolding-atlas-links--cleanup-empty-admin-files)
+                (message "Restored %s from %s. Manifolding Atlas will re-index via fswatch."
+                         target-file restore-rev)
+                (when (y-or-n-p (format "Open restored file %s? " target-file))
+                  (find-file (expand-file-name target-file (my/manifolding-atlas-root-dir)))))
+            (user-error "Git restore failed for %s" target-file)))))))
+#+end_src
+
+*** Restore From ReManifold
+
+**** Broken-links entry cleanup
+Removes TODO entries whose DELETED_ID matches after restore.
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-links--remove-broken-entry (id)
+  "Delete Missing Links TODO headings carrying DELETED_ID ID."
+  (let ((broken-path (my/manifolding-atlas-links--ensure-broken-links-file)))
+    (when (file-exists-p broken-path)
+      (with-current-buffer (find-file-noselect broken-path)
+        (goto-char (point-min))
+        (while (re-search-forward
+                (format "^\\*+ TODO.*DELETED_ID: *%s"
+                        (regexp-quote id))
+                nil t)
+          (org-mark-subtree)
+          (delete-region (region-beginning) (region-end))
+          (goto-char (point-min)))
+        (let ((after-save-hook nil))
+          (save-buffer))
+        (kill-buffer (current-buffer))))))
+#+end_src
+
+**** Deleted-file restore command
+#+begin_src emacs-lisp
+(org-link-set-parameters "restore" :follow (lambda (&rest _) (my/manifolding-atlas-links-deleted-restore)))
+
+(defun my/manifolding-atlas-links-deleted-restore ()
+  "Restore a deleted file from Git history."
+  (interactive)
+  (let ((file (org-entry-get (point) "DELETED_FILE"))
+        id commit)
+    (unless file
+      (user-error "No DELETED_FILE found at point. Place cursor on a deleted file entry"))
+    (message "Searching Git history for %s..." file)
+    (setq id (org-entry-get (point) "DELETED_ID"))
+    (let ((default-directory (my/manifolding-atlas-root-dir)))
+      (setq commit (car (magit-git-lines
+                         "log" "--all" "-1"
+                         "--format=%H" "--" file))))
+    (unless commit
+      (user-error "Could not find %s in Git history. Was it ever committed?" file))
+    (unless (or (my/manifolding-atlas-links--git-restore-file commit file)
+                (my/manifolding-atlas-links--git-restore-file (format "%s^" commit) file))
+      (user-error "Git restore failed for %s" file))
+    (let ((unfoldings (org-entry-get (point) "DELETED_UNFOLDINGS")))
+      (when unfoldings
+        (my/manifolding-atlas-links--restore-unfoldings unfoldings commit)))
+    (let ((restored-file file)
+          (deleted-files-path (buffer-file-name)))
+      (org-mark-subtree)
+      (delete-region (region-beginning) (region-end))
+      (let ((after-save-hook nil))
+        (save-buffer))
+      (when (and (file-exists-p deleted-files-path)
+                 (> (file-attribute-size (file-attributes deleted-files-path)) 0))
+        (my/manifolding-atlas-links--git-commit deleted-files-path
+          (format "auto: remove restore entry from ReManifold [%s]"
+                  (format-time-string "%H:%M:%S"))))
+      (when id
+        (my/manifolding-atlas-links--remove-broken-entry id)
+        (let ((broken-path (my/manifolding-atlas-links--ensure-broken-links-file)))
+          (when (and (file-exists-p broken-path)
+                     (> (file-attribute-size (file-attributes broken-path)) 0))
+            (my/manifolding-atlas-links--git-commit broken-path
+              (format "auto: remove missing link entry from Missing Links [%s]"
+                      (format-time-string "%H:%M:%S"))))))
+      (my/manifolding-atlas-links--cleanup-empty-admin-files)
+      (message "Restored %s. Entry removed from ReManifold." restored-file)
+      (when (y-or-n-p (format "Open restored file %s? " restored-file))
+        (find-file (expand-file-name restored-file (my/manifolding-atlas-root-dir)))))))
+#+end_src

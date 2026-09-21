@@ -1,0 +1,16 @@
+#+title:      caps-lock
+#+identifier: a575d02a-dd67-4077-9b4d-471ba6bc9dcd
+#+filetags:   :emacs-package:convenience:
+
+* caps-lock
+:PROPERTIES:
+:ID:       a575d02a-dd67-4077-9b4d-471ba6bc9dcd
+:PACKAGE:  caps-lock
+:CATEGORY: convenience
+:STRAIGHT: (caps-lock :type git :host github :repo "emacsmirror/caps-lock")
+:END:
+
+** Config :config:
+#+begin_src emacs-lisp
+
+#+end_src

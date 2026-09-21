@@ -1,0 +1,16 @@
+#+title:      miniedit
+#+identifier: a5dfc5f2-a1d9-4f46-a02b-599ab936a031
+#+filetags:   :emacs-package:editing:
+
+* miniedit
+:PROPERTIES:
+:ID:       a5dfc5f2-a1d9-4f46-a02b-599ab936a031
+:PACKAGE:  miniedit
+:CATEGORY: editing
+:STRAIGHT: (miniedit :type git :host github :repo "emacsorphanage/miniedit")
+:END:
+
+** Config :config:
+#+begin_src emacs-lisp
+
+#+end_src

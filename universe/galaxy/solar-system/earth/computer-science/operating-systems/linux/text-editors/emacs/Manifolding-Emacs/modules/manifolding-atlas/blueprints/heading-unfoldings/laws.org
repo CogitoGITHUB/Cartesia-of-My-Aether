@@ -1,0 +1,10 @@
+#+title:      Laws Prompt
+#+priority:   27
+
+* LAWS :inline:file:heading:task:
+** TODO
+** WARNING
+** RESEARCHED
+** CONFIRMED
+** CHANGED
+** REVISITED

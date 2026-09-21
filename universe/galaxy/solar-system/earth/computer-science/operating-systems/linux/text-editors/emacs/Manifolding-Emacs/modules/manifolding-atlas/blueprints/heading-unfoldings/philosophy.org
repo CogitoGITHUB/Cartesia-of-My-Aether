@@ -1,0 +1,10 @@
+#+title:      Philosophy Prompt
+#+priority:   28
+
+* PHILOSOPHY :inline:file:heading:task:
+** TODO
+** WARNING
+** DEFINED
+** STABLE
+** REVISED
+** ABANDONED

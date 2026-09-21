@@ -1,0 +1,24 @@
+#+title:      corfu
+#+identifier: 3a7f2b1e-4c8d-4e9f-bf56-2e4a6c8d1f3b
+#+filetags:   :emacs-package:completion:
+
+* CORFU — Completion Overlay #emacs-package #completion
+:PROPERTIES:
+:ID:       3a7f2b1e-4c8d-4e9f-bf56-2e4a6c8d1f3b
+:PACKAGE:  corfu
+:STRAIGHT: (corfu :type git :host github :repo "minad/corfu" :files (:defaults "extensions/corfu-*.el"))
+:CATEGORY: completion
+:END:
+
+** Config
+#+begin_src emacs-lisp
+(require 'compat-31)
+
+(setq corfu-cycle t
+      corfu-auto t
+      corfu-auto-delay 0.2
+      corfu-auto-prefix 2
+      corfu-quit-no-match t)
+
+(global-corfu-mode 1)
+#+end_src

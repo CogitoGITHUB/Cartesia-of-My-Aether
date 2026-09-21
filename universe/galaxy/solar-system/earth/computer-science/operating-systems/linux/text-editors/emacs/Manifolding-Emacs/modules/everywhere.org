@@ -1,0 +1,25 @@
+#+title:      emacs-everywhere
+#+identifier: 2f5a1c8e-4b3d-4f7a-de89-1c4f8b2e5a7d
+#+filetags:   :emacs-package:integration:
+
+* EMACS-EVERYWHERE — Use Emacs as a Text Editor Everywhere #emacs-package
+:PROPERTIES:
+:ID:       2f5a1c8e-4b3d-4f7a-de89-1c4f8b2e5a7d
+:PACKAGE:  emacs-everywhere
+:CATEGORY: integration
+:STRAIGHT: (emacs-everywhere :type git :host github :repo "tecosaur/emacs-everywhere")
+:END:
+
+** Guix
+#+begin_src scheme 
+#+end_src
+
+** System Dependencies
+#+begin_src shell
+guix install xclip xdotool xprop xwininfo
+#+end_src
+
+** Config
+#+begin_src emacs-lisp
+(setq emacs-everywhere-paste-p t)
+#+end_src

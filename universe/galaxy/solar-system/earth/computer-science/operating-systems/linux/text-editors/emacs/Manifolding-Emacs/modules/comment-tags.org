@@ -1,0 +1,16 @@
+#+title:      comment-tags
+#+identifier: fa51fce4-2f2b-4e0e-b897-66b3bf0523d7
+#+filetags:   :emacs-package:convenience:
+
+* comment-tags
+:PROPERTIES:
+:ID:       fa51fce4-2f2b-4e0e-b897-66b3bf0523d7
+:PACKAGE:  comment-tags
+:CATEGORY: convenience
+:STRAIGHT: (comment-tags :type git :host github :repo "vincekd/comment-tags")
+:END:
+
+** Config :config:
+#+begin_src emacs-lisp
+
+#+end_src

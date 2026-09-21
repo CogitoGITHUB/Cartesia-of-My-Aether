@@ -1,0 +1,56 @@
+#+title:      TODO State Prompt
+#+priority:   1
+
+* TODO_STATE :todo:file:heading:task:
+:PROPERTIES:
+:ID: todo
+:TASK-DEFAULT: TODO
+:END:
+** TODO
+Not started yet, no other qualifier applies.
+** NEXT
+The immediate next actionable item.
+** DOING
+Actively being worked on right now.
+** TESTING
+Implementation done, currently verifying it works.
+** REVIEW
+Done but awaiting review or check before closing.
+** BLOCKED
+Stuck on something external — a dependency, resource, or other task.
+** STUCK
+Stuck on your own approach or understanding, not an external blocker.
+** WAITING
+Expecting a reply, response, or event before continuing.
+** DEFERRED
+Pushed to later deliberately, still committed to doing it.
+** SOMEDAY
+Maybe eventually, no commitment.
+** BACKLOG
+Queued and committed, just not prioritized yet.
+** APPROVED
+Approved, ready to proceed or already proceeding.
+** REJECTED
+Rejected, will not proceed as originally proposed.
+** NEEDS-REVISION
+Reviewed and sent back for changes before it can proceed.
+** SCHEDULED
+Has a fixed future date/time to happen.
+** RECURRING
+Repeats on a regular cadence.
+** DRAFT
+Early idea stage, before it's a committed task.
+** DELEGATED
+Handed off to someone else to do.
+** FAILED
+Attempted but did not succeed.
+** ABANDONED
+Started, then deliberately given up on.
+** ARCHIVED
+No longer active, kept for reference only.
+** SUPERSEDED
+Replaced by a newer task/decision.
+** DONE
+Completed successfully.
+** CANCELLED
+Decided not to do, before or without attempting.

@@ -1,0 +1,27 @@
+#+title:      emacs-opencode
+#+identifier: 8f9a0b1c-2d3e-4f5a-6b7c-8d9e0f1a2b3c
+#+filetags:   :emacs-package:ai:
+
+* Emacs OpenCode — OpenCode client inside Emacs
+:PROPERTIES:
+:ID:      8f9a0b1c-2d3e-4f5a-6b7c-8d9e0f1a2b3c
+:PACKAGE: emacs-opencode
+:STRAIGHT: (emacs-opencode :type git :host github :repo "jdormit/emacs-opencode")
+:CATEGORY: ai
+:DEPENDS:  (request)
+:END:
+
+Native Emacs client for OpenCode: start servers, open sessions, chat,
+stream responses — all from Emacs buffers.
+
+** Config
+#+begin_src emacs-lisp
+  (with-eval-after-load 'emacs-opencode
+    (setq opencode-session-default-agent "build")
+
+    ;; Point the server at the emacs-specific opencode config
+    ;; so the agent knows about emacs-mcp-server and emacsclient.
+    (setq opencode-server-environment
+          `(("OPENCODE_CONFIG" .
+             ,(expand-file-name "~/.config/opencode/opencode.jsonc")))))
+#+end_src

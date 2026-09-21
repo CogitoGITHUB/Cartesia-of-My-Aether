@@ -1,0 +1,21 @@
+#+title:      poly-org
+#+identifier: e5c63515-d01f-455e-9af9-4214814b6f7e
+#+filetags:   :emacs-package:editing:
+#+DISABLED:   t
+# Disabled: causes "Error during redisplay: (poly-lock-function …)
+# signaled (wrong-number-of-arguments #<subr color-rgb-to-hsl> 0)"
+# with Emacs 30. poly-ormode's font-lock hook calls color-rgb-to-hsl
+# with 0 args during redisplay. No user config depends on it.
+
+* poly-org
+:PROPERTIES:
+:ID:       e5c63515-d01f-455e-9af9-4214814b6f7e
+:PACKAGE:  poly-org
+:CATEGORY: editing
+:STRAIGHT: (poly-org :type git :host github :repo "polymode/poly-org")
+:END:
+
+** Config :config:
+#+begin_src emacs-lisp
+
+#+end_src

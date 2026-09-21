@@ -1,0 +1,7 @@
+#+title:      Note Prompt
+#+priority:   22
+
+* NOTE :free:contact:
+:PROPERTIES:
+:ID: contact-note
+:END:

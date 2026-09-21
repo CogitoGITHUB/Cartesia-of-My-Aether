@@ -1,0 +1,48 @@
+#+title:    emacs-development
+#+filetags: :emacs-package:development:
+#+PRIORITY: 20
+
+# --- Emacs development / debugging tools ---
+
+* Helpful
+:PROPERTIES:
+:PACKAGE:  helpful
+:STRAIGHT: (helpful :type git :host github :repo "Wilfred/helpful")
+:CATEGORY: development
+:END:
+** Config
+#+begin_src emacs-lisp
+(setq helpful-max-buffers 5)
+#+end_src
+
+* Elisp Refs
+:PROPERTIES:
+:PACKAGE:  elisp-refs
+:STRAIGHT: (elisp-refs :type git :host github :repo "Wilfred/elisp-refs")
+:CATEGORY: development
+:END:
+
+* Eros
+:PROPERTIES:
+:PACKAGE:  eros
+:STRAIGHT: (eros :type git :host github :repo "xiongtx/eros")
+:CATEGORY: development
+:END:
+** Config
+#+begin_src emacs-lisp
+(eros-mode 1)
+#+end_src
+
+* Bug Hunter
+:PROPERTIES:
+:PACKAGE:  bug-hunter
+:STRAIGHT: (bug-hunter :type git :host github :repo "Malabarba/elisp-bug-hunter")
+:CATEGORY: development
+:END:
+
+* Esup
+:PROPERTIES:
+:PACKAGE:  esup
+:STRAIGHT: (esup :type git :host github :repo "jschaf/esup")
+:CATEGORY: development
+:END:

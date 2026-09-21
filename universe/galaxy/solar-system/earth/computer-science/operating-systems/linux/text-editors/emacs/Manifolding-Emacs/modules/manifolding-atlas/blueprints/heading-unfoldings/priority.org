@@ -1,0 +1,12 @@
+#+title:      Priority Prompt
+#+priority:   1
+
+* PRIORITY :inline:file:heading:task:
+:PROPERTIES:
+:TASK-DEFAULT: B
+:END:
+** TODO
+** WARNING
+** A
+** B
+** C

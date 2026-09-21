@@ -1,0 +1,35 @@
+#+title:    consult
+#+filetags: :emacs-package:consult:
+#+PRIORITY: 20
+
+* Consult
+:PROPERTIES:
+:PACKAGE:  consult
+:STRAIGHT: (consult :type git :host github :repo "minad/consult")
+:CATEGORY: consult
+:END:
+
+** Purpose
+Search and navigation commands built on completing-read. Provides
+enhanced buffer switching, grep, register browsing, and more.
+
+** Setup
+
+*** Guix
+#+begin_src scheme
+emacs-consult  ; already in system profile
+#+end_src
+
+** Customization
+
+*** Config
+#+begin_src emacs-lisp
+(setq register-preview-function #'consult-register-format)
+(advice-add #'register-preview :override #'consult-register-window)
+#+end_src
+
+* Consult Register
+:PROPERTIES:
+:PACKAGE:  consult-register
+:CATEGORY: consult
+:END:

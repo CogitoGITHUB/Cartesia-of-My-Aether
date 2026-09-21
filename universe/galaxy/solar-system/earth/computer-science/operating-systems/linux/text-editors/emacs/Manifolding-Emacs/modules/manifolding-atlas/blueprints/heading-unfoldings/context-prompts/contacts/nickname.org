@@ -1,0 +1,7 @@
+#+title:      Nickname Prompt
+#+priority:   24
+
+* NICKNAME :free:contact:
+:PROPERTIES:
+:ID: contact-nickname
+:END:

@@ -1,0 +1,16 @@
+#+title:      org-now
+#+identifier: ef9c7d17-a4f2-4d88-a962-d0d06e06c98e
+#+filetags:   :emacs-package:org:
+
+* org-now
+:PROPERTIES:
+:ID:       ef9c7d17-a4f2-4d88-a962-d0d06e06c98e
+:PACKAGE:  org-now
+:CATEGORY: org
+:STRAIGHT: (org-now :type git :host github :repo "alphapapa/org-now")
+:END:
+
+** Config :config:
+#+begin_src emacs-lisp
+
+#+end_src

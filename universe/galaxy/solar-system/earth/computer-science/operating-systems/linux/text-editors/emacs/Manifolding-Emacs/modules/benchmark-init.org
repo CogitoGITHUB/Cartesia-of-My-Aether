@@ -1,0 +1,16 @@
+#+title:      benchmark-init
+#+identifier: 2eda0585-3a49-4fcf-bde7-4db4f6d73a74
+#+filetags:   :emacs-package:profiling:
+
+* benchmark-init
+:PROPERTIES:
+:ID:       2eda0585-3a49-4fcf-bde7-4db4f6d73a74
+:PACKAGE:  benchmark-init
+:CATEGORY: profiling
+:STRAIGHT: (benchmark-init :type git :host github :repo "dholm/benchmark-init-el")
+:END:
+
+** Config :config:
+#+begin_src emacs-lisp
+
+#+end_src

@@ -1,0 +1,1344 @@
+#+title: Manifolding Atlas Mastering Plugin
+#+priority: 10
+
+Spaced-repetition review for manifolding-atlas notes, built on a
+10-state mastery spine (UNSEEN → CONTRIBUTING) with STATUS kept
+orthogonal (ACTIVE / SUSPENDED / ARCHIVED / DORMANT). Each note is a
+reviewable card; its position lives in org unfoldings (=STAGE=,
+=STATUS=, =MASTERING_*= schedule state) and is indexed into a
+=mastering_schedule= table by a DB extractor for fast due-queries.
+
+The architecture rule that governs this whole file: reviews measure
+memory performance, and memory performance alone never proves
+understanding, transfer, or originality. So the review loop may only
+advance the two gates that retrieval evidence actually supports
+(first contact → AWARE, first success → ACQUIRING). Everything above
+ACQUIRING advances by explicit attestation with recorded evidence,
+never by inference. Stage is monotonic in phase 1 — forgetting moves
+dates, never the stage; condition-tracking (fluency, retention,
+current capability vs attainment) belongs to a later phase.
+
+*** Require
+#+begin_src emacs-lisp
+(require 'cl-lib)
+(require 'calendar)
+(require 'time-date)
+#+end_src
+
+*** Mastery Spine
+The spine answers one question: how far has this knowledge object
+progressed from ignorance to original contribution? Ten states,
+numbered 0–9, each a single tag-safe token that doubles as the note's
+first org tag. The order below is canonical — indices are compared,
+so never reorder without migrating stored values.
+
+- 0 UNSEEN: the domain is absent from the map. Not failure; no
+  representation exists yet. Reserved for mapped, imported, or
+  inferred nodes. Never a birth state, never reviewable.
+- 1 AWARE: the domain is an identified object of possible knowledge.
+  Birth state of every human-created note — capture itself is the
+  awareness gate.
+- 2 ACQUIRING: building blocks accumulating; retrieval works on
+  familiar questions. First successful review promotes here.
+- 3 UNDERSTANDING: pieces integrated into a model; can explain why.
+- 4 CAPABLE: the model is usable on unfamiliar examples of familiar
+  problem classes.
+- 5 PROFICIENT: independent, reliable, efficient; sees situation
+  types, not just rules.
+- 6 EXPERT: deep representations, rapid reliable judgment,
+  reproducibly superior performance.
+- 7 ADAPTIVE: knows when the standard method fails; reasons from
+  first principles under novelty.
+- 8 GENERATIVE: constructs novel methods, models, frameworks.
+- 9 CONTRIBUTING: produces validated knowledge that extends the
+  field. Participation in production, not completion — the frontier
+  keeps moving.
+
+STATUS (ACTIVE / SUSPENDED / ARCHIVED / DORMANT) is not on this
+ladder: it says what the mapper is doing with the note, not how far
+the knowledge developed. A suspended expert is still an expert.
+#+begin_src emacs-lisp
+(defconst my/manifolding-atlas-mastering--stages
+  '("UNSEEN" "AWARE" "ACQUIRING" "UNDERSTANDING" "CAPABLE"
+    "PROFICIENT" "EXPERT" "ADAPTIVE" "GENERATIVE" "CONTRIBUTING")
+  "Mastery spine in canonical order. Indices compare; do not reorder.")
+
+(defconst my/manifolding-atlas-mastering--statuses
+  '("ACTIVE" "SUSPENDED" "ARCHIVED" "DORMANT")
+  "Orthogonal workflow states. Never stages.")
+
+(defun my/manifolding-atlas-mastering--stage-index (stage)
+  "Position of STAGE on the spine, or -1 when unknown."
+  (or (cl-position stage my/manifolding-atlas-mastering--stages
+                   :test #'string-equal)
+      -1))
+
+(defun my/manifolding-atlas-mastering--legacy-mastering-to-stage (val)
+  "Map a retired MASTERING unfolding VAL to (STAGE . STATUS).
+Returns nil for values that meant unenrolled (WARNING)."
+  (cond ((member val '("REVIEW" "TODO")) (cons "AWARE" "ACTIVE"))
+        ((string-equal val "SUSPEND") (cons "AWARE" "SUSPENDED"))
+        (t nil)))
+#+end_src
+
+*** Algorithm Constants
+#+begin_src emacs-lisp
+(defvar my/manifolding-atlas-mastering--proto '(0 1 2)
+  "Proto intervals for the first successful reviews.")
+
+(defvar my/manifolding-atlas-mastering--mastering-value '(0.35 0.30 1.3)
+  "Starting mastering score (plus minus synolon).")
+
+(defvar my/manifolding-atlas-mastering--amnesia 0.5
+  "Failure interval multiplier; closer to 1 = more memory loss.")
+
+(defvar my/manifolding-atlas-mastering--epignosis 0.1
+  "Boost to mastering-plus on anagnosis (accuracy).")
+
+(defvar my/manifolding-atlas-mastering--agnoia 0.2
+  "Boost to mastering-minus on anagnosis (ignorance).")
+
+(defvar my/manifolding-atlas-mastering--anagnosis 3
+  "Streak threshold for anagnosis events.")
+
+(defvar my/manifolding-atlas-mastering--lethe 2
+  "Failure threshold for lethe (interval reset to 0).")
+
+(defvar my/manifolding-atlas-mastering--synolon-max 3.0
+  "Cap on mastering-synolon (interval multiplier).")
+
+(defvar my/manifolding-atlas-mastering--interval-fuzz 0.1
+  "Fuzz factor (+/- %) to prevent review clustering.")
+
+(defvar my/manifolding-atlas-mastering--day-start-hour 3
+  "Hour at which a new review day begins.")
+#+end_src
+
+*** Date Helpers
+Date arithmetic respects `my/manifolding-atlas-mastering--day-start-hour`
+(a new review day begins at 3 AM by default). Dates are (year month day)
+lists internally, YYYYMMDD integers in the DB.
+
+**** Rounding and fuzz
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-mastering--round-items (list)
+  "Round all items in LIST to 2 decimal places."
+  (cl-loop for item in list
+           collect (/ (round (* item 100)) 100.0)))
+
+(defun my/manifolding-atlas-mastering--fuzz-interval (interval)
+  "Apply random fuzz to INTERVAL based on `my/manifolding-atlas-mastering--interval-fuzz'."
+  (if (or (<= interval 2) (zerop my/manifolding-atlas-mastering--interval-fuzz))
+      interval
+    (let ((fuzz (- (* 2 my/manifolding-atlas-mastering--interval-fuzz
+                      (/ (random 1001) 1000.0))
+                   my/manifolding-atlas-mastering--interval-fuzz)))
+      (* interval (1+ fuzz)))))
+#+end_src
+
+**** Day-aware date arithmetic
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-mastering--date (&optional offset)
+  "Return current date as (year month day), respecting day-start-hour.
+OFFSET is days from today."
+  (let* ((shifted (time-subtract (current-time)
+                                 (seconds-to-time
+                                  (* my/manifolding-atlas-mastering--day-start-hour 3600))))
+         (decoded (decode-time shifted))
+         (target (if (and offset (not (zerop offset)))
+                     (decoded-time-add decoded (make-decoded-time :day offset))
+                   decoded)))
+    (list (decoded-time-year target)
+          (decoded-time-month target)
+          (decoded-time-day target))))
+
+(defun my/manifolding-atlas-mastering--date-diff (date &optional date2)
+  "Days from DATE to DATE2 (default today)."
+  (let* ((given (encode-time 0 0 0 (caddr date) (cadr date) (car date)))
+         (d2 (if date2
+                 (encode-time 0 0 0 (caddr date2) (cadr date2) (car date2))
+               (let ((today (my/manifolding-atlas-mastering--date)))
+                 (encode-time 0 0 0 (caddr today) (cadr today) (car today)))))
+         (diff (- (time-to-days d2) (time-to-days given))))
+    (if (>= diff 0) diff (error "DATE2 must be higher than DATE"))))
+
+(defun my/manifolding-atlas-mastering--date-later-p (date1 date2)
+  "Return t if DATE1 is later than DATE2."
+  (> (time-to-days (encode-time 0 0 0 (caddr date1) (cadr date1) (car date1)))
+     (time-to-days (encode-time 0 0 0 (caddr date2) (cadr date2) (car date2)))))
+
+(defun my/manifolding-atlas-mastering--date-to-int (date)
+  "Convert DATE (year month day) to YYYYMMDD integer."
+  (+ (* (nth 0 date) 10000) (* (nth 1 date) 100) (nth 2 date)))
+
+(defun my/manifolding-atlas-mastering--int-to-date (int)
+  "Convert YYYYMMDD integer to (year month day)."
+  (list (/ int 10000) (% (/ int 100) 100) (% int 100)))
+
+(defun my/manifolding-atlas-mastering--today-int ()
+  "Today as YYYYMMDD integer."
+  (my/manifolding-atlas-mastering--date-to-int (my/manifolding-atlas-mastering--date)))
+#+end_src
+
+*** Algorithm
+SM-2 variant: proto intervals (0,1,2 days) for first successes, then
+synolon-scaled intervals. Failures apply amnesia (0.5 multiplier) with
+a 7-day cap. Anagnosis (3-streak) boosts plus/minus; lethe (2 fails)
+resets the interval.
+
+**** Score evolution
+#+begin_src emacs-lisp
+(cl-defun my/manifolding-atlas-mastering--next-mastering
+    (&key mastering success epignosis agnoia anagnosis c-successes c-failures lethe)
+  "Return new MASTERING value (plus minus synolon)."
+  (let* ((g-plus (nth 0 mastering))
+         (g-minus (nth 1 mastering))
+         (g-synolon (nth 2 mastering))
+         (anagnosis-p (= (% (max 1 (if success c-successes c-failures))
+                            anagnosis)
+                         0))
+         (neo-synolon (if success
+                          (min (+ g-synolon g-plus) my/manifolding-atlas-mastering--synolon-max)
+                        (max 1.3 (- g-synolon g-minus))))
+         (neo-plus (if (and success anagnosis-p)
+                       (+ g-plus epignosis)
+                     g-plus))
+         (neo-minus (if (and (not success) anagnosis-p)
+                        (+ g-minus agnoia)
+                      g-minus))
+         (neo-plus (if (and lethe (not success) (>= c-failures lethe))
+                       (max 0.1 (- neo-plus epignosis))
+                     neo-plus)))
+    (my/manifolding-atlas-mastering--round-items (list neo-plus neo-minus neo-synolon))))
+#+end_src
+
+**** Interval computation
+#+begin_src emacs-lisp
+(cl-defun my/manifolding-atlas-mastering--next-interval
+    (&key last-interval mastering-synolon success successful-reviews
+          amnesia proto c-fails lethe)
+  "Calculate next interval as (year month day)."
+  (let* ((last-interval (if (and (<= last-interval 0) success) 1 last-interval))
+         (amnesia (- 1 amnesia))
+         (interval (cond ((and (< successful-reviews (length proto)) success)
+                          (nth successful-reviews proto))
+                         ((and (< successful-reviews (length proto)) (not success))
+                          0)
+                         ((and (>= c-fails lethe) (not success))
+                          0)
+                         (t (let* ((success-interval (* mastering-synolon last-interval))
+                                   (failure-interval (* amnesia last-interval)))
+                              (if success success-interval
+                                (max (min success-interval failure-interval 7) 0)))))))
+    (my/manifolding-atlas-mastering--date
+     (round (my/manifolding-atlas-mastering--fuzz-interval interval)))))
+#+end_src
+
+*** Database Table
+Single =mastering_schedule= table keyed by note-id with the full SM-2
+state (next/last review dates, success/fail counters,
+plus/minus/synolon scores), the suspend flag, and the spine position
+(=stage= text, =status= text). The schedule columns drive review
+timing; stage/status columns let due queries filter without joining
+the notes table. Column migration is explicit: =CREATE IF NOT EXISTS=
+never adds columns to an existing table, so the ensure function
+inspects the schema and alters when an older one is found. Column
+introspection is the one dialect branch in this file: SQLite answers
+=PRAGMA table_info=, PostgreSQL answers =information_schema.columns=
+(raw SQL strings are valid emacsql input on both). The ALTER itself
+is portable and shared.
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-mastering--ensure-table ()
+  "Create mastering_schedule table if it does not exist.
+Migrates older schemas by adding stage/status columns when missing."
+  (emacsql (manifolding-atlas-db)
+    [:create :table :if :not :exists mastering_schedule
+     ([(note-id :not-null)
+       (next-rev :not-null)
+       (last-rev :not-null)
+       (n :not-null)
+       (c-success :not-null)
+       (c-fails :not-null)
+       (t-success :not-null)
+       (t-fails :not-null)
+       (plus :not-null)
+       (minus :not-null)
+       (synolon :not-null)
+       (suspend :not-null)
+       (stage :not-null)
+       (status :not-null)]
+      (:primary-key [note-id])
+      (:foreign-key [note-id] :references notes [id]
+       :on-delete :cascade))])
+  (let* ((pg (eq (and (boundp 'my/manifolding-atlas-db-backend)
+                      my/manifolding-atlas-db-backend)
+                 'pg))
+         (info (condition-case nil
+                   (if pg
+                       (emacsql (manifolding-atlas-db)
+                         "SELECT column_name FROM information_schema.columns WHERE table_name = 'mastering_schedule'")
+                     (emacsql (manifolding-atlas-db)
+                       "PRAGMA table_info(mastering_schedule)"))
+                 (error nil)))
+         ;; PRAGMA rows are (cid name type ...); information_schema
+         ;; rows are single-column (name). First string found wins.
+         (cols (mapcar (lambda (row)
+                         (seq-find #'stringp (append row nil)))
+                       info)))
+    (dolist (col '("stage" "status"))
+      (unless (member col cols)
+        (condition-case nil
+            (emacsql (manifolding-atlas-db)
+              (format "ALTER TABLE mastering_schedule ADD COLUMN %s TEXT NOT NULL DEFAULT '%s'"
+                      col (if (string-equal col "stage") "AWARE" "ACTIVE")))
+          (error nil))))))
+#+end_src
+
+*** DB Extractor
+Indexes STAGE/STATUS/MASTERING_* unfoldings from NOTE-DATA into
+mastering_schedule. A retired MASTERING unfolding is translated
+one-way when STAGE is absent (REVIEW/TODO → AWARE+ACTIVE, SUSPEND →
+AWARE+SUSPENDED, WARNING → unenrolled); no writer emits those values
+anymore. Initializes a default schedule when a stage is set but
+schedule unfoldings are missing, so enrolled notes are never dropped.
+UNSEEN notes get a row (schedule stays warm) but due queries exclude
+them — first contact, not the scheduler, promotes out of UNSEEN.
+
+**** Extractor
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-mastering--extract (ctx note-data)
+  "Extract STAGE/STATUS/MASTERING_* unfoldings from NOTE-DATA into mastering_schedule.
+Initializes a default schedule when a stage is set but schedule
+unfoldings are missing, so enrolled notes are never dropped."
+  (let* ((note-id (plist-get note-data :id))
+         (unfoldings (plist-get note-data :unfoldings))
+         (lookup (lambda (k) (cdr (assoc k unfoldings))))
+         (stage (or (funcall lookup "STAGE")
+                    (car (my/manifolding-atlas-mastering--legacy-mastering-to-stage
+                          (funcall lookup "MASTERING")))))
+         (status (or (funcall lookup "STATUS")
+                     (cdr (my/manifolding-atlas-mastering--legacy-mastering-to-stage
+                           (funcall lookup "MASTERING")))
+                     "ACTIVE"))
+         (next-rev (funcall lookup "MASTERING_NEXT_REV"))
+         (today (my/manifolding-atlas-mastering--today-int))
+         (to-int (lambda (k) (string-to-number (or (funcall lookup k) "0")))))
+    (emacsql (manifolding-atlas-db)
+      [:delete :from mastering_schedule :where (= note-id $s1)]
+      note-id)
+    (when (and note-id stage)
+      (emacsql (manifolding-atlas-db)
+        [:insert :into mastering_schedule :values $v1]
+        (vector note-id
+                (if next-rev (funcall to-int "MASTERING_NEXT_REV") today)
+                (if (funcall lookup "MASTERING_LAST_REV") (funcall to-int "MASTERING_LAST_REV") today)
+                (funcall to-int "MASTERING_N")
+                (funcall to-int "MASTERING_C_SUCCESS")
+                (funcall to-int "MASTERING_C_FAILS")
+                (funcall to-int "MASTERING_T_SUCCESS")
+                (funcall to-int "MASTERING_T_FAILS")
+                (if (funcall to-int "MASTERING_PLUS") (funcall to-int "MASTERING_PLUS") 0.35)
+                (if (funcall to-int "MASTERING_MINUS") (funcall to-int "MASTERING_MINUS") 0.30)
+                (if (funcall to-int "MASTERING_SYNOLON") (funcall to-int "MASTERING_SYNOLON") 1.3)
+                (if (string-equal status "SUSPENDED") 1 0)
+                stage
+                status)))
+    note-data))
+#+end_src
+
+**** Registration
+Version 2: the extractor output gained stage/status columns, so
+previously indexed rows must be re-extracted once after upgrade.
+#+begin_src emacs-lisp
+(with-eval-after-load 'manifolding-atlas
+  (my/manifolding-atlas-mastering--ensure-table)
+  (manifolding-atlas-db-register-extractor
+   (make-manifolding-atlas-extractor
+    :name       'mastering-schedule
+    :version    2
+    :priority   55
+    :extract-fn #'my/manifolding-atlas-mastering--extract)))
+#+end_src
+
+*** Schedule Unfolding Write
+Writes schedule unfoldings for NOTE-ID back to its org drawer after
+each review, keeping the file-level state in sync with the DB.
+
+**** Drawer writer
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-mastering--write-schedule-unfoldings
+    (note-id next-rev-int n success c-succ c-fails t-succ t-fails score)
+  "Write schedule unfoldings for NOTE-ID back to its org drawer."
+  (let ((note (manifolding-atlas-db-get-by-id note-id)))
+    (when note
+      (let ((file (manifolding-atlas-note-path note))
+            (level (manifolding-atlas-note-level note))
+            (pos (manifolding-atlas-note-pos note)))
+        (when file
+          (with-current-buffer (find-file-noselect file)
+            (save-excursion
+              (if (and level (> level 0) pos)
+                  (progn (goto-char pos) (org-back-to-heading t))
+                (goto-char (point-min)))
+              (dolist (pair `(("MASTERING_NEXT_REV" . ,next-rev-int)
+                              ("MASTERING_LAST_REV" . ,(my/manifolding-atlas-mastering--today-int))
+                              ("MASTERING_N" . ,n)
+                              ("MASTERING_C_SUCCESS" . ,(if success (1+ c-succ) 0))
+                              ("MASTERING_C_FAILS" . ,(if success 0 (1+ c-fails)))
+                              ("MASTERING_T_SUCCESS" . ,(if success (1+ t-succ) t-succ))
+                              ("MASTERING_T_FAILS" . ,(if success t-fails (1+ t-fails)))
+                              ("MASTERING_PLUS" . ,(nth 0 score))
+                              ("MASTERING_MINUS" . ,(nth 1 score))
+                              ("MASTERING_SYNOLON" . ,(nth 2 score))))
+                (my/manifolding-atlas--drawer-put
+                 (car pair) (number-to-string (cdr pair)))))
+            (save-buffer)))))))
+
+(defun my/manifolding-atlas-mastering--put (note key value)
+  "Write KEY=VALUE to NOTE's org drawer via `my/manifolding-atlas--drawer-put'.
+NOTE is a note object; resolves its file/heading, writes, saves.
+Replaces the never-defined `my/manifolding-atlas--unfolding-put'."
+  (let ((file (manifolding-atlas-note-path note))
+        (level (manifolding-atlas-note-level note))
+        (pos (manifolding-atlas-note-pos note)))
+    (when file
+      (with-current-buffer (find-file-noselect file)
+        (save-excursion
+          (if (and level (> level 0) pos)
+              (progn (goto-char pos) (org-back-to-heading t))
+            (goto-char (point-min)))
+          (my/manifolding-atlas--drawer-put key value))
+        (save-buffer)))))
+
+(defun my/manifolding-atlas-mastering--init-schedule (suspend note)
+  "Initialize spine + schedule unfoldings for fresh NOTE.
+Birth state is STAGE=AWARE, STATUS=ACTIVE (or SUSPENDED when SUSPEND
+is non-nil): capture itself is the awareness gate, so no new note is
+ever UNSEEN and none is ever unenrolled. Writes the drawer, tags the
+stage first, and inserts the schedule row when absent."
+  (when (manifolding-atlas-note-p note)
+    (let* ((id (manifolding-atlas-note-id note))
+           (today (my/manifolding-atlas-mastering--today-int)))
+      (my/manifolding-atlas-mastering--put note "STAGE" "AWARE")
+      (my/manifolding-atlas-mastering--put note "STATUS" (if suspend "SUSPENDED" "ACTIVE"))
+      (my/manifolding-atlas-mastering--put note "MASTERING_NEXT_REV" (number-to-string today))
+      (my/manifolding-atlas-mastering--put note "MASTERING_LAST_REV" (number-to-string today))
+      (my/manifolding-atlas-mastering--put note "MASTERING_N" "0")
+      (my/manifolding-atlas-mastering--put note "MASTERING_C_SUCCESS" "0")
+      (my/manifolding-atlas-mastering--put note "MASTERING_C_FAILS" "0")
+      (my/manifolding-atlas-mastering--put note "MASTERING_T_SUCCESS" "0")
+      (my/manifolding-atlas-mastering--put note "MASTERING_T_FAILS" "0")
+      (my/manifolding-atlas-mastering--put note "MASTERING_PLUS" "0.35")
+      (my/manifolding-atlas-mastering--put note "MASTERING_MINUS" "0.30")
+      (my/manifolding-atlas-mastering--put note "MASTERING_SYNOLON" "1.3")
+      (my/manifolding-atlas-mastering--sync-stage-tag note "AWARE")
+      (unless (car (emacsql (manifolding-atlas-db)
+                    [:select [note-id] :from mastering_schedule
+                     :where (= note-id $s1)] id))
+        (emacsql (manifolding-atlas-db)
+          [:insert :into mastering_schedule :values $v1]
+          (vector id today today 0 0 0 0 0 0.35 0.30 1.3
+                  (if suspend 1 0) "AWARE"
+                  (if suspend "SUSPENDED" "ACTIVE")))))))
+#+end_src
+
+*** Stage Gates
+Promotion is by gates, never by weighted score: a blended number
+would let perfect recall mask a memorized misunderstanding. The
+review loop enforces exactly two automatic gates — first contact
+(UNSEEN → AWARE) and first success (AWARE → ACQUIRING) — because
+those are the only transitions retrieval evidence actually
+supports. Higher gates demand attested evidence (see attest
+below). Stages never move down on their own in phase 1: forgetting
+moves review dates, never attainment; condition-tracking belongs to
+a later phase.
+
+**** Automatic gate check
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-mastering--auto-stage (current t-success success)
+  "Next stage permitted by automatic gates alone.
+CURRENT is the drawer's stage token, T-SUCCESS the lifetime success
+count before this grade, SUCCESS whether this grade succeeded.
+Returns CURRENT unless a gate fires. Never demotes."
+  (let ((idx (my/manifolding-atlas-mastering--stage-index current)))
+    (cond
+     ;; First contact of any kind is recognition: UNSEEN cannot survive
+     ;; a human opening a review on the note.
+     ((string-equal current "UNSEEN")
+      (if (and success (>= (1+ t-success) 1)) "ACQUIRING" "AWARE"))
+     ;; First demonstrated retrieval starts acquisition. A failed
+     ;; attempt still proves awareness, so AWARE persists through it.
+     ((and (string-equal current "AWARE") success (>= (1+ t-success) 1))
+      "ACQUIRING")
+     (t current))))
+#+end_src
+
+**** First-tag sync
+The stage token is the note's first org tag (first =#\+filetags:=
+entry for file notes): the human-facing abstraction, queryable via
+tag search, always mirroring the drawer value. STATUS stays
+drawer-only in phase 1 so the tagline carries exactly one system
+claim. Legacy tokens (TODO, WARNING, REVIEW) are stripped wherever
+found — no writer emits them anymore.
+#+begin_src emacs-lisp
+(defconst my/manifolding-atlas-mastering--retired-stage-tokens
+  '("TODO" "WARNING" "REVIEW" "SUSPEND")
+  "Tokens no writer emits; stripped from tag position on sync.")
+
+(defun my/manifolding-atlas-mastering--sync-stage-tag (note stage)
+  "Make STAGE the first tag of NOTE, preserving all other tags behind it.
+Works for heading tags and file-level filetags alike."
+  (let ((file (manifolding-atlas-note-path note))
+        (level (manifolding-atlas-note-level note))
+        (pos (manifolding-atlas-note-pos note))
+        (known (append my/manifolding-atlas-mastering--stages
+                       my/manifolding-atlas-mastering--retired-stage-tokens)))
+    (when file
+      (with-current-buffer (find-file-noselect file)
+        (save-excursion
+          (if (and level (> level 0) pos)
+              (progn (goto-char pos) (org-back-to-heading t))
+            (goto-char (point-min)))
+          (if (= (org-outline-level) 0)
+              (let* ((raw (manifolding-atlas-buffer-unfolding-get-all "filetags"))
+                     (tags (seq-uniq (cl-mapcan (lambda (v) (split-string v "[ :]" t)) raw)))
+                     (rest (seq-remove (lambda (tg) (member tg known)) tags)))
+                (manifolding-atlas-buffer-unfolding-remove-all "filetags")
+                (manifolding-atlas-buffer-unfolding-set
+                 "filetags" (concat ":" (string-join (cons stage rest) ":") ":")))
+            (let* ((tags (mapcar #'substring-no-properties (org-get-tags nil t)))
+                   (rest (seq-remove (lambda (tg) (member tg known)) tags)))
+              (org-set-tags (cons stage rest)))))
+        (save-buffer)))))
+#+end_src
+
+**** Encounter and attestation
+UNSEEN → AWARE is a human act (opening, triaging, mapping), so it
+gets a command rather than automation. ACQUIRING and above get a
+single attestation command: it lists only the gates above the
+current stage, names each gate's evidence class, and refuses
+assessment-dependent gates without a written evidence summary. The
+summary and validation date land in the drawer (STAGE_EVIDENCE,
+LAST_VALIDATED) — the future dimensions phase builds on exactly
+these fields.
+#+begin_src emacs-lisp
+(defconst my/manifolding-atlas-mastering--gate-evidence
+  '(("ACQUIRING" . automatic)
+    ("UNDERSTANDING" . assessment)
+    ("CAPABLE" . assessment)
+    ("PROFICIENT" . assessment)
+    ("EXPERT" . assessment)
+    ("ADAPTIVE" . assessment)
+    ("GENERATIVE" . assessment)
+    ("CONTRIBUTING" . assessment))
+  "Evidence class per stage. Only `automatic' gates may fire without a human.")
+
+(defun my/manifolding-atlas-mastering-mark-encountered ()
+  "Mark current note encountered: UNSEEN becomes AWARE.
+The recognition itself is the gate — no test, no evidence."
+  (interactive)
+  (let ((note (my/manifolding-atlas--buffer-note)))
+    (unless note (user-error "No note at point"))
+    (my/manifolding-atlas-mastering--put note "STAGE" "AWARE")
+    (my/manifolding-atlas-mastering--sync-stage-tag note "AWARE")
+    (message "Encountered: stage AWARE.")))
+
+(defun my/manifolding-atlas-mastering-attest ()
+  "Attest current note to a higher stage, recording evidence.
+Lists gates above the current stage with their evidence class.
+Assessment gates require a written evidence summary, stored with
+today's date in the drawer. Refusal is silent: no evidence, no stage."
+  (interactive)
+  (let* ((note (my/manifolding-atlas--buffer-note)))
+    (unless note (user-error "No note at point"))
+    (let* ((file (manifolding-atlas-note-path note))
+           (id (manifolding-atlas-note-id note)))
+      (unless file (user-error "Note has no file"))
+      (with-current-buffer (find-file-noselect file)
+        (save-excursion
+          (let* ((level (manifolding-atlas-note-level note))
+                 (pos (manifolding-atlas-note-pos note)))
+            (if (and level (> level 0) pos)
+                (progn (goto-char pos) (org-back-to-heading t))
+              (goto-char (point-min)))
+            (let* ((current (or (my/manifolding-atlas--drawer-get "STAGE") "AWARE"))
+                   (idx (my/manifolding-atlas-mastering--stage-index current))
+                   (cands (cl-loop for st in my/manifolding-atlas-mastering--stages
+                                   for i from 0
+                                   when (> i idx)
+                                   collect (format "%s (%s)" st
+                                                   (cdr (assoc st my/manifolding-atlas-mastering--gate-evidence)))))
+                   (pick (completing-read "Attest stage: " cands nil t)))
+              (when (string-match "^\\([A-Z]+\\)" pick)
+                (let* ((stage (match-string 1 pick))
+                       (class (cdr (assoc stage my/manifolding-atlas-mastering--gate-evidence)))
+                       (evidence (if (eq class 'automatic)
+                                     "automatic: review evidence"
+                                   (read-string (format "Evidence for %s (required): " stage)
+                                                (my/manifolding-atlas-mastering--evidence-prefill)))))
+                  (if (and (eq class 'assessment) (string-blank-p evidence))
+                      (message "Attestation refused: %s needs recorded evidence." stage)
+                    (my/manifolding-atlas--drawer-put "STAGE" stage)
+                    (my/manifolding-atlas--drawer-put "STAGE_EVIDENCE" evidence)
+                    (my/manifolding-atlas--drawer-put "LAST_VALIDATED"
+                     (number-to-string (my/manifolding-atlas-mastering--today-int)))
+                    (save-buffer)
+                    (emacsql (manifolding-atlas-db)
+                      [:update mastering_schedule :set stage = $s2
+                       :where (= note-id $s1)] id stage)
+                    (my/manifolding-atlas-mastering--sync-stage-tag note stage)
+                    (message "Attested %s." stage)))))))))))
+#+end_src
+
+*** Algorithm Bridge
+
+**** Review algorithm
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-mastering--review-algorithm (note-id success)
+  "Compute (NEXT-REV MASTERING-SCORE LOG-ALIST) for reviewing NOTE-ID with SUCCESS."
+  (let* ((row (car (emacsql (manifolding-atlas-db)
+                   [:select [t-success c-success c-fails last-rev next-rev
+                             n t-fails plus minus synolon]
+                    :from mastering_schedule :where (= note-id $s1)]
+                   note-id)))
+         (t-success (nth 0 row))
+         (c-success (nth 1 row))
+         (c-fails (nth 2 row))
+         (last-interval (my/manifolding-atlas-mastering--date-diff
+                         (my/manifolding-atlas-mastering--int-to-date (nth 3 row))))
+         (existing-next-rev (my/manifolding-atlas-mastering--int-to-date (nth 4 row)))
+         (n (nth 5 row))
+         (t-fails (nth 6 row))
+         (mastering (list (nth 7 row) (nth 8 row) (nth 9 row)))
+         (computed-next-rev (my/manifolding-atlas-mastering--next-interval
+                             :last-interval last-interval
+                             :mastering-synolon (nth 2 mastering)
+                             :success success
+                             :successful-reviews t-success
+                             :c-fails c-fails
+                             :lethe my/manifolding-atlas-mastering--lethe
+                             :amnesia my/manifolding-atlas-mastering--amnesia
+                             :proto my/manifolding-atlas-mastering--proto))
+         (next-rev (if (and success
+                            (my/manifolding-atlas-mastering--date-later-p
+                             existing-next-rev computed-next-rev))
+                       existing-next-rev
+                     computed-next-rev)))
+    (list next-rev
+          (my/manifolding-atlas-mastering--next-mastering
+           :mastering mastering :success success
+           :epignosis my/manifolding-atlas-mastering--epignosis
+           :agnoia my/manifolding-atlas-mastering--agnoia
+           :anagnosis my/manifolding-atlas-mastering--anagnosis
+           :c-successes (if success (1+ c-success) 0)
+           :c-failures (if success 0 (1+ c-fails))
+           :lethe my/manifolding-atlas-mastering--lethe)
+          `((n . ,n) (c-success . ,c-success) (c-fails . ,c-fails)
+            (t-success . ,t-success) (t-fails . ,t-fails)))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-mastering--update (note-id success result)
+  "Update mastering_schedule and note unfoldings for NOTE-ID review.
+Dates and scores move freely with every grade; the stage moves only
+through the automatic gates (first contact, first success) — anything
+higher requires attestation, so this function never promotes past
+ACQUIRING and never demotes."
+  (let* ((next-rev (nth 0 result))
+         (score (nth 1 result))
+         (log (nth 2 result))
+         (n (alist-get 'n log))
+         (c-succ (alist-get 'c-success log))
+         (c-fails (alist-get 'c-fails log))
+         (t-succ (alist-get 't-success log))
+         (t-fails (alist-get 't-fails log))
+         (today (my/manifolding-atlas-mastering--today-int)))
+    (emacsql (manifolding-atlas-db)
+      [:update mastering_schedule :set
+       last-rev = $s2, next-rev = $s3, n = $s4,
+       c-success = $s5, c-fails = $s6, t-success = $s7, t-fails = $s8,
+       plus = $s9, minus = $s10, synolon = $s11
+       :where (= note-id $s1)]
+      note-id today (my/manifolding-atlas-mastering--date-to-int next-rev) (1+ n)
+      (if success (1+ c-succ) 0)
+      (if success 0 (1+ c-fails))
+      (if success (1+ t-succ) t-succ)
+      (if success t-fails (1+ t-fails))
+      (nth 0 score) (nth 1 score) (nth 2 score))
+    (my/manifolding-atlas-mastering--write-schedule-unfoldings
+     note-id (my/manifolding-atlas-mastering--date-to-int next-rev) (1+ n)
+     success c-succ c-fails t-succ t-fails score)
+    (let ((note (manifolding-atlas-db-get-by-id note-id)))
+      (when note
+        (let* ((file (manifolding-atlas-note-path note)))
+          (when file
+            (with-current-buffer (find-file-noselect file)
+              (save-excursion
+                (let ((level (manifolding-atlas-note-level note))
+                      (pos (manifolding-atlas-note-pos note)))
+                  (if (and level (> level 0) pos)
+                      (progn (goto-char pos) (org-back-to-heading t))
+                    (goto-char (point-min)))
+                  (let* ((current (or (my/manifolding-atlas--drawer-get "STAGE") "AWARE"))
+                         (gated (my/manifolding-atlas-mastering--auto-stage
+                                 current t-succ success)))
+                    (unless (string-equal gated current)
+                      (my/manifolding-atlas--drawer-put "STAGE" gated)
+                      (save-buffer)
+                      (emacsql (manifolding-atlas-db)
+                        [:update mastering_schedule :set stage = $s2
+                         :where (= note-id $s1)] note-id gated)
+                      (my/manifolding-atlas-mastering--sync-stage-tag note gated)
+                      (message "Stage gate: %s → %s." current gated))))))))))
+    next-rev))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-mastering--apply-grade (id success)
+  "Run the algorithm for ID and dual-write the result."
+  (my/manifolding-atlas-mastering--update id success
+   (my/manifolding-atlas-mastering--review-algorithm id success)))
+
+#+end_src
+
+
+*** Due Queries
+Due = ACTIVE status, a seen stage (UNSEEN excluded — the scheduler
+cannot test what has no representation), and next-rev ≤ today.
+Overdue additionally requires at least one prior review (n > 0).
+UNSEEN notes are counted separately for mapping triage, never mixed
+into review sessions.
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-mastering--due-note-ids ()
+  "Return note IDs due for review today."
+  (let ((today (my/manifolding-atlas-mastering--today-int)))
+    (mapcar #'car
+            (emacsql (manifolding-atlas-db)
+              [:select [note-id] :from mastering_schedule
+               :where (and (<= next-rev $s1) (= suspend 0)
+                           (= status $s2) (!= stage $s3))]
+              today "ACTIVE" "UNSEEN"))))
+
+(defun my/manifolding-atlas-mastering--overdue-note-ids ()
+  "Return note IDs overdue (reviewed at least once, due before today)."
+  (let ((today (my/manifolding-atlas-mastering--today-int)))
+    (mapcar #'car
+            (emacsql (manifolding-atlas-db)
+              [:select [note-id] :from mastering_schedule
+               :where (and (> n 0) (= suspend 0) (< next-rev $s1)
+                           (= status $s2) (!= stage $s3))]
+              today "ACTIVE" "UNSEEN"))))
+
+(defun my/manifolding-atlas-mastering--unseen-note-ids ()
+  "Return note IDs mapped but never encountered (triage list, not reviews)."
+  (mapcar #'car
+          (emacsql (manifolding-atlas-db)
+            [:select [note-id] :from mastering_schedule
+             :where (= stage $s1)]
+            "UNSEEN")))
+
+(defun my/manifolding-atlas-mastering--due-count ()
+  "Number of due notes."
+  (length (my/manifolding-atlas-mastering--due-note-ids)))
+#+end_src
+
+*** Map-Ordered Review (mastering reads the map)
+Foundations first: the due queue walks the mind-map depth-first so
+prerequisites grade before dependents and failures cascade visibly
+instead of surfacing as downstream confusion. This is consumption,
+not ownership — every position fact comes from mm/* queries, and no
+topology is stored or mutated here. Unmapped notes sink to the end
+rather than blocking; headings follow their file card directly.
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-mastering--map-sort-key (note-id)
+  "Sort key for NOTE-ID: (depth order-key title).
+Unmapped notes sort last (depth 9999). Headings inherit their file
+card's depth and sort by their own order key right after it."
+  (let ((row (and (fboundp 'mm/node-at) (mm/node-at note-id))))
+    (if (null row)
+        (list 9999 0.0 "")
+      (let* ((depth (nth 4 row))
+             (order (nth 2 row))
+             (note (manifolding-atlas-db-get-by-id note-id))
+             (title (if note (manifolding-atlas-note-title note) "")))
+        (list depth order title)))))
+
+(defun my/manifolding-atlas-mastering--ordered-due-note-ids ()
+  "Due note IDs in map order: parents before children, stable by title."
+  (sort (my/manifolding-atlas-mastering--due-note-ids)
+        (lambda (a b)
+          (let ((ka (my/manifolding-atlas-mastering--map-sort-key a))
+                (kb (my/manifolding-atlas-mastering--map-sort-key b)))
+            (or (< (nth 0 ka) (nth 0 kb))
+                (and (= (nth 0 ka) (nth 0 kb))
+                     (or (< (nth 1 ka) (nth 1 kb))
+                         (and (= (nth 1 ka) (nth 1 kb))
+                              (string< (nth 2 ka) (nth 2 kb))))))))))
+
+(defun my/manifolding-atlas-mastering-review-subtree ()
+  "Review the due cards of the branch at point, in map order.
+Resolves the current note's subtree (plus its headings), intersects
+with today's due list, and runs the standard session over that set.
+Reports \"branch clear\" with counts when nothing is due — an empty
+branch is information, not an error."
+  (interactive)
+  (let* ((note (my/manifolding-atlas--buffer-note)))
+    (unless note (user-error "No note at point"))
+    (unless (fboundp 'mm/subtree-of)
+      (user-error "Mind-map engine not loaded"))
+    (let* ((id (manifolding-atlas-note-id note))
+           (branch (cons id (mm/subtree-of id)))
+           (headings (and (fboundp 'mm/headings-of)
+                          (mapcar #'car (mm/headings-of id))))
+           (scope (append branch headings))
+           (due (my/manifolding-atlas-mastering--due-note-ids))
+           (ids (seq-filter (lambda (x) (member x scope)) due))
+           (ordered (sort (copy-sequence ids)
+                          (lambda (a b)
+                            (let ((ka (my/manifolding-atlas-mastering--map-sort-key a))
+                                  (kb (my/manifolding-atlas-mastering--map-sort-key b)))
+                              (or (< (nth 0 ka) (nth 0 kb))
+                                  (and (= (nth 0 ka) (nth 0 kb))
+                                       (< (nth 1 ka) (nth 1 kb)))))))))
+      (if (null ordered)
+          (message "Branch clear: 0 of %d scoped cards due."
+                   (length scope))
+        (my/manifolding-atlas-mastering--review-session ordered)))))
+#+end_src
+
+*** Review Session
+Sequential review in a dedicated buffer. Each note shows its title and
+an open link; grading with n/f/s runs the algorithm and dual-writes the
+schedule table and org drawer.
+
+**** Note display and suspend toggle
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-mastering--display-note (id)
+  "Display note ID in review buffer, with its stage and status.
+The stage is the human-facing abstraction; showing it here keeps
+every grade decision grounded in where the knowledge stands."
+  (let ((note (manifolding-atlas-db-get-by-id id)))
+    (with-current-buffer "*manifolding-atlas-mastering-review*"
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert (format "%s\n\n"
+                        (if note (manifolding-atlas-note-title note) id)))
+        (when note
+          (let ((row (car (emacsql (manifolding-atlas-db)
+                           [:select [stage status] :from mastering_schedule
+                            :where (= note-id $s1)]
+                           id))))
+            (insert (format "[%s / %s]\n"
+                            (or (nth 0 row) "AWARE")
+                            (or (nth 1 row) "ACTIVE"))))
+          (insert (format "[[id:%s][open]]\n" id)))))))
+
+(defun my/manifolding-atlas-mastering--sync-status-flag (note)
+  "Mirror NOTE's STATUS drawer value into the schedule suspend flag.
+Post-apply for STATUS picks: a capture-time SUSPENDED takes effect
+immediately instead of waiting for the next index pass. Any status
+other than SUSPENDED clears the flag."
+  (when (manifolding-atlas-note-p note)
+    (let ((id (manifolding-atlas-note-id note))
+          (status nil))
+      (let ((file (manifolding-atlas-note-path note)))
+        (when file
+          (with-current-buffer (find-file-noselect file)
+            (save-excursion
+              (let ((level (manifolding-atlas-note-level note))
+                    (pos (manifolding-atlas-note-pos note)))
+                (if (and level (> level 0) pos)
+                    (progn (goto-char pos) (org-back-to-heading t))
+                  (goto-char (point-min)))
+                (setq status (or (my/manifolding-atlas--drawer-get "STATUS") "ACTIVE")))))))
+      (emacsql (manifolding-atlas-db)
+        [:update mastering_schedule :set suspend = $s2, status = $s3
+         :where (= note-id $s1)]
+        id (if (string-equal status "SUSPENDED") 1 0) status))))
+
+(defun my/manifolding-atlas-mastering--set-suspend (note-id &optional value)
+  "Set NOTE-ID's STATUS to SUSPENDED (VALUE non-nil) or back to ACTIVE.
+The schedule row is kept and the stage untouched — suspension is a
+workflow decision, never a demotion. Resuming restores exactly where
+the knowledge left off."
+  (let ((status (if value "SUSPENDED" "ACTIVE")))
+    (emacsql (manifolding-atlas-db)
+      [:update mastering_schedule :set suspend = $s2, status = $s3
+       :where (= note-id $s1)]
+      note-id (if value 1 0) status)
+    (let ((note (manifolding-atlas-db-get-by-id note-id)))
+      (when note
+        (my/manifolding-atlas-mastering--put note "STATUS" status)))
+    (message (if value "Suspended." "Resumed: ACTIVE."))))
+#+end_src
+
+**** Grading prompt handler
+Returns 'quit, 'suspend, or 'open; n/f apply the algorithm immediately.
+t launches a typing drill and re-prompts (never grades).
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-mastering--grade-prompt (id)
+  "Ask for a grade on ID's review.
+t launches a typing drill and re-prompts the same card; it never
+grades and never advances the session."
+  (catch 'graded
+    (while t
+      (pcase (read-char-choice "n=next f=fail s=suspend o=open t=type q=quit: "
+                               '(?n ?f ?s ?o ?t ?q))
+        (?n (my/manifolding-atlas-mastering--apply-grade id t)
+            (throw 'graded nil))
+        (?f (my/manifolding-atlas-mastering--apply-grade id nil)
+            (throw 'graded nil))
+        (?s (throw 'graded 'suspend))
+        (?o (throw 'graded 'open))
+        (?t (my/manifolding-atlas-mastering--type-drill-for id)
+            (message "Drill launched — grade when ready."))
+        (?q (throw 'graded 'quit))))))
+#+end_src
+
+**** Timebox budget
+An optional session budget ("review for 20 minutes, then stop
+cleanly"). The timebox is a stop condition, never a grading input:
+per-card elapsed is shown for self-knowledge and summarized at the
+end, but grades stay purely next/fail — a slow correct recall is
+still correct. No SCHEDULED, no repeaters, no schedule writes here;
+the SM-2 table is untouched.
+#+begin_src emacs-lisp
+(defvar my/manifolding-atlas-mastering--timebox-seconds nil
+  "Session budget in seconds; nil means untimed.")
+
+(defun my/manifolding-atlas-mastering-set-timebox (duration)
+  "Set the review session budget from DURATION (45s/20m, blank clears).
+The budget stops the session when it runs out; it never grades."
+  (interactive "sTimebox (e.g. 20m, blank = off): ")
+  (setq my/manifolding-atlas-mastering--timebox-seconds
+        (and (not (string-empty-p duration))
+             (atlas-timer-parse-duration duration)))
+  (message "Review timebox: %s"
+           (if my/manifolding-atlas-mastering--timebox-seconds
+               (atlas-timer-format-seconds
+                my/manifolding-atlas-mastering--timebox-seconds)
+             "off")))
+#+end_src
+
+**** Review session loop
+The open action visits the note, then offers an inline re-grade.
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-mastering--review-session (ids)
+  "Review NOTE-IDS in sequence, grading with algorithm."
+  (let ((buf (get-buffer-create "*manifolding-atlas-mastering-review*"))
+        (total (length ids))
+        (reviewed 0)
+        (t0 (atlas-timer-stopwatch-start)))
+    (with-current-buffer buf
+      (special-mode)
+      (setq buffer-read-only t))
+    (pop-to-buffer-same-window buf)
+    (catch 'mastering-quit
+      (dolist (id ids)
+        (when (and my/manifolding-atlas-mastering--timebox-seconds
+                   (> (atlas-timer-stopwatch-elapsed t0)
+                      my/manifolding-atlas-mastering--timebox-seconds))
+          (message "Timebox reached — stopping cleanly.")
+          (throw 'mastering-quit nil))
+        (let* ((note (manifolding-atlas-db-get-by-id id))
+               (title (if note (manifolding-atlas-note-title note) id))
+               (c0 (atlas-timer-stopwatch-start)))
+          (my/manifolding-atlas-mastering--display-note id)
+          (message "[%d/%d] %s" (1+ reviewed) total title)
+          (let ((action (my/manifolding-atlas-mastering--grade-prompt id)))
+            (message "[%d/%d] %s (%s/card)"
+                     (1+ reviewed) total title
+                     (atlas-timer-format-seconds
+                      (atlas-timer-stopwatch-elapsed c0)))
+            (cond
+             ((eq action 'quit) (throw 'mastering-quit nil))
+             ((eq action 'suspend)
+              (my/manifolding-atlas-mastering--set-suspend id 1))
+             ((eq action 'open)
+              (when note
+                (find-file (manifolding-atlas-note-path note))
+                (let ((inhibit-read-only t))
+                  (with-current-buffer buf (erase-buffer)))
+                (when (y-or-n-p "Grade this note? ")
+                  (catch 'inline-graded
+                    (while t
+                      (pcase (read-char-choice "n=next f=fail s=suspend t=type q=quit: "
+                                               '(?n ?f ?s ?t ?q))
+                        (?n (my/manifolding-atlas-mastering--apply-grade id t)
+                            (throw 'inline-graded nil))
+                        (?f (my/manifolding-atlas-mastering--apply-grade id nil)
+                            (throw 'inline-graded nil))
+                        (?s (my/manifolding-atlas-mastering--set-suspend id 1)
+                            (throw 'inline-graded nil))
+                        (?t (my/manifolding-atlas-mastering--type-drill-for id)
+                            (message "Drill launched — grade when ready."))
+                        (?q (throw 'inline-graded nil)))))))))))
+        (cl-incf reviewed)))
+    (let ((elapsed (atlas-timer-stopwatch-elapsed t0)))
+      (message "Reviewed %d/%d in %s%s" reviewed total
+               (atlas-timer-format-seconds elapsed)
+               (if (> reviewed 0)
+                   (format " (avg %s/card)"
+                           (atlas-timer-format-seconds (/ elapsed reviewed)))
+                 "")))
+    (kill-buffer buf)))
+#+end_src
+
+*** Typing Drills
+Typing practice on top of mastering: drill any material by hand,
+record the stats as a TYPING_LAST drawer property, reuse them as
+attest evidence. Typing suggests nothing and grades nothing — SM-2
+only ever sees manual n/f. Transcription fluency is not recall;
+these numbers testify, they do not judge.
+
+**** Floor and capture state
+#+begin_src emacs-lisp
+(defcustom my/manifolding-atlas-typing-accuracy-floor 85
+  "Accuracy percent below which attest prefill is flagged [low-acc].
+The prefill still appears (it is editable); it just never looks clean."
+  :type 'integer
+  :group 'my/manifolding-atlas)
+
+(defvar my/manifolding-atlas-mastering--pending-drill nil
+  "Cons (NOTE-ID . SCOPE-TAG) for the launched drill awaiting completion.
+Cleared on completion (recorded) or quit (abandoned).")
+
+(defvar my/manifolding-atlas-mastering--drill-advice-on nil
+  "Non-nil once the speed-type completion advice is installed.")
+
+(defun my/manifolding-atlas-mastering--ensure-drill-capture ()
+  "Install the drill-stats capture advice, loading speed-type if needed.
+Signal a user error when speed-type is unavailable."
+  (unless my/manifolding-atlas-mastering--drill-advice-on
+    (unless (fboundp 'speed-type-complete)
+      (require 'speed-type nil t))
+    (unless (fboundp 'speed-type-complete)
+      (user-error "Typing drills need speed-type, which is not loaded"))
+    (advice-add 'speed-type-complete :after
+                #'my/manifolding-atlas-mastering--capture-drill-stats)
+    (advice-add 'speed-type-quit :after
+                #'my/manifolding-atlas-mastering--abandon-drill)
+    (setq my/manifolding-atlas-mastering--drill-advice-on t)))
+
+(defun my/manifolding-atlas-mastering--capture-drill-stats (&rest _)
+  "Stash the just-completed drill stats; record them when expected.
+Runs :after `speed-type-complete', in the drill buffer, so the
+buffer-local counters are directly readable. A completion with no
+pending drill (ordinary speed-type use) only stashes."
+  (let ((entries (bound-and-true-p speed-type--entries)))
+    (when (numberp entries)
+      (setq my/manifolding-atlas-mastering--last-drill-stats
+            (list :entries entries
+                  :errors (or (bound-and-true-p speed-type--errors) 0)
+                  :corrections (or (bound-and-true-p speed-type--corrections) 0)
+                  :seconds (let ((reg (bound-and-true-p speed-type--time-register)))
+                             (if (and reg (fboundp 'speed-type--elapsed-time))
+                                 (round (speed-type--elapsed-time reg))
+                               0))))
+      (when my/manifolding-atlas-mastering--pending-drill
+        (my/manifolding-atlas-mastering--record-drill
+         (car my/manifolding-atlas-mastering--pending-drill)
+         my/manifolding-atlas-mastering--last-drill-stats
+         (cdr my/manifolding-atlas-mastering--pending-drill))
+        (setq my/manifolding-atlas-mastering--pending-drill nil)))))
+
+(defun my/manifolding-atlas-mastering--abandon-drill (&rest _)
+  "Clear a pending drill without recording (quit = no trace)."
+  (setq my/manifolding-atlas-mastering--pending-drill nil))
+#+end_src
+
+**** Material assembly
+Drawers and wormhole pointers are untypable and stripped; everything
+else (prose, code fences, math) stays byte-verbatim. Multi-pick
+follows selection order — the drill measures what was practiced in
+the order practiced, not document order.
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-mastering--strip-untypables (text)
+  "Remove drawer blocks and wormhole lines from TEXT."
+  (with-temp-buffer
+    (insert text)
+    (goto-char (point-min))
+    (while (re-search-forward "^:[A-Z_]+:[ \t]*$" nil t)
+      (let ((beg (line-beginning-position)))
+        (if (re-search-forward "^:END:[ \t]*$" nil t)
+            (delete-region beg (min (point-max) (1+ (line-end-position))))
+          (goto-char (point-max)))))
+    (goto-char (point-min))
+    (while (re-search-forward "^#\\+wormhole:.*$" nil t)
+      (delete-region (line-beginning-position)
+                     (min (point-max) (1+ (line-end-position)))))
+    (buffer-string)))
+
+(defun my/manifolding-atlas-mastering--chunk-meta (text)
+  "Return (LANGS TEXT-P) for drill TEXT.
+LANGS lists src-block languages; TEXT-P is non-nil when prose
+survives outside code blocks."
+  (let (langs)
+    (with-temp-buffer
+      (insert text)
+      (goto-char (point-min))
+      (while (re-search-forward "^#\\+begin_src \\(\\S-+\\)" nil t)
+        (push (match-string-no-properties 1) langs))
+      (goto-char (point-min))
+      (while (re-search-forward "^#\\+\\(begin\\|end\\)_src.*$" nil t)
+        (delete-region (line-beginning-position)
+                       (min (point-max) (1+ (line-end-position)))))
+      (goto-char (point-min))
+      (list (delete-dups langs)
+            (re-search-forward "[^ \t\n]" nil t)))))
+
+(defun my/manifolding-atlas-mastering--scope-tag (metas nsrc)
+  "Scope tag for drill chunks METAS ((LANGS TEXT-P) list) from NSRC notes.
+Single note: prose, code:LANG, code:mixed, or code:LANGS+prose.
+Several notes: mixed:N-notes. The tag says what the number means."
+  (if (> nsrc 1)
+      (format "mixed:%d-notes" nsrc)
+    (let ((langs (delete-dups (mapcan #'car metas)))
+          (textp (cl-some #'cadr metas)))
+      (cond ((and langs textp)
+             (format "code:%s+prose"
+                     (if (= (length langs) 1) (car langs) "mixed")))
+            (langs
+             (if (= (length langs) 1)
+                 (format "code:%s" (car langs))
+               "code:mixed"))
+            (t "prose")))))
+
+(defun my/manifolding-atlas-mastering--subtree-body ()
+  "Stripped body text of the heading at point (whole subtree)."
+  (save-excursion
+    (org-back-to-heading t)
+    (forward-line 1)
+    (let ((beg (point))
+          (end (save-excursion (org-end-of-subtree t t))))
+      (my/manifolding-atlas-mastering--strip-untypables
+       (buffer-substring-no-properties beg end)))))
+
+(defun my/manifolding-atlas-mastering--collect-drill-headings ()
+  "Multi-pick drill headings via ks-goto-line; C-g finishes.
+Returns markers in selection order. Requires ks-goto-line."
+  (unless (fboundp 'ks-goto-line)
+    (user-error "Drill picking needs ks-goto-line, which is not loaded"))
+  (let (marks)
+    (message "Pick drill headings. C-g when done.")
+    (while (condition-case nil
+               (progn (ks-goto-line)
+                      (when (org-at-heading-p)
+                        (push (point-marker) marks))
+                      t)
+             (quit nil)))
+    (nreverse marks)))
+
+(defun my/manifolding-atlas-mastering--assemble-drill (scope)
+  "Assemble drill text per SCOPE (body/pick/file) in current buffer.
+Returns (TEXT NSRC METAS): the text, distinct-source count, and
+per-chunk metadata for the scope tag."
+  (pcase scope
+    ("body"
+     (let ((text (my/manifolding-atlas-mastering--subtree-body)))
+       (list text 1 (list (my/manifolding-atlas-mastering--chunk-meta text)))))
+    ("pick"
+     (let ((marks (my/manifolding-atlas-mastering--collect-drill-headings))
+           (texts nil)
+           (srcs nil))
+       (unless marks (user-error "Nothing picked"))
+       (dolist (m marks)
+         (with-current-buffer (marker-buffer m)
+           (save-excursion
+             (goto-char m)
+             (push (my/manifolding-atlas-mastering--subtree-body) texts)
+             (push (or (org-entry-get nil "ID")
+                       (buffer-file-name (marker-buffer m)))
+                   srcs)))
+         (set-marker m nil))
+       (let ((texts (nreverse texts)))
+         (list (mapconcat #'identity texts "\n\n")
+               (length (delete-dups srcs))
+               (mapcar #'my/manifolding-atlas-mastering--chunk-meta texts)))))
+    ("file"
+     (let ((text (my/manifolding-atlas-mastering--strip-untypables
+                  (buffer-substring-no-properties (point-min) (point-max)))))
+       (list text 1 (list (my/manifolding-atlas-mastering--chunk-meta text)))))
+    (_ (user-error "Unknown drill scope"))))
+#+end_src
+
+**** Drill launcher and record
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-mastering--format-typing-last (stats scope)
+  "Format drill STATS (:entries :errors :corrections :seconds) for the drawer."
+  (let* ((entries (or (plist-get stats :entries) 0))
+         (errors (or (plist-get stats :errors) 0))
+         (corrections (or (plist-get stats :corrections) 0))
+         (seconds (max 1 (or (plist-get stats :seconds) 0)))
+         (wpm (if (fboundp 'speed-type--net-wpm)
+                  (round (speed-type--net-wpm entries errors corrections seconds))
+                (round (/ (/ (float entries) 5) (/ seconds 60.0)))))
+         (acc (if (fboundp 'speed-type--accuracy)
+                  (round (speed-type--accuracy entries (- entries errors) corrections))
+                (round (* 100.0 (/ (float (max 0 (- entries errors))) (max 1 entries)))))))
+    (format "%s wpm:%d acc:%d%% secs:%d scope:%s"
+            (format-time-string "%Y-%m-%d") wpm acc seconds scope)))
+
+(defun my/manifolding-atlas-mastering--parse-typing-last (s)
+  "Parse a TYPING_LAST string into a plist, or nil."
+  (when (and (stringp s)
+             (string-match "^\\([0-9-]+?\\) wpm:\\([0-9]+\\) acc:\\([0-9]+\\)% secs:\\([0-9]+\\) scope:\\(\\S-+\\)$" s))
+    (list :date (match-string 1 s)
+          :wpm (string-to-number (match-string 2 s))
+          :acc (string-to-number (match-string 3 s))
+          :secs (string-to-number (match-string 4 s))
+          :scope (match-string 5 s))))
+
+(defun my/manifolding-atlas-mastering--record-drill (id stats scope)
+  "Write TYPING_LAST for ID from drill STATS. Last write wins by design:
+this property believes the last thing that happened — not the best,
+not the latest good. Warm-ups overwrite real attempts."
+  (let ((note (manifolding-atlas-db-get-by-id id)))
+    (unless note (user-error "Drill note gone"))
+    (let ((file (manifolding-atlas-note-path note)))
+      (unless file (user-error "Drill note has no file"))
+      (with-current-buffer (find-file-noselect file)
+        (save-excursion
+          (let ((level (manifolding-atlas-note-level note))
+                (pos (manifolding-atlas-note-pos note)))
+            (if (and level (> level 0) pos)
+                (progn (goto-char pos) (org-back-to-heading t))
+              (goto-char (point-min)))
+            (my/manifolding-atlas--drawer-put
+             "TYPING_LAST"
+             (my/manifolding-atlas-mastering--format-typing-last stats scope))
+            (save-buffer)
+            (message "Drill recorded on %s."
+                     (manifolding-atlas-note-title note))))))))
+
+(defun my/manifolding-atlas-mastering--type-drill-for (id)
+  "Launch a typing drill feeding ID's TYPING_LAST.
+Manual scope pick (note body, ks multi-pick, full file), then a
+speed-type session on the assembled text. Completion records the
+stats; quitting leaves no trace. Returns nil (never grades)."
+  (my/manifolding-atlas-mastering--ensure-drill-capture)
+  (let ((note (manifolding-atlas-db-get-by-id id)))
+    (unless note (user-error "No note for drill"))
+    (let ((file (manifolding-atlas-note-path note)))
+      (unless file (user-error "Drill note has no file"))
+      (with-current-buffer (find-file-noselect file)
+        (save-excursion
+          (let ((level (manifolding-atlas-note-level note))
+                (pos (manifolding-atlas-note-pos note)))
+            (if (and level (> level 0) pos)
+                (progn (goto-char pos) (org-back-to-heading t))
+              (goto-char (point-min)))
+            (let* ((scope (completing-read "Drill scope: "
+                                           '("body" "pick" "file")
+                                           nil t nil nil "body"))
+                   (assembled (my/manifolding-atlas-mastering--assemble-drill scope))
+                   (text (nth 0 assembled)))
+              (unless (string-match-p "[^ \t\n]" text)
+                (user-error "Nothing typable in scope %s" scope))
+              (let ((tag (my/manifolding-atlas-mastering--scope-tag
+                          (nth 2 assembled) (nth 1 assembled))))
+                (setq my/manifolding-atlas-mastering--pending-drill (cons id tag))
+                (let ((buf (get-buffer-create "*typing-drill*")))
+                  (with-current-buffer buf
+                    (erase-buffer)
+                    (insert text)
+                    (goto-char (point-min)))
+                  (pop-to-buffer-same-window buf)
+                  (speed-type-region (point-min) (point-max))
+                  (message "Drill scope %s — complete it; stats land on the note." tag)))))))))
+  nil)
+
+(defun my/manifolding-atlas-mastering-type-drill ()
+  "Drill the note at point outside any review session."
+  (interactive)
+  (let ((note (my/manifolding-atlas--buffer-note)))
+    (unless note (user-error "No note at point"))
+    (my/manifolding-atlas-mastering--type-drill-for
+     (manifolding-atlas-note-id note))))
+#+end_src
+
+**** Evidence bridge
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-mastering--evidence-prefill ()
+  "Prefill attest evidence from TYPING_LAST at point, or nil.
+Below-floor accuracy is flagged [low-acc N%] so a sloppy run never
+presents as a clean claim. Editable either way."
+  (when-let ((raw (my/manifolding-atlas--drawer-get "TYPING_LAST"))
+             (st (my/manifolding-atlas-mastering--parse-typing-last raw)))
+    (let ((acc (plist-get st :acc)))
+      (format "%styped %s at %dwpm/%d%% on %s"
+              (if (< acc my/manifolding-atlas-typing-accuracy-floor)
+                  (format "[low-acc %d%%] " acc)
+                "")
+              (plist-get st :scope)
+              (plist-get st :wpm)
+              acc
+              (plist-get st :date)))))
+#+end_src
+
+*** Commands
+Interactive entry points. Review sessions (due / overdue) grade with
+the algorithm; current-note commands enroll, attest, and flip status.
+There is deliberately no command that sets an arbitrary stage — above
+ACQUIRING, stages are claimed through attestation with evidence, and
+below that they move on their own.
+
+**** Session starters
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-mastering-review ()
+  "Start mastering review session for due notes, in map order.
+Foundations grade before dependents; unmapped notes sink to the end."
+  (interactive)
+  (let ((ids (my/manifolding-atlas-mastering--ordered-due-note-ids)))
+    (if (null ids)
+        (message "No due notes.")
+      (my/manifolding-atlas-mastering--review-session ids))))
+
+(defun my/manifolding-atlas-mastering-review-overdue ()
+  "Start mastering review session for overdue notes."
+  (interactive)
+  (let ((ids (my/manifolding-atlas-mastering--overdue-note-ids)))
+    (if (null ids)
+        (message "No overdue notes.")
+      (my/manifolding-atlas-mastering--review-session ids))))
+#+end_src
+
+**** Current-note commands
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-mastering-mark-review (arg)
+  "Mark current note reviewed; with prefix, mark as failed.
+Enrolls the note first when it has no schedule row (birth state
+AWARE+ACTIVE), so grading never meets an unenrolled card."
+  (interactive "P")
+  (let ((note (my/manifolding-atlas--buffer-note)))
+    (unless note (user-error "No note at point"))
+    (let ((id (manifolding-atlas-note-id note)))
+      (unless (car (emacsql (manifolding-atlas-db)
+                    [:select [note-id] :from mastering_schedule
+                     :where (= note-id $s1)] id))
+        (my/manifolding-atlas-mastering--init-schedule nil note))
+      (my/manifolding-atlas-mastering--update id (not arg)
+       (my/manifolding-atlas-mastering--review-algorithm id (not arg)))
+      (message "Note marked %s." (if arg "failed" "reviewed")))))
+
+(defun my/manifolding-atlas-mastering-toggle-participation ()
+  "Flip current note between ACTIVE and SUSPENDED.
+The schedule row and the stage survive both directions — this is a
+pause button, not an exit. Resuming restores exactly where the
+knowledge left off."
+  (interactive)
+  (let ((note (my/manifolding-atlas--buffer-note)))
+    (unless note (user-error "No note at point"))
+    (let* ((id (manifolding-atlas-note-id note))
+           (row (car (emacsql (manifolding-atlas-db)
+                      [:select [suspend] :from mastering_schedule
+                       :where (= note-id $s1)] id))))
+      (unless row
+        (my/manifolding-atlas-mastering--init-schedule nil note)
+        (setq row '(0)))
+      (my/manifolding-atlas-mastering--set-suspend id (zerop (car row))))))
+#+end_src

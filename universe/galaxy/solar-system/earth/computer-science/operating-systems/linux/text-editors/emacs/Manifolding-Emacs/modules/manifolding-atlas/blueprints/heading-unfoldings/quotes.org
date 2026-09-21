@@ -1,0 +1,9 @@
+#+title:      Quotes Prompt
+#+priority:   34
+
+* QUOTES :inline:file:heading:task:
+** TODO
+** WARNING
+** CURATED
+** RETAINED
+** REMOVED

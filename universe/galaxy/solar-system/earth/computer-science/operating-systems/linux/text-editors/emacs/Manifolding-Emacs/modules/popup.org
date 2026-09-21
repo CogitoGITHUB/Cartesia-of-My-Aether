@@ -1,0 +1,15 @@
+#+title:      popup
+#+identifier: 5c1e3f8b-4a2d-4b7e-de56-8f3a2c1e9b4d
+#+filetags:   :emacs-package:ui:
+
+* POPUP — Visual Popup UI Library for Emacs #emacs-package
+:PROPERTIES:
+:ID:       5c1e3f8b-4a2d-4b7e-de56-8f3a2c1e9b4d
+:PACKAGE:  popup
+:STRAIGHT: (popup :type git :host github :repo "auto-complete/popup-el")
+:CATEGORY: ui
+:END:
+
+** Guix
+#+begin_src scheme ~/.config/guix/Operating-System/user-space/root/editors/emacs-packages/ui/popup.scm
+#+end_src

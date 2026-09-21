@@ -1,0 +1,9 @@
+#+title:      Context Prompt
+#+priority:   25
+
+* CONTEXT :inline:file:heading:task:
+** TODO
+** WARNING
+** CAPTURED
+** REFRESHED
+** STALE

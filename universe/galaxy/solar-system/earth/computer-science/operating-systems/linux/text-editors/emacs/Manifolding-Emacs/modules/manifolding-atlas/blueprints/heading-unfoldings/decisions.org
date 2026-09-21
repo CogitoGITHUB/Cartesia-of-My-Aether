@@ -1,0 +1,9 @@
+#+title:      Decisions Prompt
+#+priority:   29
+
+* DECISIONS :inline:file:heading:task:
+** TODO
+** WARNING
+** RECORDED
+** RETAINED
+** OVERTURNED

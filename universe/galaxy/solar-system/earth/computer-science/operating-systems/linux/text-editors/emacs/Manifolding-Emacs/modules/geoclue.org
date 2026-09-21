@@ -1,0 +1,16 @@
+#+title:      geoclue
+#+identifier: b8d63b92-06b5-49ef-9c77-a3ce3639dd18
+#+filetags:   :emacs-package:location:
+
+* geoclue
+:PROPERTIES:
+:ID:       b8d63b92-06b5-49ef-9c77-a3ce3639dd18
+:PACKAGE:  geoclue
+:CATEGORY: location
+:STRAIGHT: (geoclue :type git :host codeberg :repo "emacs-weirdware/geoclue")
+:END:
+
+** Config :config:
+#+begin_src emacs-lisp
+
+#+end_src

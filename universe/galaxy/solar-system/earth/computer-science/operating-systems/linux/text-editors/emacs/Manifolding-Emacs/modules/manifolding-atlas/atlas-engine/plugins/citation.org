@@ -1,0 +1,103 @@
+#+title: Manifolding Atlas Citation Plugin
+#+priority: 15
+
+Extracts =[@citekey]= citations from notes into a dedicated SQLite table via
+the manifolding-atlas v2 plugin system.  After a full sync, citations are queryable
+across the entire vault without re-parsing any files.
+*** Schema Bootstrap
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-citations-ensure-table ()
+  "Create the citations table if it does not already exist."
+  (emacsql (manifolding-atlas-db)
+           [:create :table :if :not :exists citations
+            ([(note-id :not-null)
+              (citekey  :not-null)]
+             (:primary-key [note-id citekey])
+             (:foreign-key [note-id] :references notes [id]
+              :on-delete :cascade))]))
+(with-eval-after-load 'manifolding-atlas
+  (add-hook 'manifolding-atlas-db-autosync-mode-hook
+            #'my/manifolding-atlas-citations-ensure-table))
+#+end_src
+*** Extractor
+
+**** Citation scanning
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas--scan-citekeys (ast)
+  "Return unique [@citekey] citations found in AST paragraphs."
+  (let ((found nil))
+    (org-element-map ast 'paragraph
+      (lambda (para)
+        (let ((text  (org-element-interpret-data para))
+              (start 0))
+          (while (string-match "\\[@\\([^]]+\\)\\]" text start)
+            (push (match-string 1 text) found)
+            (setq start (match-end 0))))))
+    (when found
+      (delete-dups (nreverse found)))))
+#+end_src
+
+**** Extractor command
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-extract-citations (ctx note-data)
+  "Extract [@citekey] citations from org paragraphs in CTX.
+Inserts unique citekeys into the citations table and sets
+:citations on NOTE-DATA for downstream extractors."
+  (let* ((ast     (manifolding-atlas-parse-ctx-ast ctx))
+         (note-id (plist-get note-data :id))
+         (unique  (my/manifolding-atlas--scan-citekeys ast)))
+    (when unique
+      (emacsql (manifolding-atlas-db)
+               [:delete :from citations :where (= note-id $s1)]
+               note-id)
+      (emacsql (manifolding-atlas-db)
+               [:insert :into citations :values $v1]
+               (mapcar (lambda (k) (vector note-id k)) unique))
+      (plist-put note-data :citations unique))
+    note-data))
+#+end_src
+*** Registration
+#+begin_src emacs-lisp
+(with-eval-after-load 'manifolding-atlas
+  (my/manifolding-atlas-citations-ensure-table)
+  (manifolding-atlas-db-register-extractor
+   (make-manifolding-atlas-extractor
+    :name       'citations
+    :version    2
+    :priority   50
+    :extract-fn #'my/manifolding-atlas-extract-citations)))
+#+end_src
+*** Query Helpers
+
+**** Per-note and reverse lookups
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-citations-for-note (note-id)
+  "Return list of citekeys cited by NOTE-ID."
+  (mapcar #'car
+          (emacsql (manifolding-atlas-db)
+                   [:select [citekey] :from citations
+                    :where (= note-id $s1)]
+                   note-id)))
+
+(defun my/manifolding-atlas-notes-citing (citekey)
+  "Return list of (id title) for notes that cite CITEKEY."
+  (emacsql (manifolding-atlas-db)
+           [:select [notes:id notes:title]
+            :from notes
+            :inner :join citations
+            :on   (= notes:id citations:note-id)
+            :where (= citations:citekey $s1)]
+           citekey))
+#+end_src
+
+**** Frequency counts
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-citation-counts ()
+  "Return alist of (citekey . count) sorted by frequency descending."
+  (mapcar (lambda (row) (cons (car row) (cadr row)))
+          (emacsql (manifolding-atlas-db)
+                   [:select [citekey (funcall count note-id)]
+                    :from citations
+                    :group :by citekey
+                     :order :by [(desc (funcall count note-id))]])))
+#+end_src

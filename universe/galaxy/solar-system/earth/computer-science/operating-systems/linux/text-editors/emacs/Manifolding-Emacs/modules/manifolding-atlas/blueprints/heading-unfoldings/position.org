@@ -1,0 +1,24 @@
+#+title:      Insert Position Prompt
+#+priority:   1
+
+* Insert Position (headings only)
+Why: Control where the new heading goes among its siblings. Last is the
+(default) — append at the end. First puts it right under the parent heading.
+
+** Default (last or first)
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-prompt-position ()
+  "Prompt for heading insert position.  Returns nil (first) or 'last."
+  (let ((p (completing-read "Insert position (last/first): "
+                            '("last" "first") nil t "last")))
+    (if (string= p "first") nil 'last)))
+#+end_src
+
+** Registration
+#+begin_src emacs-lisp
+(my/manifolding-atlas-register-prompt
+  :name 'position
+  :prompt-fn #'my/manifolding-atlas-prompt-position
+  :contexts '(heading)
+  :to-plist (lambda (val _ctx) `(:after ,val)))
+#+end_src

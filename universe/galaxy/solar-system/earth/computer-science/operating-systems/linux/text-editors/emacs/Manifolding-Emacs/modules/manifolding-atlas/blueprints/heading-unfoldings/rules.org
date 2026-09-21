@@ -1,0 +1,10 @@
+#+title:      Rules Prompt
+#+priority:   23
+
+* RULES :inline:file:heading:task:
+** TODO
+** WARNING
+** DRAFT
+** RATIFIED
+** AMENDED
+** REVOKED

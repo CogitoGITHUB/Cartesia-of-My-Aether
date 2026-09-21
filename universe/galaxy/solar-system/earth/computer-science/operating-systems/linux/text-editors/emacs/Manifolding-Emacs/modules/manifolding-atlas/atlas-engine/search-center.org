@@ -1,0 +1,824 @@
+#+title: Atlas Search Center
+#+priority: 16
+
+Universal retrieval surface for the Atlas — infrastructure, not a
+command collection. Providers (text, structure, database, todo,
+browse) feed one candidate contract into one consult--multi
+session with progressive preview and uniform Embark actions.
+
+The locked invariants, enforced in code below rather than docs:
+
+- Search: every provider returns Atlas-compatible candidates
+  (shape-asserted at registry build).
+- Preview: every candidate gets the richest source-native preview
+  its provider can reveal; the Center owns how much displays.
+- Annotation: stage/status/path/due exposed where available, nil
+  elsewhere — never fabricated.
+- Action: uniform Embark verbs regardless of finder.
+- Navigation: results open/inspect/traverse/feed subsystems by id —
+  identity survives the whole pipeline.
+- Extensibility: a new subsystem registers a provider; the Center
+  never gets rewritten per subsystem.
+
+* Candidate contract and registry
+
+An Atlas Search Candidate is a plist. :id is the preferred
+invariant — title, annotations, preview, even source may change
+around it, but the id that visit/traverse/review/link consume is
+stable from find to action. Matches without Atlas identity carry a
+:marker fallback instead; annotations may be nil but are never
+fabricated. Providers declare name, narrow key, items source (sync
+list or async pipeline), and which preview levels they can reveal;
+the Center renders.
+
+#+begin_src emacs-lisp
+(require 'cl-lib)
+(require 'seq)
+
+(defconst my/atlas-search--required-keys
+  '(:id :title :path :source)
+  "Keys every candidate must carry. The rest may be nil, never faked.")
+
+(defun my/atlas-search--candidate-valid-p (cand)
+  "Non-nil when CAND satisfies the contract.
+The four keys must be present; navigation must be possible via :id
+(preferred — identity survives the whole pipeline) or :marker
+(fallback for matches without Atlas identity, e.g. untagged
+headings). Annotations may be nil; they are never fabricated."
+  (and (listp cand)
+       (cl-every (lambda (k) (plist-member cand k))
+                 my/atlas-search--required-keys)
+       (or (plist-get cand :id) (plist-get cand :marker))))
+
+(defun my/atlas-search--assert-candidates (name cands)
+  "Signal when any of CANDS from provider NAME breaks the contract.
+Runs at surface build so a bad provider fails loudly, not silently."
+  (dolist (c cands)
+    (unless (my/atlas-search--candidate-valid-p c)
+      (error "Search provider %s returned invalid candidate: %S" name c)))
+  cands)
+
+(defvar my/atlas-search--providers nil
+  "Registered search providers: list of (NAME . PLIST).
+PLIST keys: :narrow (char), :doc, :items (fn of filter-plist -> candidates),
+:levels (max preview level), :category (default atlas-candidate).")
+
+(defun my/atlas-search-register-provider (name &rest plist)
+  "Register search provider NAME with PLIST. Replaces any prior entry.
+A new Atlas subsystem joins search by calling only this.
+NAME is a string; comparison is `equal' (assq would never match
+strings and would silently accumulate duplicates on re-register)."
+  (setq my/atlas-search--providers
+        (cons (cons name plist)
+              (cl-remove name my/atlas-search--providers
+                         :key #'car :test #'equal)))
+  name)
+
+(defun my/atlas-search--make-candidate (&rest plist)
+  "Build a candidate plist. Missing annotation keys default to nil."
+  (let ((cand (list :id nil :title nil :path nil :source nil
+                    :stage nil :status nil :tags nil :due nil
+                    :marker nil :excerpt nil :note nil)))
+    (cl-loop for (k v) on plist by #'cddr
+             do (setq cand (plist-put cand k v)))
+    cand))
+#+end_src
+
+* Candidate builders
+Notes already carry everything the contract needs; these lift them
+(and org-ql elements, and grep hits) into candidates. The note-id
+lookup cache keeps per-session annotation cheap: one DB hit per
+file, not per candidate redraw.
+
+#+begin_src emacs-lisp
+(defvar-local my/atlas-search--file-id-cache nil
+  "Session cache: file path -> note id, for annotate enrichment.")
+
+(defun my/atlas-search--note-id-for-file (file)
+  "Note id for FILE, cached per search session."
+  (unless my/atlas-search--file-id-cache
+    (setq my/atlas-search--file-id-cache (make-hash-table :test 'equal)))
+  (or (gethash file my/atlas-search--file-id-cache)
+      (let ((id (ignore-errors
+                  (manifolding-atlas-note-id
+                   (car (manifolding-atlas-db-query-by-file-path file))))))
+        (when id (puthash file id my/atlas-search--file-id-cache))
+        id)))
+
+(defun my/atlas-search--schedule-for (id)
+  "Schedule row plist for ID, or nil. Single indexed lookup."
+  (when id
+    (let ((row (car (ignore-errors
+                       (emacsql (manifolding-atlas-db)
+                         [:select [stage status next-rev] :from mastering_schedule
+                          :where (= note-id $s1)]
+                         id)))))
+      (when row
+        (list :stage (nth 0 row) :status (nth 1 row) :due (nth 2 row))))))
+
+(defun my/atlas-search-candidate-from-note (note source)
+  "Lift manifolding-atlas NOTE object into a candidate from SOURCE."
+  (let* ((id (manifolding-atlas-note-id note))
+         (sched (my/atlas-search--schedule-for id))
+         (tags (ignore-errors (manifolding-atlas-note-tags note))))
+    (my/atlas-search--make-candidate
+     :id id
+     :title (or (manifolding-atlas-note-title note) id)
+     :path (manifolding-atlas-note-path note)
+     :source source
+     :stage (plist-get sched :stage)
+     :status (plist-get sched :status)
+     :tags tags
+     :due (plist-get sched :due)
+     :note note)))
+
+(defun my/atlas-search--display-string (cand)
+  "L0: display string for CAND, carrying the plist as text property.
+The plist rides passenger — consult passes the string to annotate,
+action, and state untouched."
+  (propertize (or (plist-get cand :title) (plist-get cand :id) "?")
+              'atlas-candidate cand))
+
+(defun my/atlas-search--candidate-of (str)
+  "Recover the plist from display string STR, or nil."
+  (and (stringp str) (get-text-property 0 'atlas-candidate str)))
+#+end_src
+
+* Preview levels
+Progressive reveal, L0 (the line) through L4 (domain context); L5
+is full inspection via Embark visit. The provider reveals what its
+source natively holds; this renderer decides layout. Structural
+(L3) and domain (L4) sections degrade to silence when their data is
+absent — unavailable reads as empty, never as invented.
+
+#+begin_src emacs-lisp
+(defun my/atlas-search--excerpt-around (marker &optional lines)
+  "Up to LINES lines of buffer text around MARKER, or nil."
+  (when (and marker (markerp marker) (marker-buffer marker))
+    (with-current-buffer (marker-buffer marker)
+      (save-excursion
+        (goto-char marker)
+        (let ((a (save-excursion (forward-line (- (or lines 3))) (point)))
+              (b (save-excursion (forward-line (or lines 4)) (point))))
+          (string-trim (buffer-substring-no-properties a (min b (point-max)))))))))
+
+(defun my/atlas-search--note-excerpt (note)
+  "First content lines of NOTE's location for L2, or nil."
+  (let ((file (and note (manifolding-atlas-note-path note))))
+    (when (and file (file-exists-p file))
+      (with-temp-buffer
+        (insert-file-contents file nil 0 2000)
+        (goto-char (point-min))
+        (let (out)
+          (dotimes (_ 4)
+            (unless (eobp)
+              (push (string-trim
+                     (buffer-substring-no-properties
+                      (line-beginning-position) (line-end-position))) out)
+              (forward-line 1)))
+          (setq out (seq-remove #'string-empty-p (nreverse out)))
+          (when out (string-join out "\n")))))))
+
+(defun my/atlas-search--render-preview (cand)
+  "Render CAND Levels 1-4 into *Atlas Preview*, returned for display."
+  (let ((buf (get-buffer-create "*Atlas Preview*")))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert (format "%s\n%s\n\n"
+                        (or (plist-get cand :title) "?")
+                        (or (plist-get cand :path) "")))
+        ;; L1 metadata — only what exists.
+        (let ((bits (delq nil
+                          (list (and (plist-get cand :stage)
+                                     (format "Stage: %s" (plist-get cand :stage)))
+                                (and (plist-get cand :status)
+                                     (format "Status: %s" (plist-get cand :status)))
+                                (and (plist-get cand :tags)
+                                     (format "Tags: %s"
+                                             (string-join (plist-get cand :tags) ", ")))
+                                (and (plist-get cand :due)
+                                     (format "Next: %s" (plist-get cand :due)))))))
+          (when bits (insert (string-join bits "   ") "\n\n")))
+        ;; L2 content.
+        (let ((ex (or (plist-get cand :excerpt)
+                      (my/atlas-search--excerpt-around (plist-get cand :marker))
+                      (my/atlas-search--note-excerpt (plist-get cand :note)))))
+          (when ex (insert ex "\n\n")))
+        ;; L3 structure — parent/children/link counts, each guarded.
+        (let ((struct (delq nil
+                            (list
+                             (let ((p (ignore-errors
+                                        (and (fboundp 'mm/parent-of)
+                                             (mm/parent-of (plist-get cand :id))))))
+                               (and p (format "Parent: %s" p)))
+                             (let ((kids (ignore-errors
+                                           (and (fboundp 'mm/children-of)
+                                                (mm/children-of (plist-get cand :id))))))
+                               (and kids (format "Children: %d" (length kids))))
+                             (let ((links (ignore-errors
+                                            (manifolding-atlas-db-query-links-from
+                                             (plist-get cand :id)))))
+                               (and links (format "Links: %d" (length links))))))))
+          (when struct
+            (insert "── Structure ──\n" (string-join struct "\n") "\n\n")))
+        ;; L4 mastering row.
+        (let ((sched (my/atlas-search--schedule-for (plist-get cand :id))))
+          (when sched
+            (insert (format "── Mastering ──\nNext review: %s\n"
+                            (or (plist-get sched :due) "—")))))
+        (goto-char (point-min))
+        (setq buffer-read-only t)))
+    buf))
+
+(defun my/atlas-search--preview-state ()
+  "Consult :state showing the Atlas preview buffer on selection move."
+  (lambda (action cand)
+    (pcase action
+      ('preview
+       (let ((c (my/atlas-search--candidate-of cand)))
+         (when c
+           (display-buffer (my/atlas-search--render-preview c)
+                           '((display-buffer-reuse-window
+                              display-buffer-in-side-window)
+                             (side . right) (window-width . 0.45))))))
+      ('return nil)
+      (_ nil))))
+#+end_src
+
+* Annotations and Embark
+One annotation shape and one verb set for every provider. Embark
+discovers candidates by the =atlas-candidate= completion category,
+so any minibuffer surface carrying our strings gets Atlas actions
+for free — including surfaces built after this file.
+
+#+begin_src emacs-lisp
+(defun my/atlas-search--annotate (cand)
+  "L1 annotation string for display CAND, or nil."
+  (let ((c (my/atlas-search--candidate-of cand)))
+    (when c
+      (let ((bits (delq nil
+                        (list (plist-get c :stage)
+                              (and (plist-get c :status)
+                                   (not (string-equal (plist-get c :status) "ACTIVE"))
+                                   (plist-get c :status))
+                              (plist-get c :source)))))
+        (when bits
+          (concat "  [" (string-join bits " · ") "]"))))))
+
+(defvar embark-atlas-candidate-map
+  (let ((m (make-sparse-keymap)))
+    (define-key m (kbd "o") #'my/atlas-search-act-visit)
+    (define-key m (kbd "i") #'my/atlas-search-act-insert-link)
+    (define-key m (kbd "b") #'my/atlas-search-act-branch-review)
+    (define-key m (kbd "m") #'my/atlas-search-act-mark-reviewed)
+    (define-key m (kbd "a") #'my/atlas-search-act-attest)
+    (define-key m (kbd "w") #'my/atlas-search-act-copy-id)
+    m)
+  "Embark verbs for Atlas candidates: open, link, branch, grade, attest, copy.")
+
+(with-eval-after-load 'embark
+  (add-to-list 'embark-keymap-alist '(atlas-candidate . embark-atlas-candidate-map)))
+
+(defun my/atlas-search--embark-target ()
+  "Atlas candidate at Embark's target, or user-error."
+  (or (my/atlas-search--candidate-of (embark-target))
+      (user-error "No Atlas candidate at point")))
+
+(defun my/atlas-search-act-visit ()
+  "Visit the candidate note."
+  (interactive)
+  (let ((c (my/atlas-search--embark-target)))
+    (manifolding-atlas-visit (manifolding-atlas-db-get-by-id (plist-get c :id)))))
+
+(defun my/atlas-search-act-insert-link ()
+  "Insert an org link to the candidate at origin."
+  (interactive)
+  (let ((c (my/atlas-search--embark-target)))
+    (insert (format "[[id:%s][%s]]" (plist-get c :id) (plist-get c :title)))))
+
+(defun my/atlas-search-act-branch-review ()
+  "Review the candidate's map branch (MAP→MASTERING transition)."
+  (interactive)
+  (let ((c (my/atlas-search--embark-target)))
+    (manifolding-atlas-visit (manifolding-atlas-db-get-by-id (plist-get c :id)))
+    (call-interactively #'my/manifolding-atlas-mastering-review-subtree)))
+
+(defun my/atlas-search-act-mark-reviewed ()
+  "Grade the candidate reviewed without opening it."
+  (interactive)
+  (let* ((c (my/atlas-search--embark-target))
+         (id (plist-get c :id)))
+    (my/manifolding-atlas-mastering--apply-grade
+     id t)))
+
+(defun my/atlas-search-act-attest ()
+  "Attest the candidate from the minibuffer."
+  (interactive)
+  (let ((c (my/atlas-search--embark-target)))
+    (manifolding-atlas-visit (manifolding-atlas-db-get-by-id (plist-get c :id)))
+    (call-interactively #'my/manifolding-atlas-mastering-attest)))
+
+(defun my/atlas-search-act-copy-id ()
+  "Copy the candidate id."
+  (interactive)
+  (kill-new (plist-get (my/atlas-search--embark-target) :id))
+  (message "Copied id."))
+#+end_src
+
+* Providers
+Built-ins below; each registers through the public API like any
+future subsystem would. Sync providers (db, org-ql, files) feed the
+unified surface directly. Async text gets one native rg source with
+consult's own preview — file-match preview is what that source can
+reveal, and stage context rides along in annotations.
+
+** Shared consult glue
+#+begin_src emacs-lisp
+(defun my/atlas-search--visit-candidate (cand)
+  "Visit display CAND: note id when known, marker jump otherwise."
+  (let ((c (my/atlas-search--candidate-of cand)))
+    (cond ((and c (plist-get c :id))
+           (manifolding-atlas-visit
+            (manifolding-atlas-db-get-by-id (plist-get c :id))))
+          ((and c (plist-get c :marker)
+                (markerp (plist-get c :marker))
+                (marker-buffer (plist-get c :marker)))
+           (switch-to-buffer (marker-buffer (plist-get c :marker)))
+           (goto-char (plist-get c :marker)))
+          (t (user-error "Cannot visit candidate")))))
+
+(defun my/atlas-search--default-action (cand)
+  "Default action for unified-surface candidates."
+  (my/atlas-search--visit-candidate cand))
+
+(defun my/atlas-search--sync-source (name narrow items-fn)
+  "Build a consult--multi source plist for sync provider ITEMS-FN.
+ITEMS-FN takes a filter plist (phase-2 composition seam; ignored by
+most providers today) and returns display strings."
+  (list :name name :narrow (cons narrow name)
+        :category 'atlas-candidate
+        :items (lambda () (funcall items-fn nil))
+        :annotate #'my/atlas-search--annotate
+        :action #'my/atlas-search--default-action
+        :state (my/atlas-search--preview-state)))
+
+(defun my/atlas-search--note-items (notes source)
+  "Display strings for NOTE objects as SOURCE candidates."
+  (let ((cands (mapcar (lambda (n) (my/atlas-search-candidate-from-note n source))
+                       notes)))
+    (my/atlas-search--assert-candidates source cands)
+    (mapcar #'my/atlas-search--display-string cands)))
+#+end_src
+
+** Text provider (async rg, vault-fixed)
+#+begin_src emacs-lisp
+(defun my/atlas-search--rg-builder ()
+  "Ripgrep builder fixed to the vault with Atlas-tuned flags.
+Extensionless note files cost nothing here: rg filters by content,
+never by extension. Skips .git and cache noise."
+  (let ((paths (list (my/manifolding-atlas-root-dir))))
+    (lambda (input)
+      (let ((consult-ripgrep-args
+             (concat consult-ripgrep-args
+                     " --hidden -g !.git/ -g !admin/.cache/")))
+        (funcall (consult--ripgrep-make-builder paths) input)))))
+
+(defun my/atlas-search--rg-annotate (cand)
+  "Annotate rg hit CAND with its note stage when resolvable, else nil.
+Unresolvable hits (non-note files) show no annotation — never a guess."
+  (ignore-errors
+    (when (string-match "\\`\\(.*?\\):[0-9]+:" cand)
+      (let* ((file (expand-file-name
+                    (match-string 1 cand)
+                    (my/manifolding-atlas-root-dir)))
+             (id (my/atlas-search--note-id-for-file file)))
+        (when id
+          (let ((sched (my/atlas-search--schedule-for id)))
+            (when (plist-get sched :stage)
+              (format "  [%s]" (plist-get sched :stage)))))))))
+
+(my/atlas-search-register-provider
+ "Text"
+ :narrow ?x :levels 2
+ :doc "Vault ripgrep: native async preview, stage annotations where resolvable.")
+
+(defun my/atlas-search--text-source ()
+  "Consult source plist for vault ripgrep."
+  (let ((builder (my/atlas-search--rg-builder)))
+    (list :name "Text" :narrow (?x . "Text") :category 'consult-grep
+          :async (consult--process-collection
+                  (lambda (input) (funcall builder input))
+                  :transform (consult--grep-format builder)
+                  :file-handler t)
+          :lookup #'consult--lookup-member
+          :annotate #'my/atlas-search--rg-annotate
+          :state (consult--grep-state)
+          :group #'consult--prefix-group)))
+#+end_src
+
+** Database providers (sync, parameterless in-surface)
+#+begin_src emacs-lisp
+(defun my/atlas-search--db-items (kind)
+  "Display strings for database set KIND (due/overdue/unseen/isolated)."
+  (let ((ids (pcase kind
+               ('due (my/manifolding-atlas-mastering--due-note-ids))
+               ('overdue (my/manifolding-atlas-mastering--overdue-note-ids))
+               ('unseen (my/manifolding-atlas-mastering--unseen-note-ids))
+               ('isolated (manifolding-atlas-db-isolated))
+               (_ nil))))
+    (my/atlas-search--note-items
+     (delq nil (mapcar (lambda (id)
+                         (ignore-errors (manifolding-atlas-db-get-by-id id)))
+                       ids))
+     (symbol-name kind))))
+
+(my/atlas-search-register-provider "Due" :narrow ?d :levels 4 :doc "Review-due cards.")
+(my/atlas-search-register-provider "Overdue" :narrow ?o :levels 4 :doc "Overdue cards.")
+(my/atlas-search-register-provider "Unseen" :narrow ?u :levels 3 :doc "Mapped, never encountered.")
+(my/atlas-search-register-provider "Isolated" :narrow ?i :levels 3 :doc "No links either direction.")
+
+(defun my/atlas-search--db-sources ()
+  "Consult sources for the parameterless db providers."
+  (list (my/atlas-search--sync-source
+         "Due" ?d (lambda (_) (my/atlas-search--db-items 'due)))
+        (my/atlas-search--sync-source
+         "Overdue" ?o (lambda (_) (my/atlas-search--db-items 'overdue)))
+        (my/atlas-search--sync-source
+         "Unseen" ?u (lambda (_) (my/atlas-search--db-items 'unseen)))
+        (my/atlas-search--sync-source
+         "Isolated" ?i (lambda (_) (my/atlas-search--db-items 'isolated)))))
+#+end_src
+
+** Org-ql providers (sync presets + parameterized launchers)
+#+begin_src emacs-lisp
+(defun my/atlas-search--org-ql-items (where source)
+  "Display strings for org-ql WHERE over vault agenda files as SOURCE."
+  (let ((els (ignore-errors
+               (org-ql-query :select '(list (point-marker)
+                                            (org-get-heading t t t t)
+                                            (buffer-file-name))
+                             :from (org-agenda-files)
+                             :where where))))
+    (let ((cands
+           (delq nil
+                 (mapcar (lambda (el)
+                           (let* ((marker (nth 0 el))
+                                  (title (nth 1 el))
+                                  (file (nth 2 el))
+                                  (id (when (and marker (markerp marker)
+                                                 (marker-buffer marker))
+                                        (with-current-buffer (marker-buffer marker)
+                                          (save-excursion
+                                            (goto-char marker)
+                                            (org-entry-get nil "ID"))))))
+                             (my/atlas-search--make-candidate
+                              :id id :title title :path file :source source
+                              :marker marker)))
+                         (or els nil)))))
+      (my/atlas-search--assert-candidates source cands)
+      (mapcar #'my/atlas-search--display-string cands))))
+
+(defconst my/atlas-search--org-ql-presets
+  '(("Agenda" ?a (todo))
+    ("Priorities" ?p (or (priority "A") (priority "B")))
+    ("Scheduled" ?s (scheduled :to 7))
+    ("Deadlines" ?e (deadline :to 14))
+    ("Stuck" ?k (and (todo) (deadline :to 0)))
+    ("Habits" ?h (habit))
+    ("Effort" ?f (effort >= "0:30")))
+  "Parameterless presets: (SOURCE NARROW WHERE). Parameterized
+queries (by-tag, custom) are hydra launchers, not sources.")
+
+(my/atlas-search-register-provider "Org-ql" :narrow ?q :levels 4
+  :doc "Structured presets over vault agenda files.")
+
+(defun my/atlas-search--org-ql-sources ()
+  "One consult source per preset."
+  (mapcar (lambda (preset)
+            (let ((name (nth 0 preset))
+                  (narrow (nth 1 preset))
+                  (where (nth 2 preset)))
+              (my/atlas-search--sync-source
+               (concat "QL:" name) narrow
+               (lambda (_) (my/atlas-search--org-ql-items where name)))))
+          my/atlas-search--org-ql-presets))
+#+end_src
+
+** Files provider (registered through the public API)
+#+begin_src emacs-lisp
+(defun my/atlas-search--vault-files ()
+  "Vault note files, skipping .git/admin/cache noise."
+  (let ((root (my/manifolding-atlas-root-dir)))
+    (seq-filter
+     (lambda (f)
+       (and (file-regular-p f)
+            (not (string-match-p "/\\.git/" f))
+            (not (string-match-p "/admin/\\.cache/" f))))
+     (directory-files-recursively root ".*" nil))))
+
+(defun my/atlas-search--file-preview-state ()
+  "Preview state showing the head of the candidate file."
+  (lambda (action cand)
+    (pcase action
+      ('preview
+       (let ((c (my/atlas-search--candidate-of cand)))
+         (when (and c (plist-get c :path)
+                    (file-exists-p (plist-get c :path)))
+           (let ((buf (get-buffer-create "*Atlas Preview*")))
+             (with-current-buffer buf
+               (let ((inhibit-read-only t))
+                 (erase-buffer)
+                 (insert-file-contents (plist-get c :path) nil 0 2000)
+                 (goto-char (point-min))
+                 (setq buffer-read-only t)))
+             (display-buffer buf '((display-buffer-reuse-window
+                                    display-buffer-in-side-window)
+                                   (side . right) (window-width . 0.45)))))))
+      (_ nil))))
+
+(my/atlas-search-register-provider
+ "Files" :narrow ?n :levels 2
+ :doc "Vault files by name. Proves third-party registration: this provider joins through register-provider like any future subsystem.")
+
+(defun my/atlas-search--files-source ()
+  "Consult source for vault files."
+  (list :name "Files" :narrow (?n . "Files") :category 'atlas-candidate
+        :items (lambda ()
+                 (mapcar (lambda (f)
+                           (my/atlas-search--display-string
+                            (my/atlas-search--make-candidate
+                             :id (my/atlas-search--note-id-for-file f)
+                             :title (file-name-nondirectory f)
+                             :path f :source "files")))
+                         (my/atlas-search--vault-files)))
+        :annotate #'my/atlas-search--annotate
+        :action #'my/atlas-search--default-action
+        :state (my/atlas-search--file-preview-state)))
+#+end_src
+
+* Unified surface
+One session over every registered provider. Narrow keys isolate a
+provider; groups label sources; Embark works on all Atlas-category
+candidates. Parameterized queries (by-tag, custom org-ql, by-links,
+component, path) are hydra launchers below — they open focused
+pickers through the same contract rather than forcing premature
+input inside the shared session.
+#+begin_src emacs-lisp
+(defun my/atlas-search--session-sources ()
+  "Assemble consult--multi sources: text + db + org-ql + files."
+  (append (list (my/atlas-search--text-source))
+          (my/atlas-search--db-sources)
+          (my/atlas-search--org-ql-sources)
+          (list (my/atlas-search--files-source))))
+
+(defun my/atlas-search (&optional initial-narrow)
+  "Atlas Search Center: one surface, every provider, live preview.
+Narrow to a single provider inside, or launch pre-scoped from the
+hydra. Unknown-item test lives here: browse L2-L4 previews without
+knowing titles, paths, or owning subsystems."
+  (interactive)
+  (let ((my/atlas-search--file-id-cache nil))
+    (consult--multi (my/atlas-search--session-sources)
+                    :require-match t
+                    :initial-narrow initial-narrow)))
+#+end_src
+
+* Parameterized launchers
+Queries that need input open focused pickers through the same
+contract (same candidates, same preview state, same Embark
+category) rather than forcing premature answers inside the shared
+session. Nothing here duplicates an engine — each head is a thin
+prompt over an existing query.
+
+#+begin_src emacs-lisp
+(defun my/atlas-search--pick-notes (prompt notes source)
+  "Pick from NOTE objects with PROMPT under SOURCE contract."
+  (let ((items (my/atlas-search--note-items notes source)))
+    (when items
+      (let ((sel (consult--read items :prompt prompt :require-match t
+                                :category 'atlas-candidate
+                                :annotate #'my/atlas-search--annotate
+                                :state (my/atlas-search--preview-state))))
+        (when sel (my/atlas-search--visit-candidate sel))))))
+
+(defun my/atlas-search-by-tag ()
+  "Notes carrying a chosen tag."
+  (interactive)
+  (let* ((tag (completing-read
+               "Tag: " (ignore-errors (manifolding-atlas-db-query-tags)) nil t))
+         (notes (manifolding-atlas-db-query-by-tags-some (list tag))))
+    (my/atlas-search--pick-notes (format "Tag %s: " tag) notes "tag")))
+
+(defun my/atlas-search-by-stage ()
+  "Notes at a chosen spine stage."
+  (interactive)
+  (let* ((stage (completing-read
+                 "Stage: " my/manifolding-atlas-mastering--stages nil t))
+         (notes (seq-filter
+                 (lambda (n)
+                   (string-equal stage
+                                 (or (cdr (assoc "STAGE" (manifolding-atlas-note-unfoldings n))) "")))
+                 (manifolding-atlas-db-query))))
+    (my/atlas-search--pick-notes (format "Stage %s: " stage) notes "stage")))
+
+(defun my/atlas-search-by-status ()
+  "Notes in a chosen workflow status."
+  (interactive)
+  (let* ((status (completing-read
+                  "Status: " my/manifolding-atlas-mastering--statuses nil t))
+         (notes (seq-filter
+                 (lambda (n)
+                   (string-equal status
+                                 (or (cdr (assoc "STATUS" (manifolding-atlas-note-unfoldings n)))
+                                     "ACTIVE")))
+                 (manifolding-atlas-db-query))))
+    (my/atlas-search--pick-notes (format "Status %s: " status) notes "status")))
+
+(defun my/atlas-search-backlinks ()
+  "Notes linking to the note at point."
+  (interactive)
+  (let* ((note (my/manifolding-atlas--buffer-note)))
+    (unless note (user-error "No note at point"))
+    (let ((ids (mapcar (lambda (l) (plist-get l :source))
+                       (manifolding-atlas-db-query-links-to
+                        (manifolding-atlas-note-id note)))))
+      (my/atlas-search--pick-notes
+       "Backlinks: "
+       (delq nil (mapcar (lambda (id)
+                           (ignore-errors (manifolding-atlas-db-get-by-id id)))
+                         ids))
+       "backlinks"))))
+
+(defun my/atlas-search-forward-links ()
+  "Notes the note at point links to."
+  (interactive)
+  (let* ((note (my/manifolding-atlas--buffer-note)))
+    (unless note (user-error "No note at point"))
+    (let ((ids (mapcar (lambda (l) (plist-get l :dest))
+                       (manifolding-atlas-db-query-links-from
+                        (manifolding-atlas-note-id note)))))
+      (my/atlas-search--pick-notes
+       "Forward links: "
+       (delq nil (mapcar (lambda (id)
+                           (ignore-errors (manifolding-atlas-db-get-by-id id)))
+                         ids))
+       "links"))))
+
+(defun my/atlas-search-component ()
+  "Connected component of the note at point (graph neighborhood)."
+  (interactive)
+  (let* ((note (my/manifolding-atlas--buffer-note)))
+    (unless note (user-error "No note at point"))
+    (let ((ids (manifolding-atlas-db-component
+                (manifolding-atlas-note-id note))))
+      (my/atlas-search--pick-notes
+       "Component: "
+       (delq nil (mapcar (lambda (id)
+                           (ignore-errors (manifolding-atlas-db-get-by-id id)))
+                         ids))
+       "component"))))
+
+(defun my/atlas-search-path ()
+  "Shortest link path from the note at point to a chosen note."
+  (interactive)
+  (let* ((note (my/manifolding-atlas--buffer-note)))
+    (unless note (user-error "No note at point"))
+    (let* ((from (manifolding-atlas-note-id note))
+           (to-note (manifolding-atlas-select "Path to: " :require-match t))
+           (to (manifolding-atlas-note-id to-note))
+           (path (manifolding-atlas-db-shortest-path from to)))
+      (if (null path)
+          (message "Disconnected: no link path.")
+        (my/atlas-search--pick-notes
+         (format "Path (%d hops): " (1- (length path)))
+         (delq nil (mapcar (lambda (id)
+                             (ignore-errors (manifolding-atlas-db-get-by-id id)))
+                           path))
+         "path")))))
+
+(defun my/atlas-search-org-ql-tag ()
+  "Org-ql by tag, prompted."
+  (interactive)
+  (let ((tag (read-string "Org-ql tag: ")))
+    (org-ql-search (org-agenda-files) `(tags ,tag))))
+
+(defun my/atlas-search-org-ql-custom ()
+  "Org-ql with a hand-written query."
+  (interactive)
+  (let ((query (read-string "Org-ql query (elisp): ")))
+    (org-ql-search (org-agenda-files) (read query))))
+#+end_src
+
+* Deft (live browser, extensionless workaround)
+Deft lists only files whose extension is in =deft-extensions=, and
+extensionless vault files report extension nil — so out of the box
+the vault is invisible to it. The fix is one dynamic binding, not a
+patch: advising =deft-find-files= to cons nil onto =deft-extensions=
+makes nil-extension files match the membership test, and everything
+else (caching, filtering, ranking) runs untouched. Directory,
+recursion, and noise exclusions are let-bound per invocation so
+global deft defaults stay pristine for any other use.
+
+#+begin_src emacs-lisp
+(defun my/atlas-search--deft-advice (orig &rest args)
+  "Include extensionless files in this deft scan."
+  (let ((deft-extensions (cons nil deft-extensions)))
+    (apply orig args)))
+
+(defun my/atlas-deft ()
+  "Deft over the vault: live-filter title+summary browser.
+Use when you don't know the words yet (rg is for when you do)."
+  (interactive)
+  (require 'deft)
+  (let ((deft-directory (my/manifolding-atlas-root-dir))
+        (deft-recursive t)
+        (deft-recursive-ignore-dir-regexp "\\(?:\\.git\\|admin/\\.cache\\)")
+        (deft-ignore-file-regexp "\\(?:^\\.[^/]*$\\)"))
+    (advice-add 'deft-find-files :around #'my/atlas-search--deft-advice)
+    (unwind-protect
+        (call-interactively #'deft)
+      (advice-remove 'deft-find-files #'my/atlas-search--deft-advice))))
+#+end_src
+
+* Menu
+The hydra lives with all other hydras in =manifolding-keyboard/leaders/=
+(the =my/defhydra-state= macro is defined in =engine/macros.org=, priority 20, after
+this file loads — referencing it here would void at compile).
+Launchers below are plain commands; the hydra only points at them.
+Legacy TODO search moves from direct =SPC v s= to head =w= inside
+the menu — one search entry point for the whole Atlas.
+
+** Scoped text and file launchers
+#+begin_src emacs-lisp
+(defun my/atlas-search-rg-vault ()
+  "Ripgrep over the whole vault with Atlas-tuned flags."
+  (interactive)
+  (let ((consult-ripgrep-args
+         (concat consult-ripgrep-args " --hidden -g !.git/ -g !admin/.cache/")))
+    (consult-ripgrep (my/manifolding-atlas-root-dir))))
+
+(defun my/atlas-search-rg-dir ()
+  "Ripgrep over a chosen vault subdirectory."
+  (interactive)
+  (let ((consult-ripgrep-args
+         (concat consult-ripgrep-args " --hidden -g !.git/ -g !admin/.cache/"))
+        (dir (read-directory-name
+              "Ripgrep dir: " (my/manifolding-atlas-root-dir) nil t)))
+    (consult-ripgrep dir)))
+
+(defun my/atlas-search-ql-agenda ()
+  "Org-ql agenda: all TODO entries across the vault."
+  (interactive)
+  (org-ql-search (org-agenda-files) '(todo)))
+
+(defun my/atlas-search-by-due ()
+  "Due cards picker."
+  (interactive)
+  (my/atlas-search--pick-notes
+   "Due: "
+   (delq nil (mapcar (lambda (id)
+                       (ignore-errors (manifolding-atlas-db-get-by-id id)))
+                     (my/manifolding-atlas-mastering--due-note-ids)))
+   "due"))
+
+(defun my/atlas-search-by-overdue ()
+  "Overdue cards picker."
+  (interactive)
+  (my/atlas-search--pick-notes
+   "Overdue: "
+   (delq nil (mapcar (lambda (id)
+                       (ignore-errors (manifolding-atlas-db-get-by-id id)))
+                     (my/manifolding-atlas-mastering--overdue-note-ids)))
+   "overdue"))
+
+(defun my/atlas-search-by-unseen ()
+  "Unseen cards picker (mapped, never encountered)."
+  (interactive)
+  (my/atlas-search--pick-notes
+   "Unseen: "
+   (delq nil (mapcar (lambda (id)
+                       (ignore-errors (manifolding-atlas-db-get-by-id id)))
+                     (my/manifolding-atlas-mastering--unseen-note-ids)))
+   "unseen"))
+
+(defun my/atlas-search-by-isolated ()
+  "Unintegrated cards picker (no links either direction)."
+  (interactive)
+  (my/atlas-search--pick-notes
+   "Isolated: "
+   (delq nil (mapcar (lambda (id)
+                       (ignore-errors (manifolding-atlas-db-get-by-id id)))
+                     (manifolding-atlas-db-isolated)))
+   "isolated"))
+
+(defun my/atlas-search-find-vault-file ()
+  "Find a vault file by name."
+  (interactive)
+  (let ((f (completing-read "Vault file: " (my/atlas-search--vault-files)
+                            nil t)))
+     (when (and f (file-exists-p f))
+      (find-file f))))
+#+end_src
+
+

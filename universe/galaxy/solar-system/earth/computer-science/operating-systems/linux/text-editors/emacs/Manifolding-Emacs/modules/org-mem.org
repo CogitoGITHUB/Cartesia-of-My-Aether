@@ -1,0 +1,16 @@
+#+title:      org-mem
+#+identifier: a8fe9a6a-9ee1-42a5-a8ad-d404b817513f
+#+filetags:   :emacs-package:org:
+
+* org-mem
+:PROPERTIES:
+:ID:       a8fe9a6a-9ee1-42a5-a8ad-d404b817513f
+:PACKAGE:  org-mem
+:CATEGORY: org
+:STRAIGHT: (org-mem :type git :host github :repo "meedstrom/org-mem" :old-names (indexed))
+:END:
+
+** Config :config:
+#+begin_src emacs-lisp
+
+#+end_src

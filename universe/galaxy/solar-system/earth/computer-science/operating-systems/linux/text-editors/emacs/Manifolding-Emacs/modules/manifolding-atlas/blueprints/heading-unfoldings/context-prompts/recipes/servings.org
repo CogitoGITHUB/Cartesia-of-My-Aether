@@ -1,0 +1,16 @@
+#+title:      Servings Prompt
+#+priority:   31
+
+* Servings Prompt
+#+begin_src emacs-lisp
+(my/manifolding-atlas-register-prompt
+  :key 'servings
+  :name 'servings
+  :label "Servings"
+  :contexts '(recipe)
+  :prompt-fn (lambda ()
+               (let ((val (read-string "Servings (e.g. 4): " nil nil nil "⚠ WARNING")))
+                 (if (or (string-empty-p val) (string-equal val "⚠ WARNING")) "WARNING" val)))
+  :to-plist (lambda (val _ctx)
+              `(:unfoldings (("SERVINGS" . ,val)))))
+#+end_src

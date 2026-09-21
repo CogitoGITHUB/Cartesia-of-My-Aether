@@ -1,0 +1,15 @@
+#+title:      State Operational Prompt
+#+priority:   5
+
+* STATE_OPERATIONAL :unfolding:file:heading:task:
+:PROPERTIES:
+:REQUIRED: t
+:UNFOLDING: state-operational
+:END:
+** TODO
+** WARNING
+** PLANNED
+** IN_PROGRESS
+** DEPLOYED
+** SUSPENDED
+** RETIRED

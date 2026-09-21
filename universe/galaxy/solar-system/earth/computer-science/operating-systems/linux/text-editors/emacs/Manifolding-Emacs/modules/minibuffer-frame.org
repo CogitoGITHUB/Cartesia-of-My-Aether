@@ -1,0 +1,17 @@
+#+title:    minibuffer-frame
+#+filetags: :emacs-package:ui:
+
+* Minibuffer Frame
+:PROPERTIES:
+:PACKAGE:  minibuffer-frame
+:STRAIGHT: (minibuffer-frame :type git :host github :repo "zHaOdANiuu/minibuffer-frame")
+:CATEGORY: ui
+:END:
+
+Displays the minibuffer in a dedicated child frame instead of the echo
+area. NOT usable in terminal (-nw) — child frames require a GUI display.
+
+** Config
+#+begin_src emacs-lisp :tangle no
+;; (minibuffer-frame-mode 1)
+#+end_src

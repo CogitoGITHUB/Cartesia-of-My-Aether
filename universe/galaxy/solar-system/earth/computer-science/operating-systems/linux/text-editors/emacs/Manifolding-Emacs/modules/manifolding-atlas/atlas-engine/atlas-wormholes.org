@@ -1,0 +1,3284 @@
+#+title: Atlas Wormholes
+#+priority: 15
+
+Use [[id:UUID][TITLE]] links. Safe because org-agenda-files is
+scoped to the notes directory only (see Notes Directory above),
+so org-id-find never scans straight build symlinks.
+
+Vendored engine: the atlas-wormholes package and its wormhole-clone
+dependency are embedded below as loader-managed source (no straight).
+The RET / mouse-2 keymap lives on the wormhole overlay's `keymap'
+property so it wins over org-mindmap-mode's minor-mode map.
+#+begin_src emacs-lisp
+(setq atlas-wormholes-extensions nil)
+(defvar atlas-wormholes-indent-mode nil)
+#+end_src
+* Vendored wormhole-clone engine
+#+begin_src emacs-lisp
+;;; wormhole-clone.el --- clone and live-sync text -*- lexical-binding: t; -*-
+
+;; Copyright (C) 2021-2026  Free Software Foundation, Inc.
+
+;; This program is free software: you can redistribute it and/or modify it
+;; under the terms of the GNU General Public License as published by the
+;; Free Software Foundation, either version 3 of the License, or (at your
+;; option) any later version.
+
+;; This program is distributed in the hope that it will be useful, but
+;; WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+;; General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License along
+;; with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+;; Author: Noboru Ota <me@nobiot.com>
+;; Created: 22 May 2021
+;; Last modified: 03 January 2026
+
+;; Keywords: wormhole-clone, wormhole, atlas-wormholes
+
+;; Version: 1.0.0
+;; Package-Requires: ((emacs "27.1"))
+
+;;; Commentary:
+;;  Vendored engine, renamed to atlas-wormholes.
+
+;;;; Credits
+
+;; It is an extension of wormhole-clone functions written as part of GNU Emacs in
+;; subr.el.  The first adaption to extend wormhole-clone functions to work across
+;; buffers was published in StackExchange by the user named Tobias in March
+;; 2020. It can be found at https://emacs.stackexchange.com/questions/56201/
+;; is-there-an-emacs-package-which-can-mirror-a-region/56202#56202
+
+;; Noboru Ota has made further adaptions for version 0.0.1 in order for it
+;; to work with the atlas-wormholes engine.
+
+;;; Code:
+
+;;;; Variables
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defvar wormhole-clone-overlays nil
+  "Global variable to keep track of all the wormhole-clone.
+overlays.  Used primarily by `wormhole-clone-delete-overlays'.")
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defvar wormhole-clone-live-sync-in-progress nil
+  "Global variable used by `wormhole-clone-live-sync' function.")
+
+;;;; Functions
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun wormhole-clone-make-overlay (beg end &optional buf)
+  "Wrapper for `make-ovelay' to standardize the parameters passed to it.
+BEG and END can be point or marker.  Optionally BUF can be
+passed.  FRONT-ADVANCE is nil, and REAR-ADVANCE is t."
+  (make-overlay beg end buf nil t))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun wormhole-clone-set-overlays (&rest overlays)
+  "Add wormhole-clone properties to OVERLAYS.
+This function directly modifies the OVERLAYS passed and returns
+modified OVERLAYS as a list in the same order as passed to it.
+No copy is produced.
+
+This function also refreshes `wormhole-clone-overlays' as a
+side-effect to keep track of the current wormhole-clone overlays,
+which is primarily used to clean up wormhole-clone overlays with
+`wormhole-clone-delete-overlays'.
+
+This function does not explicitly differentiate overlays for the
+original text region and its clones.  Where such distinction is
+important, use the sequence of OVERLAYS list; for example, the
+first element of the list can be the overlay for the original and
+rest, clones.
+
+As this function returns modified overlays, a calling function
+can further modify them.  For instance, you can put different
+faces to visually differentiate them."
+  (if (or (not overlays)
+          (> 2 (length overlays)))
+      (user-error "Nothing done.  You need to pass 2 or more overlays")
+    (setq wormhole-clone-overlays nil)
+    (dolist (ov overlays)
+      (overlay-put ov 'evaporate t)
+      (overlay-put ov 'wormhole-clones overlays)
+      (overlay-put ov 'modification-hooks
+                   '(wormhole-clone-live-sync))
+      (overlay-put ov 'insert-in-front-hooks
+                   '(wormhole-clone-live-sync))
+      (overlay-put ov 'insert-behind-hooks
+                   '(wormhole-clone-live-sync))
+      (overlay-put ov 'priority -50)
+      ;; Add a local post-command-hook for each overlay buffer
+      (with-current-buffer (overlay-buffer ov)
+        (add-hook 'post-command-hook #'wormhole-clone-post-command-h nil t)))
+    (setq wormhole-clone-overlays overlays)
+    overlays))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun wormhole-clone-post-command-h ()
+  "Delete all the wormhole-clone overlays when any one is non-existent."
+  (when-let ((ovs wormhole-clone-overlays))
+    (let ((deleted nil))
+      (dolist (ov ovs)
+        (unless (or deleted
+                    (overlay-buffer ov))
+          (setq deleted t)))
+      (when deleted
+        (wormhole-clone-delete-overlays)))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun wormhole-clone-delete-overlays ()
+  "Remove all live-sync overlays.
+Return a list of the buffer, beginning and ending points of the
+deleted overlays.  Each element of the list is in this structure:
+
+    (buf (beg . end))
+
+This function checks `wormhole-clone-overlays' for overlays being
+tracked.  Return nil if there is no overlay in it.
+
+As side-effects, this function also does the following to clean
+up wormhole-clone:
+
+- Remove the local `post-command-hook'
+  `wormhole-clone-post-command-h' for wormhole-clone each overlay
+
+- Reset tracking of wormhole-clone overlays by setting
+  `wormhole-clone-overlays' to nil"
+  (when wormhole-clone-overlays
+    (let ((ovs wormhole-clone-overlays)
+          deleted-overlays)
+      (dolist (ov ovs)
+        ;; Clean up the local post-command-hook
+        (let ((element (list (overlay-buffer ov) (cons (overlay-start ov) (overlay-end ov)))))
+          (push element deleted-overlays)
+          (when (overlay-buffer ov)
+            (with-current-buffer (overlay-buffer ov)
+              (remove-hook 'post-command-hook
+                           #'wormhole-clone-post-command-h t)
+
+          (delete-overlay ov)))))
+      (setq wormhole-clone-overlays nil)
+      ;; As push is used to construct the list, the sequence needs to be reversed
+      (nreverse deleted-overlays))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun wormhole-clone-live-sync (ol1 after beg end &optional _len)
+  "Propagate the change made under the overlay OL1 to the other paired clone.
+This is used on the `modification-hooks' property of text clones.
+AFTER, BEG, and END are the fixed args for `modification-hooks'
+and friends in an overlay.
+
+It's a simplified version of the original `wormhole-clone--maintain'.
+This function does not use SPREADP or SYNTAX (both defined in
+`wormhole-clone-create').
+
+Overlay is also assumed to be always SPREADP but insteaf we opt
+for (nil t) -- refer to `wormhole-clone-make-overlay'.  This enables
+tighter overlay size and has `post-command-hook' to deal with the
+case when one of the overlays is deleted (refer to
+`wormhole-clone-post-command-h').
+
+This function also works during undo in progress; that is, when
+`undo-in-progress' is non-nil."
+  (when (and after
+             (not wormhole-clone-live-sync-in-progress)
+             (overlay-start ol1)
+             (<= beg end))
+    (save-excursion
+      ;; Now go ahead and update the clones.
+      (let ((head (- beg (overlay-start ol1)))
+            (tail (- (overlay-end ol1) end))
+            (str (buffer-substring-no-properties beg end)) ;changed to no-properties
+            (wormhole-clone-live-sync-in-progress t))
+        (dolist (ol2 (overlay-get ol1 'wormhole-clones))
+          (with-current-buffer (overlay-buffer ol2)
+            (save-restriction
+              (widen)
+              (let ((oe (overlay-end ol2)))
+                (unless (or (eq ol1 ol2) (null oe))
+                  (let ((mod-beg (+ (overlay-start ol2) head)))
+                    (goto-char (- oe tail))
+                    (if (not (> mod-beg (point)))
+                        (progn
+                          (save-excursion (insert str))
+                          (delete-region mod-beg (point)))
+                      (user-error "No live-sync done.  \
+The text strings in the overlays are not identical"))))))))))))
+
+(provide 'wormhole-clone)
+
+#+end_src
+
+* Vendored atlas-wormholes engine
+#+begin_src emacs-lisp
+;;; atlas-wormholes.el --- Wormhole text content via links -*- lexical-binding: t; -*-
+
+;; Copyright (C) 2021-2026  Free Software Foundation, Inc.
+
+;; This program is free software: you can redistribute it and/or modify it
+;; under the terms of the GNU General Public License as published by the
+;; Free Software Foundation, either version 3 of the License, or (at your
+;; option) any later version.
+
+;; This program is distributed in the hope that it will be useful, but
+;; WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+;; General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License along
+;; with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+;; Author:        Noboru Ota <me@nobiot.com>
+;; Created:       10 October 2020
+;; Last modified: 07 March 2026
+
+;; Keywords: org-mode, wormhole, writing
+
+;; Version: 1.4.0
+;; Package-Requires: ((emacs "27.1") (org "9.4"))
+
+;; This file is not part of GNU Emacs.
+
+;;; Commentary:
+
+;; This library is an attempt to enable wormhole with Org Mode.
+;; Wormhole is the ability to include content from one file into
+;; another by reference.
+
+;;; Code:
+
+;;;; Requirements
+(require 'org)
+(require 'org-element)
+(require 'org-id)
+(require 'wormhole-clone)
+(require 'text-property-search)
+(require 'seq)
+
+;;;; Customization
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defgroup atlas-wormholes nil
+  "Insert text contents by way of link references."
+  :group 'org
+  :prefix "atlas-wormholes-"
+  :package-version '("Atlas-wormholes" . "1.0.0"))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-set-extensions (var value)
+  "Set VAR to VALUE and `atlas-wormholes-load-extensions-maybe'.
+Intended for :set property for `customize'."
+  (set var value)
+  (when (featurep 'atlas-wormholes)
+    (atlas-wormholes-load-extensions-maybe 'force)))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defcustom atlas-wormholes-extensions
+  '(atlas-wormholes-src-lines atlas-wormholes-font-lock atlas-wormholes-transient)
+  "Extensions to be loaded with atlas-wormholes.el."
+  :set #'atlas-wormholes-set-extensions
+  :type
+  '(set :greedy t
+        (const :tag "src-lines: Add :src and :lines for non-Org files"
+               atlas-wormholes-src-lines)
+        (const :tag "font-lock: Add font-lock for Atlas-wormholes"
+               atlas-wormholes-font-lock)
+        (const :tag "indent-mode: Support org-indent-mode"
+               atlas-wormholes-indent-mode)
+        (const :tag "html: Wormhole HTML converted to Org with Pandoc"
+               atlas-wormholes-html)
+        (const :tag "transient: Wormhole menu for easier command access"
+               atlas-wormholes-transient)
+        (repeat :tag "Other packages" :inline t (symbol :tag "Package"))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defcustom atlas-wormholes-add-all-on-activate t
+  "Define whether to add all the wormholes on activation.
+When non-nil, automatically add all on `atlas-wormholes-activate'."
+  :type 'boolean)
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defcustom atlas-wormholes-exclude-elements (list 'property-drawer)
+  "Define the Org elements that are excluded from wormholed copies.
+It is a list of elements to be filtered out.
+Refer to variable `org-element-all-elements' for names of elements accepted."
+  :type '(repeat symbol))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defcustom atlas-wormholes-include-first-section t
+  "Define whether or not wormhole for Org files includes \"first section\".
+If t, the section before the first headline is
+wormholed. Default is t."
+  :type 'boolean)
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defcustom atlas-wormholes-open-source-display-action-list '(nil . nil)
+  "Action list used to open source buffer to display.
+
+See `display-buffer' for example options."
+  :type display-buffer--action-custom-type
+  :risky t)
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defcustom atlas-wormholes-mode-lighter
+  " OT"
+  "Mode-line indicator for minor-mode variable `atlas-wormholes-mode'."
+  :type '(choice (const :tag "No lighter" "") string)
+  :safe #'stringp)
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defcustom atlas-wormholes-after-add-functions nil
+  "Functions to be called after a wormhole content has been added.
+The hook runs after the content and the read-only text property
+have been added so it is not supposed to manipulate the content
+but to add further text properties.  For example, it is used by
+the `atlas-wormholes-indent-mode' extension to support
+`org-indent-mode'.  The functions are called with arguments beg
+and end, pointing to the beginning and end of the wormholed
+content."
+  :type '(repeat function))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defcustom atlas-wormholes-after-remove-functions nil
+  "Functions to be called after a wormhole has been removed.
+The hook runs after the wormhole overlay has been deleted and
+the #+wormhole keyword has been re-inserted. It is intended for
+cleanup operations in the source buffer. For example, it is used by
+the `atlas-wormholes-indent-mode' extension to refresh org-indent
+properties after wormhole removal. The functions are called with
+arguments (src-buf src-beg src-end), pointing to the source buffer
+and the region that was wormholed."
+  :type '(repeat function))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defcustom atlas-wormholes-insert-link-functions '(org-insert-link)
+  "Functions for `atlas-wormholes-insert' to insert an Org link.
+It is expected that these functions prompt for user to choose / create a
+link, but as long as the function insert a valid org link in a buffer,
+it will work. Used in `atlas-wormholes-insert-org-link', which see."
+  :type '(repeat function))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defcustom atlas-wormholes-src-tab-acts-natively t
+  "Flag to control how wormhole deals with tabs for org-src.
+The default is t. When it is t, use `org-src-tab-acts-natively' as is.
+If set to nil, Atlas-wormholes temporarily sets
+`org-src-tab-acts-natively' to nil when wormholed content is being
+formated.
+
+Change it to nil if indentention is not wormholed correctly from the
+program source, especially for the languages where indentation is
+significant such as Python and YAML.")
+
+;;;; Faces
+
+(defface atlas-wormholes-source-fringe
+  '((((class color) (min-colors 88) (background light)))
+    (((class color) (min-colors 88) (background dark)))
+    (t ))
+  "Face for source region's fringe being wormholed in another buffer.")
+ (defface atlas-wormholes-source
+  '((((class color) (min-colors 88) (background light)))
+    (((class color) (min-colors 88) (background dark)))
+    (t ))
+  "Face for source region being wormholed in another buffer.
+The default is no color specification (transparent).")
+ (defface atlas-wormholes-source-edit
+  '((((class color) (min-colors 88) (background light))
+     :background "#fff3da" :extend t)
+    (((class color) (min-colors 88) (background dark))
+     :background "#221000" :extend t)
+    (t
+     :background "chocolate4" :extend t))
+  "Face for element in the source being edited by another buffer.")
+ (defface atlas-wormholes-fringe
+  '((((class color) (min-colors 88) (background light)))
+    (((class color) (min-colors 88) (background dark)))
+    (t ))
+  "Face for wormholed region's fringe in the wormholing buffer.")
+ (defface atlas-wormholes
+  '((((class color) (min-colors 88) (background light)))
+    (((class color) (min-colors 88) (background dark)))
+    (t ))
+  "Face for wormholed region in the wormholing buffer.
+The default is no color specification (transparent).")
+ (defface atlas-wormholes-edit
+  '((((class color) (min-colors 88) (background light))
+     :background "#ebf6fa" :extend t)
+    (((class color) (min-colors 88) (background dark))
+     :background "#041529" :extend t)
+    (t
+     :background "forest green" :extend t))
+  "Face for element in the wormholing buffer in the edit mode.")
+
+;;;; Variables
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defvar atlas-wormholes-extensions-loaded nil
+  "Have the extensions been loaded already?")
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defvar-local atlas-wormholes-remember-point nil
+  "This variable is used to remember the current just before `save-buffer'.
+It is meant to be used to remember and return to the current
+point after `before-save-hook' and `after-save-hook' pair;
+`atlas-wormholes-before-save-buffer' and
+`atlas-wormholes-after-save-buffer' use this variable.")
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defvar-local atlas-wormholes-remember-wormholes nil
+  "Remember the active wormholes before `save-buffer'.
+It is meant to be used to keep the file the current buffer is
+visiting clear of the wormholed text content.  Instead of
+blindly deactivate and activate all wormholes with t flag,
+this variable is meant to provide mechanism to
+deactivate/activate only the wormholes currently used to copy
+a text content.
+
+`atlas-wormholes-before-save-buffer' and
+`atlas-wormholes-after-save-buffer' use this variable.")
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defvar-local atlas-wormholes-remember-window-config nil
+  "Remember window config (the arrangement of windows) for the current buffer.
+This is for live-sync.  Analogous to
+`org-edit-src-code'.")
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defvar atlas-wormholes-add-functions
+  '(atlas-wormholes-add-org-id
+    atlas-wormholes-add-org-file
+    atlas-wormholes-add-other-file)
+  "Define a list of functions to get a payload for wormhole.
+These function take two arguments: Org link and keyword plist,
+and return a payload.  The payload is defined as a property list
+that consists of the following properties:
+
+- :tc-type
+- :src-buf
+- :src-beg
+- :src-end
+- :src-content
+
+Otherwise, the payload may be a named or lambda function which
+will be called with the following arguments:
+
+- \\+`link'
+- \\+`keyword-plist'
+- \\+`copy'
+
+In order for the wormhole to be inserted into the buffer, the
+payload function should generate a payload plist, then call
+`atlas-wormholes-add-payload', passing in the payload as well as
+the \\+`link', \\+`keyword-plist', and \\+`copy' arguments.")
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defvar atlas-wormholes-keyword-value-functions
+  '(atlas-wormholes-keyword-value-link
+    atlas-wormholes-keyword-value-level
+    atlas-wormholes-keyword-value-disable-auto
+    atlas-wormholes-keyword-value-only-contents
+    atlas-wormholes-keyword-value-exclude-elements
+    atlas-wormholes-keyword-value-expand-links
+    atlas-wormholes-keyword-current-indentation
+    atlas-wormholes-keyword-value-no-first-heading)
+  "Define a list of functions used to parse a #+wormhole keyword.
+These functions take a single argument, the whole keyword value
+as a string.  Each function retrieves a property with using a
+regexp from the string.")
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defvar atlas-wormholes-keyword-plist-to-string-functions '())
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defvar atlas-wormholes-content-format-functions
+  '(atlas-wormholes-content-format-org
+    atlas-wormholes-content-format))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defvar atlas-wormholes-open-source-marker-functions
+  '(atlas-wormholes-open-source-marker))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defvar atlas-wormholes-live-sync-buffers-functions
+  '(atlas-wormholes-live-sync-buffers-org
+    atlas-wormholes-live-sync-buffers-others-default))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defvar atlas-wormholes-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map org-mode-map)
+    (define-key map (kbd "e") #'atlas-wormholes-live-sync-start)
+    (define-key map (kbd "g") #'atlas-wormholes-refresh)
+    (define-key map (kbd "d") #'atlas-wormholes-remove)
+    (define-key map (kbd "C-d") #'atlas-wormholes-detach)
+    (define-key map (kbd "P") #'atlas-wormholes-promote-subtree)
+    (define-key map (kbd "D") #'atlas-wormholes-demote-subtree)
+    (define-key map (kbd "o") #'atlas-wormholes-open-source)
+    (define-key map (kbd "O") #'atlas-wormholes-move-to-source)
+    map)
+  "It is the local-map used within a wormhole.
+As the wormholed text content is read-only, these keybindings
+are meant to be a sort of contextual menu to trigger different
+functions on the wormhole.")
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defvar atlas-wormholes-live-sync-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map org-mode-map)
+    (define-key map (kbd "C-c C-c") #'atlas-wormholes-live-sync-exit)
+    (define-key map (kbd "C-y") #'atlas-wormholes-live-sync-paste)
+    map)
+  "It is the local-map used within the live-sync overlay.
+It inherits `org-mode-map' and adds a couple of atlas-wormholes
+specific keybindings; namely:
+
+- `atlas-wormholes-live-sync-paste'
+- `atlas-wormholes-live-sync-exit'")
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defvar atlas-wormholes-yank-excluded-properties
+  '(atlas-wormholes-type atlas-wormholes-id atlas-wormholes-pair
+    atlas-wormholes-orig-keyword wrap-prefix line-prefix
+    :parent front-sticky rear-nonsticky))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defvar atlas-wormholes-yank-remember-user-excluded-props '())
+
+(define-fringe-bitmap 'atlas-wormholes-fringe-bitmap
+  [#b11000000
+   #b11000000
+   #b11000000
+   #b11000000
+   #b11000000
+   #b11000000
+   #b11000000
+   #b11000000]
+  nil nil '(center t))
+
+;;;; Macro
+;;;; Defining macros before they are used in the rest of package
+;;;; Flycheck warns with "macro X defined too late"
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defmacro atlas-wormholes-with-inhibit-read-only (&rest body)
+  "Run BODY with `'inhibit-read-only` t.
+This macro is used instead of `with-silent-modifications' because
+Org mode's caching relies upon modification hooks to function."
+  (declare (debug t) (indent 0))
+  (let ((modified (make-symbol "modified")))
+    `(let* ((,modified (buffer-modified-p))
+            (inhibit-read-only t))
+       (unwind-protect
+           (progn
+             ,@body)
+         (unless ,modified
+           (restore-buffer-modified-p nil))))))
+
+;;;; Commands
+
+;;;###autoload
+(define-minor-mode atlas-wormholes-mode
+  "Toggle Atlas-wormholes minor mode."
+  :init-value nil
+  :lighter atlas-wormholes-mode-lighter
+  :global nil
+  :keymap (let ((map (make-sparse-keymap)))
+            map)
+  (if atlas-wormholes-mode
+      (progn
+        (atlas-wormholes-activate)
+        (when atlas-wormholes-add-all-on-activate
+          (atlas-wormholes-add-all)))
+    (atlas-wormholes-deactivate)))
+
+;;;###autoload
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-activate ()
+  "Activate Atlas-wormholes hooks and other setups in the current buffer.
+This function does not add wormholes; it merely sets up hooks
+and variables."
+  (interactive)
+  (add-hook 'before-save-hook #'atlas-wormholes-before-save-buffer nil t)
+  (add-hook 'after-save-hook #'atlas-wormholes-after-save-buffer nil t)
+  (add-hook 'kill-buffer-hook #'atlas-wormholes-before-kill nil t)
+  (add-hook 'kill-emacs-hook #'atlas-wormholes-before-kill nil t)
+  (add-hook (if (version< org-version "9.6")
+                'org-export-before-processing-hook
+              'org-export-before-processing-functions)
+            #'atlas-wormholes-inhibit-read-only nil t)
+  (atlas-wormholes-yank-excluded-properties-set)
+  (atlas-wormholes-load-extensions-maybe))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-deactivate ()
+  "Deactivate Atlas-wormholes hooks and other setups in the current buffer.
+This function also removes all the wormholes in the current buffer."
+  (interactive)
+  (atlas-wormholes-remove-all)
+  (remove-hook 'before-save-hook #'atlas-wormholes-before-save-buffer t)
+  (remove-hook 'after-save-hook #'atlas-wormholes-after-save-buffer t)
+  (remove-hook 'kill-buffer-hook #'atlas-wormholes-before-kill t)
+  (remove-hook 'kill-emacs-hook #'atlas-wormholes-before-kill t)
+  (remove-hook (if (version< org-version "9.6")
+                   'org-export-before-processing-hook
+                 'org-export-before-processing-functions)
+               #'atlas-wormholes-inhibit-read-only t)
+  (atlas-wormholes-yank-excluded-properties-remove))
+
+;;;###autoload
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-make-from-link (&optional arg)
+  "Make a wormhole keyword from a link at point.
+
+The resultant wormhole keyword will be placed in the first
+next empty line.  If there is no empty line until the bottom of
+the buffer, this function adds a new empty line.
+
+When minor-mode `atlas-wormholes-mode' is active, this function
+automatically wormholes the text content; when it is inactive,
+it simply adds the \"#+wormhole\" keyword before the link and
+inserts the whole line.
+
+If you pass a `universal-argument', this function reverses this:
+if the mode is active, the keyword gets inserted; if the mode is
+inactive, the wormhole gets added.
+
+You can pass a prefix argument (ARG) with using
+`digit-argument' (e.g. C-1 or C-2; or \\[universal-argument] 3,
+so on) or `universal-argument' (\\[universal-argument]).
+
+If you pass a positive number 1-9 with `digit-argument', this
+function automatically puts the :level property to the resultant
+wormhole keyword."
+  (interactive "P")
+  (let* ((context (org-element-lineage
+                   (org-element-context) '(link) t))
+         (auto-wormhole-p (if (or (not arg) (numberp arg))
+                                atlas-wormholes-mode
+                              ;; if `universal-argument' is passed,
+                              ;; reverse nil/t when
+                              (not atlas-wormholes-mode))))
+    (let* ((contents-beg (org-element-property :contents-begin context))
+           (contents-end (org-element-property :contents-end context))
+           (contents (and contents-beg
+                          (buffer-substring-no-properties contents-beg
+                                                          contents-end)))
+           (link (org-element-link-interpreter context contents)))
+      (save-excursion
+        (atlas-wormholes-search-or-add-next-empty-line)
+        (insert (format "#+wormhole: %s\n" link))
+        (forward-line -1)
+        (when (and (numberp arg)
+                   (> arg 0)
+                   (<= arg 9))
+          (end-of-line)
+          (insert (format " :level %d" arg)))
+        (when auto-wormhole-p (atlas-wormholes-add))))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-insert (&optional insert-above)
+  "Insert #+WORMHOLE: from a link at point or new link to a blank line.
+If the point is not at a link but has text, this command will try to
+find the first link in the current line. If the point is at a blank
+line, this command will call a function in set to variable
+`atlas-wormholes-insert-link-functions' and prompt for the user to find
+a link.
+
+If you pass a `universal-argument' via \\[universal-argument]
+\(INSERT-ABOVE is non-nil\), the keyword is added to the line above
+current one. Otherwise, to the line below."
+  (interactive "P")
+  (let* ((link-elem-at-pt
+          (or (org-element-lineage (org-element-context) 'link t) ; at-point
+              ;; if not at-point, find the first one in the current line
+              (save-excursion
+                (beginning-of-line)
+                (re-search-forward org-link-bracket-re (line-end-position) t)
+                (org-element-lineage (org-element-context) 'link t))))
+         (blank-line-p (save-excursion
+                         (beginning-of-line)
+                         (looking-at-p "^[ \t]*$")))
+         (link-string (cond
+                       (link-elem-at-pt
+                        (buffer-substring (org-element-begin link-elem-at-pt)
+                                          (org-element-end link-elem-at-pt)))
+                       (blank-line-p
+                        (atlas-wormholes-insert-org-link)))))
+    (when link-string
+      ;; When the current line is not blank, open a line above or below the
+      ;; current.
+      (unless blank-line-p
+        (when insert-above (forward-line -1))
+        (end-of-line)
+        (unless (bolp) (newline nil t)))
+      (org-indent-line) (insert (format "#+wormhole: %s" link-string))
+      (beginning-of-line)
+      (pulse-momentary-highlight-region
+       (point) (line-end-position) 'pulse-highlight-start-face))))
+
+;;;###autoload
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-add (&optional copy)
+  "Wormhole text content for the #+wormhole at point.
+When minor-mode `atlas-wormholes-mode' is inactive in the
+current buffer, this function toggles it on.
+
+With using `universal-argument' (\\[universal-argument]) or
+non-nil COPY argument, you can copy the wormholed content into
+the buffer instead of wormhole.
+
+Examples of acceptable formats are as below:
+
+- \"#+wormhole: [[file:path/file.org::search-option][desc]]:level n\"
+- \"#+wormhole: [[id:uuid]] :level n :only-contents\"
+
+The file path or id in the wormhole keyword value are
+translated to the normal Org Mode link format such as
+[[file:path/to/file.org::*Heading]] or [[id:uuid]] to copy a piece
+of text from the link target.
+
+TODO: id:uuid without brackets [[]] is a valid link within Org
+Mode. This is not supported yet.
+
+A wormholed text region is read-only. You can use a variety of
+commands on the wormholed region at point. Refer to the
+commands below. You can customize the keymap with
+using `atlas-wormholes-map'.
+
+For example, `atlas-wormholes-live-sync-start' lets you edit the
+part of the text at point.  This edit mode is analogous to Occur
+Edit for Occur Mode.
+
+TODO: that for wormholes of Org elements/buffer, live-sync
+does not support all the elements.
+
+\\{atlas-wormholes-map}"
+  (interactive "P")
+  (when (atlas-wormholes-check-add)
+    ;; Turn on the minor mode to load extensions before staring to add.
+    (unless atlas-wormholes-mode
+      (let ((atlas-wormholes-add-all-on-activate nil))
+        (atlas-wormholes-mode +1)))
+    (let* ((keyword-plist (atlas-wormholes-keyword-string-to-plist))
+           (link (atlas-wormholes-wrap-path-to-link
+                  (plist-get keyword-plist :link)))
+           ;; Note 2025-01-03 Retrospectively, PAYLOAD feels redundant now that
+           ;; `atlas-wormholes-add' is being refactored. For
+           ;; backword-compatibility, I am keeping PAYLOAD.
+           (payload (run-hook-with-args-until-success
+                     'atlas-wormholes-add-functions link keyword-plist))
+           (tc-type (plist-get payload :tc-type))
+           (content (plist-get payload :src-content))
+           (keyword-plist (if (atlas-wormholes-type-is-org tc-type)
+                              (plist-put
+                               keyword-plist :current-level
+                               (or (org-current-level) 0))
+                            keyword-plist))
+           (content
+            (run-hook-with-args-until-success
+             'atlas-wormholes-content-format-functions
+             tc-type content keyword-plist)))
+      (cond ((functionp payload)
+             ;; Allow for asynchronous wormhole
+             (funcall payload link keyword-plist copy))
+            ;; No content
+            ((or (string-empty-p content)
+                 (eq content nil))
+             ;; Keep going with program when no content `atlas-wormholes-add-all'
+             ;; should move to the next wormhole
+             (prog1 nil
+               (message
+                "No content found with \"%s\".  Check the link at point %d, line %d"
+                (org-element-property :raw-link link)
+                (point) (org-current-line))))
+            ;; Normal case
+            (t
+             (pcase-let* ((org-src-tab-acts-natively (if (not atlas-wormholes-src-tab-acts-natively)
+                                                         nil
+                                                       org-src-tab-acts-natively))
+                          (buffer-modified-p (buffer-modified-p))
+                          (`(,beg . ,end) (atlas-wormholes-content-insert content)))
+               (when (and beg end)
+                 ;; If COPY, then we want to get the buffer-modified-p flag always t.
+                 ;; If wormhole, it should be the same as before wormhole.
+                 (if copy
+                     (restore-buffer-modified-p t)
+                   (restore-buffer-modified-p buffer-modified-p)
+                   (with-silent-modifications
+                     (atlas-wormholes-content-add-text-props-and-overlay
+                      payload keyword-plist beg end)))
+                 (run-hook-with-args 'atlas-wormholes-after-add-functions
+                                     beg end))))))))
+
+;;;###autoload
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-add-all (&optional narrowed)
+  "Add all active wormholes in the current buffer.
+
+By default, this function temporarily widens the narrowed region
+you are in and works on the entire buffer.  Note that this
+behavior is important for `atlas-wormholes-after-save-buffer' in
+order to clear the underlying file of all the wormholed text.
+
+For interactive use, you can pass NARROWED with using
+`universal-argument' (\\[universal-argument]) to get this
+function to work only on the narrowed region you are in, leaving
+the rest of the buffer unchanged."
+  (interactive "P")
+  (save-restriction
+    (let ((marker (point-marker)))
+      (unless narrowed (widen))
+      (goto-char (point-min))
+      (let ((regexp "^[ \t]*#\\+WORMHOLE:"))
+        (while (re-search-forward regexp nil t)
+          ;; Don't wormhole if within a wormhole to avoid infinite
+          ;; recursion
+          (unless (or (atlas-wormholes-within-wormhole-p)
+                      (plist-get (atlas-wormholes-keyword-string-to-plist)
+                                 :disable-auto))
+            ;; Demoted-errors so that one error does not stop the whole process
+            (with-demoted-errors
+                "Not wormholed. Continue to next: %S"
+              (when (atlas-wormholes-add)
+                (message "Wormholed at point %d, line %d"
+                         (point) (org-current-line)))))))
+      (goto-char marker)
+      (move-marker marker nil) ; point nowhere for GC
+      t)))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-remove ()
+  "Remove wormholed text at point.
+When success, return the beginning point of the keyword re-inserted."
+  (interactive)
+  (unless (atlas-wormholes-within-wormhole-p)
+    (user-error "Nothing done. No wormhole exists here."))
+  (when-let*
+      ((beg-end (plist-get (atlas-wormholes-at-point) :location))
+       (beg (car beg-end))
+       (end (cdr beg-end))
+       (keyword-plist (get-char-property (point)
+                                         'atlas-wormholes-orig-keyword))
+       (indent (plist-get keyword-plist :current-indentation))
+       (keyword (atlas-wormholes-keyword-plist-to-string keyword-plist))
+       (tc-pair-ov (get-char-property (point) 'atlas-wormholes-pair)))
+    (prog1
+        beg
+      (let ((buffer-modified-p (buffer-modified-p)))
+        (when (atlas-wormholes-within-live-sync-p)
+          (atlas-wormholes-live-sync-exit))
+        ;; Clean up source buffer fringe indicators before deleting overlay
+        (when (overlay-buffer tc-pair-ov)
+          (let ((src-buf (overlay-buffer tc-pair-ov))
+                (src-beg (overlay-start tc-pair-ov))
+                (src-end (overlay-end tc-pair-ov)))
+            ;; Remove our fringe indicators from source
+            (atlas-wormholes-remove-fringe-from-region src-buf src-beg src-end)
+            ;; Run hooks for extensions to do additional cleanup
+            (run-hook-with-args 'atlas-wormholes-after-remove-functions
+                                src-buf src-beg src-end)))
+          (delete-overlay tc-pair-ov)
+          ;; Careful with the point (beg and end). `save-excursion' may work but
+          ;; since we are removing a region and inserting the keyword back, it is
+          ;; safer to explicitly go back to beg with `goto-char'. Positions are
+          ;; especially important when two wormholes are present consecutively
+          ;; without space in-between.
+          (atlas-wormholes-with-inhibit-read-only
+            (delete-region beg end)
+            (goto-char beg) (insert-before-markers keyword))
+          (goto-char beg) (when (> indent 0) (indent-to indent))
+          ;; Removing wormhole should not be considered buffer modification.
+          ;; Keep the buffer-modified-p flag as it was before removal.
+          (restore-buffer-modified-p buffer-modified-p)))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-detach ()
+  "Make the wormholed region normal copied text content."
+  (interactive)
+  ;; Make sure the wormhole is removed first so that undo can be used
+  ;; to go back to the #+wormhole before detach.
+  (atlas-wormholes-refresh 'detach))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-remove-all (&optional narrowed)
+  "Remove all wormholed text regions in the current buffer.
+Return the list of points for the wormhole keywords
+re-inserted.  It is assumed that the list is ordered in
+descending order from the bottom of the buffer to the top.  The
+list is intended to be used in
+`atlas-wormholes-before-save-buffer'.
+
+By default, this function temporarily widens the narrowed region
+you are in and works on the entire buffer.  Note that this
+behavior is important for `atlas-wormholes-before-save-buffer'
+and `atlas-wormholes-before-kill' to clear the underlying file
+of all the wormholed text.
+
+For interactive use, you can pass NARROWED with using
+`universal-argument' (\\[universal-argument]) to get this
+function to work only on the narrowed region you are in, leaving
+the rest of the buffer unchanged."
+  (interactive "P")
+  (save-restriction
+    (let ((current-marker (move-marker (make-marker) (point)))
+          match list)
+      (unless narrowed (widen))
+      (goto-char (point-min))
+      (while (setq match (text-property-search-forward 'atlas-wormholes-id))
+        (goto-char (prop-match-beginning match))
+        (push (atlas-wormholes-remove) list))
+      (goto-char current-marker)
+      (move-marker current-marker nil) ; point nowhere for GC
+      list)))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-refresh (&optional detach)
+  "Refresh the wormholed text at point.
+With using `universal-argument' (\\[universal-argument]), you can
+pass DETACH, which copies the source instead of wormhole.
+
+TODO: Support asynchronous wormholes (set point correctly)."
+  (interactive "P")
+  (when (atlas-wormholes-within-wormhole-p)
+    (let ((pos (point)))
+      (atlas-wormholes-remove)
+      (atlas-wormholes-add detach)
+      (goto-char pos))
+    t))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-promote-subtree ()
+  "Promote wormholed subtree at point."
+  (interactive)
+  (atlas-wormholes-promote-or-demote-subtree))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-demote-subtree ()
+  "Demote wormholed subtree at point."
+  (interactive)
+  (atlas-wormholes-promote-or-demote-subtree 'demote))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-open-source (&optional arg)
+  "Open the source buffer of wormhole at point.
+When ARG is non-nil (e.g. \\[universal-argument]), the point will
+remain in the source buffer for further editing.
+
+TODO: Support asynchronous wormholes when source buffer
+doesn't exist."
+  (interactive "P")
+  (unless (overlay-buffer (get-text-property (point) 'atlas-wormholes-pair))
+    (atlas-wormholes-refresh))
+  (let* ((type (get-text-property (point) 'atlas-wormholes-type))
+         ;; Temporary marker to be discarded at the end of this function
+         (src-mkr (run-hook-with-args-until-success
+                   'atlas-wormholes-open-source-marker-functions type))
+         (src-buf (marker-buffer src-mkr))
+         (buf (current-buffer))
+         (pos (point)))
+    (if (not src-buf)
+        (user-error
+         (format "No paired source buffer found here: at %d" (point)))
+      (unwind-protect
+          (progn
+            (when (display-buffer
+                   src-buf
+                   atlas-wormholes-open-source-display-action-list)
+              (pop-to-buffer src-buf)
+              (goto-char src-mkr)
+              (recenter-top-bottom)))
+        (unless arg
+          (progn (pop-to-buffer buf)
+                 (goto-char pos)))))
+    (move-marker src-mkr nil))) ; point nowhere for GC
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-move-to-source ()
+  "Open the source buffer and move point to it.
+It's a function only to enable a keymap to call
+`atlas-wormholes-open-source' with an argument."
+  (interactive)
+  (atlas-wormholes-open-source t))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-live-sync-start ()
+  "Start live-sync edit on the wormhole at point.
+
+While live-sync is on, before- and after-save-hooks to remove/add
+wormholes are also temporarily disabled.  This prevents
+auto-save from getting in the way of live-sync.
+
+For wormholes of Org elements or a buffer, live-sync works
+only on the following elements: center-block, drawer,
+dynamic-block, latex-environment, paragraph, plain-list,
+quote-block, special-block table, and verse-block.
+
+It is known that live-sync does not work for the other Org
+elements: comment-block, export-block, example-block,
+fixed-width, keyword, src-block, and property-drawer.
+
+`atlas-wormholes-live-sync-map' inherits `org-mode-map' and adds
+a couple of atlas-wormholes specific keybindings; namely:
+
+- `atlas-wormholes-live-sync-paste'
+- `atlas-wormholes-live-sync-exit'
+
+\\{atlas-wormholes-live-sync-map}
+
+TODO: Support asynchronous wormholes."
+  (interactive)
+  (if (not (atlas-wormholes-within-wormhole-p))
+      (progn (message (format "Nothing done. Not a translusion at %d" (point)))
+             nil)
+    ;; Delete the other live-sync and refresh its wormhole
+    ;; There should be only one pair of wormhole-source in live-sync
+    (when-let* ((deleted-live-sync-ovs (wormhole-clone-delete-overlays))
+                (deleted-tc-ov (cadr deleted-live-sync-ovs)))
+      (atlas-wormholes-live-sync-refresh-after-exit deleted-tc-ov))
+    (atlas-wormholes-refresh)
+    (let* ((remember-pos (point))
+           (ovs (atlas-wormholes-live-sync-buffers))
+           (src-ov (car ovs))
+           (tc-ov (cdr ovs))
+           (tc-beg (overlay-start tc-ov))
+           (tc-end (overlay-end tc-ov)))
+      ;; Check the length of both overlays
+      ;; if different, abort live-sync
+      (if (not (= (- (overlay-end tc-ov) (overlay-start tc-ov))
+                  (- (overlay-end src-ov) (overlay-start src-ov))))
+          (progn
+            (user-error
+             (concat
+              "No live-sync can be started.  "
+              "Lengths of wormhole and source are not identical"
+              (format " - tc: [%s] src: [%s]"
+                      (- (overlay-end tc-ov) (overlay-start tc-ov))
+                      (- (overlay-end src-ov) (overlay-start src-ov)))))
+            nil) ; return nil
+        (atlas-wormholes-live-sync-modify-overlays
+         (wormhole-clone-set-overlays src-ov tc-ov))
+        (atlas-wormholes-live-sync-display-buffer (overlay-buffer src-ov))
+        (goto-char remember-pos)
+        (remove-hook 'before-save-hook #'atlas-wormholes-before-save-buffer t)
+        (remove-hook 'after-save-hook #'atlas-wormholes-after-save-buffer t)
+        (with-silent-modifications
+          (remove-text-properties (1- tc-beg) tc-end '(read-only)))
+        t))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-live-sync-exit ()
+  "Exit live-sync at point.
+It attempts to re-arrange the windows for the current buffer to
+the state before live-sync started."
+  (interactive)
+  (if (not (atlas-wormholes-within-live-sync-p))
+      (user-error "Not within a wormhole in live-sync")
+    (wormhole-clone-delete-overlays)
+    (let* ((src-ov (car (atlas-wormholes-live-sync-buffers)))
+           (src-buf (overlay-buffer src-ov)))
+      (with-current-buffer src-buf
+        (org-element-cache-reset)))
+    ;; Re-activate hooks inactive during live-sync
+    (atlas-wormholes-activate)
+    (atlas-wormholes-refresh)
+    (when atlas-wormholes-remember-window-config
+      (unwind-protect
+          (set-window-configuration atlas-wormholes-remember-window-config)
+        (progn
+          (setq atlas-wormholes-remember-window-config nil))))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-live-sync-paste ()
+  "Paste text content from `kill-ring' and inherit the text props.
+This is meant to be used within live-sync overlay as part of
+`atlas-wormholes-live-sync-map'"
+  (interactive)
+  (insert-and-inherit (current-kill 0)))
+
+;;;;---------------------------------------------------------------------------
+;;;; Private Functions
+;;;; Functions for Activate / Deactivate / save-buffer hooks
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-before-save-buffer ()
+  "Remove wormholes in `before-save-hook'.
+This function is meant to clear the file clear of the
+wormholes.  It also remembers the current point for
+`atlas-wormholes-after-save-buffer' to move it back."
+  (setq atlas-wormholes-remember-point (point))
+  (setq atlas-wormholes-remember-wormholes
+        (atlas-wormholes-remove-all)))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-after-save-buffer ()
+  "Add wormholes back as they were `before-save-buffer'.
+This function relies on `atlas-wormholes-remember-wormholes'
+set in `before-save-hook'.  It also move the point back to
+`atlas-wormholes-remember-point'."
+  (unwind-protect
+      (progn
+        ;; Assume the list is in descending order.
+        ;; pop and do from the bottom of buffer
+        (dolist (p atlas-wormholes-remember-wormholes)
+          (save-excursion
+            (goto-char p)
+            (atlas-wormholes-add)))
+        ;; After save and adding all wormholes, the modified flag should
+        ;; be set to nil.
+        (restore-buffer-modified-p nil)
+        (when atlas-wormholes-remember-point
+          (goto-char atlas-wormholes-remember-point)))
+    (progn
+      (setq atlas-wormholes-remember-point nil)
+      (setq atlas-wormholes-remember-wormholes nil))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-before-kill ()
+  "Remove wormholes before `kill-buffer' or `kill-emacs'.
+Intended to be used with `kill-buffer-hook' and `kill-emacs-hook'
+to clear the file of the wormholed text regions.  This function
+also flags the buffer modified and `save-buffer'.  Calling the
+second `atlas-wormholes-remove-all' ensures the clearing process
+to occur.  This is required because during live-sync, some hooks
+that manage the clearing process are temporarily turned
+off (removed)."
+  ;; Remove wormholes first. To deal with an edge case where wormholes
+  ;; were added for a capture buffer -- e.g. `org-capture' or `org-roam-catpure'
+  ;; --, check is done for `buffer-file-name' to see if there is a file visited
+  ;; by the buffer. If a "temp" buffer, there is no file being visited.
+  (when (and (atlas-wormholes-remove-all)
+             (buffer-file-name))
+    (atlas-wormholes-remove-all)))
+
+;;;;---------------------------------------------------------------------------
+;;;; Functions for Wormhole Keyword
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-keyword-string-to-plist ()
+  "Return the \"#+wormhole:\" keyword's values if any at point."
+  (save-excursion
+    (beginning-of-line)
+    (let ((plist))
+      (when (string= "WORMHOLE"
+                     (org-element-property :key (org-element-at-point)))
+        ;; #+wormhole: keyword exists.
+        ;; Further checking the value
+        (when-let ((str (org-element-property :value (org-element-at-point))))
+          (dolist (fn atlas-wormholes-keyword-value-functions) plist
+                  (setq plist (append plist (funcall fn str)))))
+        plist))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-keyword-value-link (string)
+  "It is a utility function used converting a keyword STRING to plist.
+It is meant to be used by
+`atlas-wormholes-get-string-to-plist'.  It needs to be set in
+`atlas-wormholes-keyword-value-functions'."
+  (if (string-match "\\(\\[\\[.+?\\]\\]\\)" string)
+      (list :link (org-strip-quotes (match-string 0 string)))
+    ;; link mandatory
+    (user-error "Error.  Link in #+wormhole is mandatory at %d" (point))
+    nil))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-keyword-value-disable-auto (string)
+  "It is a utility function used converting a keyword STRING to plist.
+It is meant to be used by `atlas-wormholes-get-string-to-plist'.
+It needs to be set in
+`atlas-wormholes-keyword-value-functions'."
+  (when (string-match ":disable-auto" string)
+    (list :disable-auto
+          (org-strip-quotes (match-string 0 string)))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-keyword-value-level (string)
+  "It is a utility function used converting a keyword STRING to plist.
+It is meant to be used by `atlas-wormholes-get-string-to-plist'.
+It needs to be set in
+`atlas-wormholes-keyword-value-functions'."
+  (and-let* ((_ (string-match ":level *\\([1-9]?\\)" string))
+             (match (match-string 1 string))
+             (val (if (string-empty-p match) "auto" (string-to-number match))))
+    (list :level val)))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-keyword-value-only-contents (string)
+  "It is a utility function used converting a keyword STRING to plist.
+It is meant to be used by `atlas-wormholes-get-string-to-plist'.
+It needs to be set in
+`atlas-wormholes-keyword-value-functions'."
+  (when (string-match ":only-contents?" string)
+    (list :only-contents
+          (org-strip-quotes (match-string 0 string)))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-keyword-value-exclude-elements (string)
+  "It is a utility function used converting a keyword STRING to plist.
+It is meant to be used by `atlas-wormholes-get-string-to-plist'.
+It needs to be set in
+`atlas-wormholes-get-keyword-values-hook'.
+Double quotations are mandatory."
+  (when (string-match ":exclude-elements +\"\\(.*\\)\"" string)
+    (list :exclude-elements
+          (org-trim (org-strip-quotes (match-string 1 string))))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-keyword-current-indentation (_)
+  "It is a utility function used converting a keyword STRING to plist.
+It is meant to be used by `atlas-wormholes-get-string-to-plist'.
+It needs to be set in
+`atlas-wormholes-keyword-value-functions'."
+  (list :current-indentation (current-indentation)))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-keyword-value-expand-links (string)
+  "It is a utility function used converting a keyword STRING to plist.
+It is meant to be used by `atlas-wormholes-get-string-to-plist'.
+It needs to be set in
+`atlas-wormholes-keyword-value-functions'."
+  (when (string-match ":expand-links" string)
+    (list :expand-links
+          (org-strip-quotes (match-string 0 string)))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-keyword-value-no-first-heading (string)
+  "It is a utility function used converting a keyword STRING to plist.
+It is meant to be used by `atlas-wormholes-get-string-to-plist'.
+It needs to be set in
+`atlas-wormholes-keyword-value-functions'."
+  (when (string-match ":no-first-heading" string)
+    (list :no-first-heading (org-strip-quotes (match-string 0 string)))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-keyword-remove ()
+  "Remove the keyword element at point.
+Returns t if successful.  It checks if the element at point is a
+keyword.  If not, returns nil."
+  (let* ((elm (org-element-at-point))
+         ;; Ignore and keep affiliated keywords before #+wormhole
+         ;; Fix issue #115
+         (beg (org-element-property :post-affiliated elm))
+         (end (org-element-property :end elm))
+         (post-blank (org-element-property :post-blank elm)))
+    (when (string= "keyword" (org-element-type elm))
+      (delete-region beg (- end post-blank))
+      t)))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-keyword-plist-to-string (plist)
+  "Convert a keyword PLIST to a string."
+  (let (;;(active-p (plist-get plist :active-p))
+        (link (plist-get plist :link))
+        (level (plist-get plist :level))
+        (disable-auto (plist-get plist :disable-auto))
+        (only-contents (plist-get plist :only-contents))
+        (exclude-elements (plist-get plist :exclude-elements))
+        (expand-links (plist-get plist :expand-links))
+        (no-first-heading (plist-get plist :no-first-heading))
+        (custom-properties-string nil))
+    (setq custom-properties-string
+          (dolist (fn atlas-wormholes-keyword-plist-to-string-functions
+                      custom-properties-string)
+            (let ((str (funcall fn plist)))
+              (when (and str (not (string-empty-p str)))
+                (setq custom-properties-string
+                      (concat custom-properties-string " " str ))))))
+    (concat "#+wormhole: "
+            link
+            (when level (if (and (stringp level) (string= level "auto"))
+                            " :level "
+                          (format " :level %d" level)))
+            (when disable-auto (format " :disable-auto"))
+            (when only-contents (format " :only-contents"))
+            (when exclude-elements (format " :exclude-elements \"%s\""
+                                           exclude-elements))
+            (when expand-links (format " :expand-links"))
+            (when no-first-heading (format " :no-first-heading"))
+            custom-properties-string
+            "\n")))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-keyword-plist-to-exclude-elements (plist)
+  "Return list of symbols from PLIST when applicable.
+If PLIST does not have :exclude-elements, return nil.
+
+This function also attempts to remove empty string that gets
+inserted when more than one space is inserted between symbols."
+  (let ((str (plist-get plist :exclude-elements)))
+    (when str
+      (let ((list (split-string str " "))
+            elements)
+        (dolist (s list elements)
+          (unless (string= s "")
+            (when (memq (intern s) org-element-all-elements)
+              (push (intern s) elements))))))))
+
+;;-----------------------------------------------------------------------------
+;;;; Add-at-point functions
+
+(make-obsolete 'atlas-wormholes-add-payload
+               "Use `atlas-wormholes-add' directly." "2.0.0")
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-add-payload (payload link keyword-plist copy)
+  "Insert wormholed content with error handling.
+
+DO NOT USE THIS FUNCTION ANY LONGER. This function is kept for backward
+compatibility for `hyperdrive-atlas-wormholes'.
+
+PAYLOAD should be a plist according to the description in
+`atlas-wormholes-add-functions'.  LINK should be an org-element
+context object for the link.  KEYWORD-PLIST should contain the
+\"#+wormhole:\" keywords for the wormhole at point.  With
+non-nil COPY, copy the wormholed content into the buffer.
+
+This function is intended to be called from within payload functions
+returned by hooks in `atlas-wormholes-add-functions'."
+  (let ((tc-type (plist-get payload :tc-type))
+        (src-buf (plist-get payload :src-buf))
+        (src-beg (plist-get payload :src-beg))
+        (src-end (plist-get payload :src-end))
+        (src-content (plist-get payload :src-content)))
+    (if (or (string= src-content "")
+            (eq src-content nil))
+        ;; Keep going with program when no content `atlas-wormholes-add-all'
+        ;; should move to the next wormhole
+        (prog1 nil
+          (message
+           "No content found with \"%s\".  Check the link at point %d, line %d"
+           (org-element-property :raw-link link) (point) (org-current-line)))
+      (let ((beg (line-beginning-position))
+            (end))
+        (atlas-wormholes-with-inhibit-read-only
+          (when (save-excursion
+                  (end-of-line) (insert-char ?\n)
+                  (atlas-wormholes-content-insert src-content)
+                  (unless (eobp) (delete-char 1))
+                  (setq end (point))
+                  t)
+            ;; `atlas-wormholes-keyword-remove' checks element at point is a
+            ;; keyword or not
+            (atlas-wormholes-keyword-remove)))
+        (run-hook-with-args 'atlas-wormholes-after-add-functions beg end))
+      t)))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-add-source-marker (link)
+  "Return the marker of wormhole source by opening LINK.
+LINK must be Org's link object that `org-link-open' can act on. As long
+as `org-link-open' opens a buffer within Emacs, this function should
+return a marker.
+
+When LINK has no search option (::*Heading, ::CUSTOM_ID, etc.), returns
+marker at 1 to ensure line-based wormholes calculate
+offsets from file beginning, not from cursor position."
+  ;; Assume the point now is the wormholing buffer
+
+  ;; Note 2025-12-18 `org-link-open' does not necessarily obey
+  ;; `display-buffer-alist' and can open the target buffer in the currently
+  ;; selected window. This is disruptive for users. We want wormholes to
+  ;; keep the current buffer in the current window. To do this, it seems
+  ;; `save-window-excursion' is the only way.
+
+  ;; Note 2026-03-07 For `org-link-open', instead of relying on
+  ;; `save-window-excursion', we are now using display-buffer-alist with its
+  ;; ACTION `display-buffer-no-window' and allow-no-window being non-nil. This
+  ;; is originally conceived as a fix for GitHub issue #299, but it looks like
+  ;; it can be a good way to tame `org-link-open' for our purpose.
+
+  ;; This `save-excursion' is needed for the case where the target and
+  ;; source are the same buffer.
+  (when (string= "info" (org-element-property :type link))
+        (user-error
+         "Atlas-wormholes: wormholing info node is currently unsupported."))
+  (save-excursion
+    (condition-case nil
+        (let (
+              ;; Don't ever prompt to create a headline when wormholing.
+              ;; t is a less surprising default than nil - fuzzy search.
+              (org-link-search-must-match-exact-headline t)
+              ;; Don't display or pop to the link's target buffer. Non-nil value
+              ;; for allow-no-window will cause `pop-to-buffer' to fall back to
+              ;; `set-buffer', which we want here.
+              (display-buffer-alist '((".*" display-buffer-no-window
+                                       (allow-no-window t)))))
+          (org-link-open link)
+          ;; In the target buffer temporarily.
+          (save-excursion
+            (move-marker
+             (make-marker)
+             (if (atlas-wormholes-source-point-beginning-of-buffer-p link)
+                 1 (point)))))
+      (error (user-error
+              "Atlas-wormholes: `org-link-open' cannot open link, %s"
+              (org-element-property :raw-link link))))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-source-point-beginning-of-buffer-p (link)
+  "Return non-nil when point should be at the beginning of the buffer.
+LINK must be Org's link object that `org-link-open' can act on.
+
+This is meant to be used in`atlas-wormholes-add-source-marker', which
+should return a marker pointing to the beginning of the buffer (bob =
+point 1) when:
+
+  - Link type is file
+  - No search option
+
+This is so that :lines offsets calculate from file start, not from
+wherever cursor happened to be in source buffer. For other cases, leave
+the point where it is. We are assuming that the `org-link-open' moves
+the point in an appropriate location of the link target buffer, even
+though we cannot guarantee that this is the case. We are limiting the
+case for the marker pointing to the bob only to link type is file
+because:
+
+  - Search option is parsed only when the link type is file.
+  - For other file types, expecially ones from third-party packages such
+    as `orgit', we MUST NOT move the point to the beginning of the
+    buffer."
+  (and (string-equal "file" (org-element-property :type link))
+       (not (org-element-property :search-option link))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-add-org-id (link plist)
+  "Return a list for Org-ID LINK object and PLIST.
+Return nil if not found."
+  (and-let*
+      ((_ (string= "id" (org-element-property :type link)))
+       (mkr (atlas-wormholes-add-source-marker link))
+       (buf (marker-buffer mkr))
+       (_ (buffer-live-p (marker-buffer mkr))))
+    (with-current-buffer buf
+      (org-with-wide-buffer
+       (goto-char mkr)
+       (append '(:tc-type "org-id")
+               (if (org-before-first-heading-p)
+                   (atlas-wormholes-content-org-filtered
+                    nil plist)
+                 (atlas-wormholes-content-org-filtered
+                  'only-element plist)))))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-add-org-file (link plist)
+  "Return a list for Org file LINK object and PLIST.
+Return nil if not found."
+  (and-let* ((_ (or (string= "file" (org-element-property :type link))
+                    (string= "fuzzy" (org-element-property :type link))))
+             (_ (or (atlas-wormholes-org-file-p (org-element-property :path link))
+                    (string= "fuzzy" (org-element-property :type link))))
+  ;; The target needs to be carefully differentiated between the whole buffer or
+  ;; element at point.
+
+  ;; When the link is ID, the current logic to check the first section should
+  ;; work.
+
+  ;; For the normal file links pointing to an Org file, the target buffer may be
+  ;; already open with a point. If the search option is present, the point will
+  ;; move to the appropriate point and get the element. If the search option is
+  ;; not present, the whole buffer needs to be obtained.
+             (mkr (atlas-wormholes-add-source-marker link))
+             (buf (marker-buffer mkr)))
+    ;; - Silly to go back to the buffer here.
+    ;; - `atlas-wormholes-content-org-filtered' should not return other
+    ;;   properties -- confusing.
+    (with-current-buffer buf
+      (org-with-wide-buffer
+       (append '(:tc-type "org-link")
+               ;; If search-option present, get only the element at point;
+               ;; otherwise, get the whole buffer.
+               (if (org-element-property :search-option link)
+                   (progn
+                     (goto-char mkr)
+                     (atlas-wormholes-content-org-filtered
+                      'only-element plist))
+                 (atlas-wormholes-content-org-filtered
+                  nil plist)))))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-add-other-file (link _plist)
+  "Return a list for non-Org file LINK object and PLIST.
+Return nil if not found."
+  (and-let* (;; (_ (string= "file" (org-element-property :type link)))
+             (mkr (atlas-wormholes-add-source-marker link))
+             (buf (marker-buffer mkr)))
+    ;; FIXME It's silly to revisit the buffer when it was already visited.
+    (with-current-buffer buf
+      (org-with-wide-buffer
+       (append '(:tc-type "others-default")
+               (list :src-content (buffer-string)
+                     :src-buf buf
+                     :src-beg (point-min)
+                     :src-end (point-max)))))))
+
+;;-----------------------------------------------------------------------------
+;;;; Functions for inserting content
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-content-insert (content)
+  "Insert CONTENT and return cons cell of BEG and END."
+  (let ((beg (line-beginning-position))
+        end-mkr end)
+    (atlas-wormholes-with-inhibit-read-only
+      (when (save-excursion
+              (end-of-line) (insert-char ?\n)
+              (insert content)
+              (unless (eobp) (delete-char 1))
+              (setq end-mkr (move-marker (make-marker) (point)))
+              t)
+        ;; `atlas-wormholes-keyword-remove' checks element at point is a
+        ;; keyword or not
+        (atlas-wormholes-keyword-remove)
+        ;; Fix indentation when `org-adapt-indentation' is non-nil
+        (org-indent-region beg end-mkr)
+        (setq end (marker-position end-mkr))))
+    ;; Assume beg and end are non-nil?
+    (when (and beg end)
+      ;; (run-hook-with-args 'atlas-wormholes-after-add-functions beg end)
+      ;; Point END-MKR to nowhere for garbage collection.
+      (move-marker end-mkr nil)
+      (cons beg end))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-content-add-text-props-and-overlay (payload keyword-values beg end)
+  "
+BEG: before the text is inserted
+END: the end of text content after inserting it
+;; - KEYWORD-VALUES :: Property list of the value of wormhole keyword
+;; - TYPE :: Wormhole type; e.g. \"org-link\"
+
+This function assumes that the current point is within the
+current buffer."
+  (and-let* ((id (org-id-uuid))
+             (tc-buffer (current-buffer))
+             (src-beg (plist-get payload :src-beg))
+             (src-end (plist-get payload :src-end))
+             (src-buf (plist-get payload :src-buf))
+             (ov-src (wormhole-clone-make-overlay src-beg src-end src-buf))
+             (tc-pair ov-src)
+             (tc-type (plist-get payload :tc-type)))
+    (add-text-properties
+     beg end
+     `( local-map ,atlas-wormholes-map
+        read-only t
+        front-sticky t
+        rear-nonsticky t
+        atlas-wormholes-id ,id
+        atlas-wormholes-type ,tc-type
+        atlas-wormholes-pair ,tc-pair
+        atlas-wormholes-orig-keyword ,keyword-values
+        ;; Add uniform fringe indicator to wormholed content
+        line-prefix ,(atlas-wormholes--make-fringe-indicator
+                      'atlas-wormholes-fringe)
+        wrap-prefix ,(atlas-wormholes--make-fringe-indicator
+                      'atlas-wormholes-fringe)))
+    ;; Put the wormhole overlay
+    (let ((ov-tc (wormhole-clone-make-overlay beg end)))
+      (overlay-put ov-tc 'evaporate t)
+      (overlay-put ov-tc 'face 'atlas-wormholes)
+      (overlay-put ov-tc 'priority -60)
+      (overlay-put ov-tc 'keymap atlas-wormholes-map))
+    ;; Put to the source overlay
+    (overlay-put ov-src 'atlas-wormholes-by id)
+    (overlay-put ov-src 'atlas-wormholes-buffer tc-buffer)
+    (overlay-put ov-src 'evaporate t)
+    (overlay-put ov-src 'face 'atlas-wormholes-source)
+    (overlay-put ov-src 'priority -60)
+    (overlay-put ov-src 'atlas-wormholes-pair tc-pair)
+    ;; Add modification hook to source overlay
+    (overlay-put ov-src 'modification-hooks
+                 '(atlas-wormholes-source-overlay-modified))
+    ;; Add per-line fringe indicators to source buffer only
+    (atlas-wormholes-add-fringe-to-region
+     src-buf src-beg src-end 'atlas-wormholes-source-fringe)
+    ;; Return t
+    t))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-content-highest-org-headline ()
+  "Return the highest level as an integer of all the headlines in buffer.
+Returns nil if there is no headline.  Note that level 1 is the
+highest; the lower the number, higher the level of headline.
+
+This function assumes the buffer is an Org buffer."
+  (let ((tree (org-element-parse-buffer))
+        list)
+    (org-element-map tree 'headline
+      (lambda (h)
+        (push (org-element-property :level h) list)))
+    (when list (seq-min list))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-content-format-org (type content keyword-values)
+  "Format text CONTENT from source before wormholing.
+Return content modified (or unmodified, if not applicable).
+
+KEYWORD-VALUES is a plist of wormhole properties.
+
+This function is the default for atlas-wormholes-type (TYPE)
+\"org-*\"."
+  (when (atlas-wormholes-type-is-org type)
+    (with-temp-buffer
+      ;; Advice by meedstrom:
+      ;; First insert content, then enable Org-mode afterwards, so that
+      ;; `org-set-regexps-and-options' can process "#+STARTUP: odd" and other things.
+      ;; These let-bindings are safe methods of speeding it up.
+      ;; Notably, very slow "#+STARTUP: indent" ignored thanks to `org-inhibit-startup'.
+      (let ((org-agenda-files nil)
+            (org-inhibit-startup t))
+        (insert content)
+        (delay-mode-hooks (org-mode))
+        ;; Adjust headline levels
+        (atlas-wormholes-content-format-org-headlines
+         type content keyword-values)
+        ;; TODO The following two formatting operations should be in a function.
+        ;; Fix table alignment
+        (let ((point (point-min)))
+          (while point
+            (goto-char (1+ point))
+            (when (org-at-table-p)
+              (org-table-align)
+              (goto-char (org-table-end)))
+            (setq point (search-forward "|" (point-max) t))))
+        ;; Return the temp-buffer's string
+        (buffer-string)))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-content-format-org-headlines (_type _content keyword-values)
+  "Adjust org headline levels for CONTENT.
+KEYWORD-VALUES is a plist of wormhole properties. This
+function assumes the point is within temp-buffer with `org-mode'
+active."
+  (org-with-point-at 1
+    ;; If NO-FIRST-HEADING, delete the first level
+    (and (org-at-heading-p)
+         (plist-get keyword-values :no-first-heading)
+         (delete-line))
+    (let* ((raw-to-level (plist-get keyword-values :level))
+           (to-level (if (and (stringp raw-to-level)
+                              (string= raw-to-level "auto"))
+                         (1+ (plist-get keyword-values :current-level))
+                       raw-to-level))
+           (level (or (org-current-level)
+                      (save-excursion
+                        (org-next-visible-heading 1)
+                        (org-current-level))))
+           (diff (when (and level to-level) (- level to-level))))
+      (when diff
+        (cond ((< diff 0) ; demote
+               (org-map-entries (lambda ()
+                                  (dotimes (_ (abs diff))
+                                    (org-do-demote)))))
+              ((> diff 0) ; promote
+               (org-map-entries (lambda ()
+                                  (dotimes (_ diff) (org-do-promote))))))))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-content-format (_type content keyword-values)
+  "Format text CONTENT from source before wormholing.
+Return content modified (or unmodified, if not applicable).
+
+This is the default one.  It only returns the content as is.
+
+KEYWORD-VALUES is a plist of wormhole properties."
+  (with-temp-buffer
+    (insert content)
+    ;; Return the temp-buffer's string
+    (set-left-margin (point-min)(point-max)
+                     (plist-get keyword-values :current-indentation))
+    (buffer-string)))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defvar atlas-wormholes-content-filter-org-functions '())
+
+(add-hook 'atlas-wormholes-content-filter-org-functions
+          #'atlas-wormholes-content-filter-org-only-contents-function)
+
+(add-hook 'atlas-wormholes-content-filter-org-functions
+          #'atlas-wormholes-content-filter-org-expand-links-function)
+
+(make-obsolete 'atlas-wormholes-content-org-buffer-or-element
+               'atlas-wormholes-content-org-filtered "1.4.1")
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-content-org-filtered (only-element plist)
+  "Return a list of payload for wormhole.
+This function assumes the point is at the beginning of the org
+element to wormhole.
+
+The payload is a plist that consists of the following properties:
+- :src-content
+- :src-buf
+- :src-beg
+- :src-end
+
+When ONLY-ELEMENT is non-nil, this function looks at only the element
+at point; if nil, the whole buffer.
+
+This function applies multiple filters on the Org elements before
+constructing the payload based on PLIST. It is the
+\"keyword-plist\" for the wormhole being worked on; each
+property controls the filter applied to the wormhole."
+  (let* ((el (org-element-context))
+         (type (when el (org-element-type el))))
+    (if (or (not el)(not type))
+        (message "Nothing done")
+      ;; For dedicated target, we want to get the parent paragraph,
+      ;; rather than the target itself
+      (when (and (string= "target" type)
+                 (string= "paragraph"
+                          (org-element-type (org-element-property :parent el))))
+        (setq el (org-element-property :parent el)))
+      (let ((beg (org-element-property :begin el))
+            (end (org-element-property :end el))
+            obj)
+        (when only-element
+          (narrow-to-region beg end))
+        (setq obj (org-element-parse-buffer))
+        (setq obj (atlas-wormholes-content-org-filter only-element obj plist))
+        (list :src-content (org-element-interpret-data obj)
+              :src-buf (current-buffer)
+              :src-beg (point-min)
+              :src-end (point-max))))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-content-org-filter (only-element obj plist)
+  ;; Apply `atlas-wormholes-exclude-elements'
+  ;; Appending exclude-elements can duplicate symbols
+  ;; But that does not influence the output
+  (let ((atlas-wormholes-exclude-elements
+         (append (atlas-wormholes-keyword-plist-to-exclude-elements plist)
+                 atlas-wormholes-exclude-elements)))
+    (setq obj (org-element-map obj org-element-all-elements
+                #'atlas-wormholes-content-filter-org-exclude-elements
+                nil nil org-element-all-elements nil)))
+  ;; First section
+  (unless only-element ;only-element is nil when it is a first section
+    (setq obj (org-element-map obj org-element-all-elements
+                #'atlas-wormholes-content-filter-org-first-section
+                nil nil org-element-all-elements nil)))
+  ;; Apply other filters
+  (dolist (fn atlas-wormholes-content-filter-org-functions)
+    (let ((obj-returned (funcall fn obj plist)))
+      ;; If nil is returned, do not change the org-content (obj)
+      (when obj-returned (setq obj obj-returned))))
+  obj)
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-content-filter-org-expand-links-function (obj plist)
+  (when (plist-get plist :expand-links)
+    (org-element-map obj 'link #'atlas-wormholes-content-filter-org-expand-links)
+    obj))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-content-filter-org-expand-links (link)
+  "Convert LINK to an absolute filename.
+LINK is assumed to be an Org element. This function does nothing
+to LINK if the link is already absolute.
+
+The current buffer is assumed to be the source buffer for the
+wormhole."
+  (when (string-equal "file" (org-element-property :type link))
+    (let ((path (org-element-property :path link)))
+      (unless (file-name-absolute-p path)
+        (org-element-put-property
+         link :path
+         (expand-file-name
+          path
+          (file-name-directory (buffer-file-name (current-buffer)))))))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-content-filter-org-exclude-elements (data)
+  "Exclude specific elements from DATA.
+The elements to be excluded are defined by customizing variable
+`atlas-wormholes-exclude-elements' globally, and adjusted by
+:exclude-elements property of the wormhole keyword."
+  (org-element-map data atlas-wormholes-exclude-elements
+    (lambda (d) (org-element-extract-element d)))
+  data)
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-content-filter-org-first-section (data)
+  "Exclude the first section from DATA.
+The first section is the part before the first headline of an Org
+file.  Include it when `atlas-wormholes-include-first-section'
+is non-nil."
+  (if (and (eq (org-element-type data) 'section)
+           (not atlas-wormholes-include-first-section))
+      nil
+    data))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-content-filter-org-only-contents-function (obj plist)
+  (when-let ((only-contents (plist-get plist :only-contents)))
+    (org-element-map obj org-element-all-elements
+      #'atlas-wormholes-content-filter-org-only-contents
+      nil nil 'section nil)))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-content-filter-org-only-contents (data)
+  "Exclude headlines from DATA to include only contents."
+  (if (eq (org-element-type data) 'headline)
+      nil
+    data))
+
+;;-----------------------------------------------------------------------------
+;;; Helper Functions
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes--fringe-spec-p (prop-value)
+  "Return non-nil if UNFOLDING-VALUE represents a wormhole fringe indicator.
+Checks both graphical fringe (display property) and
+terminal fringe (face property)."
+  (or
+   ;; Graphical: (left-fringe BITMAP FACE)
+   ;; BITMAP can be 'empty-line (source) or 'atlas-wormholes-fringe-bitmap (destination)
+   (and (listp prop-value)
+        (eq (car prop-value) 'left-fringe)
+        (memq (cadr prop-value) '(empty-line atlas-wormholes-fringe-bitmap))
+        (memq (nth 2 prop-value)
+              '(atlas-wormholes-source-fringe
+                atlas-wormholes-fringe)))
+   ;; Terminal: face property with our face names
+   (memq prop-value
+         '(atlas-wormholes-source-fringe
+           atlas-wormholes-fringe
+           atlas-wormholes-source
+           atlas-wormholes))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes--make-fringe-indicator (face)
+  "Create fringe indicator string for FACE.
+Handles both graphical and terminal display modes.
+Uses empty-line bitmap for source fringe, atlas-wormholes-fringe-bitmap
+for wormhole fringe to match original overlay-based appearance."
+  (if (display-graphic-p)
+      (let ((bitmap (if (eq face 'atlas-wormholes-source-fringe)
+                        'empty-line
+                      'atlas-wormholes-fringe-bitmap)))
+        (propertize "x" 'display `(left-fringe ,bitmap ,face)))
+    (propertize "| " 'face face)))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes--update-line-prefix (line-beg line-end prop-name new-value)
+  "Update text property UNFOLDING-NAME to NEW-VALUE for line at LINE-BEG.
+LINE-END is the end of the region to update.
+If NEW-VALUE is nil, removes the property entirely."
+  (if new-value
+      (put-text-property line-beg line-end prop-name new-value)
+    (remove-text-properties line-beg line-end (list prop-name nil))))
+
+;;; Fringe Management
+
+;;;; Fringe Detection
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-prefix-has-fringe-p (prefix)
+  "Return non-nil if PREFIX string contains a wormhole fringe indicator.
+Checks for both graphical fringe (display property) and terminal
+fringe (face property within the string)."
+  (when (stringp prefix)
+    (let ((pos 0))
+      (catch 'found
+        ;; Check display properties (graphical fringe)
+        (while (setq pos (next-single-property-change pos 'display prefix))
+          (when (atlas-wormholes--fringe-spec-p
+                 (get-text-property pos 'display prefix))
+            (throw 'found t)))
+
+        ;; Check face properties within the string (terminal fringe only)
+        ;; Terminal fringes are strings like "| " with face property
+        (unless (display-graphic-p)
+          (setq pos 0)
+          (while (< pos (length prefix))
+            (let ((face (get-text-property pos 'face prefix)))
+              (when (memq face '(atlas-wormholes-source-fringe
+                                 atlas-wormholes-fringe))
+                (throw 'found t)))
+            (setq pos (1+ pos))))
+
+        nil))))
+
+;;;; Fringe Creation
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-append-fringe-to-prefix (existing-prefix face)
+  "Append fringe indicator to EXISTING-PREFIX, preserving it.
+FACE determines the fringe color (atlas-wormholes-source-fringe or
+atlas-wormholes-fringe).
+Returns concatenated string suitable for `line-prefix' or `wrap-prefix'.
+
+In terminal mode, prepends fringe to place it at the left margin.
+In graphical mode, appends fringe to preserve indentation alignment."
+  (let ((fringe-indicator (atlas-wormholes--make-fringe-indicator face)))
+    (if existing-prefix
+        (if (display-graphic-p)
+            ;; Graphical: append fringe (invisible in fringe area)
+            (concat existing-prefix fringe-indicator)
+          ;; Terminal: prepend fringe to show at left margin
+          (concat fringe-indicator existing-prefix))
+      fringe-indicator)))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-add-fringe-to-region (buffer beg end face)
+  "Add fringe indicator to each line in BUFFER between BEG and END.
+FACE determines the fringe color.
+
+When org-indent-mode is active (`line-prefix'/`wrap-prefix' properties exist),
+appends fringe to existing indentation. When org-indent-mode is inactive,
+adds fringe-only prefix."
+  (with-current-buffer buffer
+    (with-silent-modifications
+      (save-excursion
+        (goto-char beg)
+        (catch 'done
+          (while (< (point) end)
+            (let* ((line-beg (line-beginning-position))
+                   (line-end (min (line-end-position) end))
+                   (line-prefix (get-text-property line-beg 'line-prefix))
+                   (wrap-prefix (get-text-property line-beg 'wrap-prefix))
+                   (fringe-only (atlas-wormholes--make-fringe-indicator face)))
+
+              ;; Handle line-prefix
+              (if line-prefix
+                  ;; org-indent-mode case: append to existing prefix
+                  (unless (atlas-wormholes-prefix-has-fringe-p line-prefix)
+                    (atlas-wormholes--update-line-prefix
+                     line-beg line-end 'line-prefix
+                     (atlas-wormholes-append-fringe-to-prefix line-prefix face)))
+                ;; Non-indent case: add fringe-only prefix
+                (atlas-wormholes--update-line-prefix
+                 line-beg line-end 'line-prefix fringe-only))
+
+              ;; Handle wrap-prefix
+              (if wrap-prefix
+                  ;; org-indent-mode case: append to existing prefix
+                  (unless (atlas-wormholes-prefix-has-fringe-p wrap-prefix)
+                    (atlas-wormholes--update-line-prefix
+                     line-beg line-end 'wrap-prefix
+                     (atlas-wormholes-append-fringe-to-prefix wrap-prefix face)))
+                ;; Non-indent case: add fringe-only prefix
+                (atlas-wormholes--update-line-prefix
+                 line-beg line-end 'wrap-prefix fringe-only)))
+
+            ;; Try to advance to next line; if we can't, we're done
+            (when (not (zerop (forward-line 1)))
+              (throw 'done nil))))))))
+
+;;;; Fringe Removal
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-remove-fringe-from-prefix (prefix)
+  "Remove fringe indicator from PREFIX string.
+Returns the cleaned prefix, or nil if prefix was only the fringe indicator."
+  (when (stringp prefix)
+    (let* ((cleaned prefix)
+           (pos (length cleaned)))
+      ;; Remove all fringe indicators (both graphical and terminal)
+      (while (>= pos 0)
+        (let ((display-prop (get-text-property pos 'display cleaned))
+              (face-prop (get-text-property pos 'face cleaned)))
+          (when (or (atlas-wormholes--fringe-spec-p display-prop)
+                    (atlas-wormholes--fringe-spec-p face-prop))
+            ;; Found a fringe indicator, remove it
+            (setq cleaned (concat (substring cleaned 0 pos)
+                                  (substring cleaned (1+ pos)))))
+          ;; Adjust position since we removed a character
+          (setq pos (1- pos))))
+      ;; Return nil if nothing left, otherwise return cleaned prefix
+      (if (string-empty-p cleaned) nil cleaned))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-remove-fringe-from-region (buffer beg end)
+  "Remove fringe indicators from each line in BUFFER between BEG and END.
+This restores `line-prefix' and `wrap-prefix' to their state before
+`atlas-wormholes-add-fringe-to-region' was called.
+
+In `org-mode' buffers, removes only the fringe portion while preserving
+org-indent indentation.  In non-org buffers, removes the properties
+entirely since they were added solely for fringe display."
+  (with-current-buffer buffer
+    (with-silent-modifications
+      (save-excursion
+        (goto-char beg)
+        (let ((is-org-buffer (derived-mode-p 'org-mode)))
+          (while (< (point) end)
+            (let* ((line-beg (line-beginning-position))
+                   (line-end (min (line-end-position 1) end))
+                   (line-prefix (get-text-property line-beg 'line-prefix))
+                   (wrap-prefix (get-text-property line-beg 'wrap-prefix)))
+
+              (if is-org-buffer
+                  ;; Org buffer: strip fringes, preserve org-indent content
+                  (progn
+                    (when line-prefix
+                      (atlas-wormholes--update-line-prefix
+                       line-beg line-end 'line-prefix
+                       (atlas-wormholes-remove-fringe-from-prefix line-prefix)))
+                    (when wrap-prefix
+                      (atlas-wormholes--update-line-prefix
+                       line-beg line-end 'wrap-prefix
+                       (atlas-wormholes-remove-fringe-from-prefix wrap-prefix))))
+                ;; Non-org buffer: remove properties entirely
+                (progn
+                  (atlas-wormholes--update-line-prefix line-beg line-end 'line-prefix nil)
+                  (atlas-wormholes--update-line-prefix line-beg line-end 'wrap-prefix nil))))
+            (forward-line 1)))))))
+
+;;;; Hook
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-source-overlay-modified (ov after-p _beg _end &optional _len)
+  "Update source overlay OV indentation after modification.
+Called by overlay modification hooks. AFTER-P is t after modification.
+This ensures fringe indicators stay synchronized with org-indent-mode's
+dynamic updates."
+  (when (and after-p (overlay-buffer ov))
+    (let ((ov-beg (overlay-start ov))
+          (ov-end (overlay-end ov)))
+      ;; Only re-apply fringes if atlas-wormholes-indent-mode is NOT active
+      ;; When indent-mode is active, its after-change-function handles this
+      (unless (buffer-local-value 'atlas-wormholes-indent-mode (overlay-buffer ov))
+        (atlas-wormholes-add-fringe-to-region
+         (overlay-buffer ov) ov-beg ov-end 'atlas-wormholes-source-fringe)))))
+
+;;;; Utility Functions
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-insert-org-link ()
+  "Return org link string from another org link function.
+The function is an element in `atlas-wormholes-insert-link-functions'.
+It is expected that these functions prompt for user to choose / create a
+link, but as long as the function insert a valid org link in a buffer,
+it will work."
+  (let ((function (if (length> atlas-wormholes-insert-link-functions 1)
+                      (intern (completing-read
+                               "Choose a function: "
+                               atlas-wormholes-insert-link-functions))
+                    (car atlas-wormholes-insert-link-functions))))
+    (when function
+      (with-temp-buffer
+        (funcall function)
+        (buffer-string)))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-find-source-marker (beg end)
+  "Return marker that points to source begin point for wormhole.
+It works on the wormhole region at point.  BEG and END are
+meant to be wormhole region's begin and end used to limit the
+`text-property-search' -- as it does not have an argument to
+limit the search, this is done by looking at the output point and
+compare it with BEG and END.
+
+Return nil when :parent text-prop cannot be found.
+
+This function critically relies on the fact that `org-element'
+puts a \":parent\" text property to the elements obtained by
+using `org-element-parse-buffer' and
+`org-element--parse-elements' Some elements such as comment-block
+does not seem to add :parent, which makes live-sync not working
+for them.
+
+Text properties are added by `org-element-put-property' which in
+turn uses `org-add-props' macro. If any of this substantially
+changes, the logic in this function will need to reviewed."
+  (let ((parent (get-text-property (point) ':parent))
+        (src-buf (overlay-buffer
+                  (get-text-property (point) 'atlas-wormholes-pair)))
+        (m))
+    (unless parent
+      (save-excursion
+        (when-let ((match (or (text-property-search-forward
+                               ':parent)
+                              (text-property-search-backward
+                               ':parent))))
+          ;; Point must be between beg and end (inclusive)
+          (when (and (<= beg (point)) (<= (point) end))
+            (setq parent (prop-match-value match))))))
+    (when parent
+      (setq m (set-marker (make-marker)
+                          (or (org-element-property :contents-begin parent)
+                              (org-element-property :begin parent))
+                          src-buf)))
+    m))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-search-or-add-next-empty-line ()
+  "Move point to the next empty line.
+If no empty line exists before the next org heading or the end of
+the buffer, stop there and add a newline."
+  (forward-line)
+  (while (not (looking-at-p "^[ \t]*$"))
+    (if (or (org-at-heading-p) (eobp))
+        (progn (insert "\n")
+               (backward-char))
+      (forward-line))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-wrap-path-to-link (path)
+  "Return Org link object for PATH string."
+  (with-temp-buffer
+    (delay-mode-hooks (org-mode))
+    (insert path)
+    (org-element-context)))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-org-file-p (path)
+  "Return non-nil if PATH is an Org file.
+It does so by confirming that the extension is either `org' or `org.gpg'.
+The latter form of extension ending with .gpg means it is an encrypted org file.
+`file-name-extension' is used to ascertain that PATH is valid."
+  (when (file-name-extension path)
+    (let* ((path-substrings (split-string path "\\."))
+           (last-two-substings (last path-substrings 2))
+           (last-substring (car (last last-two-substings)))
+           (org-file (string= last-substring "org"))
+           (encrpyted-org-file (and (string= (car last-two-substings) "org")
+                                    (string= last-substring "gpg"))))
+      (or org-file encrpyted-org-file))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-not-nil (v)
+  "Return t or nil.
+It is like `org-not-nil', but when the V is non-nil or not
+string \"nil\", return symbol t."
+  (when (org-not-nil v) t))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-check-add ()
+  "Return t if `atlas-wormholes-add' should work on the point.
+Error if wormhole is not allowed.
+
+Currently the following cases are prevented:
+
+Case 1. Element at point is NOT #+wormhole:
+        Element is in a block - e.g. example
+Case 2. #+wormhole inside another wormhole"
+  (cond
+   ;; Case 1. Element at point is NOT #+wormhole:
+   ((not (atlas-wormholes-at-keyword-p))
+    (user-error
+     "Not at a wormhole keyword or wormhole in a block at point %d, line %d"
+     (point) (org-current-line)))
+   ;; Case 2. #+wormhole inside another wormhole
+   ((atlas-wormholes-within-wormhole-p)
+    (user-error
+     "Cannot wormhole in another wormhole at point %d, line %d"
+     (point) (org-current-line)))
+   (t t)))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-at-point (&optional point)
+  "Return plist representing the wormhole at point.
+This function returns a plist of this form:
+
+   (:id ID-STRING :location (BEG . END))
+
+With Elisp, POINT can be passed. Otherwise, the current point is
+used."
+  (save-excursion
+    (and-let* ((pt (or point (point)))
+               ;; If the ID is present, the current point is within a
+               ;; wormhole.
+               (id (get-text-property pt 'atlas-wormholes-id))
+               ;; We need to get both BEGINNING and END of the wormhole at
+               ;; point. `prop-match-forward' sets BEGINNING as the current
+               ;; point, rather than the beginning of the current wormhole,
+               ;; so `prop-match-backward' is also used.
+               (prop-match-forward
+                (text-property-search-forward 'atlas-wormholes-id))
+               ;; Because the cursor (or POINT) is unlikely to be at the
+               ;; beginning, find the END point first.
+               (end (prop-match-end prop-match-forward))
+               (value (prop-match-value prop-match-forward))
+               (prop-match-backward
+                ;; As the call to `text-property-search-backward' needs to match
+                ;; VALUE, t needs to be passed to PREDICATE unlike
+                ;; `text-property-search-forward' a few lines above.
+                (text-property-search-backward 'atlas-wormholes-id value t))
+               (beg (prop-match-beginning prop-match-backward)))
+      (list :id id :location (cons beg end)))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-at-keyword-p ()
+  "Return non-nil if the current line is on #+WORMHOLE: keyword."
+  ;;
+  ;; BUG (I believe): The following edge case is considered part of keyword
+  ;; where "|" is the cursor.
+  ;;
+  ;; Avoid the following situation to be recognized as "t"
+  ;;
+  ;;   #+wormhole: [[link]]
+  ;;   |
+  ;;   New paragraph starts
+  (and (equal (derived-mode-p major-mode) 'org-mode)
+       (let ((edge-case-p
+              (save-excursion
+                (and (looking-at-p "$")
+                     (not (bobp))
+                     (progn (forward-char -1)
+                            (looking-at-p "$")))))
+             (element (org-element-at-point)))
+         ;; If edge-case, do not wormhole.
+         (unless edge-case-p
+           (and (string-equal "keyword" (org-element-type element))
+                (string-equal "WORMHOLE"
+                              (org-element-property :key element)))))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-within-wormhole-p ()
+  "Return t if the current point is within a wormhole region."
+  (when (get-char-property (point) 'atlas-wormholes-type) t))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-within-live-sync-p ()
+  "Return t if the current point is within a wormhole in live-sync."
+  (when (and (atlas-wormholes-within-wormhole-p)
+             (get-char-property (point) 'wormhole-clones))
+    t))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-type-is-org (type)
+  "Return non-nil if TYPE begins with \"org\".
+TYPE is assumed to be a text-property \"atlas-wormholes-type\"
+and is a string."
+  (string-prefix-p "org" type 'ignore-case))
+
+;;-----------------------------------------------------------------------------
+;;;; Functions for open-source
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-open-source-marker (_type)
+  "Return a marker pointing to the position and source buffer.
+It is intended to be used for `atlas-wormholes-open-source' and
+`atlas-wormholes-move-to-source'.
+
+This function relies on `atlas-wormholes-find-source-marker' to
+locate the position in the source buffer; thus, the same
+limitation applies.  It depends on which org elements whether or
+not this function can identify the beginning of the element at
+point.  If it cannot, it will return the beginning of the
+wormhole, which can be far away from the element at point, if
+the wormholed region is large."
+  (let* ((tc-elem (org-element-context))
+         (tc-beg (org-element-property :begin tc-elem))
+         (tc-end (org-element-property :end tc-elem))
+         (src-beg-mkr
+          (or (atlas-wormholes-find-source-marker tc-beg tc-end)
+              (move-marker (make-marker)
+                           (overlay-start (get-text-property
+                                           (point)
+                                           'atlas-wormholes-pair))
+                           (overlay-buffer (get-text-property
+                                           (point)
+                                           'atlas-wormholes-pair))))))
+    src-beg-mkr))
+
+;;-----------------------------------------------------------------------------
+;;;; Functions for live-sync
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-live-sync-source-range-markers (beg end)
+  "Find and return source range based on wormhole's BEG and END.
+Return \"(src-beg-mkr . src-end-mkr)\"."
+  (let ((src-buf (overlay-buffer (get-text-property (point)
+                                                    'atlas-wormholes-pair)))
+        (src-search-beg (atlas-wormholes-find-source-marker beg end)))
+    (if (not src-search-beg)
+        (user-error "No live-sync can be started at: %d" (point))
+      (with-current-buffer src-buf
+        (goto-char src-search-beg)
+        (when-let* ((ov (get-char-property (point)
+                                           'atlas-wormholes-pair))
+                    (src-elem (atlas-wormholes-live-sync-enclosing-element
+                               (overlay-start ov) (overlay-end ov)))
+                    (src-beg (org-element-property :begin src-elem))
+                    (src-end (org-element-property :end src-elem)))
+          (cons
+           (move-marker (make-marker) src-beg)
+           (move-marker (make-marker) src-end)))))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-live-sync-source-content (beg end)
+  "Return text content between BEG and END.
+BEG and END are assumed to be markers for the wormhole's source buffer."
+  (when (markerp beg)
+    (with-current-buffer (marker-buffer beg)
+      (buffer-substring-no-properties beg end))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-live-sync-modify-overlays (overlays)
+  "Add overlay properties specific Atlas-wormholes for OVERLAYS.
+This must be done after `wormhole-clone-set-overlays'.
+Atlas-wormholes always works with a pair of overlays."
+  (let ((src-ov (car overlays))
+        (tc-ov (cadr overlays)))
+    ;; Source Overlay
+    (overlay-put src-ov 'face 'atlas-wormholes-source-edit)
+    ;; Wormhole Overlay
+    (overlay-put tc-ov 'face 'atlas-wormholes-edit)
+    (overlay-put tc-ov 'local-map atlas-wormholes-live-sync-map)))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-live-sync-enclosing-element (beg end)
+  "Return an enclosing Org element between BEG and END.
+This function is intended for live-sync.
+
+This function first looks for elements other than paragraph:
+
+If none of them found, this function identifies the paragraph at
+point to return.
+
+Note that live-sync is known to work only for the following elements:
+  center-block drawer dynamic-block latex-environment plain-list
+  quote-block special-block table verse-block
+
+It is known that live-sync does not work for the other elements
+as `org-element' does not add :parent prop to them:
+  comment-block export-block example-block fixed-width keyword
+  src-block property-drawer not work well
+
+This function works in a temporary org buffer to isolate the
+wormholed region and source region from the rest of the
+original buffer.  This is required especially when wormhole is
+for a paragraph, which can be right next to another paragraph
+without a blank space; thus, subsumed by the surrounding
+paragraph."
+  (let* ((content (buffer-substring beg end))
+         (pos (point)))
+    (if (length< content 0)
+        (user-error (format "Live sync cannot start here: point %d" (point)))
+      (with-temp-buffer
+        (delay-mode-hooks (org-mode))
+        ;; Calibrate the start position "Move" to the beg - 1 (buffer position
+        ;; with 1, not 0)
+        (insert-char ?\n (1- beg))
+        (insert content)
+        (goto-char pos)
+        (let ((context
+               (or (org-element-lineage (org-element-context)
+                                        '(center-block
+                                          comment-block
+                                          drawer
+                                          dynamic-block
+                                          example-block
+                                          export-block fixed-width
+                                          keyword
+                                          latex-environment
+                                          plain-list
+                                          property-drawer
+                                          quote-block special-block
+                                          src-block
+                                          table
+                                          verse-block) 'with-self)
+                   ;; For a paragraph
+                   (org-element-lineage
+                    (org-element-context) '(paragraph) 'with-self))))
+          (if context context
+            (user-error (format "Live sync cannot start here: point %d"
+                                (point)))))))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-live-sync-refresh-after-exit (list)
+  "Refresh the wormhole after live-sync has ended.
+This must be done before starting a new live-sync.  LIST is
+assumed to be a list that represents the deleted overlay for
+wormhole in this structure:
+    (buf (beg . end))"
+  (when list
+    (let ((buf (car list))
+          (beg (caadr list))
+          (current-p (point)))
+      (with-current-buffer buf
+        (org-with-wide-buffer
+         (goto-char beg)
+         (atlas-wormholes-refresh))
+        (goto-char current-p)))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-live-sync-display-buffer (buffer)
+  "Display the source buffer upon entering live-sync edit.
+It remembers the current arrangement of windows (window
+configuration), deletes the other windows, and displays
+BUFFER (intended to be the source buffer being edited in
+live-sync.)
+
+This is analogous to `org-edit-src-code' -- by default, it
+layouts the edit and original buffers side-by-side.
+
+Upon exiting live-sync, `atlas-wormholes-live-sync-exit'
+attempts to bring back the original window configuration."
+  (setq atlas-wormholes-remember-window-config (current-window-configuration))
+  (delete-other-windows)
+  (let ((win (selected-window)))
+    (pop-to-buffer buffer
+                   '(display-buffer-pop-up-window . '(inhibit-same-window)))
+    (recenter-top-bottom)
+    (select-window win)))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-live-sync-buffers ()
+  "Return cons cell of overlays for source and wormhole.
+The cons cell to be returned is in this form:
+
+   (SRC-OV . TC-OV)
+
+This function looks at wormhole type property and delegates
+the actual process to the specific function for the type.
+
+Assume this function is called with the point on an
+atlas-wormholes overlay."
+  (let ((type (get-text-property (point) 'atlas-wormholes-type)))
+    (run-hook-with-args-until-success
+     'atlas-wormholes-live-sync-buffers-functions type)))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-live-sync-buffers-org (type)
+  "Return cons cell of overlays for source and wormhole.
+The cons cell to be returned is in this form:
+
+    (SRC-OV . TC-OV)
+
+This function uses TYPE to identify Org files to work on only Org
+links and IDs."
+  (when (atlas-wormholes-type-is-org type)
+    (let* ((beg-end (plist-get (atlas-wormholes-at-point) :location))
+           (beg (car beg-end))
+           (end (cdr beg-end))
+           (tc-elem (atlas-wormholes-live-sync-enclosing-element beg end))
+           (tc-beg (org-element-property :begin tc-elem))
+           (tc-end (org-element-property :end tc-elem))
+           (src-range-mkrs (atlas-wormholes-live-sync-source-range-markers
+                            tc-beg tc-end))
+           (src-beg-mkr (car src-range-mkrs))
+           (src-end-mkr (cdr src-range-mkrs))
+           (src-buf (marker-buffer src-beg-mkr))
+           (src-content (atlas-wormholes-live-sync-source-content
+                         src-beg-mkr src-end-mkr))
+           (src-ov (wormhole-clone-make-overlay
+                    src-beg-mkr src-end-mkr src-buf))
+           (tc-ov))
+      ;; Replace the region as a copy of the src-overlay region
+      (save-excursion
+        (let* ((inhibit-read-only t)
+               (props)
+               (beg tc-beg)
+               (end tc-end))
+          (goto-char beg)
+          (setq props (text-properties-at tc-beg))
+          (delete-region tc-beg tc-end)
+          ;; Before marker is needed
+          ;; for an adjacent wormhole
+          (insert-before-markers src-content)
+          (setq end (point))
+          (add-text-properties beg end props)
+          ;; Need to move marker that indicate the range of wormholes (not
+          ;; live-sync range) when it is for an single element like paragraph
+          (setq tc-ov (wormhole-clone-make-overlay beg end))))
+      (cons src-ov tc-ov))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-live-sync-buffers-others-default (_type)
+  "Return cons cell of overlays for source and wormhole.
+The cons cell to be returned is in this format:
+
+    (SRC-OV . TC-OV)
+
+This function is for non-Org text files."
+  ;; Get the wormhole source's overlay but do not directly use it; it is
+  ;; needed after exiting live-sync, which deletes live-sync overlays.
+  (when-let*
+      ((beg-end (plist-get (atlas-wormholes-at-point) :location))
+       (tc-beg (car beg-end))
+       (tc-end (cdr beg-end))
+       (tc-ov (wormhole-clone-make-overlay tc-beg tc-end))
+       (tc-pair (get-text-property (point) 'atlas-wormholes-pair))
+       (src-ov (wormhole-clone-make-overlay
+                (overlay-start tc-pair)
+                (overlay-end tc-pair)
+                (overlay-buffer tc-pair))))
+    (cons src-ov tc-ov)))
+
+;;-----------------------------------------------------------------------------
+;;;; Functions for yank/paste a region within wormhole
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-yank-excluded-properties-set ()
+  "Set `yank-excluded-properties' for pasting wormholed text.
+This way, the pasted text will not inherit the text props that
+are required for live-sync and other wormhole-specific
+functions.
+
+List variable
+`atlas-wormholes-yank-remember-user-excluded-props' is used to
+ensure the settings revert to the user's setting prior to
+`atlas-wormholes-activate'."
+  ;; Ensure this happens only once until deactivation
+  (unless (memq 'atlas-wormholes-type yank-excluded-properties)
+    (let ((excluded-props))
+    ;; Return t if 'wrap-prefix is already in `yank-excluded-properties'
+    ;; if not push to elm the list
+    ;; wrap-prefix, etc.
+    (dolist (sym atlas-wormholes-yank-excluded-properties)
+      (if (memq sym yank-excluded-properties)
+        (push sym atlas-wormholes-yank-remember-user-excluded-props)
+        ;; Avoid duplicate
+        (push sym excluded-props)))
+    (setq yank-excluded-properties
+          (append yank-excluded-properties excluded-props)))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-yank-excluded-properties-remove ()
+  "Remove wormhole-specific text props from `yank-excluded-properties'.
+List variable
+`atlas-wormholes-yank-remember-user-excluded-props' is used to
+ensure the settings revert to the user's setting prior to
+`atlas-wormholes-activate'."
+  ;; Ensure it's called only once until next activation
+  (when (memq 'atlas-wormholes-type yank-excluded-properties)
+    (dolist (obj atlas-wormholes-yank-excluded-properties)
+      ;; 'line-prefix and 'wrap-prefix need to be set to the user's set values
+      ;; Ensure `yank-excluded-properties' will revert to the user's setting
+      ;; for line-prefix, wrap-prefix, etc.
+      (unless (memq obj atlas-wormholes-yank-remember-user-excluded-props)
+        (setq yank-excluded-properties (delq obj yank-excluded-properties))))
+    (setq atlas-wormholes-yank-remember-user-excluded-props '())))
+
+;;-----------------------------------------------------------------------------
+;;;; Functions for promote/demote a wormholed subtree
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-promote-adjust-after ()
+  "Adjust the level information after promote/demote."
+  (let* ((pos (next-property-change (point) nil (line-end-position)))
+         (keyword-plist (get-text-property pos
+                                           'atlas-wormholes-orig-keyword))
+         (level (car (org-heading-components))))
+    ;; adjust keyword :level prop
+    (setq keyword-plist (plist-put keyword-plist :level level))
+    (put-text-property (point) (line-end-position)
+                       'atlas-wormholes-orig-keyword keyword-plist)
+    ;; refresh to get the text-prop corrected.
+    (save-excursion
+      (goto-char pos)
+      (atlas-wormholes-refresh))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-promote-or-demote-subtree (&optional demote)
+  "Promote or demote wormholed subtree.
+When DEMOTE is non-nil, demote."
+  (unless (atlas-wormholes-within-wormhole-p)
+    (user-error "Not in a wormholed headline"))
+  (let* ((inhibit-read-only t)
+         (beg (car (plist-get (atlas-wormholes-at-point) :location)))
+         (pos (point)))
+    (save-excursion
+      (goto-char beg)
+      (when (org-at-heading-p)
+        (if demote (org-demote-subtree) (org-promote-subtree))
+        (atlas-wormholes-promote-adjust-after)))
+    (goto-char pos)))
+
+;;-----------------------------------------------------------------------------
+;;;; Functions to support Org-export
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-inhibit-read-only (&rest _args)
+  "Set `inhibit-read-only' to t for Org export functions.
+Org export may need the buffer not to contain read-only elements.
+This function is meant to be added to
+`org-export-before-processing-hook' to temporarily inhibit
+read-only."
+  (setq-local inhibit-read-only t))
+
+;;-----------------------------------------------------------------------------
+;;;; Functions for extensions
+;;   It's based on `org-modules'
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-load-extensions-maybe (&optional force)
+  "Load all extensions listed in `atlas-wormholes-extensions'.
+FORCE will let this function ignore
+`atlas-wormholes-extensions-loaded' and load extensions again."
+  (when (or force (not atlas-wormholes-extensions-loaded))
+    (dolist (ext atlas-wormholes-extensions)
+      (let* ((ext-name (symbol-name ext))
+             (minor-mode (intern (if (string-suffix-p "-mode" ext-name)
+                                    ext-name
+                                  (concat ext-name "-mode")))))
+        (condition-case nil
+            (progn
+              (require ext)
+              (when (fboundp minor-mode) (funcall minor-mode +1)))
+          (error (message "Atlas-wormholes: \
+Problems while trying to load feature `%s'" ext)))))
+    (setq atlas-wormholes-extensions-loaded t)))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-extension-set-a-hook-functions (add-or-remove list)
+  "Add/remove functions to an abnormal hook.
+LIST must be a cons cell for an extension. CAR is a symbol name
+of an abnormal hook \(generally suffixed with \"-functions\"\).
+CDR is either a symbol or list of symbols, which are names of
+functions to be set to the abnormal hook. ADD-OR-REMOVE must either
+`add-hook' or `remove-hook'."
+  (let* ((hook-name (car list))
+         (symbols (cdr list))
+         ;; If CDR is a single function symbol name, put it into a list.
+         (symbols (if (listp symbols) symbols (list symbols))))
+    (mapc (lambda (symbol) (funcall add-or-remove hook-name symbol))
+          symbols)))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun atlas-wormholes-extension-functions-add-or-remove (extension-functions &optional remove)
+  "Add or remove functions to abnormal hooks for extensions.
+EXTENSION-FUNCTIONS is an alist. CAR of each cons cell is a
+symbol name of an abnormal hook \(generally suffixed with
+\"-functions\"\). CDR is either a symbol or list of symbols,
+which are names of functions to be set to the abnormal hook. If
+REMOVE is non-nil, the functions will be removed from the
+abnormal hooks; otherwise, added to them."
+  (let* ((add-or-remove (if remove #'remove-hook #'add-hook))
+         (set-function (apply-partially
+                        #'atlas-wormholes-extension-set-a-hook-functions
+                        add-or-remove)))
+    (mapc set-function extension-functions)))
+
+;; Load extensions upon loading this file
+(atlas-wormholes-load-extensions-maybe)
+
+(provide 'atlas-wormholes)
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun my/atlas-wormholes-add (&optional only-body)
+  "Select a manifolding-atlas note and insert a live wormhole at point.
+With prefix arg (C-u), wormhole body only — no heading line.
+
+:level is computed automatically so the note lands as a child of
+the current heading:
+  at file level    → :level 1
+  inside *  H      → :level 2
+  inside ** H      → :level 3  …"
+  (interactive "P")
+  (require 'atlas-wormholes)
+  (let (note id title ctx target opts line directive-pos)
+    (setq note   (manifolding-atlas-select "Wormhole note: " :require-match t))
+    (setq id     (manifolding-atlas-note-id note))
+    (setq title  (manifolding-atlas-note-title note))
+    (setq ctx    (or (org-current-level) 0))
+    (setq target (1+ ctx))
+    (setq opts   (if only-body ":only-contents"
+                   (format ":level %d" target)))
+    (setq line   (format "#+wormhole: [[id:%s][%s]] %s\n"
+                          id title opts))
+    (setq directive-pos (point))
+    (insert line)
+    (goto-char directive-pos)
+    (unless atlas-wormholes-mode
+      (let ((atlas-wormholes-add-all-on-activate nil))
+        (atlas-wormholes-mode 1)))
+    (atlas-wormholes-add)))
+
+;; Wormholed unfolding notes show as collapsed headings — do NOT auto-unfold
+;; them, so the unfolding's property drawer / ID stays hidden and you just see
+;; "* Unfolding" closed at point.
+(remove-hook 'atlas-wormholes-after-add-functions
+             #'my/atlas-wormholes-show-subtree)
+
+;; Auto-enable atlas-wormholes-mode in org files.
+;; Safe now — org-agenda-files is scoped to notes directory only,
+;; so org-id-find never scans straight build symlinks.
+(setq atlas-wormholes-add-all-on-activate t)
+;; Hide unfolding property drawers inside wormholed headings so an unfolding
+;; (e.g. STATE WORK: ACTIVE) renders as a single closed heading.
+;; Property drawers now included in wormholes (previously excluded).
+(setq atlas-wormholes-exclude-elements nil)
+(add-hook 'org-mode-hook (lambda () (atlas-wormholes-mode 1)))
+
+;; Re-add wormholes after revert (e.g. auto-revert triggered by git ops).
+(add-hook 'after-revert-hook #'atlas-wormholes-add-all)
+
+;; RET on a wormhole opens its source.  Unfolding notes (admin/unfoldings/*) open
+;; in an org-capture edit buffer for fast metadata edits; anything else
+;; falls back to atlas-wormholes's own source opener.
+;; atlas-wormholes.el reads `atlas-wormholes-indent-mode' as a
+;; buffer-local value, but that var is only defined by the unloaded
+;; atlas-wormholes-indent-mode extension — declare it so capture
+;; buffers (whose source overlays fire modification hooks) don't error.
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defvar atlas-wormholes-indent-mode nil)
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun my/atlas-wormholes-open ()
+  "Open the source of the wormhole at point.
+Unfolding notes open in org-capture (fast editing); otherwise fall back to
+`atlas-wormholes-open-source'.  The `atlas-wormholes-id' text property
+is an internal pairing UUID, so the real source id is parsed from
+`atlas-wormholes-orig-keyword'."
+  (interactive)
+  (let* ((data (get-text-property (point) 'atlas-wormholes-orig-keyword))
+         (link (and (plist-member data :link) (plist-get data :link)))
+         (id (and (stringp link)
+                  (string-match "\\[\\[id:\\([^] \t\n]+\\)\\]\\[" link)
+                  (match-string-no-properties 1 link)))
+         (file (and id (org-id-find-id-file id)))
+         (unfolding-root (and (fboundp 'my/manifolding-atlas-root-dir)
+                        (expand-file-name "admin/unfoldings/" (my/manifolding-atlas-root-dir)))))
+    (if (and id file unfolding-root
+             (fboundp 'my/manifolding-atlas--edit-file-in-capture)
+             (file-in-directory-p (expand-file-name file) unfolding-root))
+        (my/manifolding-atlas--edit-file-in-capture file)
+      (atlas-wormholes-open-source))))
+
+(with-eval-after-load 'atlas-wormholes
+  (define-key atlas-wormholes-map (kbd "RET")
+    #'my/atlas-wormholes-open)
+  (define-key atlas-wormholes-map (kbd "<mouse-2>")
+    #'my/atlas-wormholes-open))
+
+;; In-drawer wormhole support.  A `:property' wormhole encodes an unfolding
+;; as a `#+wormhole:' line INSIDE a :PROPERTIES: drawer.  Rendering
+;; a source headline (`* X') inside a drawer breaks org's drawer parsing, so
+;; this keyword strips the leading asterisk, turning the wormholed content
+;; into org-safe plain text inside the drawer.
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun my/atlas-wormholes-keyword-value-unfolding (string)
+  (when (string-match ":property" string)
+    (list :property t)))
+(add-to-list 'atlas-wormholes-keyword-value-functions
+             #'my/atlas-wormholes-keyword-value-unfolding)
+(add-to-list 'atlas-wormholes-keyword-plist-to-string-functions
+             (lambda (plist)
+               (when (plist-get plist :property) " :property")))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun my/atlas-wormholes-content-format-property (_type content keyword-values)
+  (when (plist-get keyword-values :property)
+    (with-temp-buffer
+      (insert content)
+      (goto-char (point-min))
+      (while (re-search-forward "^\\*[ \t]+\\(.*\\)$" nil t)
+        (replace-match "\\1" nil nil))
+      (goto-char (point-min))
+      (while (re-search-forward "^[ \t]*:ID:[ \t]*.*\n?" nil t)
+        (replace-match "" nil nil))
+      (goto-char (point-min))
+      (while (re-search-forward "^[ \t]*:UNFOLDING_PARENT:[ \t]*.*\n?" nil t)
+        (replace-match "" nil nil))
+      (goto-char (point-min))
+      (while (re-search-forward "^[ \t]*:UNFOLDING_TYPE:[ \t]*.*\n?" nil t)
+        (replace-match "" nil nil))
+      (goto-char (point-min))
+      (while (re-search-forward "^[ \t]*:\\(PROPERTIES\\|END\\):[ \t]*\n?" nil t)
+        (replace-match "" nil nil))
+      ;; No gap between unfolding title (first line) and body text: the
+      ;; capture template leaves a blank line after :END:.
+      (goto-char (point-min))
+      (forward-line 1)
+      (when (looking-at-p "^[ \t]*$")
+        (delete-blank-lines))
+      (buffer-string))))
+(add-to-list 'atlas-wormholes-content-format-functions
+             #'my/atlas-wormholes-content-format-property)
+
+;; Refresh wormholes in all open org buffers after any save.
+;; Uses remove-all + add-all (the same pattern atlas-wormholes uses
+;; internally for before-save / after-save).
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun my/atlas-wormholes-refresh-all ()
+  (dolist (buf (buffer-list))
+    (with-current-buffer buf
+      (when atlas-wormholes-mode
+        (atlas-wormholes-remove-all)
+        (atlas-wormholes-add-all)))))
+(add-hook 'after-save-hook #'my/atlas-wormholes-refresh-all)
+
+#+end_src
+
+
+*** Wormhole Link Index
+Indexes [[id:...][...]] links inside #+wormhole: keywords into a
+dedicated SQLite table so the deletion guard can find them as incoming links.
+Also provides a text-based scanner for files not yet indexed by manifolding-atlas DB.
+
+#+begin_src emacs-lisp
+(defun my/wormhole-links-ensure-table ()
+  "Create the wormhole_links table if it does not exist."
+  (emacsql (manifolding-atlas-db)
+           [:create :table :if :not :exists wormhole_links
+            ([(source :not-null)
+              (dest   :not-null)]
+             (:primary-key [source dest])
+             (:foreign-key [source] :references notes [id]
+              :on-delete :cascade)
+             (:foreign-key [dest]   :references notes [id]
+              :on-delete :cascade))]))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-extract-wormhole-links (ctx note-data)
+  "Extract id: links from #+wormhole: keywords in CTX."
+  (let* ((ast     (manifolding-atlas-parse-ctx-ast ctx))
+         (note-id (plist-get note-data :id))
+         (found   nil))
+    (org-element-map ast 'keyword
+      (lambda (kw)
+        (when (string= (org-element-property :key kw) "WORMHOLE")
+          (let ((value (org-element-property :value kw)))
+            (when (string-match "\\[\\[id:\\([^] \t\n]+\\)\\]\\[" value)
+              (push (match-string-no-properties 1 value) found))))))
+    (when found
+      (let ((unique (delete-dups (nreverse found))))
+        (emacsql (manifolding-atlas-db)
+                 [:delete :from wormhole_links :where (= source $s1)]
+                 note-id)
+        (emacsql (manifolding-atlas-db)
+                 [:insert :into wormhole_links :values $v1]
+                 (mapcar (lambda (d) (vector note-id d)) unique))
+        (plist-put note-data :wormhole-links unique)))
+    note-data))
+
+(with-eval-after-load 'manifolding-atlas
+  (my/wormhole-links-ensure-table)
+  (manifolding-atlas-db-register-extractor
+   (make-manifolding-atlas-extractor
+    :name       'wormhole-links
+    :version    1
+    :priority   60
+    :extract-fn #'my/manifolding-atlas-extract-wormhole-links)))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-db-query-wormhole-links-to (target-id)
+  "Return list of source note IDs that wormhole TARGET-ID."
+  (mapcar #'car
+          (emacsql (manifolding-atlas-db)
+                   [:select [source] :from wormhole_links
+                    :where (= dest $s1)]
+                   target-id)))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-links--find-wormhole-unfoldings (target-id)
+  "Search all org files in vault for #+wormhole: links to TARGET-ID.
+Returns list of source note IDs. Acts as fallback for files not yet
+indexed by the manifolding-atlas DB extractor."
+  (let ((results nil)
+        (root (my/manifolding-atlas-root-dir)))
+    (dolist (file (nconc (directory-files-recursively root "\\.org\\'")
+                         (directory-files-recursively root "/[^./]+\\'")))
+      (with-temp-buffer
+        (insert-file-contents file)
+        (goto-char (point-min))
+        (when (re-search-forward
+               (format "#\\+wormhole:.*\\[\\[id:%s\\]\\[" (regexp-quote target-id))
+               nil t)
+          (org-mode)
+          (let ((id (org-entry-get (point-min) "ID")))
+            (when id
+              (push id results))))))
+    (delete-dups results)))
+
+#+end_src
+

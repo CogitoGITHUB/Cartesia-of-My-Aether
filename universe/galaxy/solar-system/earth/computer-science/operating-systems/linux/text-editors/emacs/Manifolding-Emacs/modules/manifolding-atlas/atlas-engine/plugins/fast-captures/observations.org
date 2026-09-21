@@ -1,0 +1,20 @@
+#+title:      Manifolding Atlas — Fast Observations
+#+priority:   15
+
+Fast observation capture. Creates an observation heading in Observations.org.
+
+* Core
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-quick-observations ()
+  (interactive)
+  (let* ((file (expand-file-name "admin/Observations"
+                                  (my/manifolding-atlas-root-dir))))
+    (make-directory (file-name-directory file) t)
+    (let ((org-capture-templates
+           `(("o" "Quick Observation" entry (file ,file)
+              "* %?"
+              :kill-buffer t :unnarrowed t))))
+      (org-capture nil "o")
+      (set-buffer-modified-p nil)
+      (when (fboundp 'modaled-set-state) (modaled-set-state "insert")))))
+#+end_src

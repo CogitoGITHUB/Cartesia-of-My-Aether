@@ -1,0 +1,43 @@
+#+title: Manifolding Keyboard — Search Leader
+#+priority: 20
+
+SPC v S: Atlas Search menu.
+
+** SPC v S — Atlas Search
+All launchers point at commands defined in
+=atlas-engine/search-center.org= (priority 16, loads before this
+file), so every head resolves at compile time.
+#+begin_src emacs-lisp
+(my/defhydra-state my/atlas-search-hydra nil "Atlas Search"
+ (my/manifolding-atlas-hydra/body "atlas")
+ "Surface"
+ (("s" my/atlas-search "unified surface" :exit t)
+  ("n" my/atlas-deft "deft browser" :exit t))
+ "Text"
+ (("g" my/atlas-search-rg-vault "rg vault" :exit t)
+  ("G" my/atlas-search-rg-dir "rg dir" :exit t)
+  ("l" consult-line-multi "lines (open)" :exit t)
+  ("o" consult-outline "outline" :exit t))
+ "Structured"
+ (("q" my/atlas-search-ql-agenda "agenda" :exit t)
+  ("T" my/atlas-search-org-ql-tag "by tag" :exit t)
+  (":" my/atlas-search-org-ql-custom "custom query" :exit t))
+ "Database"
+ (("t" my/atlas-search-by-tag "by tag" :exit t)
+  ("m" my/atlas-search-by-stage "by stage" :exit t)
+  ("u" my/atlas-search-by-status "by status" :exit t)
+  ("b" my/atlas-search-backlinks "backlinks" :exit t)
+  ("f" my/atlas-search-forward-links "forward" :exit t)
+  ("D" my/atlas-search-by-due "due" :exit t)
+  ("O" my/atlas-search-by-overdue "overdue" :exit t)
+  ("U" my/atlas-search-by-unseen "unseen" :exit t)
+  ("i" my/atlas-search-by-isolated "isolated" :exit t)
+  ("c" my/atlas-search-component "component" :exit t)
+  ("P" my/atlas-search-path "path" :exit t))
+ "Todo"
+ (("w" atlas-search-todo-dir "todo vault" :exit t)
+  ("W" atlas-search-todo-all "todo open" :exit t))
+ "Files"
+ (("F" consult-recent-file "recent" :exit t)
+  ("d" my/atlas-search-find-vault-file "find file" :exit t)))
+#+end_src

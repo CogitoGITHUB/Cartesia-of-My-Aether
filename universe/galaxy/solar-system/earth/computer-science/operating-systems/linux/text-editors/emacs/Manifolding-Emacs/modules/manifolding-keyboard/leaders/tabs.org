@@ -1,0 +1,21 @@
+#+title: Manifolding Keyboard — Tabs Leader
+#+priority: 20
+
+SPC i: tabs menu.
+
+** SPC i — Tabs
+#+begin_src emacs-lisp
+(my/defhydra-state my/tabs-hydra nil "Tabs" (my/main-hydra/body "main menu")
+  "Navigate"
+  (("t" my/tab-bar-switch-to-recent-tab "recent"  :exit nil)
+   ("n" tab-bar-switch-to-next          "next"    :exit nil)
+   ("p" tab-bar-switch-to-tab           "prev"    :exit nil))
+  "Create / Close"
+  (("c" tab-bar-new-tab       "new tab"    :exit nil)
+   ("d" my/tab-bar-close-tab-by-name "close tab"   :exit nil)
+   ("C" tab-bar-close-other-tabs "close others" :exit nil))
+  "Manage"
+  (("r" tab-bar-rename-tab    "rename"     :exit nil)
+   ("b" my/tab-bar-echo-tab-names "list tabs" :exit nil)
+   ("m" tab-bar-move-tab      "move tab"   :exit nil)))
+#+end_src

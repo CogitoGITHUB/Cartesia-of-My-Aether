@@ -1,0 +1,61 @@
+#+title: Manifolding Keyboard — Org Leader
+#+priority: 20
+
+SPC o: Org tree (org/agenda/tasks/clock/edit/capture/atlas).
+
+** SPC o — Org
+#+begin_src emacs-lisp
+(my/defhydra-state my/org-hydra nil "Org" (my/main-hydra/body "main menu")
+  "Submenus"
+  (("a" my/org-agenda-hydra/body  "agenda"   :exit t)
+   ("t" my/org-tasks-hydra/body   "tasks"    :exit t)
+   ("k" my/org-clock-hydra/body   "clock"    :exit t)
+   ("e" my/org-edit-hydra/body    "edit"     :exit t)
+   ("c" my/org-capture-hydra/body "capture"  :exit t)
+   ("v" my/org-manifolding-atlas-hydra/body  "manifolding-atlas"   :exit t)))
+(my/defhydra-state my/org-agenda-hydra nil "Org › Agenda" (my/org-hydra/body "org")
+  "Agenda"
+  (("a" org-agenda          "agenda"         :exit t)
+   ("o" consult-org-heading "org heading"    :exit t)
+   ("e" consult-org-agenda  "agenda consult" :exit t)))
+(my/defhydra-state my/org-tasks-hydra nil "Org › Tasks" (my/org-hydra/body "org")
+  "Tasks"
+  (("t" org-todo                  "todo"         :exit t)
+   ("n" consult-todo              "consult todo" :exit t)
+   ("h" my/org-insert-level1-todo "new TODO h1"  :exit t)
+   ("r" org-priority              "priority"     :exit t)
+   ("s" org-schedule              "schedule"     :exit t)
+   ("x" org-deadline              "deadline"     :exit t)
+   ("f" org-refile                "refile"       :exit t)))
+(my/defhydra-state my/org-clock-hydra nil "Org › Clock" (my/org-hydra/body "org")
+  "Clock"
+  (("k" org-clock-in  "clock in"  :exit t)
+   ("K" org-clock-out "clock out" :exit t)))
+(my/defhydra-state my/org-edit-hydra nil "Org › Edit" (my/org-hydra/body "org")
+  "Edit"
+  (("u" org-insert-heading            "new heading"   :exit t)
+   ("i" comment-line                  "comment"       :exit t)
+   ("d" org-insert-structure-template "template"      :exit t)
+   ("Q" my/org-insert-code-block      "code block"    :exit t)
+   ("x" my/org-insert-latex-block     "latex block"   :exit t)
+   ("v" org-cycle-global              "cycle all"     :exit t)
+   ("l" org-insert-link               "insert link"   :exit t)
+   ("o" org-open-at-point             "open link"     :exit t)
+   ("g" org-set-tags-command          "set tags"      :exit t)
+   ("w" org-narrow-to-subtree         "narrow"        :exit t)
+   ("W" widen                         "widen"         :exit t)
+   ("L" org-latex-preview             "latex preview" :exit t)
+   ("c" org-capture                   "capture"       :exit t)))
+(my/defhydra-state my/org-capture-hydra nil "Org › Capture" (my/org-hydra/body "org")
+  "Capture"
+  (("n" (lambda () (interactive) (org-capture nil "vn")) "manifolding-atlas note"  :exit t)
+   ("h" my/manifolding-atlas-capture-heading              "heading"      :exit t)
+   ("t" (lambda () (interactive) (org-capture nil "t"))  "task"         :exit t)
+   ("c" org-capture                                       "capture menu" :exit t)))
+(my/defhydra-state my/org-manifolding-atlas-hydra nil "Org › Manifolding Atlas" (my/org-hydra/body "org")
+  "Manifolding Atlas"
+  (("f" manifolding-atlas-find              "find note"    :exit t)
+   ("i" manifolding-atlas-insert            "insert link"  :exit t)
+   ("r" my/manifolding-atlas-rename-link    "rename link"  :exit t)
+   ("u" manifolding-atlas-ui-sidebar-toggle "sidebar"      :exit t)))
+#+end_src

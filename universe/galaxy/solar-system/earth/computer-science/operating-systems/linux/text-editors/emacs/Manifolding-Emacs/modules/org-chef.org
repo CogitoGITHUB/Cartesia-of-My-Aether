@@ -1,0 +1,16 @@
+#+title:      org-chef
+#+identifier: 05c148ad-9b54-426d-81ce-efa9d37b4274
+#+filetags:   :emacs-package:org:
+
+* org-chef
+:PROPERTIES:
+:ID:       05c148ad-9b54-426d-81ce-efa9d37b4274
+:PACKAGE:  org-chef
+:CATEGORY: org
+:STRAIGHT: (org-chef :type git :host github :repo "Chobbes/org-chef")
+:END:
+
+** Config :config:
+#+begin_src emacs-lisp
+
+#+end_src

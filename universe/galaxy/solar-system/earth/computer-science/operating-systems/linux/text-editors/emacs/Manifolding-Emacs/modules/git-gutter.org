@@ -1,0 +1,11 @@
+* GIT-GUTTER — Git Change Indicators
+:PROPERTIES:
+:CATEGORY: git
+:PACKAGE:  git-gutter
+:STRAIGHT: (git-gutter :type git :host github :repo "emacsorphanage/git-gutter")
+:END:
+
+** Config
+#+begin_src emacs-lisp
+(require 'git-gutter)
+#+end_src

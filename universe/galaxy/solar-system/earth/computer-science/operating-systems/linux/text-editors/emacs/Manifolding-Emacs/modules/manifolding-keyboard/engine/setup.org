@@ -1,0 +1,64 @@
+#+title: Manifolding Keyboard — Setup
+#+priority: 21
+
+Requires, reload behavior, init state, hooks, modeline, activation.
+** Requires
+#+begin_src emacs-lisp
+(require 'manifolding-keyboard nil t)
+(unless (featurep 'manifolding-keyboard)
+  (error "manifolding-keyboard core (engine/state-machine.org, priority 19) must load before engine/setup.org (priority 21)"))
+(require 'which-key)
+(require 'vundo)
+#+end_src
+** Force keymap redefinition on reload
+Derived from the state registry (every registered state, predicate or
+not) — never a hardcoded list, so new states are covered automatically.
+#+begin_src emacs-lisp
+(dolist (state (mapcar #'car manifolding-keyboard-state-init-alist))
+  (makunbound (manifolding-keyboard-get-state-keymap state)))
+#+end_src
+** Init State
+Activation consults the registry. Colliding states (a read-only org
+buffer is both org and motion) resolve by explicit precedence below —
+file/alphabetical order must never decide. States absent from the
+precedence list are consulted after it, newest registration first.
+Keep predicates narrow (one major mode or one buffer condition).
+#+begin_src emacs-lisp
+(defvar manifolding-keyboard-state-precedence '("org" "dired" "ibuffer" "motion")
+  "States consulted first by init-state-fn, in order.
+Preserves the historical cond precedence: org beats read-only-motion,
+dired beats it too. Everything else follows, newest first.")
+
+(setq manifolding-keyboard-init-state-fn
+      (lambda ()
+        (cond
+         ((minibufferp) nil)
+         ((derived-mode-p 'magit-mode)  nil)
+         ((derived-mode-p 'vundo-mode)  nil)
+         (t (or (cl-some (lambda (state)
+                           (let ((pred (cdr (assoc state manifolding-keyboard-state-init-alist))))
+                             (and pred (funcall pred) state)))
+                         (append manifolding-keyboard-state-precedence
+                                 (seq-difference (mapcar #'car manifolding-keyboard-state-init-alist)
+                                                 manifolding-keyboard-state-precedence)))
+                "normal")))))
+#+end_src
+** State Hooks
+#+begin_src emacs-lisp
+(add-hook 'org-mode-hook   (lambda () (manifolding-keyboard-set-state "org")))
+(add-hook 'dired-mode-hook (lambda () (manifolding-keyboard-set-state "dired")))
+(add-hook 'help-mode-hook  (lambda () (manifolding-keyboard-set-state "motion")))
+(add-hook 'Info-mode-hook  (lambda () (manifolding-keyboard-set-state "motion")))
+(add-hook 'view-mode-hook  (lambda () (manifolding-keyboard-set-state "motion")))
+(add-hook 'magit-mode-hook (lambda () (manifolding-keyboard-set-state "magit")))
+#+end_src
+** Modeline
+#+begin_src emacs-lisp
+(add-hook 'manifolding-keyboard-state-change-hook #'doom-modeline-refresh-bars)
+#+end_src
+** Activate
+#+begin_src emacs-lisp
+(setq echo-keystrokes 0)
+(setq centaur-tabs-ace-jump-keys '(?a ?o ?e ?u ?i ?d ?h ?t ?s ?n))
+(which-key-mode 1)
+#+end_src

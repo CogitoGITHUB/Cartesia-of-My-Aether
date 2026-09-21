@@ -1,0 +1,59 @@
+#+title:    org-super-agenda
+#+filetags: :emacs-package:org:agenda:
+#+PRIORITY: 20
+
+* Org Super Agenda
+:PROPERTIES:
+:PACKAGE:  org-super-agenda
+:STRAIGHT: (org-super-agenda :type git :host github :repo "alphapapa/org-super-agenda")
+:CATEGORY: org
+:END:
+
+** Purpose
+Groups agenda items by category, priority, tag, or custom predicates.
+Transforms a flat todo list into something navigable across hundreds of
+items and many files.
+
+** Setup
+
+*** Config
+#+begin_src emacs-lisp
+(setq org-agenda-span 'week)
+(setq org-agenda-start-on-weekday 1)
+(setq org-agenda-window-setup 'current-window)
+(setq org-agenda-skip-scheduled-if-done t)
+(setq org-agenda-skip-deadline-if-done t)
+
+(setq org-todo-keywords
+      '((sequence "TODO" "DOING" "WAIT" "|" "DONE" "CANCELED")))
+
+(let ((message-log-max nil))
+  (let ((inhibit-message t)) (org-super-agenda-mode 1)))
+
+(setq org-super-agenda-groups
+      '((:name "Today"
+         :time-grid t
+         :date today
+         :scheduled today
+         :order 1)
+        (:name "High Priority"
+         :priority "A"
+         :order 2)
+        (:name "In Progress"
+         :todo "DOING"
+         :order 3)
+        (:name "Guix"
+         :tag "guix"
+         :order 4)
+        (:name "MappingOS"
+         :tag "mappingos"
+         :order 5)
+        (:name "Emacs"
+         :tag "emacs"
+         :order 6)
+        (:name "Low Priority"
+         :priority "C"
+         :order 9)
+        (:name "Other"
+         :order 10)))
+#+end_src

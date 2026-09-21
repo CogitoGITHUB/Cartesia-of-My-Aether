@@ -1,0 +1,27 @@
+#+title: Manifolding Keyboard — Git Leader
+#+priority: 20
+
+SPC g: Git menu.
+
+** SPC g — Git
+#+begin_src emacs-lisp
+(my/defhydra-state my/git-hydra nil "Git" (my/main-hydra/body "main menu")
+  "Magit"
+  (("s" magit-status            "status"      :exit t)
+   ("l" magit-log-current       "log"         :exit t)
+   ("d" magit-diff-working-tree "diff"        :exit t)
+   ("c" magit-commit            "commit"      :exit t)
+   ("p" magit-push              "push"        :exit t)
+   ("f" magit-fetch             "fetch"       :exit t)
+   ("F" magit-pull              "pull"        :exit t)
+   ("b" magit-branch            "branch"      :exit t)
+   ("r" magit-rebase            "rebase"      :exit t)
+   ("z" magit-stash             "stash"       :exit t)
+   ("m" magit-merge             "merge"       :exit t)
+   ("B" magit-blame             "blame"       :exit t))
+  "File"
+  (("t" git-timemachine             "timemachine" :exit t)
+   ("M" git-messenger:popup-message "messenger"   :exit t)
+   ("L" git-link                    "copy link"   :exit t)
+   ("g" git-gutter:toggle           "gutter"      :exit t)))
+#+end_src

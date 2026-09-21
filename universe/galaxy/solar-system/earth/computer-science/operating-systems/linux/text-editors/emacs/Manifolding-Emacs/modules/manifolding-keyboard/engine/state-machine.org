@@ -1,0 +1,182 @@
+#+title: Manifolding Keyboard — State Machine
+#+priority: 19
+
+Modal state core: variables, naming, the define-keys binder, initialization, and the 12 state-mode invocations.
+** Buffer-local state variable
+#+begin_src emacs-lisp
+(manifolding-keyboard-define-local-var manifolding-keyboard-state nil "Current manifolding-keyboard state.")
+#+end_src
+** Set state
+#+begin_src emacs-lisp
+(defun manifolding-keyboard-set-state (state)
+  "Set current manifolding-keyboard STATE."
+  (when (and manifolding-keyboard-state (not (equal manifolding-keyboard-state state)))
+    (funcall (manifolding-keyboard-get-state-mode manifolding-keyboard-state) -1))
+  (when state
+    (funcall (manifolding-keyboard-get-state-mode state) 1))
+  (setq manifolding-keyboard-state state))
+#+end_src
+** Emulation mode map alist
+#+begin_src emacs-lisp
+(defvar manifolding-keyboard--emulation-mode-map-alist nil
+  "An alist of manifolding-keyboard mode map to add to `emulation-mode-map-alists'.")
+#+end_src
+** Main state management
+#+begin_src emacs-lisp
+(defvar manifolding-keyboard-main-state-alist '()
+  "Main manifolding-keyboard state for major modes.")
+
+(defvar manifolding-keyboard-main-state-fn nil
+  "A function to return main manifolding-keyboard state for buffer.")
+(make-obsolete-variable 'manifolding-keyboard-main-state-alist 'manifolding-keyboard-main-state-fn "0.8.3")
+
+(defun manifolding-keyboard-set-main-state ()
+  "Set current state to main state."
+  (interactive)
+  (manifolding-keyboard-set-state (if manifolding-keyboard-main-state-fn
+                         (funcall manifolding-keyboard-main-state-fn)
+                       (manifolding-keyboard-get-main-state))))
+
+(defvar manifolding-keyboard-init-state-fn nil
+  "A function to return init manifolding-keyboard state for buffer.")
+
+(defun manifolding-keyboard-set-init-state ()
+  "Set current state to init state."
+  (interactive)
+  (manifolding-keyboard-set-state (and manifolding-keyboard-init-state-fn
+                          (funcall manifolding-keyboard-init-state-fn))))
+
+(manifolding-keyboard-define-local-var manifolding-keyboard-default-state nil
+  "Default manifolding-keyboard state.")
+(make-obsolete-variable 'manifolding-keyboard-default-state 'manifolding-keyboard-init-state-fn "0.8.3")
+
+(defun manifolding-keyboard-set-default-state ()
+  "Set current state to default state."
+  (interactive)
+  (manifolding-keyboard-set-state manifolding-keyboard-default-state))
+(make-obsolete #'manifolding-keyboard-set-default-state #'manifolding-keyboard-set-init-state "0.8.3")
+
+(defun manifolding-keyboard-get-main-state ()
+  "Get main state for current major mode."
+  (alist-get major-mode
+             manifolding-keyboard-main-state-alist
+             manifolding-keyboard-default-state nil
+             (lambda (modes mode)
+               (cond
+                ((listp modes) (memq mode modes))
+                ((eq modes t) t)
+                (t (eq mode modes))))))
+(make-obsolete #'manifolding-keyboard-get-main-state nil "0.8.3")
+#+end_src
+** Naming utilities
+#+begin_src emacs-lisp
+(defun manifolding-keyboard-get-state-mode (state)
+  "Get the symbol of STATE minor mode."
+  (intern (format "manifolding-keyboard-%s-state-mode" state)))
+
+(defun manifolding-keyboard-get-state-keymap (state)
+  "Get the symbol of STATE keymap."
+  (intern (format "manifolding-keyboard-%s-state-keymap" state)))
+
+(defun manifolding-keyboard-get-substate-mode (substate)
+  "Get the symbol of SUBSTATE minor mode."
+  (intern (format "manifolding-keyboard-%s-substate-mode" substate)))
+
+(defun manifolding-keyboard-get-substate-keymap (substate)
+  "Get the symbol of SUBSTATE keymap."
+  (intern (format "manifolding-keyboard-%s-substate-keymap" substate)))
+#+end_src
+** Define-keys function
+#+begin_src emacs-lisp
+(defun manifolding-keyboard-define-keys (&rest body)
+  "Define keybindings for states, substates, or globally.
+
+:states / :substates / :global / :keymaps / :inherit / :bind"
+  (declare (indent defun))
+  (let* ((states (plist-get body :states))
+         (substates (plist-get body :substates))
+         (keymaps (append (mapcar #'manifolding-keyboard-get-state-keymap states)
+                          (mapcar #'manifolding-keyboard-get-substate-keymap substates)
+                          (plist-get body :keymaps)))
+         (global (plist-get body :global))
+         (inherit (plist-get body :inherit))
+         (bind (plist-get body :bind)))
+    (pcase-dolist (`(,inherit-keymap . ,inherit-keys) inherit)
+      (dolist (k inherit-keys)
+        (let ((binding (keymap-lookup (symbol-value inherit-keymap) k)))
+          (dolist (keymap keymaps)
+            (keymap-set (symbol-value keymap) k binding))
+          (when global (keymap-global-set k binding)))))
+    (pcase-dolist (`(,key . ,def) bind)
+      (let ((keys (if (listp key) key (list key))))
+        (dolist (k keys)
+          (dolist (keymap keymaps)
+            (keymap-set (symbol-value keymap) k def))
+          (when global (keymap-global-set k def)))))))
+#+end_src
+** Buffer initialization & setup
+#+begin_src emacs-lisp
+(manifolding-keyboard-define-local-var manifolding-keyboard--initialized nil
+  "Non-nil if this buffer is initialized by manifolding-keyboard.")
+
+(defun manifolding-keyboard-initialize (&optional force)
+  "Initialize current buffer with init manifolding-keyboard state."
+  (when (or force (not manifolding-keyboard--initialized))
+    (setq manifolding-keyboard--initialized t)
+    (unless (minibufferp)
+      (if manifolding-keyboard-init-state-fn (manifolding-keyboard-set-init-state)))))
+
+(defun manifolding-keyboard-initialize-all-buffers ()
+  "Initialize all existing buffers."
+  (dolist (buf (buffer-list))
+    (with-current-buffer buf (manifolding-keyboard-initialize))))
+
+(defun manifolding-keyboard-setup ()
+  "Set up manifolding-keyboard for existing and future buffers."
+  (add-hook 'after-change-major-mode-hook
+            (lambda ()
+              (setq manifolding-keyboard--initialized nil)
+              (manifolding-keyboard-initialize)))
+  (add-hook 'buffer-list-update-hook
+            (lambda () (manifolding-keyboard-initialize-all-buffers)))
+  (manifolding-keyboard-initialize-all-buffers))
+
+(defun manifolding-keyboard-enable-substate-on-state-change (substate &rest body)
+  "Enable SUBSTATE under conditions specified in BODY."
+  (declare (indent defun))
+  (let ((states (plist-get body :states))
+        (major (plist-get body :major))
+        (minor (plist-get body :minor))
+        (pred (plist-get body :pred))
+        (check-minor (lambda (mode)
+                       (and (boundp mode) (symbol-value mode)))))
+    (add-variable-watcher
+     'manifolding-keyboard-state
+     (lambda (_ new-val _ _)
+       (funcall (manifolding-keyboard-get-substate-mode substate)
+                (if (and (or (not major) (memq major-mode major))
+                         (or (not minor) (memq t (mapcar check-minor minor)))
+                         (or (not pred) (funcall pred))
+                         (or (not states) (member new-val states)))
+                    1 -1))))))
+
+(provide 'manifolding-keyboard)
+#+end_src
+
+** Activation (must eval after the provide above — filename order
+would otherwise run setup before this file exists; deferred to
+startup so hooks install and the first sweep runs with states/
+registry fully populated — a direct call would initialize boot
+buffers against an empty registry)
+#+begin_src emacs-lisp
+(require 'manifolding-keyboard)
+(add-hook 'emacs-startup-hook #'manifolding-keyboard-setup)
+#+end_src
+
+*** Tree Slide Hooks
+#+begin_src emacs-lisp
+(add-hook 'org-tree-slide-play-hook
+          (lambda () (manifolding-keyboard-set-state "presentation")))
+(add-hook 'org-tree-slide-stop-hook
+          (lambda () (manifolding-keyboard-set-state "org")))
+#+end_src

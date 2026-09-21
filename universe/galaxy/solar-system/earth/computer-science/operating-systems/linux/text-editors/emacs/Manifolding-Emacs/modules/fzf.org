@@ -1,0 +1,36 @@
+#+title:    fzf
+#+filetags: :emacs-package:completion:fuzzy-search:
+#+PRIORITY: 20
+
+* WIP Fzf
+:PROPERTIES:
+:PACKAGE:  fzf
+:STRAIGHT: (fzf :type git :host github :repo "bling/fzf.el")
+:CATEGORY: completion
+:END:
+
+** Purpose
+Provides an Emacs front-end for fzf, a general purpose fuzzy finder.
+Supports fuzzy searching files, buffers, git files, grep, and more
+in a terminal popup. Note: =M-x fzf= uses =FZF_DEFAULT_COMMAND= and
+is not for opening files — use =fzf-find-file= for that.
+
+** Commands
+| Command                       | Description                        |
+|-------------------------------+------------------------------------|
+| =fzf=                         | Run fzf using FZF_DEFAULT_COMMAND  |
+| =fzf-find-file=               | Fuzzy find and open a file         |
+| =fzf-find-file-in-dir=        | Fuzzy find in a specific directory |
+| =fzf-recentf=                 | Fuzzy search recent files          |
+| =fzf-git-files=               | Fuzzy search git-tracked files     |
+| =fzf-git-grep=                | Fuzzy grep in git repo             |
+| =fzf-switch-buffer=           | Fuzzy switch buffer                |
+| =fzf-grep=                    | Fuzzy grep                         |
+
+** Setup
+*** Guix
+#+begin_src scheme
+(@ (gnu packages emacs-xyz) emacs-fzf)
+#+end_src
+
+

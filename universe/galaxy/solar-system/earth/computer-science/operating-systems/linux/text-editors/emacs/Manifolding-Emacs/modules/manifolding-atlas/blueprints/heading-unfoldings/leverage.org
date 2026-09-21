@@ -1,0 +1,10 @@
+#+title:      Leverage Prompt
+#+priority:   31
+
+* LEVERAGE :inline:file:heading:task:
+** TODO
+** WARNING
+** TRACKED
+** USED
+** EXPIRED
+** SQUANDERED
