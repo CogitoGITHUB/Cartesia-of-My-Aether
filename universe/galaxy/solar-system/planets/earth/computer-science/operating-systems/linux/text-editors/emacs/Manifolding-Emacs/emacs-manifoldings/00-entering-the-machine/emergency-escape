@@ -1,0 +1,59 @@
+** Garbage on the Screen
+
+If the text on a text terminal looks wrong, the first thing to do is see whether it is wrong in the buffer. Type C-l (recenter-top-bottom) to redisplay the entire screen. If the screen appears correct after this, the problem was entirely in the previous screen update. (Otherwise, see the following section.)
+
+Display updating problems often result from an incorrect terminfo entry for the terminal you are using. The file etc/TERMS in the Emacs distribution gives the fixes for known problems of this sort. INSTALL contains general advice for these problems in one of its sections. If you seem to be using the right terminfo entry, it is possible that there is a bug in the terminfo entry, or a bug in Emacs that appears for certain terminal types
+
+
+** Garbage in the Text
+
+If C-l shows that the text is wrong, first type C-h l (view-lossage) to see what commands you typed to produce the observed results. Then try undoing the changes step by step using C-x u (undo), until it gets back to a state you consider correct.
+
+If a large portion of text appears to be missing at the beginning or end of the buffer, check for the word ‘Narrow’ in the mode line. If it appears, the text you don’t see is probably still present, but temporarily off-limits. To make it accessible again, type C-x n w (widen). See Narrowing.
+
+
+** Emergency Escape
+
+On text terminals, the emergency escape feature suspends Emacs immediately if you type C-g a second time before Emacs can actually respond to the first one by quitting. This is so you can always get out of GNU Emacs no matter how badly it might be hung. When things are working properly, Emacs recognizes and handles the first C-g so fast that the second one won’t trigger emergency escape. However, if some problem prevents Emacs from handling the first C-g properly, then the second one will get you back to the shell.
+
+When you resume Emacs after a suspension caused by emergency escape, it reports the resumption and asks a question or two before going back to what it had been doing:
+
+Emacs is resuming after an emergency escape.
+Auto-save? (y or n)
+Abort (and dump core)? (y or n)
+Answer each question with y or n followed by RET.
+
+Saying y to ‘Auto-save?’ causes immediate auto-saving of all modified buffers in which auto-saving is enabled. Saying n skips this. This question is omitted if Emacs is in a state where auto-saving cannot be done safely.
+
+Saying y to ‘Abort (and dump core)?’ causes Emacs to crash, dumping core. This is to enable a wizard to figure out why Emacs was failing to quit in the first place. Execution does not continue after a core dump.
+
+If you answer this question n, Emacs execution resumes. With luck, Emacs will ultimately do the requested quit. If not, each subsequent C-g invokes emergency escape again.
+
+If Emacs is not really hung, just slow, you may invoke the double C-g feature without really meaning to. Then just resume and answer n to both questions, and you will get back to the former state. The quit you requested will happen by and by.
+
+Emergency escape is active only for text terminals. On graphical displays, you can use the mouse to kill Emacs or switch to another program.
+
+On MS-DOS, you must type C-Break (twice) to cause emergency escape—but there are cases where it won’t work, when a system call hangs or when Emacs is stuck in a tight loop in C code.
+
+
+** If DEL Fails to Delete
+
+Every keyboard has a large key, usually labeled BACKSPACE, which is ordinarily used to erase the last character that you typed. In Emacs, this key is supposed to be equivalent to DEL.
+
+When Emacs starts up on a graphical display, it determines automatically which key should be DEL. In some unusual cases, Emacs gets the wrong information from the system, and BACKSPACE ends up deleting forwards instead of backwards.
+
+Some keyboards also have a Delete key, which is ordinarily used to delete forwards. If this key deletes backward in Emacs, that too suggests Emacs got the wrong information—but in the opposite sense.
+
+On a text terminal, if you find that BACKSPACE prompts for a Help command, like Control-h, instead of deleting a character, it means that key is actually sending the ‘BS’ character. Emacs ought to be treating BS as DEL, but it isn’t.
+
+In all of those cases, the immediate remedy is the same: use the command M-x normal-erase-is-backspace-mode. This toggles between the two modes that Emacs supports for handling DEL, so if Emacs starts in the wrong mode, this should switch to the right mode. On a text terminal, if you want to ask for help when BS is treated as DEL, use F1 instead of C-h; C-? may also work, if it sends character code 127.
+
+To fix the problem in every Emacs session, put one of the following lines into your initialization file (see The Emacs Initialization File). For the first case above, where BACKSPACE deletes forwards instead of backwards, use this line to make BACKSPACE act as DEL:
+
+(normal-erase-is-backspace-mode 0)
+For the other two cases, use this line:
+
+(normal-erase-is-backspace-mode 1)
+Another way to fix the problem for every Emacs session is to customize the variable normal-erase-is-backspace: the value t specifies the mode where BS or BACKSPACE is DEL, and nil specifies the other mode. See Easy Customization Interface.
+
+
