@@ -100,8 +100,6 @@
             (when (my/manifolding-atlas-emacs-mechanism-auto-convert-file f)
               (setq done (1+ done)))
           (error (push (cons f (error-message-string err)) failed))))
-      (when (fboundp 'manifolding-emacs-refresh-order-cache)
-        (ignore-errors (manifolding-emacs-refresh-order-cache)))
       (message "auto-atlas: %d converted, %d failed" done (length failed))
       (dolist (fl failed) (message "auto-atlas FAIL %s: %s" (car fl) (cdr fl)))
       done)))

@@ -301,6 +301,52 @@ Three distinct connection layers queried independently.
 *** Position Management
 Reparenting and order-key manipulation.
 
+**** File drawer sync
+Writes live mm state back into the note file so files stay
+authoritative for boot order. Best-effort: never signals.
+#+begin_src emacs-lisp
+(defun mm/sync-file-drawer (note-id)
+  "Write NOTE-ID's mm parent/order into its file drawer."
+  (condition-case err
+      (let* ((row (mm/node-at note-id))
+             (rec (and row (car (emacsql (manifolding-atlas-db)
+                                        [:select [path] :from notes
+                                         :where (= id $s1)]
+                                        note-id))))
+             (path (and rec (fboundp 'my/manifolding-atlas-root-dir)
+                        (expand-file-name (car rec)
+                                          (my/manifolding-atlas-root-dir)))))
+        (when (and path (file-exists-p path))
+          (with-current-buffer (find-file-noselect path)
+            (goto-char (point-min))
+            (when (re-search-forward "^\\*+ " nil t)
+              (forward-line 1)
+              (when (looking-at "^[ \t]*:PROPERTIES:[ \t]*$")
+                (let ((dend (save-excursion
+                              (when (re-search-forward "^[ \t]*:END:" nil t)
+                                (copy-marker (point))))))
+                  (when dend
+                    (dolist (kv `(("MM_PARENT" . ,(or (nth 1 row) "none"))
+                                  ("MM_ORDER" . ,(number-to-string
+                                                  (or (nth 2 row) 0.0)))))
+                      (goto-char (point-min))
+                      (re-search-forward "^\\*+ " nil t)
+                      (if (re-search-forward
+                           (format "^[ \t]*:%s:" (car kv)) dend t)
+                          (progn (beginning-of-line) (kill-line)
+                                 (insert (format ":%s: %s"
+                                                 (car kv) (cdr kv))))
+                        (goto-char dend)
+                        (forward-line -1)
+                        (end-of-line)
+                        (insert (format "\n:%s: %s"
+                                        (car kv) (cdr kv)))))
+                    (set-marker dend nil)
+                    (save-buffer))))))))
+    (error (message "mm/file-sync failed [%s]: %s"
+                    note-id (error-message-string err)))))
+#+end_src
+
 **** Reparenting primitives
 #+begin_src emacs-lisp
 (defun mm/set-parent (note-id parent-id)
@@ -312,7 +358,8 @@ Reparenting and order-key manipulation.
               :set [(= parent-id $s1) (= depth $s2)]
               :where (= note-id $s3)]
              parent-id (1+ parent-depth) note-id)
-    (mm/recompute-depths note-id (+ 2 parent-depth))))
+    (mm/recompute-depths note-id (+ 2 parent-depth))
+    (mm/sync-file-drawer note-id)))
 
 (defun mm/make-root (note-id)
   "Remove parent of NOTE-ID, making it a root file node."
@@ -321,7 +368,8 @@ Reparenting and order-key manipulation.
             :set [(= parent-id nil) (= depth 0)]
             :where (= note-id $s1)]
            note-id)
-  (mm/recompute-depths note-id 1))
+  (mm/recompute-depths note-id 1)
+  (mm/sync-file-drawer note-id))
 
 (defun mm/recompute-depths (note-id child-depth)
   "Recursively recompute depths for all file children of NOTE-ID."
@@ -339,7 +387,8 @@ Reparenting and order-key manipulation.
            [:update mm-nodes
             :set [(= order-key $s1)]
             :where (= note-id $s2)]
-           key note-id))
+           key note-id)
+  (mm/sync-file-drawer note-id))
 #+end_src
 
 **** Next-key lookup
