@@ -897,23 +897,13 @@ Lives in `my/manifolding-atlas-root-dir'. Auto-created if missing.")
       (my/manifolding-atlas-links--write-removed-property-from-note key abs))))
 #+end_src
 #+begin_src emacs-lisp
-(defun my/manifolding-atlas-links--heading-unfoldings-dir ()
-  "Absolute path of heading-unfoldings/ (plural helper preferred)."
-  (if (fboundp 'my/manifolding-atlas-blueprints-dir)
-      (expand-file-name "heading-unfoldings/" (my/manifolding-atlas-blueprints-dir))
-    (expand-file-name "blueprints/heading-unfoldings/"
-                      (my/manifolding-atlas-module-dir)))
-
 (defun my/manifolding-atlas-links--blueprint-trackable-p (file)
-  "Non-nil when FILE is a prompt blueprint .org under heading-unfoldings/.
-Excludes body-unfoldings/ (body templates, not prompts)."
-  (let ((exp (and (stringp file) (expand-file-name file)))
-        (base (my/manifolding-atlas-links--heading-unfoldings-dir)))
-    (and exp
-         (string-suffix-p ".org" exp)
-         (file-in-directory-p exp base)
-          (not (file-in-directory-p
-                exp (expand-file-name "body-unfoldings/" base))))))
+  "Non-nil when FILE holds a :BLUEPRINT: KEY heading with a kind.
+Body-only template files (kind-less KEYs) are not prompts."
+  (and (stringp file) (file-exists-p file)
+       (cl-some (lambda (spec) (plist-get (nth 2 spec) :kind))
+                (ignore-errors
+                  (my/manifolding-atlas-org-prompt--parse file)))))
 #+end_src
 
 **** Boot reconcile (state comparison)
@@ -925,13 +915,8 @@ keys are stripped (live leftovers are logged, never deleted).
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-links--known-keys-path ()
   "Absolute path of the last-known prompt-key record.
-Lives beside drawer-order.org in blueprint-reinforcements/."
-  (let ((dir (if (fboundp 'my/manifolding-atlas-drawer-order-file)
-                 (file-name-directory
-                  (my/manifolding-atlas-drawer-order-file))
-               (expand-file-name "blueprints/blueprint-reinforcements/"
-                                 (my/manifolding-atlas-module-dir))))
-    (expand-file-name ".known-keys" dir)))
+Lives in admin/ next to sibling Atlas state — never in module dirs."
+  (expand-file-name "admin/.known-keys" (my/manifolding-atlas-root-dir)))
 
 (defun my/manifolding-atlas-links--known-keys-read ()
   "Last-known prompt-key set (sorted), or nil when never recorded."
@@ -955,18 +940,16 @@ Lives beside drawer-order.org in blueprint-reinforcements/."
         (insert k "\n")))))
 
 (defun my/manifolding-atlas-links--scan-current-keys ()
-  "Sorted prompt KEY strings on disk right now. File truth only —
+  "Sorted prompt KEY strings from tag-discovered files. File truth only —
 ignores the specs registry so load order cannot skew the diff."
-  (let ((base (my/manifolding-atlas-links--heading-unfoldings-dir))
-        keys)
-    (when (file-directory-p base)
-      (dolist (f (append (directory-files-recursively base "\\.org\\'") (directory-files-recursively base "[^./]+$")))
-        (when (my/manifolding-atlas-links--blueprint-trackable-p f)
-          (let ((meta (ignore-errors
-                        (my/manifolding-atlas-links--read-blueprint-meta f))))
-            (when (and meta (stringp (car meta))
-                       (not (string-empty-p (car meta))))
-              (push (car meta) keys))))))
+  (let (keys)
+    (dolist (f (mapcar #'cdr (my/manifolding-atlas-blueprint-key-files)))
+      (when (my/manifolding-atlas-links--blueprint-trackable-p f)
+        (let ((meta (ignore-errors
+                      (my/manifolding-atlas-links--read-blueprint-meta f))))
+          (when (and meta (stringp (car meta))
+                     (not (string-empty-p (car meta))))
+            (push (car meta) keys)))))
     (sort (delete-dups keys) #'string<)))
 
 (defun my/manifolding-atlas-links--vault-note-files ()

@@ -21,52 +21,52 @@ measures memory performance, and memory performance alone never proves
 understanding, transfer, or originality. Higher gates must be claimed,
 never inferred.
 
-* STAGE :mastering:file:heading:task:EMACS_MECHANISM:
+* STAGE :mastering:file:heading:task:EMACS_MECHANISM::BLUEPRINT:
 :PROPERTIES:
 :ID:       9e5d9ba4-9d77-46d3-9ba9-6952f6732ffc
 :MM_PARENT: none
 :MM_ORDER:  25.0
 :END:
-** UNSEEN
+** UNSEEN :BLUEPRINT_BODY:
 The domain is absent from the map. Not "bad at the subject" — the
 subject simply doesn't occupy working attention yet: no vocabulary, no
 questions, no recognized boundary. Reserved for mapped, imported, or
 inferred nodes not yet consciously examined. Never a birth state for
 human-created notes; never reviewable (the scheduler cannot test what
 has no representation). First contact promotes to AWARE.
-** AWARE
+** AWARE :BLUEPRINT_BODY:
 The domain has become an identified object of possible knowledge: "I
 know there is something here that I do not yet know." Questions begin
 to exist — the learner can say "I don't understand X" rather than
 staring through X. This is the birth state of every human-created
 note, because the act of capture is itself the awareness gate. Due for
 review immediately: the first successful retrieval starts acquisition.
-** ACQUIRING
+** ACQUIRING :BLUEPRINT_BODY:
 The learner is accumulating and retrieving the building blocks:
 terminology, facts, procedures, relationships. Retrieval works on
 familiar questions; integration hasn't happened yet. Reached
 automatically on the first successful review. Exposure alone never
 promotes here — only demonstrated retrieval does.
-** UNDERSTANDING
+** UNDERSTANDING :BLUEPRINT_BODY:
 The bag of pieces has become a model. The learner can explain why,
 predict consequences, derive implications, connect concepts, and spot
 misconceptions. Test: hand them a novel example and ask them to
 explain it with the model. Requires attested evidence — high recall
 scores alone never imply this stage (a beautifully memorized
 misunderstanding recalls perfectly).
-** CAPABLE
+** CAPABLE :BLUEPRINT_BODY:
 The model has become usable. Standard problems get solved, procedures
 execute, appropriate methods are selected in familiar situations,
 common failures get troubleshot — independently. Reproducing textbook
 examples doesn't qualify; performance on unfamiliar examples within
 familiar problem classes does. Attested.
-** PROFICIENT
+** PROFICIENT :BLUEPRINT_BODY:
 Use is independent, reliable, and efficient across varied situations.
 The characteristic shift, after Dreyfus: from "what rule applies?" to
 "what kind of situation is this?" Pattern recognition is strong;
 genuinely unprecedented situations still resist. Attested on evidence
 of reliability + efficiency + independent method selection.
-** EXPERT
+** EXPERT :BLUEPRINT_BODY:
 Deep, organized domain representations supporting rapid, reliable
 judgment: salient information recognized at a glance, complex problems
 solved, subtle errors diagnosed, incomplete information worked with.
@@ -74,7 +74,7 @@ Requires evidence of reproducibly superior performance on
 representative tasks — never mere review counts or years of exposure.
 Expert intuition counts only inside the domain, under valid feedback.
 Attested.
-** ADAPTIVE
+** ADAPTIVE :BLUEPRINT_BODY:
 The expert's crucial upgrade (Hatano & Inagaki): knowing when the
 known solution is wrong and constructing a better one. The adaptive
 expert asks "do the assumptions behind the standard method actually
@@ -82,14 +82,14 @@ hold here?", reasons from first principles under ambiguity, and treats
 anomalies as data about the model rather than noise. Gate: a novel
 problem solved for which no memorized procedure was supplied.
 Attested.
-** GENERATIVE
+** GENERATIVE :BLUEPRINT_BODY:
 Crossing from using knowledge to generating new structures: methods,
 models, explanations, frameworks, hypotheses that did not previously
 exist for the learner. The novelty may still be local — a new proof
 technique for one problem counts before anyone judges its field-level
 worth. Gate: demonstrated, domain-grounded, explainable novelty.
 Attested.
-** CONTRIBUTING
+** CONTRIBUTING :BLUEPRINT_BODY:
 Crossing from my knowledge to the field's knowledge: independently
 produced, validated work that extends the collective state of the
 domain — novel, relevant, defensible, communicated, and additive.

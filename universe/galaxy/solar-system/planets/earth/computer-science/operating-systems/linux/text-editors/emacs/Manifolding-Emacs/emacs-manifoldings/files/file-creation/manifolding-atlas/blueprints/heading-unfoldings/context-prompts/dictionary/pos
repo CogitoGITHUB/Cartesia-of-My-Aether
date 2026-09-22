@@ -1,16 +1,16 @@
 #+title:      POS (Part of Speech) Prompt
 
-* POS :unfolding:dictionary:EMACS_MECHANISM:
+* POS :unfolding:dictionary:EMACS_MECHANISM::BLUEPRINT:
 :PROPERTIES:
 :ID:       0a90a47a-59ca-40ac-be86-121ee0b969b5
 :MM_PARENT: none
 :MM_ORDER:  142.0
 :UNFOLDING: pos
 :END:
-** TODO
-** noun
-** verb
-** adjective
-** adverb
-** phrase
-** other
+** TODO :BLUEPRINT_BODY:
+** noun :BLUEPRINT_BODY:
+** verb :BLUEPRINT_BODY:
+** adjective :BLUEPRINT_BODY:
+** adverb :BLUEPRINT_BODY:
+** phrase :BLUEPRINT_BODY:
+** other :BLUEPRINT_BODY:

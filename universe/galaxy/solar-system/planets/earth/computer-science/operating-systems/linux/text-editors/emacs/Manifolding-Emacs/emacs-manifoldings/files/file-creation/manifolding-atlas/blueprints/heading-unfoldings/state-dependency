@@ -1,13 +1,13 @@
 #+title:      State Dependency Prompt
 
-* STATE_DEPENDENCY :unfolding:file:heading:task:EMACS_MECHANISM:
+* STATE_DEPENDENCY :unfolding:file:heading:task:EMACS_MECHANISM::BLUEPRINT:
 :PROPERTIES:
 :ID:       7819dec9-1da9-48c9-a358-9ba82a97ff66
 :MM_PARENT: none
 :MM_ORDER:  27.0
 :UNFOLDING: state-dependency
 :END:
-** TODO
-** WARNING
-** WAITING
-** DELEGATED
+** TODO :BLUEPRINT_BODY:
+** WARNING :BLUEPRINT_BODY:
+** WAITING :BLUEPRINT_BODY:
+** DELEGATED :BLUEPRINT_BODY:

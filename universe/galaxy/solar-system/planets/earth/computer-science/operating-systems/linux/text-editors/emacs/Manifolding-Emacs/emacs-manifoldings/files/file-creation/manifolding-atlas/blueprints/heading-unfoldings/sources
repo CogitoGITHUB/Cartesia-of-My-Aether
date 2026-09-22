@@ -1,13 +1,13 @@
 #+title:      Sources Prompt
 
-* SOURCES :inline:file:heading:task:EMACS_MECHANISM:
+* SOURCES :inline:file:heading:task:EMACS_MECHANISM::BLUEPRINT:
 :PROPERTIES:
 :ID:       c59e8fcb-df04-47cb-9224-f5efb90c7eab
 :MM_PARENT: none
 :MM_ORDER:  232.0
 :END:
-** TODO
-** WARNING
-** VETTED
-** PENDING
-** ARCHIVED
+** TODO :BLUEPRINT_BODY:
+** WARNING :BLUEPRINT_BODY:
+** VETTED :BLUEPRINT_BODY:
+** PENDING :BLUEPRINT_BODY:
+** ARCHIVED :BLUEPRINT_BODY:

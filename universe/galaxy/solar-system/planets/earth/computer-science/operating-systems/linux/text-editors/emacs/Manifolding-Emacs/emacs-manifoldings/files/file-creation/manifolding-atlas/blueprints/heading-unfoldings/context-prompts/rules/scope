@@ -1,6 +1,6 @@
 #+title:      Scope Prompt
 
-* SCOPE :tagopt:rule:EMACS_MECHANISM:
+* SCOPE :tagopt:rule:EMACS_MECHANISM::BLUEPRINT:
 :PROPERTIES:
 :ID: rule-scope
 :MM_PARENT: none
@@ -8,7 +8,7 @@
 :DEFAULT: auto
 :UNFOLDING: scope
 :END:
-** TODO
-** universal
-** general
-** focused
+** TODO :BLUEPRINT_BODY:
+** universal :BLUEPRINT_BODY:
+** general :BLUEPRINT_BODY:
+** focused :BLUEPRINT_BODY:

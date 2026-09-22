@@ -1,6 +1,6 @@
 #+title:      State General Prompt
 
-* STATE_GENERAL :unfolding:file:heading:task:EMACS_MECHANISM:
+* STATE_GENERAL :unfolding:file:heading:task:EMACS_MECHANISM::BLUEPRINT:
 :PROPERTIES:
 :ID:       6a6b447d-a535-4a33-978d-6886c217da64
 :MM_PARENT: none
@@ -8,8 +8,8 @@
 :REQUIRED: t
 :UNFOLDING: state-general
 :END:
-** TODO
-** WARNING
-** EVERGREEN
-** DRAFT
-** SETTLED
+** TODO :BLUEPRINT_BODY:
+** WARNING :BLUEPRINT_BODY:
+** EVERGREEN :BLUEPRINT_BODY:
+** DRAFT :BLUEPRINT_BODY:
+** SETTLED :BLUEPRINT_BODY:

@@ -1,17 +1,17 @@
 #+title:      Register Prompt
 
-* REGISTER :unfolding:dictionary:EMACS_MECHANISM:
+* REGISTER :unfolding:dictionary:EMACS_MECHANISM::BLUEPRINT:
 :PROPERTIES:
 :ID:       1bca67a3-729b-4b57-bd88-2ea660d29e98
 :MM_PARENT: none
 :MM_ORDER:  124.0
 :UNFOLDING: register
 :END:
-** TODO
-** formal
-** informal
-** slang
-** technical
-** archaic
-** literary
-** colloquial
+** TODO :BLUEPRINT_BODY:
+** formal :BLUEPRINT_BODY:
+** informal :BLUEPRINT_BODY:
+** slang :BLUEPRINT_BODY:
+** technical :BLUEPRINT_BODY:
+** archaic :BLUEPRINT_BODY:
+** literary :BLUEPRINT_BODY:
+** colloquial :BLUEPRINT_BODY:

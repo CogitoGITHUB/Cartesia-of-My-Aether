@@ -1,6 +1,6 @@
 #+title:      Insert Position Prompt
 
-* Insert Position (headings only) :EMACS_MECHANISM:
+* Insert Position (headings only) :EMACS_MECHANISM::BLUEPRINT:
 :PROPERTIES:
 :ID:       c755ea67-16c0-4e07-804f-2b4d5120b1df
 :MM_PARENT: none

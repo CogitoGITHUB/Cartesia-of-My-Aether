@@ -10,31 +10,9 @@
 ** Prompt Registry (must load first)
 Must load before any prompt file calls ~my/manifolding-atlas-register-prompt~.
 
-*** Atlas tree anchor
-All atlas-internal paths derive from here — never from vault-relative
-literals, which break on restructure. Loader-owned lookup, cached.
-#+begin_src emacs-lisp
-(defun my/manifolding-atlas-module-dir ()
-  "Absolute path of the manifolding-atlas/ tree. Rename-proof."
-  (or (and (fboundp 'manifolding-emacs-locate-dir)
-           (manifolding-emacs-locate-dir "manifolding-atlas"))
-      (error "Atlas tree not found under vault root")))
-#+end_src
-
-*** Templates Directory
-** my/manifolding-atlas-templates-dir
-Why: Implementation of ~my/manifolding-atlas-templates-dir~.
-
-#+begin_src emacs-lisp
-(defun my/manifolding-atlas-templates-dir ()
-  "Return the templates directory."
-  (expand-file-name "blueprints/heading-unfoldings/body-unfoldings/"
-                    (my/manifolding-atlas-module-dir)))
-
-(defun my/manifolding-atlas-template-files-dir ()
-  "Alias for `my/manifolding-atlas-templates-dir'."
-  (my/manifolding-atlas-templates-dir))
-#+end_src
+*** Registry-driven templates
+Template files resolve by :BLUEPRINT: tag scan (template registry),
+never by directory. See template registry block for the mechanism.
 
 *** Drawer Key Order
 Display order for drawer entries. Unlisted keys keep file order after
@@ -47,9 +25,19 @@ edit its level-2 headings directly — save + reload applies.
   :group 'manifolding-atlas)
 
 (defun my/manifolding-atlas-drawer-order-file ()
-  "Return the drawer-order blueprint file."
-  (expand-file-name "blueprints/blueprint-reinforcements/drawer-order"
-                    (my/manifolding-atlas-module-dir)))
+  "Return the drawer-order file: unique tagged file with a level-1
+headline but zero parseable KEYs. No path anywhere."
+  (catch 'found
+    (dolist (f (mapcar #'cdr (my/manifolding-atlas-blueprint-key-files)))
+      (with-temp-buffer
+        (ignore-errors (insert-file-contents f))
+        (goto-char (point-min))
+        (when (and (re-search-forward "^\\* " nil t)
+                   (not (re-search-forward
+                         "^\\* [A-Z][A-Z0-9_]*\\([ \t]+:[A-Za-z0-9_:@]+:\\)?[ \t]*$"
+                         nil t)))
+          (throw 'found f))))
+    nil))
 
 (defun my/manifolding-atlas-drawer-order-from-file (&optional file)
   "Read drawer key order from FILE (default the order file).
@@ -340,54 +328,36 @@ is a list of (FILE . VALUE) for lines kept."
 #+end_src
 
 #+begin_src emacs-lisp
-(defun my/manifolding-atlas-blueprints-dir ()
-  "Return the blueprints directory."
-  (expand-file-name "blueprints/"
-                    (my/manifolding-atlas-module-dir)))
-
-(defun my/manifolding-atlas-blueprint-dirs ()
-  "Candidate subdirectories for new prompt blueprints, relative."
-  (let ((base (my/manifolding-atlas-blueprints-dir)))
-    (mapcar (lambda (d) (file-relative-name d base))
-            (seq-remove
-             (lambda (d)
-               (let ((rel (file-relative-name d base)))
-                 (or (string-prefix-p "blueprint-reinforcements" rel)
-                     (string-prefix-p "heading-unfoldings/body-unfoldings" rel))))
-             (seq-filter #'file-directory-p
-                         (directory-files-recursively base "" t))))))
-
 (defun my/manifolding-atlas-blueprint-files ()
-  "All blueprint .org files, absolute."
-  (directory-files-recursively
-   (my/manifolding-atlas-blueprints-dir) "\\.org\\'"))
+  "All files holding :BLUEPRINT: KEY headings, absolute."
+  (mapcar #'cdr (my/manifolding-atlas-blueprint-key-files)))
 
 (defvar my/manifolding-atlas--pending-blueprint-register nil
   "Blueprint path to register when the current capture finalizes.")
 
-(defun my/manifolding-atlas-blueprint-add (title subdir)
-  "Create a new prompt blueprint for TITLE in SUBDIR via capture.
+(defun my/manifolding-atlas-blueprint-add (title)
+  "Create a new prompt blueprint for TITLE beside existing blueprints.
 Derives KEY (upper, underscores), errors loudly on empty KEY or
-existing file. Registers the prompt when the capture finalizes."
-  (interactive
-   (list (read-string "Blueprint title: ")
-         (completing-read "Subdirectory: "
-                          (my/manifolding-atlas-blueprint-dirs)
-                          nil t nil nil "heading-unfoldings/")))
+existing KEY. Registers the prompt when the capture finalizes."
+  (interactive (list (read-string "Blueprint title: ")))
   (let* ((key (replace-regexp-in-string
                "_+$" ""
                (replace-regexp-in-string "[^A-Z0-9]+" "_" (upcase title)))))
     (when (string-empty-p key)
       (user-error "Title yields empty KEY — use letters/digits"))
-    (let* ((dir (expand-file-name subdir (my/manifolding-atlas-blueprints-dir)))
-           (path (expand-file-name (concat (downcase key) ".org") dir)))
+    (when (my/manifolding-atlas-blueprint-file-for key)
+      (user-error "Blueprint exists for KEY: %s" key))
+    (let* ((anchor (car (my/manifolding-atlas-blueprint-key-files)))
+           (dir (if anchor (file-name-directory (cdr anchor))
+                  (expand-file-name "~")))
+           (path (expand-file-name (downcase key) dir)))
       (when (file-exists-p path)
         (user-error "Blueprint exists: %s" path))
       (make-directory dir t)
       (let ((id (org-id-new))
             (org-capture-templates
              `(("b" "Blueprint prompt" plain (file ,path)
-                 ,(format "* %s :unfolding:file:heading:task:\n:PROPERTIES:\n:ID: %s\n:END:\n** First option\n%%?"
+                 ,(format "* %s :unfolding:file:heading:task:BLUEPRINT:\n:PROPERTIES:\n:ID: %s\n:END:\n** First option :BLUEPRINT_BODY:\n%%?"
                           key id)
                 :unnarrowed t :empty-lines 1 :kill-buffer t)))
             (org-capture-use-indirect-buffer nil)
@@ -485,27 +455,33 @@ Also deletes orphaned vault data dir on the same confirm."
 #+end_src
 
 *** Template Infrastructure (doct, yasnippet)
-Moved verbatim from blueprints/templates/templates.org so the
-templates directory is wired by the same file that defines its path.
+Doct capture templates are inlined below (no template directory exists
+anymore); yasnippet runs without a snippets dir (none exist on disk).
 :PROPERTIES:
 :PACKAGE:  doct
 :STRAIGHT: (doct :type git :host github :repo "progfolio/doct")
 :CATEGORY: editing
 :END:
 #+begin_src emacs-lisp
-(defun my/templates-directory ()
-  "Return the root templates directory.
-Delegates to the central module path helper."
-  (my/manifolding-atlas-templates-dir))
-#+end_src
-#+begin_src emacs-lisp
-(defun my/capture-directory ()
-  "Return the org-capture (doct) templates directory."
-  (expand-file-name "files/" (my/templates-directory)))
 (with-eval-after-load 'org-capture
-  (require 'doct)
-  (dolist (f (directory-files (my/capture-directory) t "\\.el$"))
-    (load f nil 'no-message))
+  (require 'doct nil t)
+  (defvar my/capture-manifolding-atlas
+    (doct
+     `(("Manifolding Atlas"
+        :keys "n"
+        :children
+        (("New note" :keys "n"
+          :type plain
+          :function (lambda () (my/manifolding-atlas-capture-new-file))
+          :unnarrowed t)
+         ("Task" :keys "t"
+          :type plain
+          :function (lambda () (my/manifolding-atlas-capture-task-file))
+          :unnarrowed t)
+         ("Heading" :keys "h"
+          :type plain
+          :function (lambda () (my/manifolding-atlas-capture-heading))
+          :unnarrowed t))))))
   (setq org-capture-templates
         (append (when (boundp 'my/capture-manifolding-atlas) my/capture-manifolding-atlas)
                 (when (boundp 'my/capture-tasks)  my/capture-tasks))))
@@ -517,9 +493,6 @@ Delegates to the central module path helper."
 :CATEGORY: editing
 :END:
 #+begin_src emacs-lisp
-(let ((snippets-dir (expand-file-name "snippets/" (my/templates-directory))))
-  (make-directory snippets-dir t)
-  (setq yas-snippet-dirs (list snippets-dir)))
 (setq yas-verbosity 1)
 (yas-global-mode 1)
 #+end_src
@@ -1484,14 +1457,8 @@ Why: Implementation of ~my/manifolding-atlas--insert-body-template~.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas--insert-body-template (template-name)
   "Insert body template TEMPLATE-NAME into current buffer.
-TEMPLATE-NAME is a filename without extension from templates/files."
-  (let* ((template-file (expand-file-name
-                         (concat template-name ".org")
-                         (my/manifolding-atlas-template-files-dir)))
-         (content (when (file-exists-p template-file)
-                    (with-temp-buffer
-                      (insert-file-contents template-file)
-                      (buffer-string)))))
+TEMPLATE-NAME is a template registry name (old file basenames work)."
+  (let ((content (my/manifolding-atlas-template-body template-name)))
     (when content
       (goto-char (point-max))
       (insert content))))
@@ -1589,13 +1556,7 @@ Why: Implementation of ~my/manifolding-atlas--get-template-content~.
 (defun my/manifolding-atlas--get-template-content (template-name)
   "Return content of TEMPLATE-NAME or nil."
   (when (and template-name (not (member template-name '("WARNING" "none"))))
-    (let ((template-file (expand-file-name
-                           (concat template-name ".org")
-                           (expand-file-name "files" (my/manifolding-atlas-template-files-dir)))))
-      (when (file-exists-p template-file)
-        (with-temp-buffer
-          (insert-file-contents template-file)
-          (buffer-string))))))
+    (my/manifolding-atlas-template-body template-name)))
 #+end_src
 
 ** manifolding-atlas-find-create-note
@@ -3677,10 +3638,9 @@ lists in `--ask' and `--collect--defer-p'; template always routes to
 `--ask-minibuffer').
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-org-prompt--register-static-template ()
-  "Register the TEMPLATE prompt statically (ex-blueprints/unfoldings/template.org)."
+  "Register the TEMPLATE prompt statically (no source file)."
   (my/manifolding-atlas-org-prompt--register
-   (expand-file-name "atlas-engine/file-creation"
-                     (my/manifolding-atlas-module-dir))
+   nil
    "TEMPLATE" nil
    '(:contexts "file heading" :kind "template" :label "Template: Body template")))
 #+end_src
@@ -3712,12 +3672,12 @@ Why: Implementation of ~my/manifolding-atlas-prompt-template--names~.
 
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-prompt-template--names ()
-  "Return available template names from templates/files."
+  "Available template display names from the template registry."
   (condition-case nil
-      (mapcar (lambda (f)
-                (file-name-sans-extension (file-name-nondirectory f)))
-              (directory-files (expand-file-name "files" (my/manifolding-atlas-template-files-dir))
-                               t "\\.org\\'"))
+      (mapcar (lambda (e)
+                (my/manifolding-atlas-blueprint--template-display-name
+                 (car e)))
+              my/manifolding-atlas-template-registry)
     (error nil)))
 #+end_src
 ** Template chooser
@@ -4065,10 +4025,12 @@ for backward compatibility. A :PROPERTIES:...:END: drawer holding the
                     (forward-line 1))
                   (unless (eobp) (forward-line 1))))
                ((and key (looking-at "^\\*\\*+ [. ]*\\(.*?\\)[ \t]*$"))
-                (flush-opt)
-                (push (match-string 1) opts)
-                (setq current-opt (match-string 1) opt-desc-lines nil)
-                (forward-line 1))
+                 (flush-opt)
+                 (let ((opt (my/manifolding-atlas--strip-body-tag
+                             (match-string 1))))
+                   (push opt opts)
+                   (setq current-opt opt opt-desc-lines nil))
+                 (forward-line 1))
                ((looking-at "^\\* ")
                 (flush-opt)
                 (setq specs (my/manifolding-atlas-org-prompt--parse-flush
@@ -4092,21 +4054,9 @@ for backward compatibility. A :PROPERTIES:...:END: drawer holding the
 * Registration
 
 ** Schema file discovery
-** my/manifolding-atlas-blueprint-dir
-Why: Implementation of ~my/manifolding-atlas-blueprint-dir~.
-
-#+begin_src emacs-lisp
-(defun my/manifolding-atlas-blueprint-dir ()
-  "Return the blueprints directory."
-  (expand-file-name "blueprints/"
-                    (my/manifolding-atlas-module-dir)))
-
-(defun my/manifolding-atlas-org-prompt--schema-files ()
-  "Return all candidate org files under blueprints/."
-  (append (directory-files-recursively
-          (my/manifolding-atlas-blueprint-dir) "\\.org\\'")
-         (directory-files-recursively
-          (my/manifolding-atlas-blueprint-dir) "[^./]+\\'")))
+** my/manifolding-atlas-org-prompt--schema-files ()
+  "Candidate files: every vault file holding a :BLUEPRINT: KEY heading."
+  (mapcar #'cdr (my/manifolding-atlas-blueprint-key-files)))
 #+end_src
 
 ** Per-file registration
@@ -4131,16 +4081,114 @@ extended failure list."
                   nil))))
     (dolist (spec specs)
       (condition-case err
-          (progn
-            (apply #'my/manifolding-atlas-org-prompt--register file spec)
-            (setq count (1+ count)))
+          ;; No :kind means template body, not a prompt (templates carry
+          ;; KEY + :BLUEPRINT: but no kind/context tags by design).
+          (if (plist-get (nth 2 spec) :kind)
+              (progn
+                (apply #'my/manifolding-atlas-org-prompt--register file spec)
+                (setq count (1+ count)))
+            (unless (assoc (nth 0 spec) my/manifolding-atlas-template-registry)
+              (push (cons (nth 0 spec) file)
+                    my/manifolding-atlas-template-registry)))
         (error
          (push (format "%s: %s"
                        (file-name-nondirectory file)
                        (error-message-string err))
-               failures))))
+                failures))))
     (cons count failures)))
 #+end_src
+** Blueprint tag strip + template registry
+No directories anywhere: templates resolve by KEY tag scan.
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas--strip-body-tag (text)
+  "Remove the :BLUEPRINT_BODY: marker from blueprint option TEXT."
+  (string-trim (replace-regexp-in-string ":BLUEPRINT_BODY:" "" text)))
+
+(defvar my/manifolding-atlas-template-registry nil
+  "Alist (TEMPLATE-KEY . FILE) for kind-less blueprint KEYs.")
+
+(defvar my/manifolding-atlas-blueprint-key-files nil
+  "Cached alist (KEY . FILE) from the :BLUEPRINT: tag scan. Nil = rebuild.")
+
+(defun my/manifolding-atlas-blueprint-refresh ()
+  "Drop cached blueprint discovery. Next lookup rescans."
+  (interactive)
+  (setq my/manifolding-atlas-blueprint-key-files nil
+        my/manifolding-atlas-template-registry nil)
+  (message "blueprint discovery cache cleared"))
+
+(defun my/manifolding-atlas-blueprint-key-files ()
+  "Alist (KEY . FILE) for every :BLUEPRINT: level-1 KEY in the vault.
+Cached per session; `my/manifolding-atlas-blueprint-refresh' rebuilds."
+  (or my/manifolding-atlas-blueprint-key-files
+      (setq my/manifolding-atlas-blueprint-key-files
+            (let (out)
+              (when (fboundp 'my/manifolding-atlas-root-dir)
+                (let ((root (my/manifolding-atlas-root-dir)))
+                  (dolist (f (directory-files-recursively root "[^./]+$"))
+                    (unless (or (string-match-p "/\\.git/" f)
+                                (string-match-p "/admin/" f))
+                      (when-let* ((keys (my/manifolding-atlas--file-blueprint-keys f)))
+                        (dolist (k keys)
+                          (unless (assoc k out)
+                            (push (cons k f) out))))))))
+              (nreverse out)))))
+
+(defun my/manifolding-atlas--file-blueprint-keys (file)
+  "KEY strings of :BLUEPRINT:-tagged level-1 headings in FILE."
+  (when (file-exists-p file)
+    (let (keys)
+      (with-temp-buffer
+        (insert-file-contents file)
+        (goto-char (point-min))
+        (while (re-search-forward
+                "^\\* \\([A-Z][A-Z0-9_]*\\)[^\\n]*:BLUEPRINT:" nil t)
+          (push (match-string 1) keys)))
+      (nreverse keys))))
+
+(defun my/manifolding-atlas-blueprint-file-for (name)
+  "Resolve blueprint/template NAME to its file via tag scan.
+Matches exact, upcased, or downcased KEY."
+  (when name
+    (let ((alist (my/manifolding-atlas-blueprint-key-files)))
+      (or (cdr (assoc name alist))
+          (cdr (assoc (upcase name) alist))
+          (cl-find-if (lambda (e) (string= (downcase (car e))
+                                           (downcase name)))
+                      alist)))))
+
+(defun my/manifolding-atlas-template-file (name)
+  "Resolve template NAME (old style, e.g. \"recipes\") to its file."
+  (when name
+    (my/manifolding-atlas-blueprint-file-for
+     (concat "BODY_" (upcase (replace-regexp-in-string "-" "_" name))))))
+
+(defun my/manifolding-atlas-template-body (name)
+  "Body text of template NAME: under its KEY, minus keywords/drawers."
+  (when-let* ((file (my/manifolding-atlas-template-file name)))
+    (when (file-exists-p file)
+      (with-temp-buffer
+        (insert-file-contents file)
+        (goto-char (point-min))
+        (when (re-search-forward "^\\* [A-Z][A-Z0-9_]*.*$" nil t)
+          (forward-line 1)
+          (let ((body (buffer-substring-no-properties (point) (point-max))))
+            (with-temp-buffer
+              (insert body)
+              (goto-char (point-min))
+              (while (re-search-forward "^#\\+" nil t)
+                (unless (looking-at "\\(begin_\\|end_\\)")
+                  (beginning-of-line) (kill-line)
+                  (unless (eobp) (kill-line))))
+              (goto-char (point-min))
+              (while (re-search-forward "^[ \t]*:PROPERTIES:[ \t]*$" nil t)
+                (let ((beg (line-beginning-position)))
+                  (when (re-search-forward "^[ \t]*:END:[ \t]*$" nil t)
+                    (forward-line 1)
+                    (delete-region beg (point)))))
+              (string-trim (buffer-string)))))))))
+#+end_src
+
 ** Batch registration
 Idempotent: strips previously registered declarative specs first, so
 repeated reloads/boot timers never duplicate registry entries.
@@ -5908,9 +5956,10 @@ reconcile for the whole session. Retry every 5s, bounded (~5 min)."
       (run-with-timer
        0.05 nil
        (lambda ()
-          (condition-case err
+           (condition-case err
               (let ((n (my/manifolding-atlas-org-prompt--register-all)))
-                (message "org-prompts: registered %d declarative prompts" n)
+                (message "org-prompts: registered %d declarative prompts, %d templates"
+                         n (length my/manifolding-atlas-template-registry))
                 (my/manifolding-atlas--reconcile-boot-maybe)
                 ;; Orphan rows die here, synchronously, same boot pass —
                 ;; no timers: files already settled, engine loaded.
@@ -5971,12 +6020,10 @@ Why: Implementation of ~my/manifolding-atlas--show-help~.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas--show-help (name)
   "Open prompt NAME's help file full-screen with org-tree-slide.
-Search recursively under blueprints/ for the file."
+Resolved by blueprint KEY tag scan, never by directory."
   (let* ((file (my/manifolding-atlas--help-file name))
-          (unfoldings-dir (expand-file-name "blueprints/"
-                                            (my/manifolding-atlas-module-dir)))
-         (path (car (file-expand-wildcards
-                     (concat unfoldings-dir "**/" file) t))))
+         (path (and file (my/manifolding-atlas-blueprint-file-for
+                           (file-name-sans-extension file)))))
     (when (and path (file-exists-p path))
       (setq my/manifolding-atlas--help-opened t
             my/manifolding-atlas--help-window-config

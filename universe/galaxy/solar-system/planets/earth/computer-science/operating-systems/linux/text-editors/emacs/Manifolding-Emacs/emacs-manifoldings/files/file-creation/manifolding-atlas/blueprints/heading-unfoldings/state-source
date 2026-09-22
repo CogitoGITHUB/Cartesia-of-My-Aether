@@ -1,6 +1,6 @@
 #+title:      State Source Prompt
 
-* STATE_SOURCE :unfolding:file:heading:task:EMACS_MECHANISM:
+* STATE_SOURCE :unfolding:file:heading:task:EMACS_MECHANISM::BLUEPRINT:
 :PROPERTIES:
 :ID:       ce67cedd-9d17-427a-99de-8ffbe12548b3
 :MM_PARENT: none
@@ -8,8 +8,8 @@
 :REQUIRED: t
 :UNFOLDING: state-source
 :END:
-** TODO
-** WARNING
-** UNSOURCED
-** PARTIAL
-** SOURCED
+** TODO :BLUEPRINT_BODY:
+** WARNING :BLUEPRINT_BODY:
+** UNSOURCED :BLUEPRINT_BODY:
+** PARTIAL :BLUEPRINT_BODY:
+** SOURCED :BLUEPRINT_BODY:

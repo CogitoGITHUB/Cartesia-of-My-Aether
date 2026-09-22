@@ -589,31 +589,18 @@ in the buffer are flagged as you edit."
 
 * Blueprint Customization
 
-#+begin_src emacs-lisp
-(defun my/manifolding-atlas-blueprint--prompt-dir ()
-  "Return blueprints directory (stub for prompt dir)."
-  (or (and (fboundp 'my/manifolding-atlas-blueprint-dir)
-           (my/manifolding-atlas-blueprint-dir))
-      (expand-file-name "blueprints/"
-                        (my/manifolding-atlas-module-dir)))
-
-(defun my/manifolding-atlas-blueprint--template-dir ()
-  "Return templates directory."
-  (expand-file-name "templates/" (my/manifolding-atlas-blueprint--prompt-dir)))
-
 (defun my/manifolding-atlas-blueprint--outline-spec (prompt-name)
-  "Return (KEY . OPTIONS) from declarative file PROMPT-NAME.org, or nil.
+  "Return (KEY . OPTIONS) from declarative file PROMPT-NAME, or nil.
 Declarative = no src blocks; level-1 KEY heading, level-2 options."
-  (let* ((dir (my/manifolding-atlas-blueprint--prompt-dir))
-         (files (directory-files-recursively dir (format "^%s\\(\\.org\\)?$" prompt-name))))
-    (when files
+  (let ((file (my/manifolding-atlas-blueprint-file-for prompt-name)))
+    (when file
       (condition-case nil
           (with-temp-buffer
-            (insert-file-contents (car files))
+            (insert-file-contents file)
             (goto-char (point-min))
             (when (not (re-search-forward "begin_src" nil t))
               (let ((spec (car (my/manifolding-atlas-org-prompt--parse
-                                (car files)))))
+                                file))))
                 (when spec
                   (cons (nth 0 spec) (nth 1 spec))))))
         ;; Engine unavailable/broken → legacy extractors handle it.
@@ -621,12 +608,10 @@ Declarative = no src blocks; level-1 KEY heading, level-2 options."
 
 (defun my/manifolding-atlas-blueprint--legacy-choices (prompt-name)
   "Legacy regex extraction of choices from elisp prompt PROMPT-NAME."
-  (let* ((dir (my/manifolding-atlas-blueprint--prompt-dir))
-         (files (directory-files-recursively
-                 dir (format "^%s\\(\\.org\\)?$" prompt-name))))
-    (when files
+  (let ((file (my/manifolding-atlas-blueprint-file-for prompt-name)))
+    (when file
       (with-temp-buffer
-        (insert-file-contents (car files))
+        (insert-file-contents file)
         (goto-char (point-min))
         (when (re-search-forward "completing-read" nil t)
           (condition-case nil
@@ -652,12 +637,10 @@ elisp lists (WARNING excluded)."
   "Extract the property drawer key for PROMPT-NAME: level-1 heading of a
 declarative file, else legacy regex over the elisp source."
   (or (car (my/manifolding-atlas-blueprint--outline-spec prompt-name))
-      (let* ((dir (my/manifolding-atlas-blueprint--prompt-dir))
-             (files (directory-files-recursively
-                     dir (format "^%s\\(\\.org\\)?$" prompt-name))))
-        (when files
+      (let ((file (my/manifolding-atlas-blueprint-file-for prompt-name)))
+        (when file
           (with-temp-buffer
-            (insert-file-contents (car files))
+            (insert-file-contents file)
             (when (re-search-forward "org-entry-get nil \"\\([A-Z_]+?\\)\"" nil t)
               (match-string 1)))))))
 
@@ -699,26 +682,33 @@ When REQUIRED is non-nil, the field is mandatory."
           (forward-line))))
     keys))
 
+(defun my/manifolding-atlas-blueprint--template-display-name (key)
+  "Public template name for registry KEY: strip BODY_, downcase, _ to -."
+  (replace-regexp-in-string
+   "_" "-"
+   (downcase (if (string-prefix-p "BODY_" key) (substring key 5) key))))
+
 (defun my/manifolding-atlas-blueprint--template-unfolding-keys ()
-  "Return list of unfolding keys defined in capture template files."
-  (let ((template-dir (my/manifolding-atlas-blueprint--template-dir))
-        keys)
-    (when (file-directory-p template-dir)
-      (dolist (file (append (directory-files template-dir t "\\.org\\'") (directory-files template-dir t "[^./]+$")))
-        (setq keys (append (my/manifolding-atlas-blueprint--drawer-keys-in-file file)
-                           keys))))
+  "Return list of unfolding keys defined in registered template files."
+  (let (keys)
+    (dolist (entry my/manifolding-atlas-template-registry)
+      (setq keys (append (my/manifolding-atlas-blueprint--drawer-keys-in-file
+                          (cdr entry))
+                         keys)))
     (delete-dups keys)))
 
 (defun my/manifolding-atlas-blueprint--template-unfoldings ()
-  "Return alist of (template-name . (unfolding-key ...)) from capture template files."
-  (let ((template-dir (my/manifolding-atlas-blueprint--template-dir))
-        result)
-    (when (file-directory-p template-dir)
-      (dolist (file (append (directory-files template-dir t "\\.org\\'") (directory-files template-dir t "[^./]+$")))
-        (let* ((name (file-name-sans-extension (file-name-nondirectory file)))
-               (keys (nreverse (my/manifolding-atlas-blueprint--drawer-keys-in-file file))))
-          (when keys
-            (push (cons name keys) result)))))
+  "Return alist of (template-name . (unfolding-key ...)) from the registry.
+Names stay in stored form (e.g. \"recipes\") so existing TEMPLATE
+unfoldings keep matching their schemas."
+  (let (result)
+    (dolist (entry my/manifolding-atlas-template-registry)
+      (let* ((name (my/manifolding-atlas-blueprint--template-display-name
+                    (car entry)))
+             (keys (nreverse (my/manifolding-atlas-blueprint--drawer-keys-in-file
+                              (cdr entry)))))
+        (when keys
+          (push (cons name keys) result))))
     (nreverse result)))
 (manifolding-atlas-blueprint-define
  'base
@@ -962,11 +952,7 @@ the DB and we grade fresh data, not pre-save state."
   (let ((uncovered nil))
     (dolist (spec my/manifolding-atlas-prompt-registry)
       (let* ((name (plist-get spec :name))
-             (files (and name
-                         (directory-files-recursively
-                          (my/manifolding-atlas-blueprint-dir)
-                          (format "^%s\\(\\.org\\)?$" name))))
-             (file (car files))
+             (file (and name (my/manifolding-atlas-blueprint-file-for name)))
              (key (condition-case nil
                       (my/manifolding-atlas-blueprint--extract-unfolding-key name)
                     (error nil))))

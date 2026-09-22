@@ -1,14 +1,14 @@
 #+title:      Priority Prompt
 
-* PRIORITY :inline:file:heading:task:EMACS_MECHANISM:
+* PRIORITY :inline:file:heading:task:EMACS_MECHANISM::BLUEPRINT:
 :PROPERTIES:
 :ID:       54e09d81-4d73-4073-91b4-eb91c59006ad
 :MM_PARENT: none
 :MM_ORDER:  8.0
 :TASK-DEFAULT: B
 :END:
-** TODO
-** WARNING
-** A
-** B
-** C
+** TODO :BLUEPRINT_BODY:
+** WARNING :BLUEPRINT_BODY:
+** A :BLUEPRINT_BODY:
+** B :BLUEPRINT_BODY:
+** C :BLUEPRINT_BODY:

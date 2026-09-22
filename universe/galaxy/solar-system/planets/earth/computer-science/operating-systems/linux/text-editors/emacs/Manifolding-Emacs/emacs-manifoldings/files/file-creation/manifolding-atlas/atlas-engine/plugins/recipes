@@ -37,19 +37,21 @@ Commands:
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-recipes--template-body ()
   "Return the content of the `recipes' body template, or \"%?\"."
-  (let ((file (my/manifolding-atlas--capture-path "recipes")))
-    (if (file-exists-p file)
-        (with-temp-buffer
-          (insert-file-contents file)
-          (buffer-string))
-      "%?")))
+  (or (my/manifolding-atlas-template-body "recipes") "%?"))
+
+(defun my/manifolding-atlas-recipes--template-hash ()
+  "SHA-256 of the current recipes template body, or \"unknown\"."
+  (or (ignore-errors
+        (let ((body (my/manifolding-atlas-recipes--template-body)))
+          (unless (string= body "%?")
+            (secure-hash 'sha256 body))))
+      "unknown"))
 
 (defun my/manifolding-atlas-recipes--store-template (note)
   "Store TEMPLATE and TEMPLATE_HASH unfoldings on NOTE."
   (my/manifolding-atlas--unfolding-put note "TEMPLATE" "recipes")
   (my/manifolding-atlas--unfolding-put note "TEMPLATE_HASH"
-                            (or (my/manifolding-atlas--capture-file-hash "recipes")
-                                "unknown")))
+                            (my/manifolding-atlas-recipes--template-hash)))
 #+end_src
 ** Body capture opener
 #+begin_src emacs-lisp

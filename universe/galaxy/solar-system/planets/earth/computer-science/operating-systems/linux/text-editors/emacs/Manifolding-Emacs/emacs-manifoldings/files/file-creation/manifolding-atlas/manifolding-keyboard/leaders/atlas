@@ -59,5 +59,11 @@ SPC v: Manifolding Atlas menu.
   (("y" my/wormhole-hydra/body "wormhole" :exit t))
   "Config"
    (("A" my/manifolding-atlas-open-drawer-order "drawer order" :exit t)
-    ("b" my/manifolding-atlas-blueprint-nest-at-point "nest blueprint" :exit t)))
+    ("b" my/manifolding-atlas-blueprint-nest-at-point "nest blueprint" :exit t)
+    ("P" my/manifolding-atlas-blueprint-add "blueprint file" :exit t))
+  "Mechanism"
+  (("D" my/manifolding-atlas-emacs-mechanism-local-create "new mechanism" :exit t)
+   ("L" my/manifolding-atlas-emacs-mechanism-module-create "new module" :exit t)
+   ("Q" my/manifolding-atlas-emacs-mechanism-agent-create "new agent" :exit t)
+   ("U" my/manifolding-atlas-emacs-mechanism-auto-run "auto-convert" :exit t)))
 #+end_src

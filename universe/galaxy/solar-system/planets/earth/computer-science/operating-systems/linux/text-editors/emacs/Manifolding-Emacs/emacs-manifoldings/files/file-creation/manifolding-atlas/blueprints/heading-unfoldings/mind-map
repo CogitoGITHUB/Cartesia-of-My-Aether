@@ -1,14 +1,14 @@
 #+title:      Mind Map Placement Prompt
 
-* MIND_MAP_PLACEMENT :mindmap:file:task:EMACS_MECHANISM:
+* MIND_MAP_PLACEMENT :mindmap:file:task:EMACS_MECHANISM::BLUEPRINT:
 :PROPERTIES:
 :ID:       30466b0c-f3cc-43a1-8a72-340f325446c4
 :MM_PARENT: none
 :MM_ORDER:  36.0
 :END:
-** TODO
-** WARNING
-** parent
-** child
-** sibling
-** root
+** TODO :BLUEPRINT_BODY:
+** WARNING :BLUEPRINT_BODY:
+** parent :BLUEPRINT_BODY:
+** child :BLUEPRINT_BODY:
+** sibling :BLUEPRINT_BODY:
+** root :BLUEPRINT_BODY:

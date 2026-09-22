@@ -18,12 +18,15 @@
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-emacs-mechanism--template-body (kind)
   "Body text for KIND template file, or \"%?\"."
-  (let ((file (expand-file-name kind (my/capture-directory))))
-    (if (file-exists-p file)
-        (with-temp-buffer
-          (insert-file-contents file)
-          (buffer-string))
-      "%?")))
+  (or (my/manifolding-atlas-template-body kind) "%?"))
+
+(defun my/manifolding-atlas-emacs-mechanism--template-hash (kind)
+  "SHA-256 of KIND template body, or \"unknown\"."
+  (or (ignore-errors
+        (let ((body (my/manifolding-atlas-emacs-mechanism--template-body kind)))
+          (unless (string= body "%?")
+            (secure-hash 'sha256 body))))
+      "unknown"))
 #+end_src
 
 ** Store template
@@ -32,8 +35,7 @@
   "Stamp TEMPLATE + TEMPLATE_HASH unfoldings on NOTE."
   (my/manifolding-atlas--unfolding-put note "TEMPLATE" kind)
   (my/manifolding-atlas--unfolding-put note "TEMPLATE_HASH"
-    (or (ignore-errors (my/manifolding-atlas--capture-file-hash kind))
-        "unknown")))
+    (my/manifolding-atlas-emacs-mechanism--template-hash kind)))
 #+end_src
 
 ** Headline tag

@@ -1,57 +1,57 @@
 #+title:      TODO State Prompt
 
-* TODO_STATE :todo:file:heading:task:EMACS_MECHANISM:
+* TODO_STATE :todo:file:heading:task:EMACS_MECHANISM::BLUEPRINT:
 :PROPERTIES:
 :ID: todo
 :MM_PARENT: none
 :MM_ORDER:  13.0
 :TASK-DEFAULT: TODO
 :END:
-** TODO
+** TODO :BLUEPRINT_BODY:
 Not started yet, no other qualifier applies.
-** NEXT
+** NEXT :BLUEPRINT_BODY:
 The immediate next actionable item.
-** DOING
+** DOING :BLUEPRINT_BODY:
 Actively being worked on right now.
-** TESTING
+** TESTING :BLUEPRINT_BODY:
 Implementation done, currently verifying it works.
-** REVIEW
+** REVIEW :BLUEPRINT_BODY:
 Done but awaiting review or check before closing.
-** BLOCKED
+** BLOCKED :BLUEPRINT_BODY:
 Stuck on something external — a dependency, resource, or other task.
-** STUCK
+** STUCK :BLUEPRINT_BODY:
 Stuck on your own approach or understanding, not an external blocker.
-** WAITING
+** WAITING :BLUEPRINT_BODY:
 Expecting a reply, response, or event before continuing.
-** DEFERRED
+** DEFERRED :BLUEPRINT_BODY:
 Pushed to later deliberately, still committed to doing it.
-** SOMEDAY
+** SOMEDAY :BLUEPRINT_BODY:
 Maybe eventually, no commitment.
-** BACKLOG
+** BACKLOG :BLUEPRINT_BODY:
 Queued and committed, just not prioritized yet.
-** APPROVED
+** APPROVED :BLUEPRINT_BODY:
 Approved, ready to proceed or already proceeding.
-** REJECTED
+** REJECTED :BLUEPRINT_BODY:
 Rejected, will not proceed as originally proposed.
-** NEEDS-REVISION
+** NEEDS-REVISION :BLUEPRINT_BODY:
 Reviewed and sent back for changes before it can proceed.
-** SCHEDULED
+** SCHEDULED :BLUEPRINT_BODY:
 Has a fixed future date/time to happen.
-** RECURRING
+** RECURRING :BLUEPRINT_BODY:
 Repeats on a regular cadence.
-** DRAFT
+** DRAFT :BLUEPRINT_BODY:
 Early idea stage, before it's a committed task.
-** DELEGATED
+** DELEGATED :BLUEPRINT_BODY:
 Handed off to someone else to do.
-** FAILED
+** FAILED :BLUEPRINT_BODY:
 Attempted but did not succeed.
-** ABANDONED
+** ABANDONED :BLUEPRINT_BODY:
 Started, then deliberately given up on.
-** ARCHIVED
+** ARCHIVED :BLUEPRINT_BODY:
 No longer active, kept for reference only.
-** SUPERSEDED
+** SUPERSEDED :BLUEPRINT_BODY:
 Replaced by a newer task/decision.
-** DONE
+** DONE :BLUEPRINT_BODY:
 Completed successfully.
-** CANCELLED
+** CANCELLED :BLUEPRINT_BODY:
 Decided not to do, before or without attempting.

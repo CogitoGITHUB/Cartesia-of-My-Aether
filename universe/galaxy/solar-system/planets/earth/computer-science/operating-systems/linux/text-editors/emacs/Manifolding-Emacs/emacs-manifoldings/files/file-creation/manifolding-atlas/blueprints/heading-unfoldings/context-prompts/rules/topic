@@ -1,6 +1,6 @@
 #+title:      Rule Topics Prompt
 
-* RULE_TOPICS :topics:rule:EMACS_MECHANISM:
+* RULE_TOPICS :topics:rule:EMACS_MECHANISM::BLUEPRINT:
 :PROPERTIES:
 :ID: rule-topics
 :MM_PARENT: none

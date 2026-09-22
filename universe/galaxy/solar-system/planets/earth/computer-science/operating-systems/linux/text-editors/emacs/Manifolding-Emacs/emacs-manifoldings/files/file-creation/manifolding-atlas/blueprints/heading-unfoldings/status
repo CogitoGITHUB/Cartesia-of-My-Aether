@@ -8,28 +8,28 @@ attainment survives underneath, and resuming restores exactly where
 the knowledge left off. Stage says how far the knowledge developed;
 status says what the mapper is currently doing with it.
 
-* STATUS :inline:file:heading:task:EMACS_MECHANISM:
+* STATUS :inline:file:heading:task:EMACS_MECHANISM::BLUEPRINT:
 :PROPERTIES:
 :ID:       89201d7f-c7fe-418e-abef-d0178d9ba3c3
 :MM_PARENT: none
 :MM_ORDER:  34.0
 :END:
-** ACTIVE
+** ACTIVE :BLUEPRINT_BODY:
 In the active practice pool: due for review on schedule, visible in
 review sessions, counted in due tallies. The default for every living
 note.
-** SUSPENDED
+** SUSPENDED :BLUEPRINT_BODY:
 Frozen on purpose. The schedule row is kept (nothing is deleted), the
 stage value is untouched, but the note leaves due queries and review
 sessions until resumed. Use for: "not now" topics, seasonal skills,
 paused projects, anything whose absence from review is a decision
 rather than neglect. Resume with the same toggle.
-** ARCHIVED
+** ARCHIVED :BLUEPRINT_BODY:
 Finished business kept for reference: completed projects, superseded
 notes, closed questions. Out of review permanently unless deliberately
 reactivated. Unlike SUSPENDED, archival asserts the note needs no
 future practice — only its material.
-** DORMANT
+** DORMANT :BLUEPRINT_BODY:
 Neither practiced nor closed: hibernating knowledge that may or may
 not wake. The difference from SUSPENDED is intent — dormant means "no
 decision yet" while suspended means "decided pause". Dormant notes are

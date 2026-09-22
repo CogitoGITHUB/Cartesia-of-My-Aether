@@ -12,29 +12,18 @@ immediately; capture mode opens the buffer with cursor ready.
 
 ** Template selection
 #+begin_src emacs-lisp
-(defun my/manifolding-atlas-quick-todo--templates-dir ()
-  "Directory with fast-capture template files."
-  (expand-file-name "templates"
-                    (expand-file-name "atlas-engine/plugins/fast-captures/"
-                                      (my/manifolding-atlas-module-dir)))
-
 (defun my/manifolding-atlas-quick-todo--choose-template ()
-  "Return template string from a file in `templates' dir, or nil."
-  (let ((files (directory-files (my/manifolding-atlas-quick-todo--templates-dir)
-                                nil "\\.org\\'")))
-    (unless files
-      (setq files '("default.org")))
-    (when files
-      (let* ((names (mapcar (lambda (f) (file-name-sans-extension f)) files))
-             (prompt (format "Template (%s): "
+  "Return template string from the template registry, or nil."
+  (let ((names (mapcar (lambda (e)
+                         (my/manifolding-atlas-blueprint--template-display-name
+                          (car e)))
+                       my/manifolding-atlas-template-registry)))
+    (when names
+      (let* ((prompt (format "Template (%s): "
                              (mapconcat #'identity names ", ")))
              (choice (completing-read prompt names nil t nil nil
                                       (car names))))
-        (with-temp-buffer
-          (insert-file-contents
-           (expand-file-name (concat choice ".org")
-                             (my/manifolding-atlas-quick-todo--templates-dir)))
-          (string-trim (buffer-string)))))))
+        (my/manifolding-atlas-template-body choice)))))
 #+end_src
 
 ** Quick todo command

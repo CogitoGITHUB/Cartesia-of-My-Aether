@@ -121,28 +121,6 @@ the Foundation file (deep inside the vault) — never from the loader's
 own directory, which lives under a different git tree (.config).
 No name literal.")
 
-(defvar manifolding-emacs--dir-cache (make-hash-table :test #'equal)
-  "Dirname → absolute path cache for `manifolding-emacs-locate-dir'.")
-
-(defun manifolding-emacs-locate-dir (name)
-  "Find first directory named NAME under the vault root. Cached.
-Rename-proof: matches by leaf name, never by full path."
-  (or (gethash name manifolding-emacs--dir-cache)
-      (let ((found (catch 'found
-                     (dolist (d (directory-files-recursively
-                                 (or manifolding-emacs-vault-root
-                                     (expand-file-name "~"))
-                                 name t))
-                       (when (and (file-directory-p d)
-                                  (string= (file-name-nondirectory
-                                            (directory-file-name d))
-                                           name))
-                         (throw 'found d)))
-                     nil)))
-        (when found
-          (puthash name found manifolding-emacs--dir-cache))
-        found)))
-
 (defcustom manifolding-emacs-org-directory
   (expand-file-name "modules" manifolding-emacs-loader-dir)
   "Directory where the Org files are stored."

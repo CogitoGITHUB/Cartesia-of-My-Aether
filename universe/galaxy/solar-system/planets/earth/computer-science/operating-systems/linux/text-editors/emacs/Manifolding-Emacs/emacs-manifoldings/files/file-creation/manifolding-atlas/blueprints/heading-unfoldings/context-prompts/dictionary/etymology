@@ -1,19 +1,19 @@
 #+title:      Etymology Prompt
 
-* ETYMOLOGY :unfolding:dictionary:EMACS_MECHANISM:
+* ETYMOLOGY :unfolding:dictionary:EMACS_MECHANISM::BLUEPRINT:
 :PROPERTIES:
 :ID:       abf3b4ad-e8bd-4058-bf52-953f6509ce8a
 :MM_PARENT: none
 :MM_ORDER:  137.0
 :UNFOLDING: etymology
 :END:
-** TODO
-** Latin
-** Greek
-** Old English
-** French
-** German
-** Arabic
-** Hindi
-** Japanese
-** Other
+** TODO :BLUEPRINT_BODY:
+** Latin :BLUEPRINT_BODY:
+** Greek :BLUEPRINT_BODY:
+** Old English :BLUEPRINT_BODY:
+** French :BLUEPRINT_BODY:
+** German :BLUEPRINT_BODY:
+** Arabic :BLUEPRINT_BODY:
+** Hindi :BLUEPRINT_BODY:
+** Japanese :BLUEPRINT_BODY:
+** Other :BLUEPRINT_BODY:

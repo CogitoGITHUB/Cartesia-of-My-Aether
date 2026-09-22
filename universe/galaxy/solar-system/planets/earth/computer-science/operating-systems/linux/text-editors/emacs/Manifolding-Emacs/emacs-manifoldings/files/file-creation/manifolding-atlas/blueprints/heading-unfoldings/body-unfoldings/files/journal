@@ -1,18 +1,20 @@
 #+title:      journal
 
-* Journal :: %U :: %^{Session|Morning|Evening} :: %^{Location|Transit|Base|Unknown} :EMACS_MECHANISM:
+* BODY_JOURNAL :BLUEPRINT:
+
+* Journal :: %U :: %^{Session|Morning|Evening} :: %^{Location|Transit|Base|Unknown} :EMACS_MECHANISM::BLUEPRINT:
 :PROPERTIES:
 :ID:       9a6412e8-393c-4a4b-bb15-4a25d4425e2c
 :MM_PARENT: none
 :MM_ORDER:  69.0
 :END:
 
-** Axis Check — Operational / Epistemic / Existential
+** Axis Check — Operational / Epistemic / Existential :BLUEPRINT_BODY:
 - Operational load right now (body + logistics + open loops):
 - Epistemic state (what I think I know vs what is actually measurable):
 - Existential residue (the quiet joke that keeps decomposing):
 
-** Morning Block (pre-collapse)
+** Morning Block (pre-collapse) :BLUEPRINT_BODY:
 
 *** What would make today meaningful / successful in this particular manifold?
 *** What is the single highest-leverage node that, if moved, shifts the entire graph?
@@ -22,7 +24,7 @@
 *** Anticipated friction points (logistics, people, internal sabotage):
 *** One deliberate experiment or micro-protocol for the day:
 
-** Evening Block (post-collapse)
+** Evening Block (post-collapse) :BLUEPRINT_BODY:
 
 *** What actually happened / what did the day do to the map?
 *** What worked cleanly? What failed with interesting debris?
@@ -34,12 +36,12 @@
 *** Energy residual + recovery protocol for the next cycle:
 *** One sentence that could serve as a future org-ql search anchor:
 
-** Cross-Session Mirror (optional, for when you want the symmetry)
+** Cross-Session Mirror (optional, for when you want the symmetry) :BLUEPRINT_BODY:
 - Morning intention ↔ Evening outcome delta:
 - Highest-leverage node chosen ↔ Actual movement achieved:
 - Open loop status (still open / closed / mutated into something worse):
 
-** Meta — Cartography Notes
+** Meta — Cartography Notes :BLUEPRINT_BODY:
 - New edges discovered between previously disconnected nodes:
 - Nodes that should be pruned or archived:
 - Temporary coordinates assigned to still-fuzzy phenomena:

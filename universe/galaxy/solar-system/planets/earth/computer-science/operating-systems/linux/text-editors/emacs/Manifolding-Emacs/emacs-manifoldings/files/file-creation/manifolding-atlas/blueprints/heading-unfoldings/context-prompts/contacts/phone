@@ -1,6 +1,6 @@
 #+title:      Phone Prompt
 
-* PHONE :free:contact:EMACS_MECHANISM:
+* PHONE :free:contact:EMACS_MECHANISM::BLUEPRINT:
 :PROPERTIES:
 :ID: contact-phone
 :MM_PARENT: none
