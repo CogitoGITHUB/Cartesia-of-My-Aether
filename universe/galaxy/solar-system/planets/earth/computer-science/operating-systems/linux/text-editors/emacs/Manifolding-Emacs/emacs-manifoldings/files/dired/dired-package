@@ -1,7 +1,7 @@
 #+title:    dired
 #+filetags: :emacs-package:files:navigation:
 
-* Dired :ATLAS:
+* Dired :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       7bb3a054-ef51-410f-b219-0fe54164beed
 :MM_PARENT: none

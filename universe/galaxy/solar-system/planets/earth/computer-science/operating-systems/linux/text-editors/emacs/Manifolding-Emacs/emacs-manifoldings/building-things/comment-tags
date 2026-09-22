@@ -2,7 +2,7 @@
 #+identifier: fa51fce4-2f2b-4e0e-b897-66b3bf0523d7
 #+filetags:   :emacs-package:convenience:
 
-* comment-tags :ATLAS:
+* comment-tags :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       fa51fce4-2f2b-4e0e-b897-66b3bf0523d7
 :MM_PARENT: none

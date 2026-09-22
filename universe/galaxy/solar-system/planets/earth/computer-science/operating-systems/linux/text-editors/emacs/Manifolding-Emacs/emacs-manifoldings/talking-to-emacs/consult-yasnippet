@@ -2,7 +2,7 @@
 #+identifier: 7a3d1f5c-2e8b-4c6a-ef23-4b9d2f1a7c3e
 #+filetags:   :emacs-package:completion:snippets:
 
-* CONSULT-YASNIPPET — Consult Interface for Yasnippet #emacs-package :ATLAS:
+* CONSULT-YASNIPPET — Consult Interface for Yasnippet #emacs-package :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       7a3d1f5c-2e8b-4c6a-ef23-4b9d2f1a7c3e
 :MM_PARENT: none

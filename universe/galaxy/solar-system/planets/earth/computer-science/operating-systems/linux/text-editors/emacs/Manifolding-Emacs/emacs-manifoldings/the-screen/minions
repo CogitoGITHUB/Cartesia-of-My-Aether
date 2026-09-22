@@ -2,7 +2,7 @@
 #+identifier: 2a24d19f-009a-4270-9c42-8e9086327161
 #+filetags:   :emacs-package:mode-line:
 
-* minions :ATLAS:
+* minions :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       2a24d19f-009a-4270-9c42-8e9086327161
 :MM_PARENT: none

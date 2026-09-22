@@ -2,7 +2,7 @@
 
 Fast journal entry capture. Creates a timestamped heading in Journal.org.
 
-* Core :ATLAS:
+* Core :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       78a4dff8-4eb5-4e96-a222-2c1b1fbfece4
 :MM_PARENT: none

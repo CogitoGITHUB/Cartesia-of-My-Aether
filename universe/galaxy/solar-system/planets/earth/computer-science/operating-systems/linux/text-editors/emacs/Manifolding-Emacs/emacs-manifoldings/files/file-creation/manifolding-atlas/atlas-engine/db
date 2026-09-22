@@ -1,7 +1,7 @@
 (require 'cl-lib)
 #+TITLE: Manifolding Atlas — Database
 
-* Database :ATLAS:
+* Database :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       cd042753-616a-4ebf-8476-640004859841
 :MM_PARENT: none

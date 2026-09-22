@@ -3,7 +3,10 @@
 #+manifold-stage: 06-forge
 #+manifold-date: 2026-09-15
 
-* The Org Manual (check macro replacement)
+* The Org Manual (check macro replacement) :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       cf417861-875a-4cd0-b47b-c815cb4f5fb4
+:END:
 
 ** Introduction
 

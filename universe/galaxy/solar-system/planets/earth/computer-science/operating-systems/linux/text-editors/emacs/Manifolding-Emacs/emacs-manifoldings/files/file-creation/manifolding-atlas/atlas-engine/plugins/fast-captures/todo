@@ -3,7 +3,7 @@
 Quickly add a TODO item using org-capture.  Simple mode finishes
 immediately; capture mode opens the buffer with cursor ready.
 
-* Core :ATLAS:
+* Core :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       cbe0cc2e-7ef9-4cca-a808-0904ea69c27a
 :MM_PARENT: none
@@ -15,8 +15,8 @@ immediately; capture mode opens the buffer with cursor ready.
 (defun my/manifolding-atlas-quick-todo--templates-dir ()
   "Directory with fast-capture template files."
   (expand-file-name "templates"
-                    (expand-file-name "manifolding-atlas/atlas-engine/plugins/fast-captures/"
-                                      manifolding-emacs-org-directory)))
+                    (expand-file-name "atlas-engine/plugins/fast-captures/"
+                                      (my/manifolding-atlas-module-dir)))
 
 (defun my/manifolding-atlas-quick-todo--choose-template ()
   "Return template string from a file in `templates' dir, or nil."

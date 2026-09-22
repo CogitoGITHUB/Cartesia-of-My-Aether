@@ -3,7 +3,7 @@
 Extracts =[@citekey]= citations from notes into a dedicated SQLite table via
 the manifolding-atlas v2 plugin system.  After a full sync, citations are queryable
 across the entire vault without re-parsing any files.
-*** Schema Bootstrap :ATLAS:
+*** Schema Bootstrap :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       a7e4da39-3bf2-4682-bb55-9098bb7d7949
 :MM_PARENT: none

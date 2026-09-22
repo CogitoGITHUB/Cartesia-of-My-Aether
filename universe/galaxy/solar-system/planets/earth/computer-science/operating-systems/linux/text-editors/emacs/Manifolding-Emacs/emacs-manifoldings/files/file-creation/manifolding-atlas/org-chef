@@ -2,7 +2,7 @@
 #+identifier: 05c148ad-9b54-426d-81ce-efa9d37b4274
 #+filetags:   :emacs-package:org:
 
-* org-chef :ATLAS:
+* org-chef :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       05c148ad-9b54-426d-81ce-efa9d37b4274
 :MM_PARENT: none

@@ -2,7 +2,7 @@
 #+identifier: 1b6ef507-3a46-4356-b9e6-48b7e693c336
 #+filetags:   :emacs-package:appearance:
 
-* hl-todo :ATLAS:
+* hl-todo :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       1b6ef507-3a46-4356-b9e6-48b7e693c336
 :MM_PARENT: none

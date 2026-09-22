@@ -2,7 +2,7 @@
 #+identifier: 3a7f2b1e-4c8d-4e9f-bf56-2e4a6c8d1f3b
 #+filetags:   :emacs-package:completion:
 
-* CORFU — Completion Overlay #emacs-package #completion :ATLAS:
+* CORFU — Completion Overlay #emacs-package #completion :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       3a7f2b1e-4c8d-4e9f-bf56-2e4a6c8d1f3b
 :MM_PARENT: none

@@ -3,7 +3,10 @@
 #+manifold-stage: 02-body
 #+manifold-date: 2026-09-15
 
-* Buffers
+* Buffers :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       adfc36c4-f1ac-4f96-b4dc-2ea9f2941c5c
+:END:
 
 A buffer is a Lisp object containing text to be edited. Buffers are used to hold the contents of files that are being visited; there may also be buffers that are not visiting files. While several buffers may exist at one time, only one buffer is designated the current buffer at any time. Most editing commands act on the contents of the current buffer. Each buffer, including the current buffer, may or may not be displayed in any windows.
 

@@ -339,7 +339,8 @@ live in the vault.
 
 (setq manifolding-emacs-package-method 'leaf
       manifolding-emacs-org-directory
-      (expand-file-name "modules" my/emacs-root)
+      (or manifolding-emacs-vault-root
+          (expand-file-name "modules" my/emacs-root))
       manifolding-emacs-output-directory
       (expand-file-name "manifolding-emacs" user-emacs-directory))
 (setq inhibit-startup-screen t)

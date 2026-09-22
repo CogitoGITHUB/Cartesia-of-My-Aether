@@ -2,7 +2,7 @@
 #+identifier:
 #+filetags:   :emacs-package:ui:
 
-* PRETTY-HYDRA — Formatted Hydra Menus #emacs-package :ATLAS:
+* PRETTY-HYDRA — Formatted Hydra Menus #emacs-package :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       ddd9cd91-db9a-440d-b615-e72d1a159790
 :MM_PARENT: none

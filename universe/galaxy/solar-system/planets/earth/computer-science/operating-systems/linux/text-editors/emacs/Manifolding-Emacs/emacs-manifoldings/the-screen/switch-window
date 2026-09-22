@@ -3,11 +3,14 @@
 #+manifold-stage: 02-body
 #+manifold-date: 2026-09-15
 
-* switch-window
+* switch-window :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       8cb1b595-af1c-47e0-a2df-7b45269df642
+:END:
 
 ** Installation
 
-#+begin_src emacs-lisp
+#+begin_src emacs-lisp :tangle no
 (leaf switch-window
   :straight (switch-window
              :type git

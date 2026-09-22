@@ -1,7 +1,7 @@
 #+title:    book-mode
 #+filetags: :emacs-package:ui:reading:
 
-* book-mode :ATLAS:
+* book-mode :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       7776408f-460c-4d90-8d5d-8dae68ff826d
 :MM_PARENT: none

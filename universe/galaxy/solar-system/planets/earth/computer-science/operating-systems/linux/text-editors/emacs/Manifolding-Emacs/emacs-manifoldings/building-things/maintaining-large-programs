@@ -3,7 +3,10 @@
 #+manifold-stage: 06-forge
 #+manifold-date: 2026-09-15
 
-* Maintaining Large Programs
+* Maintaining Large Programs :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       7085bdf4-04ce-45ec-bb36-607c301ff70c
+:END:
 
 This chapter describes Emacs features for maintaining medium- to large-size programs and packages. These features include:
 

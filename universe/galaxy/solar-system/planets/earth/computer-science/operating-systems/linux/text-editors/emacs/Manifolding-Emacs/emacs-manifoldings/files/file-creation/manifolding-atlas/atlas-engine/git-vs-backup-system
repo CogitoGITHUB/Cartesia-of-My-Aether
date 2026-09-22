@@ -16,7 +16,8 @@
   "Non-nil when a save fired during an in-flight push.")
 
 (defvar my/manifolding-atlas-git--config-root
-  (file-name-directory (directory-file-name manifolding-emacs-org-directory))
+  (or (and (boundp 'my/emacs-root) my/emacs-root)
+      (file-name-directory (directory-file-name manifolding-emacs-org-directory)))
   "Second watched tree: atlas config. Same auto-commit mechanism as the vault.")
 
 (defvar my/manifolding-atlas-git--save-timers nil
@@ -30,7 +31,7 @@ scope `git add' to these files so unrelated dotfiles never get swept
 into atlas auto-commits.")
 #+end_src
 
-*** Push Machinery :ATLAS:
+*** Push Machinery :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       d043ccc0-4355-4b34-a9b6-9a61a622be98
 :MM_PARENT: none

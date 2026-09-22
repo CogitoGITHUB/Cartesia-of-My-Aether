@@ -2,7 +2,7 @@
 #+identifier: 1e7b9c5f-3a4d-4e6f-af56-2a8e4f6b1c3d
 #+filetags:   :emacs-package:ui:
 
-* NERD-ICONS — Icon Library #emacs-package #ui :ATLAS:
+* NERD-ICONS — Icon Library #emacs-package #ui :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       1e7b9c5f-3a4d-4e6f-af56-2a8e4f6b1c3d
 :MM_PARENT: none

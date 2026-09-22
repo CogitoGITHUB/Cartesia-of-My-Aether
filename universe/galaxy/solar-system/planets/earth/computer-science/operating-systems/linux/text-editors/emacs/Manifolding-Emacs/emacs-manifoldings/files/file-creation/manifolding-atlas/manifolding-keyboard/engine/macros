@@ -1,7 +1,7 @@
 #+title: Manifolding Keyboard — Engine Macros
 
 Macro definitions: state machine, minor modes, hydra states. Evaluated before everything that invokes them.
-** Requires & group :ATLAS:
+** Requires & group :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       61a004ff-a822-4516-b2f0-d926c0c60a4b
 :MM_PARENT: none

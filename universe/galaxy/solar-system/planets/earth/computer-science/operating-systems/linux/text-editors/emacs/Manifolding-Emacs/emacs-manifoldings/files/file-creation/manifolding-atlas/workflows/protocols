@@ -8,7 +8,7 @@ protocol files.
 Protocol steps share a heading's RULE status (dual-mark) — a heading can
 be both a rule and a protocol step.
 
-*** Dependencies :ATLAS:
+*** Dependencies :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       281c6b79-0999-4e21-8062-02c2f37526c8
 :MM_PARENT: none

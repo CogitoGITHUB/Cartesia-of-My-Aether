@@ -10,7 +10,7 @@ Commands:
 - `my/manifolding-atlas-recipe-create` — create a new recipe note
 - `my/manifolding-atlas-recipes-edit-servings` — rescale ingredient quantities
 
-* State :ATLAS:
+* State :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       99af7a1d-ed28-47f6-bec8-aefa275c7932
 :MM_PARENT: none

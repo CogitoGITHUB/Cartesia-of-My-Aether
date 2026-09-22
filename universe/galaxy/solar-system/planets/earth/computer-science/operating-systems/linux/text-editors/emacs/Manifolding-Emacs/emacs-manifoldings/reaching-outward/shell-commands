@@ -3,7 +3,10 @@
 #+manifold-stage: 05-world
 #+manifold-date: 2026-09-15
 
-* Shell Commands
+* Shell Commands :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       b11a0ac7-5401-4199-8979-213e69999f3a
+:END:
 
 Emacs has commands for passing single command lines to shell subprocesses, and for running a shell interactively with input and output to an Emacs buffer, and for running a shell in a terminal emulator window.
 

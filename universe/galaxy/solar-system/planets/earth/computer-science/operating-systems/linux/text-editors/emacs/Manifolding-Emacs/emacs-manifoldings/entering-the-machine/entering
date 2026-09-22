@@ -3,7 +3,10 @@
 #+manifold-stage: 00-primordial
 #+manifold-date: 2026-09-15
 
-* Entering
+* Entering :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       7cdefe71-a198-4127-8a24-cd4b178b19ab
+:END:
 
 The usual way to invoke Emacs is with the shell command emacs. From a terminal window running a Unix shell on a GUI terminal, you can run Emacs in the background with emacs &; this way, Emacs won’t tie up the terminal window, so you can use it to run other shell commands. (For comparable methods of starting Emacs on MS-Windows, see How to Start Emacs on MS-Windows.)
 

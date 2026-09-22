@@ -3,7 +3,10 @@
 #+manifold-stage: 09-archives
 #+manifold-date: 2026-09-15
 
-* Editing Binary Files
+* Editing Binary Files :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       509b185a-ec36-4dfe-b489-6b8106880545
+:END:
 
 There is a special major mode for editing binary files: Hexl mode. To use it, use M-x hexl-find-file instead of C-x C-f to visit the file. This command converts the file’s contents to hexadecimal and lets you edit the translation. When you save the file, it is converted automatically back to binary.
 

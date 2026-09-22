@@ -1,7 +1,7 @@
 #+title:    consult-todo
 #+filetags: :emacs-package:consult:todo:
 
-* TODO Consult Todo :ATLAS:
+* TODO Consult Todo :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       b3b44d95-500e-49b3-89ce-d8772874a241
 :MM_PARENT: none

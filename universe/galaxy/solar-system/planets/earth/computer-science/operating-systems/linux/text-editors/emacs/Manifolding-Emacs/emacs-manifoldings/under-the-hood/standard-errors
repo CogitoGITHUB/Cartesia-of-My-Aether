@@ -3,7 +3,10 @@
 #+manifold-stage: 01-awakening
 #+manifold-date: 2026-09-15
 
-* Standard Errors
+* Standard Errors :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       1e0cfdfe-4b59-4d29-8ef0-3bd2631b564c
+:END:
 
 Here is a list of the more important error symbols in standard Emacs, grouped by concept. The list includes each symbol’s message and a cross reference to a description of how the error can occur.
 

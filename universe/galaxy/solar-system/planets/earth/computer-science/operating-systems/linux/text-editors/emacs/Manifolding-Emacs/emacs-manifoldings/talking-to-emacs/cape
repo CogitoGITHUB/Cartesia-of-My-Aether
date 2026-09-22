@@ -2,7 +2,7 @@
 #+identifier: 5b1c4e3f-7d2a-4f8e-cd89-4f2b6d8e3c5f
 #+filetags:   :emacs-package:completion:
 
-* CAPE — Completion Extensions #emacs-package #completion :ATLAS:
+* CAPE — Completion Extensions #emacs-package #completion :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       5b1c4e3f-7d2a-4f8e-cd89-4f2b6d8e3c5f
 :MM_PARENT: none

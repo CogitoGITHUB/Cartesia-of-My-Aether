@@ -3,9 +3,12 @@
 #+manifold-stage: 01-awakening
 #+manifold-date: 2026-09-15
 
-* DAP — Debug Adapter Protocol for Emacs / LSP Debugger
+* DAP — Debug Adapter Protocol for Emacs / LSP Debugger :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       b32f4169-9ab0-4790-96e9-8ffa7f589c38
+:END:
 
-#+begin_src emacs-lisp
+#+begin_src emacs-lisp :tangle no
 (leaf dap-mode
   :straight (dap-mode
              :host github

@@ -3,9 +3,12 @@
 #+manifold-stage: 02-body
 #+manifold-date: 2026-09-15
 
-* Move-text — lift and drop lines like sculpting clay
+* Move-text — lift and drop lines like sculpting clay :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       6782f553-f98f-48f5-980b-053b7b4b966c
+:END:
 
-#+begin_src emacs-lisp
+#+begin_src emacs-lisp :tangle no
 (leaf move-text
   :straight (move-text
              :type git

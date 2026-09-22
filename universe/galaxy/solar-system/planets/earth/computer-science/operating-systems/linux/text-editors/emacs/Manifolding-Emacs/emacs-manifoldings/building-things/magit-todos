@@ -2,7 +2,7 @@
 #+identifier: 3f7a2d1e-8b4c-4e9a-cd12-5b3e7a1f4c8d
 #+filetags:   :emacs-package:magit:
 
-* EMACS-MAGIT-TODOS — Show TODOs in Magit Status :ATLAS:
+* EMACS-MAGIT-TODOS — Show TODOs in Magit Status :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       3f7a2d1e-8b4c-4e9a-cd12-5b3e7a1f4c8d
 :MM_PARENT: none

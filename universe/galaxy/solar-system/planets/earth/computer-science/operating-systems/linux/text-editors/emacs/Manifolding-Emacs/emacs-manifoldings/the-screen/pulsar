@@ -3,10 +3,13 @@
 #+manifold-stage: 02-body
 #+manifold-date: 2026-09-15
 
-* pulsar
+* pulsar :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       ba59e3d9-3740-4d7f-b23c-315906e0ec07
+:END:
 ** Sample configuration
 Remember to read the doc string of each of these variables or functions.
-#+begin_src emacs-lisp
+#+begin_src emacs-lisp :tangle no
 (leaf pulsar
   :straight (pulsar
              :type git
@@ -35,7 +38,7 @@ standard mechanism to trigger a pulse after the match is highlighted.
 Instead, the user must add this to their configuration in lieu of a
 Pulsar-level solution that "just works":
 
-#+begin_src emacs-lisp
+#+begin_src emacs-lisp :tangle no
 (add-hook 'next-error-hook #'pulsar-pulse-line)
 #+end_src
 
@@ -46,7 +49,7 @@ option ~pulse-pulse-functions~ to automatically pulse in that context.
 Instead, the user must add a function to the ~minibuffer-setup-hook~:
 it will trigger a pulse as soon as the minibuffer shows up:
 
-#+begin_src emacs-lisp
+#+begin_src emacs-lisp :tangle no
 (add-hook 'minibuffer-setup-hook #'pulsar-pulse-line)
 #+end_src
 
@@ -257,7 +260,7 @@ the aforementioned recentering functions.
 
 Example use-cases:
 
-#+begin_src emacs-lisp
+#+begin_src emacs-lisp :tangle no
 ;; integration with the `consult' package:
 (add-hook 'consult-after-jump-hook #'pulsar-recenter-top)
 (add-hook 'consult-after-jump-hook #'pulsar-reveal-entry)

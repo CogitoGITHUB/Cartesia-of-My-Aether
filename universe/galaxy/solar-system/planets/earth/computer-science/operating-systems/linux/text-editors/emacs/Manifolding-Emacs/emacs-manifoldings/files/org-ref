@@ -2,7 +2,7 @@
 #+identifier: 1b5a8c7e-3d4f-4e9a-bc12-8d6f2e4a7b3c
 #+filetags:   :emacs-package:org:citations:
 
-* org-ref :ATLAS:
+* org-ref :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       1b5a8c7e-3d4f-4e9a-bc12-8d6f2e4a7b3c
 :MM_PARENT: none

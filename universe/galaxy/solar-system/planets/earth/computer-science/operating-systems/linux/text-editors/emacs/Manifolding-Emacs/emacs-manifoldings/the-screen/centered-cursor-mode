@@ -2,7 +2,7 @@
 #+identifier: 7f2a4d1b-3e6c-4b8a-cd34-1e5f2a9b7c0d
 #+filetags:   :emacs-package:ui:
 
-* CENTERED-CURSOR — Vertical Cursor Centering #emacs-package :ATLAS:
+* CENTERED-CURSOR — Vertical Cursor Centering #emacs-package :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       7f2a4d1b-3e6c-4b8a-cd34-1e5f2a9b7c0d
 :MM_PARENT: none

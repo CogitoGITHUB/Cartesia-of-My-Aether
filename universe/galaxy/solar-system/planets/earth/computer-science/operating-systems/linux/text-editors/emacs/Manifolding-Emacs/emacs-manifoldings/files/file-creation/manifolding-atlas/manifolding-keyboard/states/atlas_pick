@@ -1,7 +1,7 @@
 #+title: Manifolding Keyboard — Atlas-Pick State
 
 Whole block, all external prompt functions.
-** State definition :ATLAS:
+** State definition :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       b0be1ce7-ce14-4e6e-b39e-146331c406f8
 :MM_PARENT: none

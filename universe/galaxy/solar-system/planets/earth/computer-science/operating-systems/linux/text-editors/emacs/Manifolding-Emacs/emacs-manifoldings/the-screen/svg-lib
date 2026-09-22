@@ -2,7 +2,7 @@
 #+identifier: 3f9d1b7e-5c2a-4f8d-bf78-4c6a8d2f5b7e
 #+filetags:   :emacs-package:ui:
 
-* SVG-LIB — SVG Tags and Icons #emacs-package #ui :ATLAS:
+* SVG-LIB — SVG Tags and Icons #emacs-package #ui :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       3f9d1b7e-5c2a-4f8d-bf78-4c6a8d2f5b7e
 :MM_PARENT: none

@@ -1,7 +1,7 @@
 #+title:    buffer-background
 #+filetags: :emacs-package:ui:
 
-* TODO Buffer-Background :ATLAS:
+* TODO Buffer-Background :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       f8c7c8ca-9eed-4c2f-9a81-5cfbe5081764
 :MM_PARENT: none

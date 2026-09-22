@@ -2,7 +2,7 @@
 #+identifier:
 #+filetags:   :emacs-package:project:
 
-* PROJECTILE — Project Interaction Library :ATLAS:
+* PROJECTILE — Project Interaction Library :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       1a85b5c2-f33c-4e49-a44d-57f06c4a0a11
 :MM_PARENT: none

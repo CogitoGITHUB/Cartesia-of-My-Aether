@@ -3,7 +3,10 @@
 #+manifold-stage: 00-primordial
 #+manifold-date: 2026-09-15
 
-* Introduction
+* Introduction :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       1622fe75-636c-4b0d-8f72-c2a5d4f26610
+:END:
 
 Most of the GNU Emacs text editor is written in the programming language called Emacs Lisp. You can write new code in Emacs Lisp and install it as an extension to the editor. However, Emacs Lisp is more than a mere extension language; it is a full computer programming language in its own right. You can use it as you would any other programming language.
 

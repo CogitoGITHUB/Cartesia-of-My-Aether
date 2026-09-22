@@ -1,7 +1,7 @@
 #+title:    fzf
 #+filetags: :emacs-package:completion:fuzzy-search:
 
-* WIP Fzf :ATLAS:
+* WIP Fzf :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       f1e74b7b-6816-4284-a42c-f1cac173630a
 :MM_PARENT: none

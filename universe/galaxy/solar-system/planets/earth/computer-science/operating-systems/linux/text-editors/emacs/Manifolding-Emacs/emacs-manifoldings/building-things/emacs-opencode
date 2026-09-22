@@ -2,7 +2,7 @@
 #+identifier: 8f9a0b1c-2d3e-4f5a-6b7c-8d9e0f1a2b3c
 #+filetags:   :emacs-package:ai:
 
-* Emacs OpenCode — OpenCode client inside Emacs :ATLAS:
+* Emacs OpenCode — OpenCode client inside Emacs :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:      8f9a0b1c-2d3e-4f5a-6b7c-8d9e0f1a2b3c
 :MM_PARENT: none

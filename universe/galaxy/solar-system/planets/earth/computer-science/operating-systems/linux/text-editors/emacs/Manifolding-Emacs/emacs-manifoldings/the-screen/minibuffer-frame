@@ -1,7 +1,7 @@
 #+title:    minibuffer-frame
 #+filetags: :emacs-package:ui:
 
-* Minibuffer Frame :ATLAS:
+* Minibuffer Frame :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       8a36242f-2aef-43a2-9365-75965f257b9c
 :MM_PARENT: none

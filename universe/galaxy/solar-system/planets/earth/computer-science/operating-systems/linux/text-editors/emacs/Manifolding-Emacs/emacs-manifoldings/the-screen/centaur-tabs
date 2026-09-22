@@ -2,7 +2,7 @@
 #+identifier:
 #+filetags:   :emacs-package:ui:
 
-* CENTAUR-TABS — Aesthetic Tab Bar #emacs-package :ATLAS:
+* CENTAUR-TABS — Aesthetic Tab Bar #emacs-package :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       8c3fca67-1d79-496d-a53b-0d2523c9e76c
 :MM_PARENT: none

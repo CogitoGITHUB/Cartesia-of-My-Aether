@@ -1,7 +1,7 @@
 #+title:      org-fragtog
 #+filetags:   :emacs-package:editing:
 
-* ORG-FRAGTOG — Auto-Toggle LaTeX Fragments #emacs-package :ATLAS:
+* ORG-FRAGTOG — Auto-Toggle LaTeX Fragments #emacs-package :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       a6547e9e-03e5-4740-a667-d4647aa37431
 :MM_PARENT: none

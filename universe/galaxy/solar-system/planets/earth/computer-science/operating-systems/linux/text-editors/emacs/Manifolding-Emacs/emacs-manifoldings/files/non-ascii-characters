@@ -3,7 +3,10 @@
 #+manifold-stage: 03-nerves
 #+manifold-date: 2026-09-15
 
-* Non-ASCII Characters
+* Non-ASCII Characters :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       c0685573-928a-4abc-a2aa-ecd21410598a
+:END:
 
 This chapter covers the special issues relating to characters and how they are stored in strings and buffers.
 

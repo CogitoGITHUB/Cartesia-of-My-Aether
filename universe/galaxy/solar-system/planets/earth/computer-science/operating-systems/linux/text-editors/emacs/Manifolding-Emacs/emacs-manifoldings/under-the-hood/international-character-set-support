@@ -3,7 +3,10 @@
 #+manifold-stage: 09-archives
 #+manifold-date: 2026-09-15
 
-* International Character Set Support
+* International Character Set Support :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       dfb6b26d-ced3-46b7-b6f7-fbb635440d05
+:END:
 
 Emacs supports a wide variety of international character sets, including European and Vietnamese variants of the Latin alphabet, as well as Arabic scripts, Brahmic scripts (for languages such as Bengali, Hindi, and Thai), Cyrillic, Ethiopic, Georgian, Greek, Han (for Chinese and Japanese), Hangul (for Korean), Hebrew and IPA. Emacs also supports various encodings of these characters that are used by other internationalized software, such as word processors and mailers.
 

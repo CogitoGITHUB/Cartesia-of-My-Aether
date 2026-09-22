@@ -3,7 +3,10 @@
 #+manifold-stage: 04-mind
 #+manifold-date: 2026-09-15
 
-* Elisp
+* Elisp :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       9f2a3d25-2aa1-40c1-b684-d616b5f4e1f5
+:END:
 ** Lisp Data Types
 
 A Lisp object is a piece of data used and manipulated by Lisp programs. For our purposes, a type or data type is a set of possible objects.

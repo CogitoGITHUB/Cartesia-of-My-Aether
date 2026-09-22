@@ -3,7 +3,10 @@
 #+manifold-stage: 09-archives
 #+manifold-date: 2026-09-15
 
-* Tips and Conventions
+* Tips and Conventions :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       2e3bdd34-dde2-41d8-b007-5d806539e8be
+:END:
 
 This chapter describes no additional features of Emacs Lisp. Instead it gives advice on making effective use of the features described in the previous chapters, and describes conventions Emacs Lisp programmers should follow.
 

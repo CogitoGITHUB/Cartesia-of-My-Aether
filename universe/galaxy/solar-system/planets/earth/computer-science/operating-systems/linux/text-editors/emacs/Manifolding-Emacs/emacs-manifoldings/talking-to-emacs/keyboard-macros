@@ -3,7 +3,10 @@
 #+manifold-stage: 03-nerves
 #+manifold-date: 2026-09-15
 
-* Keyboard Macros
+* Keyboard Macros :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       30f798bd-4385-41f8-9625-2066b80778e2
+:END:
 
 In this chapter we describe how to record a sequence of editing commands so you can repeat it conveniently later.
 

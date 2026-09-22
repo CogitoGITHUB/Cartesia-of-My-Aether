@@ -3,7 +3,10 @@
 #+manifold-stage: 06-forge
 #+manifold-date: 2026-09-15
 
-* Calculator
+* Calculator :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       e39e8726-848b-48e8-a4f6-4b5cefdc04a9
+:END:
 
 Calc is an advanced desk calculator and mathematical tool written by Dave Gillespie that runs as part of the GNU Emacs environment.
 

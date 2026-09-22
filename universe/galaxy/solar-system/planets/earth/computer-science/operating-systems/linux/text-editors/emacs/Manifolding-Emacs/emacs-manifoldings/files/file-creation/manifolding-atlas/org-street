@@ -2,7 +2,7 @@
 #+identifier: fff8ca1b-0a74-4dd2-b054-1ae806b7f259
 #+filetags:   :emacs-package:org:
 
-* org-street :ATLAS:
+* org-street :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       fff8ca1b-0a74-4dd2-b054-1ae806b7f259
 :MM_PARENT: none

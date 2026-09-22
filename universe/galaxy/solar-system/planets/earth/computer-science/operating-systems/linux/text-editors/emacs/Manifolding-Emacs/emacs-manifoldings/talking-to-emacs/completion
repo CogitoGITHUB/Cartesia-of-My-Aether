@@ -2,7 +2,7 @@
 #+identifier: 4e8b2f1a-3c7d-4a9e-bf56-1d2c4e6a8b3f
 #+filetags:   :emacs-config:completion:
 
-* VERTICO — Vertical Completion UI #emacs-package #completion :ATLAS:
+* VERTICO — Vertical Completion UI #emacs-package #completion :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       4e8b2f1a-3c7d-4a9e-bf56-1d2c4e6a8b3f
 :MM_PARENT: none

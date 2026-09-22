@@ -2,7 +2,7 @@
 #+identifier: 9c5e7b3f-1d8a-4c6f-ef34-2a4c8f2e5b7d
 #+filetags:   :emacs-package:org:
 
-* ORG-APPEAR — Reveal Org Emphasis :ATLAS:
+* ORG-APPEAR — Reveal Org Emphasis :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       9c5e7b3f-1d8a-4c6f-ef34-2a4c8f2e5b7d
 :MM_PARENT: none

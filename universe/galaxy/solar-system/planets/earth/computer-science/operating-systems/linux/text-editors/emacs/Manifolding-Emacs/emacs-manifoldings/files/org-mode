@@ -1,7 +1,7 @@
 #+title:      Org Mode
 #+filetags:   :emacs-package:org:core:
 
-* Org Mode — Built-in Configuration :ATLAS:
+* Org Mode — Built-in Configuration :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       20b7f928-018c-4624-8a35-7baed50b86b6
 :MM_PARENT: none

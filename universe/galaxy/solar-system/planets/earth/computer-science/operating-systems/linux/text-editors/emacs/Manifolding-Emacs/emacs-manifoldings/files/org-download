@@ -1,7 +1,7 @@
 #+title:      org-download
 #+filetags:   :emacs-package:editing:
 
-* ORG-DOWNLOAD — Drag and Drop Images to Org #emacs-package :ATLAS:
+* ORG-DOWNLOAD — Drag and Drop Images to Org #emacs-package :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       605f856f-c9a3-4c1a-8ecb-71a598debb04
 :MM_PARENT: none

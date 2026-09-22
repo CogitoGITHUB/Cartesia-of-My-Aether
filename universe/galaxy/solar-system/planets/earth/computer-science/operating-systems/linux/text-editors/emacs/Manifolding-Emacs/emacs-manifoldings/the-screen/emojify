@@ -2,7 +2,7 @@
 #+identifier: 36c6b37e-27ca-4de8-b0f8-e860bb8032a7
 #+filetags:   :emacs-package:appearance:
 
-* emojify :ATLAS:
+* emojify :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       36c6b37e-27ca-4de8-b0f8-e860bb8032a7
 :MM_PARENT: none

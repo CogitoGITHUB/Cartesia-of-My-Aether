@@ -2,7 +2,7 @@
 #+identifier: 1691de08-fe8b-43d1-addd-20010b7ce944
 #+filetags:   :emacs-package:files:
 
-* multifiles :ATLAS:
+* multifiles :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       1691de08-fe8b-43d1-addd-20010b7ce944
 :MM_PARENT: none

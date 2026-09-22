@@ -12,7 +12,7 @@ property so it wins over org-mindmap-mode's minor-mode map.
 (setq atlas-wormholes-extensions nil)
 (defvar atlas-wormholes-indent-mode nil)
 #+end_src
-* Vendored wormhole-clone engine :ATLAS:
+* Vendored wormhole-clone engine :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       5406ae0c-1e28-4765-887f-df24c24c0c1b
 :MM_PARENT: none

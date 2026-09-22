@@ -1,6 +1,6 @@
 #+TITLE: Manifolding Atlas — Blueprint
 
-* Blueprint Core Library :ATLAS:
+* Blueprint Core Library :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       3846581a-2a0e-411c-abe5-9f4e049da55c
 :MM_PARENT: none
@@ -594,8 +594,8 @@ in the buffer are flagged as you edit."
   "Return blueprints directory (stub for prompt dir)."
   (or (and (fboundp 'my/manifolding-atlas-blueprint-dir)
            (my/manifolding-atlas-blueprint-dir))
-      (expand-file-name "manifolding-atlas/blueprints/"
-                        manifolding-emacs-org-directory)))
+      (expand-file-name "blueprints/"
+                        (my/manifolding-atlas-module-dir)))
 
 (defun my/manifolding-atlas-blueprint--template-dir ()
   "Return templates directory."

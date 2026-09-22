@@ -3,7 +3,10 @@
 #+manifold-stage: 09-archives
 #+manifold-date: 2026-09-15
 
-* Getting Help
+* Getting Help :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       f4fb5569-9180-405c-aca1-801d24778f28
+:END:
 
 Emacs provides a wide variety of help commands, all accessible through the prefix key C-h (or, equivalently, the function key F1). These help commands are described in the following sections. You can also type C-h C-h to view a list of help commands (help-for-help). You can scroll the list with SPC and DEL, then type the help command you want. To cancel, type C-g.
 

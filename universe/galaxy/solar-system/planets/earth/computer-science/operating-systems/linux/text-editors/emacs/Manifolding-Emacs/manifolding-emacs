@@ -103,6 +103,46 @@ artifacts which stay under user-emacs-directory (~/.config/emacs).
   (file-name-directory (or load-file-name buffer-file-name default-directory))
   "Directory holding the loader. Derived, never hardcoded.")
 
+(defvar manifolding-emacs-vault-root
+  (let ((start (or (and (boundp 'manifold--foundation-org)
+                        manifold--foundation-org)
+                   (and (boundp 'my/emacs-root) my/emacs-root)
+                   load-file-name buffer-file-name default-directory)))
+    (let ((d (if (file-directory-p start) start (file-name-directory start))))
+      (catch 'found
+        (while (and d (not (string= d (file-name-directory
+                                       (directory-file-name d)))))
+          (when (file-directory-p (expand-file-name ".git" d))
+            (throw 'found (directory-file-name d)))
+          (setq d (file-name-directory (directory-file-name d))))
+        nil)))
+  "Vault root: nearest ancestor containing .git/, searched upward from
+the Foundation file (deep inside the vault) — never from the loader's
+own directory, which lives under a different git tree (.config).
+No name literal.")
+
+(defvar manifolding-emacs--dir-cache (make-hash-table :test #'equal)
+  "Dirname → absolute path cache for `manifolding-emacs-locate-dir'.")
+
+(defun manifolding-emacs-locate-dir (name)
+  "Find first directory named NAME under the vault root. Cached.
+Rename-proof: matches by leaf name, never by full path."
+  (or (gethash name manifolding-emacs--dir-cache)
+      (let ((found (catch 'found
+                     (dolist (d (directory-files-recursively
+                                 (or manifolding-emacs-vault-root
+                                     (expand-file-name "~"))
+                                 name t))
+                       (when (and (file-directory-p d)
+                                  (string= (file-name-nondirectory
+                                            (directory-file-name d))
+                                           name))
+                         (throw 'found d)))
+                     nil)))
+        (when found
+          (puthash name found manifolding-emacs--dir-cache))
+        found)))
+
 (defcustom manifolding-emacs-org-directory
   (expand-file-name "modules" manifolding-emacs-loader-dir)
   "Directory where the Org files are stored."
@@ -831,12 +871,12 @@ after it (nil when absent). Headline search skips src blocks."
                      (string-to-number order))))))))
 
 (defun manifolding-emacs-file-loadable-p (file)
-  "Non-nil when FILE's first headline carries :ATLAS: or :EMACS_MECHANISM:.
+  "Non-nil when FILE's first headline carries :EMACS_MECHANISM:.
 No tag = not loaded, by design."
   (when-let* ((parsed (manifolding-emacs-file-first-headline file))
               (tags (nth 1 parsed)))
     (let ((names (split-string (string-trim tags ":" ":") ":" t)))
-      (or (member "ATLAS" names) (member "EMACS_MECHANISM" names)))))
+      (member "EMACS_MECHANISM" names))))
 
 (defun manifolding-emacs-file-title (file)
   "FILE's own #+title:, falling back to its basename. Display only."
@@ -867,7 +907,9 @@ Chained files (with :MM_PARENT:/:MM_ORDER:) load parents-first via a
 cycle-guarded walk; chainless files (no mm keys) append after, by name.
 Cycles and dangling parents fall back to root with a message."
   (if (file-directory-p directory)
-      (let* ((all (directory-files-recursively directory extension))
+      (let* ((all (seq-remove (lambda (f) (or (string-match-p "/\\.git/" f)
+                                              (string-match-p "/admin/" f)))
+                              (directory-files-recursively directory extension)))
              (tagged (seq-filter #'manifolding-emacs-file-loadable-p all))
              (skipped (- (length all) (length tagged)))
              (states (mapcar (lambda (f)
@@ -932,7 +974,7 @@ Cycles and dangling parents fall back to root with a message."
           (message "manifolding-emacs: %d chainless file(s) appended after chain"
                    (length free)))
         (when (> skipped 0)
-          (message "manifolding-emacs: skipping %d untagged file(s) (no :ATLAS:/:EMACS_MECHANISM:)"
+          (message "manifolding-emacs: skipping %d untagged file(s) (no :EMACS_MECHANISM:)"
                    skipped))
         ordered)
     (progn (message "manifolding-emacs: directory does not exist: %s"
@@ -1831,7 +1873,7 @@ Note: --modules-dir const points at the new home.
   "When non-nil, the dashboard lists every module TODO instead of a few.")
 
 (defconst manifolding-emacs-splash--modules-dir
-  (expand-file-name "modules/" manifolding-emacs-loader-dir))
+  (or manifolding-emacs-vault-root user-emacs-directory))
 
 (defun manifolding-emacs-splash--module-todos ()
   "Return list of (FILE-BASE . TITLE) TODO headings from extensionless modules."

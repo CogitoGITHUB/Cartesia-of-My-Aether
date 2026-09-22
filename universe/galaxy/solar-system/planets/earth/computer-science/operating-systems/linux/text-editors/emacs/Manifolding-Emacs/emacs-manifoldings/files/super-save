@@ -2,7 +2,7 @@
 #+identifier: 
 #+filetags:   :emacs-package:files:
 
-* SUPER-SAVE — Auto-save Buffers on Activity #emacs-package :ATLAS:
+* SUPER-SAVE — Auto-save Buffers on Activity #emacs-package :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       5098bf22-005e-40e7-a184-617e4347eff5
 :MM_PARENT: none

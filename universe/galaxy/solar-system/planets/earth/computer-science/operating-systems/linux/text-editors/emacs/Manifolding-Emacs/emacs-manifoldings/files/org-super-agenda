@@ -1,7 +1,7 @@
 #+title:    org-super-agenda
 #+filetags: :emacs-package:org:agenda:
 
-* Org Super Agenda :ATLAS:
+* Org Super Agenda :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       ffd35876-f50b-4594-989f-672b3a9b26e5
 :MM_PARENT: none

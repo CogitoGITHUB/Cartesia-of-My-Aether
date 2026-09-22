@@ -2,7 +2,7 @@
 #+identifier: b72c5500-32e5-4b97-bfcc-8cd6fef57c22
 #+filetags:   :emacs-package:reading:
 
-* interleave :ATLAS:
+* interleave :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       b72c5500-32e5-4b97-bfcc-8cd6fef57c22
 :MM_PARENT: none

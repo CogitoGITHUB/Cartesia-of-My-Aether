@@ -3,7 +3,10 @@
 #+manifold-stage: 03-nerves
 #+manifold-date: 2026-09-15
 
-* Syntax Tables
+* Syntax Tables :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       e626b057-d125-4ec6-845a-3760c5159c00
+:END:
 
 A syntax table specifies the syntactic role of each character in a buffer. It can be used to determine where words, symbols, and other syntactic constructs begin and end. This information is used by many Emacs facilities, including Font Lock mode (see Font Lock Mode) and the various complex movement commands (see Motion).
 

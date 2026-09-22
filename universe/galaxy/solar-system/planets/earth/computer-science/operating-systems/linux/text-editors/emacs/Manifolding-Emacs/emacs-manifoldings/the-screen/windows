@@ -3,7 +3,10 @@
 #+manifold-stage: 02-body
 #+manifold-date: 2026-09-15
 
-* Windows
+* Windows :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       e3717c05-76e5-4dff-9fee-d1bc5cd55314
+:END:
 
 This chapter describes the functions and variables related to Emacs windows. See Frames, for how windows are assigned an area of screen available for Emacs to use. See Emacs Display, for information on how text is displayed in windows.
 

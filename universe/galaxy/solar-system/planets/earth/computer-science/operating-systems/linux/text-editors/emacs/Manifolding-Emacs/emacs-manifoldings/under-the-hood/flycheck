@@ -3,9 +3,12 @@
 #+manifold-stage: 01-awakening
 #+manifold-date: 2026-09-15
 
-* Flycheck
+* Flycheck :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       3c1b2f3c-8ba2-444d-8474-e30332845d18
+:END:
 
-#+begin_src emacs-lisp
+#+begin_src emacs-lisp :tangle no
 (leaf flycheck
   :straight (flycheck
              :host github

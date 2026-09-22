@@ -3,8 +3,11 @@
 #+manifold-stage: 02-body
 #+manifold-date: 2026-09-15
 
-* Center Lock — cursor gravitational axis
-#+begin_src emacs-lisp
+* Center Lock — cursor gravitational axis :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       65371bd5-9fb6-4fb8-8100-3f68c012880c
+:END:
+#+begin_src emacs-lisp :tangle no
 (leaf center-lock
   :config
   (defvar shapeshift/center-lock-enabled t

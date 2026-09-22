@@ -2,7 +2,7 @@
 #+identifier: 
 #+filetags:   :emacs-package:org:ui:
 
-* ORG-STICKY-HEADER — Sticky Heading in Header Line #emacs-package :ATLAS:
+* ORG-STICKY-HEADER — Sticky Heading in Header Line #emacs-package :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       d12f4754-2fa3-4ce6-9a0f-08e0a4a5b49b
 :MM_PARENT: none

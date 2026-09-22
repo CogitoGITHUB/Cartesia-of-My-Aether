@@ -3,7 +3,10 @@
 #+manifold-stage: 08-rituals
 #+manifold-date: 2026-09-15
 
-* Killing and Moving Text
+* Killing and Moving Text :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       a589fee5-3a10-4beb-a2d9-2d43799a01ec
+:END:
 
 In Emacs, killing means erasing text and copying it into the kill ring. Yanking means bringing text from the kill ring back into the buffer. (Some applications use the terms “cutting” and “pasting” for similar operations.) The kill ring is so-named because it can be visualized as a set of blocks of text arranged in a ring, which you can access in cyclic order. See The Kill Ring.
 

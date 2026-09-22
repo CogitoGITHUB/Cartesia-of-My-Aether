@@ -2,7 +2,7 @@
 #+identifier: a8fe9a6a-9ee1-42a5-a8ad-d404b817513f
 #+filetags:   :emacs-package:org:
 
-* org-mem :ATLAS:
+* org-mem :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       a8fe9a6a-9ee1-42a5-a8ad-d404b817513f
 :MM_PARENT: none

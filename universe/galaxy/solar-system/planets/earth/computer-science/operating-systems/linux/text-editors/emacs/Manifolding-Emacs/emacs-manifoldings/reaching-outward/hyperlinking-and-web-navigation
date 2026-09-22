@@ -3,7 +3,10 @@
 #+manifold-stage: 05-world
 #+manifold-date: 2026-09-15
 
-* Hyperlinking and Web Navigation (maybe even add nyxt on here)
+* Hyperlinking and Web Navigation (maybe even add nyxt on here) :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       e13c5a1c-f99f-4585-a543-a24fbd01209b
+:END:
 
 The following subsections describe convenience features for handling URLs and other types of links occurring in Emacs buffer text.
 

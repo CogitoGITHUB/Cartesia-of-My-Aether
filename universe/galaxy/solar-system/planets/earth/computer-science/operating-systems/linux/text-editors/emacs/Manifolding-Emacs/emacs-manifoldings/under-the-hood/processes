@@ -3,7 +3,10 @@
 #+manifold-stage: 01-awakening
 #+manifold-date: 2026-09-15
 
-* Processes
+* Processes :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       b3898451-bee8-4a11-956b-a09173f63d36
+:END:
 
 In the terminology of operating systems, a process is a space in which a program can execute. Emacs runs in a process. Emacs Lisp programs can invoke other programs in processes of their own. These are called subprocesses or child processes of the Emacs process, which is their parent process.
 

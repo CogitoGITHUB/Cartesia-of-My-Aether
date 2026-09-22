@@ -2,7 +2,7 @@
 #+identifier: a5dfc5f2-a1d9-4f46-a02b-599ab936a031
 #+filetags:   :emacs-package:editing:
 
-* miniedit :ATLAS:
+* miniedit :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       a5dfc5f2-a1d9-4f46-a02b-599ab936a031
 :MM_PARENT: none

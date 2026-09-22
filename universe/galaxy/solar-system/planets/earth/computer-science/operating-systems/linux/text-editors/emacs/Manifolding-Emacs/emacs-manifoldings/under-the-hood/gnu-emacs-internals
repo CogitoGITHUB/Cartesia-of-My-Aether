@@ -3,7 +3,10 @@
 #+manifold-stage: 01-awakening
 #+manifold-date: 2026-09-15
 
-* GNU Emacs Internals
+* GNU Emacs Internals :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       adf48a2e-2a5b-4355-90ff-fba6dd46a3e8
+:END:
 
 This chapter describes how the runnable Emacs executable is dumped with the preloaded Lisp libraries in it, how storage is allocated, and some internal aspects of GNU Emacs that may be of interest to C programmers.
 

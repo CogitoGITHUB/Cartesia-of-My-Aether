@@ -3,7 +3,10 @@
 #+manifold-stage: 08-rituals
 #+manifold-date: 2026-09-15
 
-* Commands for Fixing Typos
+* Commands for Fixing Typos :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       8567643c-c701-4555-beb8-b3cb1caa3424
+:END:
 
 In this chapter we describe commands that are useful when you catch a mistake while editing. The most fundamental of these commands is the undo command C-/ (also bound to C-x u and C-_). This undoes a single command, or a part of a command (as in the case of query-replace), or several consecutive character insertions. Consecutive repetitions of C-/ undo earlier and earlier changes, back to the limit of the undo information available.
 

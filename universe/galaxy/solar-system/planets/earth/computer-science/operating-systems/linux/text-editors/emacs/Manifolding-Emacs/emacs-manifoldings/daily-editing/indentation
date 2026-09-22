@@ -3,7 +3,10 @@
 #+manifold-stage: 08-rituals
 #+manifold-date: 2026-09-15
 
-* Indentation
+* Indentation :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       3a7f85b8-78d7-4e75-adb2-ef5d729a1203
+:END:
 
 Indentation refers to inserting or adjusting whitespace characters (space and/or tab characters) at the beginning of a line of text. This chapter documents indentation commands and options which are common to Text mode and related modes, as well as programming language modes. See Indentation for Programs, for additional documentation about indenting in programming modes.
 

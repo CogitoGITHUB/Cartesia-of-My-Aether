@@ -14,7 +14,7 @@ Atlas vault: contacts live one-per-file under
 (defun org-contacts-split-property (_str) nil)
 (defun org-contacts-strip-link (s) s)
 #+end_src
-* Vendored org-contacts engine :ATLAS:
+* Vendored org-contacts engine :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       c28557f6-968c-41a0-ac13-df5fea83b1dd
 :MM_PARENT: none

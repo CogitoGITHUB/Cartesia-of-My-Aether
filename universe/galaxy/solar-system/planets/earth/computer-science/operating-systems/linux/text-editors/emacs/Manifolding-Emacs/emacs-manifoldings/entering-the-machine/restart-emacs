@@ -2,7 +2,7 @@
 #+identifier: e9b66fce-f0dd-482b-9b65-a60109351a6d
 #+filetags:   :emacs-package:convenience:
 
-* restart-emacs :ATLAS:
+* restart-emacs :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       e9b66fce-f0dd-482b-9b65-a60109351a6d
 :MM_PARENT: none

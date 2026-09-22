@@ -1,7 +1,7 @@
 #+title:    consult-org-heading
 #+filetags: :emacs-package:org:search:
 
-* Consult Org Heading :ATLAS:
+* Consult Org Heading :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       d6a95cce-10bc-4d67-a53b-dce11163294d
 :MM_PARENT: none

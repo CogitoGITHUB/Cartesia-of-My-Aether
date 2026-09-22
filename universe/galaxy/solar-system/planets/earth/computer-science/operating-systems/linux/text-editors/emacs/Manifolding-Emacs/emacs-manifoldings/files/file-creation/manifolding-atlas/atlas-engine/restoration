@@ -4,7 +4,7 @@ Guards file and heading deletion when incoming or outgoing =id:= links exist.
 Guards deletion of untracked files and missing links.
 Provides restore command via Git history.
 Uses native =manifolding-atlas-db-query-links-to= and =manifolding-atlas-db-query-links-from= API (v2.1+).
-*** Missing Links File :ATLAS:
+*** Missing Links File :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       ac007417-f901-4778-9dd4-751495acb5a9
 :MM_PARENT: none
@@ -901,8 +901,8 @@ Lives in `my/manifolding-atlas-root-dir'. Auto-created if missing.")
   "Absolute path of heading-unfoldings/ (plural helper preferred)."
   (if (fboundp 'my/manifolding-atlas-blueprints-dir)
       (expand-file-name "heading-unfoldings/" (my/manifolding-atlas-blueprints-dir))
-    (expand-file-name "manifolding-atlas/blueprints/heading-unfoldings/"
-                      manifolding-emacs-org-directory)))
+    (expand-file-name "blueprints/heading-unfoldings/"
+                      (my/manifolding-atlas-module-dir)))
 
 (defun my/manifolding-atlas-links--blueprint-trackable-p (file)
   "Non-nil when FILE is a prompt blueprint .org under heading-unfoldings/.
@@ -929,8 +929,8 @@ Lives beside drawer-order.org in blueprint-reinforcements/."
   (let ((dir (if (fboundp 'my/manifolding-atlas-drawer-order-file)
                  (file-name-directory
                   (my/manifolding-atlas-drawer-order-file))
-               (expand-file-name "manifolding-atlas/blueprints/blueprint-reinforcements/"
-                                 manifolding-emacs-org-directory))))
+               (expand-file-name "blueprints/blueprint-reinforcements/"
+                                 (my/manifolding-atlas-module-dir))))
     (expand-file-name ".known-keys" dir)))
 
 (defun my/manifolding-atlas-links--known-keys-read ()

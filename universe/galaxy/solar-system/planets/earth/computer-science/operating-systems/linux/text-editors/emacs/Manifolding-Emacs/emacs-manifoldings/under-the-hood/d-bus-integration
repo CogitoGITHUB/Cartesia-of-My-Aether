@@ -3,7 +3,10 @@
 #+manifold-stage: 09-archives
 #+manifold-date: 2026-09-15
 
-* D-Bus integration
+* D-Bus integration :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       432a0aad-9151-4661-9d3b-6b6ac5899296
+:END:
 
 ** D-Bus Integration in Emacs: Use Cases
 

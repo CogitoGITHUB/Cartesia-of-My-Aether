@@ -2,7 +2,7 @@
 #+identifier: 21abd14a-fd91-4b4c-91ef-3d27c1b77af7
 #+filetags:   :emacs-package:window:
 
-* golden-ratio :ATLAS:
+* golden-ratio :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       21abd14a-fd91-4b4c-91ef-3d27c1b77af7
 :MM_PARENT: none

@@ -3,7 +3,10 @@
 #+manifold-stage: 07-shadows
 #+manifold-date: 2026-09-15
 
-* Dealing with Trouble
+* Dealing with Trouble :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       66c4dd38-1c76-4ae5-94ef-56743e9868bc
+:END:
 
 This section describes how to recognize and deal with situations in which Emacs does not work as you expect, such as keyboard code mixups, garbled displays, running out of memory, and crashes and hangs.
 

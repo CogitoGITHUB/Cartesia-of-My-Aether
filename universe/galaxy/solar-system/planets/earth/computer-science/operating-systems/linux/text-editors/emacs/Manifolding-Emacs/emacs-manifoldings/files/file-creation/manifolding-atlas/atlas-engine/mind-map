@@ -46,7 +46,7 @@ here. One day a note may join several maps at once (biology, AI,
 personal, project) with no substrate change at all — only a
 map-scoped index beside this one.
 
-*** Schema & Extractor :ATLAS:
+*** Schema & Extractor :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       f14d38b9-f954-4dde-bfeb-50fc8919ef0c
 :MM_PARENT: none

@@ -3,7 +3,10 @@
 #+manifold-stage: 06-forge
 #+manifold-date: 2026-09-15
 
-* Editing Programs ( ams mode ✓✓✓ )
+* Editing Programs ( ams mode ✓✓✓ ) :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       9c88feba-7096-41bb-90bd-17d9dd912c8d
+:END:
 
 This chapter describes Emacs features for facilitating editing programs. Some of the things these features can do are:
 

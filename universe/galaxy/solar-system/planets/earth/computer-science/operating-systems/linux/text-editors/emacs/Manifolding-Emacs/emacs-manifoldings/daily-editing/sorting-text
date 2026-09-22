@@ -3,7 +3,10 @@
 #+manifold-stage: 08-rituals
 #+manifold-date: 2026-09-15
 
-* Sorting Text
+* Sorting Text :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       cedb3377-0c46-41a4-bd9e-5aef96b929dc
+:END:
 
 Emacs provides several commands for sorting text in the buffer. All operate on the contents of the region. They divide the text of the region into many sort records, identify a sort key for each record, and then reorder the records into the order determined by the sort keys. The records are ordered so that their keys are in alphabetical order, or, for numeric sorting, in numeric order. In alphabetic sorting, all upper-case letters ‘A’ through ‘Z’ come before lower-case ‘a’, in accordance with the ASCII character sequence (but sort-fold-case, described below, can change that).
 

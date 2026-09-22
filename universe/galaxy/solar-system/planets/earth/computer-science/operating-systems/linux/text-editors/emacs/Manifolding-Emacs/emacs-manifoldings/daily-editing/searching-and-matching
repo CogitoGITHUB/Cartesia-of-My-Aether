@@ -3,7 +3,10 @@
 #+manifold-stage: 09-archives
 #+manifold-date: 2026-09-15
 
-* Searching and Matching
+* Searching and Matching :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       d4aa598a-6558-4f0e-8449-fc050d18d4aa
+:END:
 
 GNU Emacs provides two ways to search through a buffer for specified text: exact string searches and regular expression searches. After a regular expression search, you can examine the match data to determine which text matched the whole regular expression or various portions of it.
 

@@ -2,7 +2,7 @@
 #+identifier: 201f4c6e-197b-47db-9442-e98806b99256
 #+filetags:   :emacs-package:completion:
 
-* ivy-omni-org :ATLAS:
+* ivy-omni-org :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       201f4c6e-197b-47db-9442-e98806b99256
 :MM_PARENT: none

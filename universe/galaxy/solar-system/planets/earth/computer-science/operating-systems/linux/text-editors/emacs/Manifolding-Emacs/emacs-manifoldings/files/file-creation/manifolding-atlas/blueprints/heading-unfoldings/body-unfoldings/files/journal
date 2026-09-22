@@ -1,6 +1,6 @@
 #+title:      journal
 
-* Journal :: %U :: %^{Session|Morning|Evening} :: %^{Location|Transit|Base|Unknown} :ATLAS:
+* Journal :: %U :: %^{Session|Morning|Evening} :: %^{Location|Transit|Base|Unknown} :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       9a6412e8-393c-4a4b-bb15-4a25d4425e2c
 :MM_PARENT: none

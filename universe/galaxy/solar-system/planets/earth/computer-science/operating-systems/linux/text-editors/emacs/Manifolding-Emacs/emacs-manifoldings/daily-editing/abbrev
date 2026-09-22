@@ -3,7 +3,10 @@
 #+manifold-stage: 08-rituals
 #+manifold-date: 2026-09-15
 
-* Abbrev
+* Abbrev :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       7a50cefa-ba14-4d5d-b1f6-b4d15ad9eb1f
+:END:
 
 A defined abbrev is a word which expands, if you insert it, into some different text. Abbrevs are defined by the user to expand in specific ways. For example, you might define ‘foo’ as an abbrev expanding to ‘find outer otter’. Then you could insert ‘find outer otter ’ into the buffer by typing f o o SPC.
 

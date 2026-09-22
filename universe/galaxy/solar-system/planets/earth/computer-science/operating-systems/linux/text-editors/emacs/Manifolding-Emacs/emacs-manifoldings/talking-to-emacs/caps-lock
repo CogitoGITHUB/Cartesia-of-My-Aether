@@ -2,7 +2,7 @@
 #+identifier: a575d02a-dd67-4077-9b4d-471ba6bc9dcd
 #+filetags:   :emacs-package:convenience:
 
-* caps-lock :ATLAS:
+* caps-lock :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       a575d02a-dd67-4077-9b4d-471ba6bc9dcd
 :MM_PARENT: none

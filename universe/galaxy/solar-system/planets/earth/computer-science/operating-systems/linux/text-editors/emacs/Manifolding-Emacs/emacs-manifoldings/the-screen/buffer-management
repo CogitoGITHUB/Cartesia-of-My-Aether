@@ -5,7 +5,7 @@
 # Automatically and manually manage buffer lifecycle.
 # ─────────────────────────────────────────────────────────────────────
 
-* Buffer Terminator — Auto-Kill Stale Buffers :ATLAS:
+* Buffer Terminator — Auto-Kill Stale Buffers :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       7cb13f33-bf1e-45df-820f-3cf9c5b3c45e
 :MM_PARENT: none

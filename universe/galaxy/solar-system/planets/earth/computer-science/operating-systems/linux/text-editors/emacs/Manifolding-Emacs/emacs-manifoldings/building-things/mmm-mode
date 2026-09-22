@@ -2,7 +2,7 @@
 #+identifier: 5033fb8b-5fbd-4ee9-84fb-8f491e4b055a
 #+filetags:   :emacs-package:editing:
 
-* mmm-mode :ATLAS:
+* mmm-mode :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       5033fb8b-5fbd-4ee9-84fb-8f491e4b055a
 :MM_PARENT: none

@@ -1,5 +1,5 @@
 #+TITLE: Manifolding Atlas — File Creation
-* File Creation :ATLAS:
+* File Creation :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       dfa66ca4-bbca-4b87-8e75-bcbe978cf759
 :MM_PARENT: none
@@ -10,6 +10,17 @@
 ** Prompt Registry (must load first)
 Must load before any prompt file calls ~my/manifolding-atlas-register-prompt~.
 
+*** Atlas tree anchor
+All atlas-internal paths derive from here — never from vault-relative
+literals, which break on restructure. Loader-owned lookup, cached.
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-module-dir ()
+  "Absolute path of the manifolding-atlas/ tree. Rename-proof."
+  (or (and (fboundp 'manifolding-emacs-locate-dir)
+           (manifolding-emacs-locate-dir "manifolding-atlas"))
+      (error "Atlas tree not found under vault root")))
+#+end_src
+
 *** Templates Directory
 ** my/manifolding-atlas-templates-dir
 Why: Implementation of ~my/manifolding-atlas-templates-dir~.
@@ -17,8 +28,8 @@ Why: Implementation of ~my/manifolding-atlas-templates-dir~.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-templates-dir ()
   "Return the templates directory."
-  (expand-file-name "manifolding-atlas/blueprints/heading-unfoldings/body-unfoldings/"
-                    manifolding-emacs-org-directory))
+  (expand-file-name "blueprints/heading-unfoldings/body-unfoldings/"
+                    (my/manifolding-atlas-module-dir)))
 
 (defun my/manifolding-atlas-template-files-dir ()
   "Alias for `my/manifolding-atlas-templates-dir'."
@@ -37,8 +48,8 @@ edit its level-2 headings directly — save + reload applies.
 
 (defun my/manifolding-atlas-drawer-order-file ()
   "Return the drawer-order blueprint file."
-  (expand-file-name "manifolding-atlas/blueprints/blueprint-reinforcements/drawer-order"
-                    manifolding-emacs-org-directory))
+  (expand-file-name "blueprints/blueprint-reinforcements/drawer-order"
+                    (my/manifolding-atlas-module-dir)))
 
 (defun my/manifolding-atlas-drawer-order-from-file (&optional file)
   "Read drawer key order from FILE (default the order file).
@@ -331,8 +342,8 @@ is a list of (FILE . VALUE) for lines kept."
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-blueprints-dir ()
   "Return the blueprints directory."
-  (expand-file-name "manifolding-atlas/blueprints/"
-                    manifolding-emacs-org-directory))
+  (expand-file-name "blueprints/"
+                    (my/manifolding-atlas-module-dir)))
 
 (defun my/manifolding-atlas-blueprint-dirs ()
   "Candidate subdirectories for new prompt blueprints, relative."
@@ -3668,8 +3679,8 @@ lists in `--ask' and `--collect--defer-p'; template always routes to
 (defun my/manifolding-atlas-org-prompt--register-static-template ()
   "Register the TEMPLATE prompt statically (ex-blueprints/unfoldings/template.org)."
   (my/manifolding-atlas-org-prompt--register
-   (expand-file-name "manifolding-atlas/atlas-engine/file-creation"
-                     manifolding-emacs-org-directory)
+   (expand-file-name "atlas-engine/file-creation"
+                     (my/manifolding-atlas-module-dir))
    "TEMPLATE" nil
    '(:contexts "file heading" :kind "template" :label "Template: Body template")))
 #+end_src
@@ -4087,8 +4098,8 @@ Why: Implementation of ~my/manifolding-atlas-blueprint-dir~.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-blueprint-dir ()
   "Return the blueprints directory."
-  (expand-file-name "manifolding-atlas/blueprints/"
-                    manifolding-emacs-org-directory))
+  (expand-file-name "blueprints/"
+                    (my/manifolding-atlas-module-dir)))
 
 (defun my/manifolding-atlas-org-prompt--schema-files ()
   "Return all candidate org files under blueprints/."
@@ -5962,8 +5973,8 @@ Why: Implementation of ~my/manifolding-atlas--show-help~.
   "Open prompt NAME's help file full-screen with org-tree-slide.
 Search recursively under blueprints/ for the file."
   (let* ((file (my/manifolding-atlas--help-file name))
-          (unfoldings-dir (expand-file-name "manifolding-atlas/blueprints/"
-                                            manifolding-emacs-org-directory))
+          (unfoldings-dir (expand-file-name "blueprints/"
+                                            (my/manifolding-atlas-module-dir)))
          (path (car (file-expand-wildcards
                      (concat unfoldings-dir "**/" file) t))))
     (when (and path (file-exists-p path))

@@ -3,7 +3,10 @@
 #+manifold-stage: 08-rituals
 #+manifold-date: 2026-09-15
 
-* The Mark and the Region ✓✓✓ {IMPORTANT !!!}
+* The Mark and the Region ✓✓✓ {IMPORTANT !!!} :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       d14d0ad4-b63b-4a6f-bfbc-c78339d9290e
+:END:
 
 Emacs, like many other applications, lets you select some arbitrary part of the buffer text and invoke commands that operate on such selected text. In Emacs, we call the selected text the region; its handling is very similar to that of selected text in other programs, but there are also important differences.
 
