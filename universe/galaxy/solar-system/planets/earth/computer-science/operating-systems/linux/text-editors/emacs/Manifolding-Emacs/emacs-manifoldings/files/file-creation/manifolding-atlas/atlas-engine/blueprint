@@ -24,7 +24,9 @@
 Slots:
   name      - symbol identifying the schema
   predicate - function (note) -> non-nil selecting notes it applies to
-  fields    - list of field spec plists (see Commentary)
+  fields    - list of OWN field spec plists (see Commentary).  Use
+              `manifolding-atlas-blueprint-effective-fields' for the
+              merged list (own fields over includes').
   includes  - names of the schemas this one inherits fields from"
   name
   predicate
@@ -35,6 +37,15 @@ Slots:
 
 (defvar manifolding-atlas-blueprint--registry (make-hash-table :test 'eq)
   "Registry of defined schemas, keyed by name symbol.")
+
+(defvar manifolding-atlas-blueprint--generation 0
+  "Bumped on every define/unregister; invalidates the effective-fields cache.")
+
+(defvar manifolding-atlas-blueprint--effective-cache (make-hash-table :test 'eq)
+  "Schema name -> (GENERATION . MERGED-FIELDS).")
+
+(defvar manifolding-atlas-blueprint--resolving nil
+  "Names currently being merged (cycle guard for lazy :include).")
 
 (defun manifolding-atlas-blueprint--merge-fields (field-lists)
   "Merge FIELD-LISTS, a list of field-spec lists, into a single list.
@@ -66,9 +77,10 @@ schemas contribute their fields first (multiple includes merged
 left-to-right), then FIELDS.  When a :key appears more than once the
 later definition wins, so FIELDS overrides an included field and a
 later include overrides an earlier one; an overridden field keeps the
-position of its first appearance.  Includes are resolved now, so an
-included schema must already be registered, and re-defining it later
-does not retroactively update schemas that included it.
+position of its first appearance.  Includes resolve lazily at first
+use (see `manifolding-atlas-blueprint-effective-fields'), so definition
+order never matters and re-defining an included schema updates all its
+includers.  Cyclic :include chains signal an error when merged.
 
 Registering a schema with an existing NAME replaces it.  Returns the
 `manifolding-atlas-blueprint' object."
@@ -80,26 +92,55 @@ Registering a schema with an existing NAME replaces it.  Returns the
     (unless (and (plist-member field :key)
                  (stringp (plist-get field :key)))
       (error "Schema field must have a string :key: %S" field)))
-  (let* ((includes (cond
-                    ((null include) nil)
-                    ((or (symbolp include) (manifolding-atlas-blueprint-p include)) (list include))
-                    ((listp include) include)
-                    (t (error "Schema :include must be a symbol, a schema, or a list of them: %S"
-                              include))))
-         (inherited (mapcar (lambda (s)
-                              (manifolding-atlas-blueprint-fields (manifolding-atlas-blueprint--resolve s)))
-                            includes))
-         (include-names (mapcar (lambda (s)
-                                  (if (manifolding-atlas-blueprint-p s) (manifolding-atlas-blueprint-name s) s))
-                                includes))
-         (schema (manifolding-atlas-blueprint--create
-                  :name name
-                  :predicate predicate
-                  :includes include-names
-                  :fields (manifolding-atlas-blueprint--merge-fields
-                           (append inherited (list fields))))))
-    (puthash name schema manifolding-atlas-blueprint--registry)
-    schema))
+  (let ((includes (cond
+                   ((null include) nil)
+                   ((or (symbolp include) (manifolding-atlas-blueprint-p include)) (list include))
+                   ((listp include) include)
+                   (t (error "Schema :include must be a symbol, a schema, or a list of them: %S"
+                             include)))))
+    (let ((schema (manifolding-atlas-blueprint--create
+                   :name name
+                   :predicate predicate
+                   :includes (mapcar (lambda (s)
+                                       (if (manifolding-atlas-blueprint-p s)
+                                           (manifolding-atlas-blueprint-name s)
+                                         s))
+                                     includes)
+                   :fields fields)))
+      (puthash name schema manifolding-atlas-blueprint--registry)
+      (setq manifolding-atlas-blueprint--generation
+            (1+ manifolding-atlas-blueprint--generation))
+      schema)))
+
+(defun manifolding-atlas-blueprint--compute-fields (schema)
+  "Merge SCHEMA's own fields over its includes', recursively."
+  (let ((name (manifolding-atlas-blueprint-name schema)))
+    (when (memq name manifolding-atlas-blueprint--resolving)
+      (error "Cyclic schema :include involving %S" name))
+    (let ((manifolding-atlas-blueprint--resolving
+           (cons name manifolding-atlas-blueprint--resolving)))
+      (manifolding-atlas-blueprint--merge-fields
+       (append (mapcar (lambda (s)
+                         (manifolding-atlas-blueprint-effective-fields
+                          (manifolding-atlas-blueprint--resolve s)))
+                       (manifolding-atlas-blueprint-includes schema))
+               (list (manifolding-atlas-blueprint-fields schema)))))))
+
+(defun manifolding-atlas-blueprint-effective-fields (schema-or-name)
+  "Merged field list for SCHEMA-OR-NAME: includes first, own fields last.
+Resolved lazily with per-generation memoization, so schema definition
+order never matters.  Signals an error on cyclic :include chains or
+genuinely missing schemas (same message as direct resolution)."
+  (let ((schema (manifolding-atlas-blueprint--resolve schema-or-name)))
+    (let ((hit (gethash (manifolding-atlas-blueprint-name schema)
+                        manifolding-atlas-blueprint--effective-cache)))
+      (if (and hit (eq (car hit) manifolding-atlas-blueprint--generation))
+          (cdr hit)
+        (let ((merged (manifolding-atlas-blueprint--compute-fields schema)))
+          (puthash (manifolding-atlas-blueprint-name schema)
+                   (cons manifolding-atlas-blueprint--generation merged)
+                   manifolding-atlas-blueprint--effective-cache)
+          merged)))))
 
 (defun manifolding-atlas-blueprint-get (name)
   "Return the registered schema called NAME, or nil."
@@ -113,7 +154,9 @@ Registering a schema with an existing NAME replaces it.  Returns the
 
 (defun manifolding-atlas-blueprint-unregister (name)
   "Remove the schema called NAME from the registry."
-  (remhash name manifolding-atlas-blueprint--registry))
+  (remhash name manifolding-atlas-blueprint--registry)
+  (setq manifolding-atlas-blueprint--generation
+        (1+ manifolding-atlas-blueprint--generation)))
 
 (defun manifolding-atlas-blueprint--resolve (schema-or-name)
   "Return a `manifolding-atlas-blueprint' from SCHEMA-OR-NAME.
@@ -307,7 +350,7 @@ Each field is checked for the following problem types:
 The note is validated as given; the schema's predicate is not consulted
 here (see `manifolding-atlas-blueprint-validate-all')."
   (let ((schema (manifolding-atlas-blueprint--resolve schema-or-name)))
-    (cl-loop for field in (manifolding-atlas-blueprint-fields schema)
+    (cl-loop for field in (manifolding-atlas-blueprint-effective-fields schema)
              append (manifolding-atlas-blueprint--field-violations note field schema))))
 
 (defun manifolding-atlas-blueprint-validate-notes (notes schema-or-name)
@@ -350,7 +393,7 @@ honored.  A field counts as present when NOTE has any value for its
   (let ((schema (manifolding-atlas-blueprint--resolve schema-or-name))
         (required nil)
         (optional nil))
-    (dolist (field (manifolding-atlas-blueprint-fields schema))
+    (dolist (field (manifolding-atlas-blueprint-effective-fields schema))
       (when (null (manifolding-atlas-note-meta-get-list note (plist-get field :key) 'string))
         (if (manifolding-atlas-blueprint--call-or-value (plist-get field :required) note)
             (push field required)
@@ -589,6 +632,7 @@ in the buffer are flagged as you edit."
 
 * Blueprint Customization
 
+#+begin_src emacs-lisp
 (defun my/manifolding-atlas-blueprint--outline-spec (prompt-name)
   "Return (KEY . OPTIONS) from declarative file PROMPT-NAME, or nil.
 Declarative = no src blocks; level-1 KEY heading, level-2 options."
@@ -943,7 +987,7 @@ the DB and we grade fresh data, not pre-save state."
   "Return all unfolding keys covered by registered schemas."
   (let ((keys nil))
     (dolist (name (manifolding-atlas-blueprint-list))
-      (dolist (field (manifolding-atlas-blueprint-fields
+      (dolist (field (manifolding-atlas-blueprint-effective-fields
                       (manifolding-atlas-blueprint-get name)))
         (push (plist-get field :key) keys)))
     (delete-dups keys)))
@@ -972,7 +1016,7 @@ the DB and we grade fresh data, not pre-save state."
         (if (null schema)
             (push (format "%s: no template schema" name) template-issues)
           (let* ((field-keys (mapcar (lambda (f) (plist-get f :key))
-                                     (manifolding-atlas-blueprint-fields schema)))
+                                     (manifolding-atlas-blueprint-effective-fields schema)))
                  (expected (cons "TEMPLATE_HASH"
                                  (cdr (assoc name
                                              (my/manifolding-atlas-blueprint--template-unfoldings))))))
