@@ -1,0 +1,279 @@
+#+title:      Window Configurations
+
+* Window Configurations :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       fe4a70aa-86e3-4957-b923-67249bd7c1ba
+:END:
+
+A window configuration records the entire layout of one frame—all windows, their sizes, their decorations, which buffers they contain, how those buffers are scrolled, and their value of point, It also includes the value of minibuffer-scroll-window. As a special exception, the window configuration does not record the value of point in the selected window for the current buffer.
+
+You can bring back an entire frame layout by restoring a previously saved window configuration. If you want to record the layout of all frames instead of just one, use a frame configuration instead of a window configuration. See Frame Configurations.
+
+Function: current-window-configuration &optional frame ¶
+This function returns a new object representing frame’s current window configuration. The default for frame is the selected frame. The variable window-persistent-parameters specifies which window parameters (if any) are saved by this function. See Window Parameters.
+
+Function: set-window-configuration configuration &optional dont-set-frame dont-set-miniwindow ¶
+This function restores the configuration of windows and buffers as specified by configuration, for the frame that configuration was created for, regardless of whether that frame is selected or not. The argument configuration must be a value that was previously returned by current-window-configuration for that frame. Normally the function also selects the frame which is recorded in the configuration, but if dont-set-frame is non-nil, it leaves selected the frame which was already selected at the start of the function.
+
+Normally the function restores the saved minibuffer (if any), but if dont-set-miniwindow is non-nil, the minibuffer current at the start of the function (if any) remains in the mini-window.
+
+If the frame from which configuration was saved is dead, all this function does is to restore the value of the variable minibuffer-scroll-window and to adjust the value returned by minibuffer-selected-window. In this case, the function returns nil. Otherwise, it returns t.
+
+If the buffer of a window of configuration has been killed since configuration was made, that window is, as a rule, removed from the restored configuration. However, if that window is the last window remaining in the restored configuration, another live buffer is shown in it.
+
+Here is a way of using this function to get the same effect as save-window-excursion:
+
+(let ((config (current-window-configuration)))
+  (unwind-protect
+      (progn (split-window-below nil)
+             …)
+    (set-window-configuration config)))
+Macro: save-window-excursion forms… ¶
+This macro records the window configuration of the selected frame, executes forms in sequence, then restores the earlier window configuration. The return value is the value of the final form in forms.
+
+Most Lisp code should not use this macro; save-selected-window is typically sufficient. In particular, this macro cannot reliably prevent the code in forms from opening new windows, because new windows might be opened in other frames (see Choosing a Window for Displaying a Buffer), and save-window-excursion only saves and restores the window configuration on the current frame.
+
+Function: window-configuration-p object ¶
+This function returns t if object is a window configuration.
+
+Function: window-configuration-equal-p config1 config2 ¶
+This function says whether two window configurations have the same window layout, but ignores the values of point and the saved scrolling positions—it can return t even if those aspects differ.
+
+Function: window-configuration-frame config ¶
+This function returns the frame for which the window configuration config was made.
+
+Other primitives to look inside of window configurations would make sense, but are not implemented because we did not need them. See the file winner.el for some more operations on windows configurations.
+
+The objects returned by current-window-configuration die together with the Emacs process. In order to store a window configuration on disk and read it back in another Emacs session, you can use the functions described next. These functions are also useful to clone the state of a frame into an arbitrary live window (set-window-configuration effectively clones the windows of a frame into the root window of that very frame only).
+
+Function: window-state-get &optional window writable ¶
+This function returns the state of window as a Lisp object. The argument window must be a valid window and defaults to the root window of the selected frame.
+
+If the optional argument writable is non-nil, this means to not use markers for sampling positions like window-point or window-start. This argument should be non-nil when the state will be written to disk and read back in another session.
+
+Together, the argument writable and the variable window-persistent-parameters specify which window parameters are saved by this function. See Window Parameters.
+
+The value returned by window-state-get can be used in the same session to make a clone of a window in another window. It can be also written to disk and read back in another session. In either case, use the following function to restore the state of the window.
+
+Function: window-state-put state &optional window ignore ¶
+This function puts the window state state into window. The argument state should be the state of a window returned by an earlier invocation of window-state-get, see above. The optional argument window can be either a live window or an internal window (see Windows and Frames). If window is not a live window, it is replaced by a new live window created on the same frame before putting state into it. If window is nil, it puts the window state into a new window.
+
+If the optional argument ignore is non-nil, it means to ignore minimum window sizes and fixed-size restrictions. If ignore is safe, this means windows can get as small as one line and/or two columns.
+
+The functions window-state-get and window-state-put also allow to exchange the contents of two live windows. The following function does precisely that:
+
+Command: window-swap-states &optional window-1 window-2 size ¶
+This command swaps the states of the two live windows window-1 and window-2. window-1 must specify a live window and defaults to the selected one. window-2 must specify a live window and defaults to the window following window-1 in the cyclic ordering of windows, excluding minibuffer windows and including live windows on all visible frames.
+
+Optional argument size non-nil means to try swapping the sizes of window-1 and window-2 as well. A value of height means to swap heights only, a value of width means to swap widths only, while t means to swap both widths and heights, if possible. Frames are not resized by this function.
+
+
+** Window Parameters
+
+This section describes the window parameters that can be used to associate additional information with windows.
+
+Function: window-parameter window parameter ¶
+This function returns window’s value for parameter. The default for window is the selected window. If window has no setting for parameter, this function returns nil.
+
+Function: window-parameters &optional window ¶
+This function returns all parameters of window and their values. The default for window is the selected window. The return value is either nil, or an association list whose elements have the form (parameter . value).
+
+Function: set-window-parameter window parameter value ¶
+This function sets window’s value of parameter to value and returns value. The default for window is the selected window.
+
+By default, the functions that save and restore window configurations or the states of windows (see Window Configurations) do not care about window parameters. This means that when you change the value of a parameter within the body of a save-window-excursion, the previous value is not restored when that macro exits. It also means that when you restore via window-state-put a window state saved earlier by window-state-get, all cloned windows have their parameters reset to nil. The following variable allows you to override the standard behavior:
+
+Variable: window-persistent-parameters ¶
+This variable is an alist specifying which parameters get saved by current-window-configuration and window-state-get, and subsequently restored by set-window-configuration and window-state-put. See Window Configurations.
+
+The CAR of each entry of this alist is a symbol specifying the parameter. The CDR should be one of the following:
+
+nil
+This value means the parameter is saved neither by window-state-get nor by current-window-configuration.
+
+t
+This value specifies that the parameter is saved by current-window-configuration and (provided its writable argument is nil) by window-state-get.
+
+writable
+This means that the parameter is saved unconditionally by both current-window-configuration and window-state-get. This value should not be used for parameters whose values do not have a read syntax. Otherwise, invoking window-state-put in another session may fail with an invalid-read-syntax error.
+
+Some functions (notably delete-window, delete-other-windows and split-window), may behave specially when the window specified by their window argument has a parameter whose name is equal to the function’s name. You can override such special behavior by binding the following variable to a non-nil value:
+
+Variable: ignore-window-parameters ¶
+If this variable is non-nil, some standard functions do not process window parameters. The functions currently affected by this are split-window, delete-window, delete-other-windows, and other-window.
+
+An application can bind this variable to a non-nil value around calls to these functions. If it does so, the application is fully responsible for correctly assigning the parameters of all involved windows when exiting that function.
+
+The following parameters are currently used by the window management code:
+
+delete-window ¶
+This parameter affects the execution of delete-window (see Deleting Windows).
+
+delete-other-windows ¶
+This parameter affects the execution of delete-other-windows (see Deleting Windows).
+
+no-delete-other-windows ¶
+This parameter marks the window as not deletable by delete-other-windows (see Deleting Windows).
+
+split-window ¶
+This parameter affects the execution of split-window (see Splitting Windows).
+
+other-window ¶
+This parameter affects the execution of other-window (see Cyclic Ordering of Windows).
+
+no-other-window ¶
+This parameter marks the window as not selectable by other-window (see Cyclic Ordering of Windows).
+
+clone-of ¶
+This parameter specifies the window that this one has been cloned from. It is installed by window-state-get (see Window Configurations).
+
+window-preserved-size ¶
+This parameter specifies a buffer, a direction where nil means vertical and t horizontal, and a size in pixels. If this window displays the specified buffer and its size in the indicated direction equals the size specified by this parameter, then Emacs will try to preserve the size of this window in the indicated direction. This parameter is installed and updated by the function window-preserve-size (see Preserving Window Sizes).
+
+quit-restore ¶
+This parameter is installed by the buffer display functions (see Choosing a Window for Displaying a Buffer) and consulted by quit-restore-window (see Quitting Windows). It is a list of four elements, see the description of quit-restore-window in Quitting Windows for details.
+
+window-side ¶
+window-slot
+These parameters are used internally for implementing side windows (see Side Windows).
+
+window-atom ¶
+This parameter is used internally for implementing atomic windows, see Atomic Windows.
+
+mode-line-format ¶
+This parameter replaces the value of the buffer-local variable mode-line-format (see Mode Line Basics) of this window’s buffer whenever this window is displayed. The symbol none means to suppress display of a mode line for this window. Display and contents of the mode line on other windows showing this buffer are not affected.
+
+header-line-format ¶
+This parameter replaces the value of the buffer-local variable header-line-format (see Mode Line Basics) of this window’s buffer whenever this window is displayed. The symbol none means to suppress display of a header line for this window. Display and contents of the header line on other windows showing this buffer are not affected.
+
+tab-line-format ¶
+This parameter replaces the value of the buffer-local variable tab-line-format (see Mode Line Basics) of this window’s buffer whenever this window is displayed. The symbol none means to suppress display of a tab line for this window. Display and contents of the tab line on other windows showing this buffer are not affected.
+
+min-margins ¶
+The value of this parameter is a cons cell whose CAR and CDR, if non-nil, specify the minimum values (in columns) for the left and right margin of this window (see Displaying in the Margins. When present, Emacs will use these values instead of the actual margin widths for determining whether a window can be split or shrunk horizontally.
+
+Emacs never auto-adjusts the margins of any window after splitting or resizing it. It is the sole responsibility of any application setting this parameter to adjust the margins of this window as well as those of any new window that inherits this window’s margins due to a split. Both window-configuration-change-hook and window-size-change-functions (see Hooks for Window Scrolling and Changes) should be employed for this purpose.
+
+This parameter was introduced in Emacs version 25.1 to support applications that use large margins to center buffer text within a window and should be used, with due care, exclusively by those applications. It might be replaced by an improved solution in future versions of Emacs.
+
+
+** Hooks for Window Scrolling and Changes
+
+This section describes how Lisp programs can take action after a window has been scrolled or other window modifications occurred. We first consider the case where a window shows a different part of its buffer.
+
+Variable: window-scroll-functions ¶
+This variable holds a list of functions that Emacs should call before redisplaying a window with scrolling. Displaying a different buffer in a window and making a new window also call these functions.
+
+This variable is not a normal hook, because each function is called with two arguments: the window, and its new display-start position. At the time of the call, the display-start position of the argument window is already set to its new value, and the buffer to be displayed in the window is set as the current buffer.
+
+These functions must take care when using window-end (see The Window Start and End Positions); if you need an up-to-date value, you must use the update argument to ensure you get it.
+
+Warning: don’t use this feature to alter the way the window is scrolled. It’s not designed for that, and such use probably won’t work.
+
+In addition, you can use jit-lock-register to register a Font Lock fontification function, which will be called whenever parts of a buffer are (re)fontified because a window was scrolled or its size changed. See Other Font Lock Variables.
+
+The remainder of this section covers six hooks that are called during redisplay provided a significant, non-scrolling change of a window has been detected. For simplicity, these hooks and the functions they call will be collectively referred to as window change functions. As any hook, these hooks can be set either globally or buffer-locally via the local argument of add-hook (see Setting Hooks) when the hook is installed.
+
+The first of these hooks is run after a window buffer change is detected, which means that a window was created, deleted or assigned another buffer.
+
+Variable: window-buffer-change-functions ¶
+This variable specifies functions called during redisplay when window buffers have changed. The value should be a list of functions that take one argument.
+
+Functions specified buffer-locally are called for any window showing the corresponding buffer if that window has been created or assigned that buffer since the last time window change functions were run. In this case the window is passed as argument.
+
+Functions specified by the default value are called for a frame if at least one window on that frame has been added, deleted or assigned another buffer since the last time window change functions were run. In this case the frame is passed as argument.
+
+The second of these hooks is run when a window size change has been detected which means that a window was created, assigned another buffer, or changed its total size or that of its text area.
+
+Variable: window-size-change-functions ¶
+This variable specifies functions called during redisplay when a window size change occurred. The value should be a list of functions that take one argument.
+
+Functions specified buffer-locally are called for any window showing the corresponding buffer if that window has been added or assigned another buffer or changed its total or body size since the last time window change functions were run. In this case the window is passed as argument.
+
+Functions specified by the default value are called for a frame if at least one window on that frame has been added or assigned another buffer or changed its total or body size since the last time window change functions were run. In this case the frame is passed as argument.
+
+The third of these hooks is run when a window selection change has selected another window since the last redisplay.
+
+Variable: window-selection-change-functions ¶
+This variable specifies functions called during redisplay when the selected window or a frame’s selected window has changed. The value should be a list of functions that take one argument.
+
+Functions specified buffer-locally are called for any window showing the corresponding buffer if that window has been selected or deselected (among all windows or among all windows on its frame) since the last time window change functions were run. In this case the window is passed as argument.
+
+Functions specified by the default value are called for a frame if that frame has been selected or deselected or the frame’s selected window has changed since the last time window change functions were run. In this case the frame is passed as argument.
+
+The fourth of these hooks is run when a window state change has been detected, which means that at least one of the three preceding window changes has occurred.
+
+Variable: window-state-change-functions ¶
+This variable specifies functions called during redisplay when a window buffer or size change occurred or the selected window or a frame’s selected window has changed. The value should be a list of functions that take one argument.
+
+Functions specified buffer-locally are called for any window showing the corresponding buffer if that window has been added or assigned another buffer, changed its total or body size or has been selected or deselected (among all windows or among all windows on its frame) since the last time window change functions were run. In this case the window is passed as argument.
+
+Functions specified by the default value are called for a frame if at least one window on that frame has been added, deleted or assigned another buffer, changed its total or body size or that frame has been selected or deselected or the frame’s selected window has changed since the last time window change functions were run. In this case the frame is passed as argument.
+
+Functions specified by the default value are also run for a frame when that frame’s window state change flag (see below) has been set since last redisplay.
+
+The fifth of these hooks is run when a window configuration change has been detected which means that either the buffer or the size of a window changed. It differs from the four preceding hooks in the way it is run.
+
+Variable: window-configuration-change-hook ¶
+This variable specifies functions called during redisplay when either the buffer or the size of a window has changed. The value should be a list of functions that take no argument.
+
+Functions specified buffer-locally are called for any window showing the corresponding buffer if at least one window on that frame has been added, deleted or assigned another buffer or changed its total or body size since the last time window change functions were run. Each call is performed with the window showing the buffer temporarily selected and its buffer current.
+
+Functions specified by the default value are called for each frame if at least one window on that frame has been added, deleted or assigned another buffer or changed its total or body size since the last time window change functions were run. Each call is performed with the frame temporarily selected and the selected window’s buffer current.
+
+Finally, Emacs runs a normal hook that generalizes the behavior of window-state-change-functions.
+
+Variable: window-state-change-hook ¶
+The default value of this variable specifies functions called during redisplay when a window state change has been detected or the window state change flag has been set on at least one frame. The value should be a list of functions that take no argument.
+
+Applications should put a function on this hook only if they want to react to changes that happened on (or have been signaled for) two or more frames since last redisplay. In every other case, putting the function on window-state-change-functions should be preferred.
+
+Window change functions are called during redisplay for each frame as follows: First, any buffer-local window buffer change function, window size change function, selected window change and window state change functions are called in this order. Next, the default values for these functions are called in the same order. Then any buffer-local window configuration change functions are called followed by functions specified by the default value of those functions. Finally, functions on window-state-change-hook are run.
+
+Window change functions are run for a specific frame only if a corresponding change was registered for that frame earlier. Such changes include the creation or deletion of a window or the assignment of another buffer or size to a window. Note that even when such a change has been registered, this does not mean that any of the hooks described above is run. If, for example, a change was registered within the scope of a window excursion (see Window Configurations), this will trigger a call of window change functions only if that excursion still persists at the time change functions are run. If it is exited earlier, hooks will be run only if registered by a change outside the scope of that excursion.
+
+The window state change flag of a frame, if set, will cause the default values of window-state-change-functions (for that frame) and window-state-change-hook to be run during next redisplay regardless of whether a window state change actually occurred for that frame or not. After running any functions on these hooks, the flag is reset for each frame. Applications can set that flag and inspect its value using the following functions.
+
+Function: set-frame-window-state-change &optional frame arg ¶
+This function sets frame’s window state change flag if arg is non-nil and resets it otherwise. frame must be a live frame and defaults to the selected one.
+
+Function: frame-window-state-change &optional frame ¶
+This functions returns t if frame’s window state change flag is set and nil otherwise. frame must be a live frame and defaults to the selected one.
+
+While window change functions are run, the functions described next can be called to get more insight into what has changed for a specific window or frame since the last redisplay. All these functions take a live window as single, optional argument, defaulting to the selected window.
+
+Function: window-old-buffer &optional window ¶
+This function returns the buffer shown in window at the last time window change functions were run for window’s frame. If it returns nil, window has been created after that. If it returns t, window was not shown at that time but has been restored from a previously saved window configuration afterwards. Otherwise, the return value is the buffer shown by window at that time.
+
+Function: window-old-pixel-width &optional window ¶
+This function returns the total pixel width of window the last time window change functions found window live on its frame. It is zero if window was created after that.
+
+Function: window-old-pixel-height &optional window ¶
+This function returns the total pixel height of window the last time window change functions found window live on its frame. It is zero if window was created after that.
+
+Function: window-old-body-pixel-width &optional window ¶
+This function returns the pixel width of window’s text area the last time window change functions found window live on its frame. It is zero if window was created after that.
+
+Function: window-old-body-pixel-height &optional window ¶
+This function returns the pixel height of window’s text area the last time window change functions found window live on its frame. It is zero if window was created after that.
+
+In order to find out which window or frame was selected the last time window change functions were run, the following functions can be used:
+
+Function: frame-old-selected-window &optional frame ¶
+This function returns the selected window of frame at the last time window change functions were run. If omitted or nil frame defaults to the selected frame.
+
+Function: old-selected-window ¶
+This function returns the selected window at the last time window change functions were run.
+
+Function: old-selected-frame ¶
+This function returns the selected frame at the last time window change functions were run.
+
+Note that window change functions provide no information about which windows have been deleted since the last time they were run. If necessary, applications should remember any window showing a specific buffer in a local variable of that buffer and update it in a function run by the default values of any of the hooks that are run when a window buffer change was detected.
+
+The following caveats should be considered when adding a function to window change functions:
+
+Some operations will not trigger a call of window change functions. These include showing another buffer in a minibuffer window or any change of a tooltip window.
+Window change functions should not create or delete windows or change the buffer, size or selection status of any window because there is no guarantee that the information about such a change will be propagated to other window change functions. If at all, any such change should be executed only by the last function listed by the default value of window-state-change-hook.
+Macros like save-window-excursion, with-selected-window or with-current-buffer can be used when running window change functions.
+Running window change functions does not save and restore match data. Unless running window-configuration-change-hook it does not save or restore the selected window or frame or the current buffer either.
+Any redisplay triggering the run of window change functions may be aborted. If the abort occurs before window change functions have run to their completion, they will be run again with the previous values, that is, as if redisplay had not been performed. If aborted later, they will be run with the new values, that is, as if redisplay had been actually performed.

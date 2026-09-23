@@ -1,0 +1,830 @@
+#+manifold-source: ../manuals.org
+#+manifold-lines: 15425-18092
+#+manifold-stage: 02-body
+#+manifold-date: 2026-09-15
+
+#+title:      Window Management
+
+* Window Management :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       9ccb7ce4-e039-4694-a287-631cfba7956a
+:END:
+
+This chapter describes the functions and variables related to Emacs windows. See Frames, for how windows are assigned an area of screen available for Emacs to use. See Emacs Display, for information on how text is displayed in windows.
+
+** Basic Concepts of Emacs Windows
+
+A window is an area of the screen that can be used to display a buffer (see Buffers). Windows are grouped into frames (see Frames). Each frame contains at least one window; the user can subdivide a frame into multiple, non-overlapping windows to view several buffers at once. Lisp programs can use multiple windows for a variety of purposes. In Rmail, for example, you can view a summary of message titles in one window, and the contents of the selected message in another window.
+
+Emacs uses the term “window” with a different meaning than in graphical desktop environments and window systems, such as the X Window System. When Emacs is run on X, each graphical X window owned by the Emacs process corresponds to one Emacs frame. When Emacs is run on a text terminal, each Emacs frame fills the entire terminal screen. In either case, the frame may contain one or more Emacs windows. For disambiguation, we use the term window-system window when we mean the window-system window corresponding to an Emacs frame.
+
+Unlike X windows, Emacs windows are tiled; they never overlap within the area of their frame. When a window is created, resized, or deleted, the change in window space is taken from or given to other windows on the same frame, so that the total area of the frame is unchanged.
+
+In Emacs Lisp, windows are represented by a special Lisp object type (see Window Type).
+
+Function: windowp object ¶
+This function returns t if object is a window (whether or not it displays a buffer). Otherwise, it returns nil.
+
+A live window is one that is actually displaying a buffer in a frame.
+
+Function: window-live-p object ¶
+This function returns t if object is a live window and nil otherwise. A live window is one that displays a buffer.
+
+The windows in each frame are organized into a window tree. See Windows and Frames. The leaf nodes of each window tree are live windows—the ones actually displaying buffers. The internal nodes of the window tree are internal windows, which are not live.
+
+A valid window is one that is either live or internal. A valid window can be deleted, i.e., removed from its frame (see Deleting Windows); then it is no longer valid, but the Lisp object representing it might be still referenced from other Lisp objects. A deleted window may be made valid again by restoring a saved window configuration (see Window Configurations).
+
+You can distinguish valid windows from deleted windows with window-valid-p.
+
+Function: window-valid-p object ¶
+This function returns t if object is a live window, or an internal window in a window tree. Otherwise, it returns nil, including for the case where object is a deleted window.
+
+The following schematic shows the structure of a live window:
+
+        ____________________________________________
+       |________________ Tab Line _______________|RD| ^
+       |______________ Header Line ______________|  | |
+     ^ |LS|LM|LF|                       |RF|RM|RS|  | |
+     | |  |  |  |                       |  |  |  |  | |
+Window |  |  |  |                       |  |  |  |  | Window
+Body | |  |  |  |      Window Body      |  |  |  |  | Total
+Height |  |  |  |                       |  |  |  |  | Height
+     | |  |  |  |<- Window Body Width ->|  |  |  |  | |
+     v |__|__|__|_______________________|__|__|__|  | |
+       |_________ Horizontal Scroll Bar _________|  | |
+       |_______________ Mode Line _______________|__| |
+       |_____________ Bottom Divider _______________| v
+        <---------- Window Total Width ------------>
+
+At the center of that window is the body, where the buffer text is displayed. The body can be surrounded by a series of optional areas which we will call window decorations. On the left and right, from innermost to outermost, these are the left and right fringes, denoted by LF and RF (see Fringes); the left and right margins, denoted by LM and RM in the schematic (see Displaying in the Margins); the left or right vertical scroll bar, only one of which is present at any time, denoted by LS and RS (see Scroll Bars); and the right divider, denoted by RD (see Window Dividers). Together these are the window’s left and right decorations.
+
+At the top of the window are the tab line and the header line (see Window Header Lines). The text area of the window includes the header line and the tab line, if they are present in the window. At the bottom of the window are the horizontal scroll bar (see Scroll Bars); the mode line (see Mode Line Format); and the bottom divider (see Window Dividers). Together these form the window’s top and bottom decorations.
+
+There are two special areas omitted in the schematic:
+
+When any of the fringes is missing, the display engine may use one character cell in its place for showing a continuation or truncation glyph provided a text line doesn’t fit in a window.
+When both, the vertical scroll bar and the right divider are missing, the display engine usurps one pixel for drawing a vertical divider line between this window and the window on its right, provided such a window exists. On a text terminal, this divider always occupies an entire character cell.
+In either case, the resulting artifact is considered part of the window’s body although its screen space cannot be used for displaying buffer text.
+
+Note also, that line numbers (and their surrounding whitespace) as displayed by display-line-numbers-mode (see Display Custom in The GNU Emacs Manual) do not count as decorations either; they are part of the window’s body too.
+
+Internal windows neither show any text nor do they have decorations. Hence, the concept of “body” does not make sense for them. In fact, most functions operating on the body of a window will yield an error when applied to an internal window.
+
+By default, an Emacs frame exhibits one special live window that is used for displaying messages and accepting user input—the minibuffer window (see Minibuffer Windows). Since the minibuffer window is used for displaying text, it has a body but it does not have a tab or header line or any margins. Finally, a tooltip window which is used for displaying a tooltip in a tooltip frame (see Tooltips) has a body too but no decorations at all.
+
+
+** Windows and Frames
+
+Each window belongs to exactly one frame (see Frames). For all windows belonging to a specific frame, we sometimes also say that these windows are owned by that frame or simply that they are on that frame.
+
+Function: window-frame &optional window ¶
+This function returns the specified window’s frame—the frame that window belongs to. If window is omitted or nil, it defaults to the selected window (see Selecting Windows).
+
+Function: window-list &optional frame minibuffer window ¶
+This function returns a list of all live windows owned by the specified frame. If frame is omitted or nil, it defaults to the selected frame (see Input Focus).
+
+The optional argument minibuffer specifies whether to include the minibuffer window (see Minibuffer Windows) in that list. If minibuffer is t, the minibuffer window is included. If nil or omitted, the minibuffer window is included only if it is active. If minibuffer is neither nil nor t, the minibuffer window is never included.
+
+The optional argument window, if non-nil, must be a live window on the specified frame; then window will be the first element in the returned list. If window is omitted or nil, the window selected within frame (see Selecting Windows) is the first element.
+
+Windows on the same frame are organized into a window tree, whose leaf nodes are the live windows. The internal nodes of a window tree are not live; they exist for the purpose of organizing the relationships between live windows. The root node of a window tree is called the root window. It is either a live window or an internal window. If it is a live window, then the frame has just one window besides the minibuffer window, or the frame is a minibuffer-only frame, see Frame Layout.
+
+A minibuffer window (see Minibuffer Windows) that is not alone on its frame does not have a parent window, so it strictly speaking is not part of its frame’s window tree. Nonetheless, it is a sibling window of the frame’s root window, and thus can be reached from the root window via window-next-sibling, see below. Also, the function window-tree described at the end of this section lists the minibuffer window alongside the actual window tree.
+
+Function: frame-root-window &optional frame-or-window ¶
+This function returns the root window for frame-or-window. The argument frame-or-window should be either a window or a frame; if omitted or nil, it defaults to the selected frame. If frame-or-window is a window, the return value is the root window of that window’s frame.
+
+When a live window is split (see Splitting Windows), there are two live windows where previously there was one. One of these is represented by the same Lisp window object as the original window, and the other is represented by a newly-created Lisp window object. Both of these live windows become leaf nodes of the window tree, as child windows of a single internal window. If necessary, Emacs automatically creates this internal window, which is also called the parent window, and assigns it to the appropriate position in the window tree. The set of windows that share the same parent are called siblings.
+
+Function: window-parent &optional window ¶
+This function returns the parent window of window. If window is omitted or nil, it defaults to the selected window. The return value is nil if window has no parent (i.e., it is a minibuffer window or the root window of its frame).
+
+A parent window always has at least two child windows. If this number were to fall to one as a result of window deletion (see Deleting Windows), Emacs automatically deletes the parent window too, and its sole remaining child window takes its place in the window tree.
+
+A child window can be either a live window, or an internal window (which in turn would have its own child windows). Therefore, each internal window can be thought of as occupying a certain rectangular screen area—the union of the areas occupied by the live windows that are ultimately descended from it.
+
+For each internal window, the screen areas of the immediate children are arranged either vertically or horizontally (never both). If the child windows are arranged one above the other, they are said to form a vertical combination; if they are arranged side by side, they are said to form a horizontal combination. Consider the following example:
+
+     ______________________________________
+    | ______  ____________________________ |
+    ||      || __________________________ ||
+    ||      |||                          |||
+    ||      |||                          |||
+    ||      |||                          |||
+    ||      |||____________W4____________|||
+    ||      || __________________________ ||
+    ||      |||                          |||
+    ||      |||                          |||
+    ||      |||____________W5____________|||
+    ||__W2__||_____________W3_____________ |
+    |__________________W1__________________|
+
+The root window of this frame is an internal window, W1. Its child windows form a horizontal combination, consisting of the live window W2 and the internal window W3. The child windows of W3 form a vertical combination, consisting of the live windows W4 and W5. Hence, the live windows in this window tree are W2, W4, and W5.
+
+The following functions can be used to retrieve a child window of an internal window, and the siblings of a child window. Their window argument always defaults to the selected window (see Selecting Windows).
+
+Function: window-top-child &optional window ¶
+This function returns the topmost child window of window, if window is an internal window whose children form a vertical combination. For any other type of window, the return value is nil.
+
+Function: window-left-child &optional window ¶
+This function returns the leftmost child window of window, if window is an internal window whose children form a horizontal combination. For any other type of window, the return value is nil.
+
+Function: window-child window ¶
+This function returns the first child window of the internal window window—the topmost child window for a vertical combination, or the leftmost child window for a horizontal combination. If window is a live window, the return value is nil.
+
+Function: window-combined-p &optional window horizontal ¶
+This function returns a non-nil value if and only if window is part of a vertical combination.
+
+If the optional argument horizontal is non-nil, this means to return non-nil if and only if window is part of a horizontal combination.
+
+Function: window-next-sibling &optional window ¶
+This function returns the next sibling of the specified window. The return value is nil if window is the last child of its parent.
+
+Function: window-prev-sibling &optional window ¶
+This function returns the previous sibling of the specified window. The return value is nil if window is the first child of its parent.
+
+The functions window-next-sibling and window-prev-sibling should not be confused with the functions next-window and previous-window, which return the next and previous window in the cyclic ordering of windows (see Cyclic Ordering of Windows).
+
+The following functions can be useful to locate a window within its frame.
+
+Function: frame-first-window &optional frame-or-window ¶
+This function returns the live window at the upper left corner of the frame specified by frame-or-window. The argument frame-or-window must denote a window or a live frame and defaults to the selected frame. If frame-or-window specifies a window, this function returns the first window on that window’s frame. Under the assumption that the frame from our canonical example is selected (frame-first-window) returns W2.
+
+Function: window-at-side-p &optional window side ¶
+This function returns t if window is located at side of its containing frame. The argument window must be a valid window and defaults to the selected one. The argument side can be any of the symbols left, top, right or bottom. The default value nil is handled like bottom.
+
+Note that this function disregards the minibuffer window (see Minibuffer Windows). Hence, with side equal to bottom it may return t also when the minibuffer window appears right below window.
+
+Function: window-in-direction direction &optional window ignore sign wrap minibuf ¶
+This function returns the nearest live window in direction direction as seen from the position of window-point in window window. The argument direction must be one of above, below, left or right. The optional argument window must denote a live window and defaults to the selected one.
+
+This function does not return a window whose no-other-window parameter is non-nil (see Window Parameters). If the nearest window’s no-other-window parameter is non-nil, this function tries to find another window in the indicated direction whose no-other-window parameter is nil. If the optional argument ignore is non-nil, a window may be returned even if its no-other-window parameter is non-nil.
+
+If the optional argument sign is a negative number, it means to use the right or bottom edge of window as reference position instead of window-point. If sign is a positive number, it means to use the left or top edge of window as reference position.
+
+If the optional argument wrap is non-nil, this means to wrap direction around frame borders. For example, if window is at the top of the frame and direction is above, then this function usually returns the frame’s minibuffer window if it’s active and a window at the bottom of the frame otherwise.
+
+If the optional argument minibuf is t, this function may return the minibuffer window even when it’s not active. If the optional argument minibuf is nil, this means to return the minibuffer window if and only if it is currently active. If minibuf is neither nil nor t, this function never returns the minibuffer window. However, if wrap is non-nil, it always acts as if minibuf were nil.
+
+If it doesn’t find a suitable window, this function returns nil.
+
+Don’t use this function to check whether there is no window in direction. Calling window-at-side-p described above is a much more efficient way to do that.
+
+The following function retrieves the entire window tree of a frame:
+
+Function: window-tree &optional frame ¶
+This function returns a list representing the window tree for frame frame. If frame is omitted or nil, it defaults to the selected frame.
+
+The return value is a list of the form (root mini), where root represents the window tree of the frame’s root window, and mini is the frame’s minibuffer window.
+
+If the root window is live, root is that window itself. Otherwise, root is a list (dir edges w1 w2 ...) where dir is nil for a horizontal combination and t for a vertical combination, edges gives the size and position of the combination, and the remaining elements are the child windows. Each child window may again be a window object (for a live window) or a list with the same format as above (for an internal window). The edges element is a list (left top right bottom), similar to the value returned by window-edges (see Coordinates and Windows).
+
+
+** Selecting Windows
+
+In each frame, at any time, exactly one Emacs window is designated as selected within the frame. For the selected frame, that window is called the selected window—the one in which most editing takes place, and in which the cursor for selected windows appears (see Cursor Parameters). Keyboard input that inserts or deletes text is also normally directed to this window. The selected window’s buffer is usually also the current buffer, except when set-buffer has been used (see The Current Buffer). As for non-selected frames, the window selected within the frame becomes the selected window if the frame is ever selected.
+
+Function: selected-window ¶
+This function returns the selected window (which is always a live window).
+
+The following function explicitly selects a window and its frame.
+
+Function: select-window window &optional norecord ¶
+This function makes window the selected window and the window selected within its frame, and selects that frame. It also makes window’s buffer (see Buffers and Windows) current and sets that buffer’s value of point to the value of window-point (see Windows and Point) in window. window must be a live window. The return value is window.
+
+By default, this function also moves window’s buffer to the front of the buffer list (see The Buffer List) and makes window the most recently selected window. If the optional argument norecord is non-nil, these additional actions are omitted.
+
+In addition, this function by default also tells the display engine to update the display of window when its frame gets redisplayed the next time. If norecord is non-nil, such updates are usually not performed. If, however, norecord equals the special symbol mark-for-redisplay, the additional actions mentioned above are omitted but window’s display will be nevertheless updated.
+
+Note that sometimes selecting a window is not enough to show it, or make its frame the top-most frame on display: you may also need to raise the frame or make sure input focus is directed to that frame. See Input Focus.
+
+For historical reasons, Emacs does not run a separate hook whenever a window gets selected. Applications and internal routines often temporarily select a window to perform a few actions on it. They do that either to simplify coding—because many functions by default operate on the selected window when no window argument is specified—or because some functions did not (and still do not) take a window as argument and always operate(d) on the selected window instead. Running a hook every time a window gets selected for a short time and once more when the previously selected window gets restored is not useful.
+
+However, when its norecord argument is nil, select-window updates the buffer list and thus indirectly runs the normal hook buffer-list-update-hook (see The Buffer List). Consequently, that hook provides one way to run a function whenever a window gets selected more “permanently”.
+
+Since buffer-list-update-hook is also run by functions that are not related to window management, it will usually make sense to save the value of the selected window somewhere and compare it with the value of selected-window while running that hook. Also, to avoid false positives when using buffer-list-update-hook, it is good practice that every select-window call supposed to select a window only temporarily passes a non-nil norecord argument. If possible, the macro with-selected-window (see below) should be used in such cases.
+
+Emacs also runs the hook window-selection-change-functions whenever the redisplay routine detects that another window has been selected since last redisplay. See Hooks for Window Scrolling and Changes, for a detailed explanation. window-state-change-functions (described in the same section) is another abnormal hook run after a different window has been selected but is triggered by other window changes as well.
+
+The sequence of calls to select-window with a non-nil norecord argument determines an ordering of windows by their selection or use time, see below. The function get-lru-window, for example, can then be used to retrieve the least recently selected window (see Cyclic Ordering of Windows).
+
+Function: frame-selected-window &optional frame ¶
+This function returns the window on frame that is selected within that frame. frame should be a live frame; if omitted or nil, it defaults to the selected frame.
+
+Function: set-frame-selected-window frame window &optional norecord ¶
+This function makes window the window selected within the frame frame. frame should be a live frame; if nil, it defaults to the selected frame. window must denote a live window.
+
+If frame is the selected frame, this makes window the selected window.
+
+If the optional argument norecord is non-nil, this function does not alter the ordering of the most recently selected windows, nor the buffer list.
+
+The following macros are useful to temporarily select a window without affecting the ordering of recently selected windows or the buffer list.
+
+Macro: save-selected-window forms… ¶
+This macro records the selected frame, as well as the selected window of each frame, executes forms in sequence, then restores the earlier selected frame and windows. It also saves and restores the current buffer. It returns the value of the last form in forms.
+
+This macro does not save or restore anything about the sizes, arrangement or contents of windows; therefore, if forms change them, the change persists. If the previously selected window of some frame is no longer live at the time of exit from forms, that frame’s selected window is left alone. If the previously selected window is no longer live, then whatever window is selected at the end of forms remains selected. The current buffer is restored if and only if it is still live when exiting forms.
+
+This macro changes neither the ordering of recently selected windows nor the buffer list.
+
+Macro: with-selected-window window forms… ¶
+This macro selects window, executes forms in sequence, then restores the previously selected window and current buffer. The ordering of recently selected windows and the buffer list remain unchanged unless you deliberately change them within forms; for example, by calling select-window with argument norecord nil. Hence, this macro is the preferred way to temporarily work with window as the selected window without needlessly running buffer-list-update-hook.
+
+Note that this macro temporarily puts the window management code in an unstable state. In particular, the most recently used window (see below) will not necessarily match the selected one. Hence, functions like get-lru-window and get-mru-window may return unexpected results when called from the body of this macro.
+
+Macro: with-selected-frame frame forms… ¶
+This macro executes forms with frame as the selected frame. The value returned is the value of the last form in forms. This macro saves and restores the selected frame, and changes the order of neither the recently selected windows nor the buffers in the buffer list.
+
+Function: window-use-time &optional window ¶
+This function returns the use time of window window. window must be a live window and defaults to the selected one.
+
+The use time of a window is not really a time value, but an integer that does increase monotonically with each call of select-window with a nil norecord argument. The window with the lowest use time is usually called the least recently used window. The window with the highest use time is called the most recently used one (see Cyclic Ordering of Windows) and is usually the selected window unless with-selected-window has been used.
+
+Function: window-bump-use-time &optional window ¶
+This function marks window as being the second most recently used one (after the selected window). It does nothing if window is the selected window or the selected window does not have the highest use time among all windows which may happen within the scope of with-selected-window.
+
+Sometimes several windows collectively and cooperatively display a buffer, for example, under the management of Follow Mode (see (emacs)Follow Mode), where the windows together display a bigger portion of the buffer than one window could alone. It is often useful to consider such a window group as a single entity. Several functions such as window-group-start (see The Window Start and End Positions) allow you to do this by supplying, as an argument, one of the windows as a stand-in for the whole group.
+
+Function: selected-window-group ¶
+When the selected window is a member of a group of windows, this function returns a list of the windows in the group, ordered such that the first window in the list is displaying the earliest part of the buffer, and so on. Otherwise the function returns a list containing just the selected window.
+
+The selected window is considered part of a group when the buffer local variable selected-window-group-function is set to a function. In this case, selected-window-group calls it with no arguments and returns its result (which should be the list of windows in the group).
+
+
+** Window Sizes
+
+Emacs provides miscellaneous functions for finding the height and width of a window. The return value of many of these functions can be specified either in units of pixels or in units of lines and columns. On a graphical display, the latter actually correspond to the height and width of a default character specified by the frame’s default font as returned by frame-char-height and frame-char-width (see Frame Font). Thus, if a window is displaying text with a different font or size, the reported line height and column width for that window may differ from the actual number of text lines or columns displayed within it.
+
+The total height of a window is the number of lines comprising its body and its top and bottom decorations (see Basic Concepts of Emacs Windows).
+
+Function: window-total-height &optional window round ¶
+This function returns the total height, in lines, of the window window. If window is omitted or nil, it defaults to the selected window. If window is an internal window, the return value is the total height occupied by its descendant windows.
+
+If a window’s pixel height is not an integral multiple of its frame’s default character height, the number of lines occupied by the window is rounded internally. This is done in a way such that, if the window is a parent window, the sum of the total heights of all its child windows internally equals the total height of their parent. This means that although two windows have the same pixel height, their internal total heights may differ by one line. This means also, that if window is vertically combined and has a next sibling, the topmost row of that sibling can be calculated as the sum of this window’s topmost row and total height (see Coordinates and Windows)
+
+If the optional argument round is ceiling, this function returns the smallest integer larger than window’s pixel height divided by the character height of its frame; if it is floor, it returns the largest integer smaller than said value; with any other round it returns the internal value of windows’s total height.
+
+The total width of a window is the number of columns comprising its body and its left and right decorations (see Basic Concepts of Emacs Windows).
+
+Function: window-total-width &optional window round ¶
+This function returns the total width, in columns, of the window window. If window is omitted or nil, it defaults to the selected window. If window is internal, the return value is the total width occupied by its descendant windows.
+
+If a window’s pixel width is not an integral multiple of its frame’s character width, the number of columns occupied by the window is rounded internally. This is done in a way such that, if the window is a parent window, the sum of the total widths of all its children internally equals the total width of their parent. This means that although two windows have the same pixel width, their internal total widths may differ by one column. This means also, that if this window is horizontally combined and has a next sibling, the leftmost column of that sibling can be calculated as the sum of this window’s leftmost column and total width (see Coordinates and Windows). The optional argument round behaves as it does for window-total-height.
+
+Function: window-total-size &optional window horizontal round ¶
+This function returns either the total height in lines or the total width in columns of the window window. If horizontal is omitted or nil, this is equivalent to calling window-total-height for window; otherwise it is equivalent to calling window-total-width for window. The optional argument round behaves as it does for window-total-height.
+
+The following two functions can be used to return the total size of a window in units of pixels.
+
+Function: window-pixel-height &optional window ¶
+This function returns the total height of window window in pixels. window must be a valid window and defaults to the selected one.
+
+The return value includes the heights of window’s top and bottom decorations. If window is an internal window, its pixel height is the pixel height of the screen areas spanned by its children.
+
+Function: window-pixel-width &optional window ¶
+This function returns the width of window window in pixels. window must be a valid window and defaults to the selected one.
+
+The return value includes the widths of window’s left and right decorations. If window is an internal window, its pixel width is the width of the screen areas spanned by its children.
+
+The following functions can be used to determine whether a given window has any adjacent windows.
+
+Function: window-full-height-p &optional window ¶
+This function returns non-nil if window has no other window above or below it in its frame. More precisely, this means that the total height of window equals the total height of the root window on that frame. The minibuffer window does not count in this regard. If window is omitted or nil, it defaults to the selected window.
+
+Function: window-full-width-p &optional window ¶
+This function returns non-nil if window has no other window to the left or right in its frame, i.e., its total width equals that of the root window on that frame. If window is omitted or nil, it defaults to the selected window.
+
+The body height of a window is the height of its body, which does not include any of its top or bottom decorations (see Basic Concepts of Emacs Windows).
+
+Function: window-body-height &optional window pixelwise ¶
+This function returns the height, in lines, of the body of window window. If window is omitted or nil, it defaults to the selected window; otherwise it must be a live window.
+
+The optional argument pixelwise defines the units to use for the height. If nil, return the body height of window in characters, rounded down to the nearest integer, if necessary. This means that if a line at the bottom of the text area is only partially visible, that line is not counted. It also means that the height of a window’s body can never exceed its total height as returned by window-total-height.
+
+If pixelwise is remap and the default face is remapped (see Face Remapping), use the remapped face to determine the character height. For any other non-nil value, return the height in pixels.
+
+The body width of a window is the width of its body and of the text area, which does not include any of its left or right decorations (see Basic Concepts of Emacs Windows).
+
+Note that when one or both fringes are removed (by setting their width to zero), the display engine reserves two character cells, one on each side of the window, for displaying the continuation and truncation glyphs, which leaves 2 columns less for text display. (The function window-max-chars-per-line, described below, takes this peculiarity into account.)
+
+Function: window-body-width &optional window pixelwise ¶
+This function returns the width, in columns, of the body of window window. If window is omitted or nil, it defaults to the selected window; otherwise it must be a live window.
+
+The optional argument pixelwise defines the units to use for the width. If nil, return the body width of window in characters, rounded down to the nearest integer, if necessary. This means that if a column on the right of the text area is only partially visible, that column is not counted. It also means that the width of a window’s body can never exceed its total width as returned by window-total-width.
+
+If pixelwise is remap and the default face is remapped (see Face Remapping), use the remapped face to determine the character width. For any other non-nil value, return the width in pixels.
+
+Function: window-body-size &optional window horizontal pixelwise ¶
+This function returns the body height or body width of window. If horizontal is omitted or nil, it is equivalent to calling window-body-height for window; otherwise it is equivalent to calling window-body-width. In either case, the optional argument pixelwise is passed to the function called.
+
+The pixel heights of a window’s mode, tab and header line can be retrieved with the functions given below. Their return value is usually accurate unless the window has not been displayed before: In that case, the return value is based on an estimate of the font used for the window’s frame.
+
+Function: window-mode-line-height &optional window ¶
+This function returns the height in pixels of window’s mode line. window must be a live window and defaults to the selected one. If window has no mode line, the return value is zero.
+
+Function: window-tab-line-height &optional window ¶
+This function returns the height in pixels of window’s tab line. window must be a live window and defaults to the selected one. If window has no tab line, the return value is zero.
+
+Function: window-header-line-height &optional window ¶
+This function returns the height in pixels of window’s header line. window must be a live window and defaults to the selected one. If window has no header line, the return value is zero.
+
+Functions for retrieving the height and/or width of window dividers (see Window Dividers), fringes (see Fringes), scroll bars (see Scroll Bars), and display margins (see Displaying in the Margins) are described in the corresponding sections.
+
+If your Lisp program needs to make layout decisions, you will find the following function useful:
+
+Function: window-max-chars-per-line &optional window face ¶
+This function returns the number of characters displayed in the specified face face in the specified window window (which must be a live window). If face was remapped (see Face Remapping), the information is returned for the remapped face. If omitted or nil, face defaults to the default face, and window defaults to the selected window.
+
+Unlike window-body-width, this function accounts for the actual size of face’s font, instead of working in units of the canonical character width of window’s frame (see Frame Font). It also accounts for space used by the continuation glyph, if window lacks one or both of its fringes.
+
+Commands that change the size of windows (see Resizing Windows), or split them (see Splitting Windows), obey the variables window-min-height and window-min-width, which specify the smallest allowable window height and width. They also obey the variable window-size-fixed, with which a window can be fixed in size (see Preserving Window Sizes).
+
+User Option: window-min-height ¶
+This option specifies the minimum total height, in lines, of any window. Its value has to accommodate at least one text line and any top or bottom decorations.
+
+User Option: window-min-width ¶
+This option specifies the minimum total width, in columns, of any window. Its value has to accommodate at least two text columns and any left or right decorations.
+
+The following function tells how small a specific window can get taking into account the sizes of its areas and the values of window-min-height, window-min-width and window-size-fixed (see Preserving Window Sizes).
+
+Function: window-min-size &optional window horizontal ignore pixelwise ¶
+This function returns the minimum size of window. window must be a valid window and defaults to the selected one. The optional argument horizontal non-nil means to return the minimum number of columns of window; otherwise return the minimum number of window’s lines.
+
+The return value makes sure that all components of window remain fully visible if window’s size were actually set to it. With horizontal nil it includes any top or bottom decorations. With horizontal non-nil it includes any left or right decorations of window.
+
+The optional argument ignore, if non-nil, means ignore restrictions imposed by fixed size windows, window-min-height or window-min-width settings. If ignore equals safe, live windows may get as small as window-safe-min-height lines and window-safe-min-width columns. If ignore is a window, ignore restrictions for that window only. Any other non-nil value means ignore all of the above restrictions for all windows.
+
+The optional argument pixelwise non-nil means to return the minimum size of window counted in pixels.
+
+
+** Resizing Windows
+
+This section describes functions for resizing a window without changing the size of its frame. Because live windows do not overlap, these functions are meaningful only on frames that contain two or more windows: resizing a window also changes the size of at least one other window. If there is just one window on a frame, its size cannot be changed except by resizing the frame (see Frame Size).
+
+Except where noted, these functions also accept internal windows as arguments. Resizing an internal window causes its child windows to be resized to fit the same space.
+
+Function: window-resizable window delta &optional horizontal ignore pixelwise ¶
+This function returns delta if the size of window can be changed vertically by delta lines. If the optional argument horizontal is non-nil, it instead returns delta if window can be resized horizontally by delta columns. It does not actually change the window size.
+
+If window is nil, it defaults to the selected window.
+
+A positive value of delta means to check whether the window can be enlarged by that number of lines or columns; a negative value of delta means to check whether the window can be shrunk by that many lines or columns. If delta is non-zero, a return value of 0 means that the window cannot be resized.
+
+Normally, the variables window-min-height and window-min-width specify the smallest allowable window size (see Window Sizes). However, if the optional argument ignore is non-nil, this function ignores window-min-height and window-min-width, as well as window-size-fixed. Instead, it considers the minimum height of a window as the sum of its top and bottom decorations plus the text of one line; and its minimum width as the sum of its left and right decorations plus text that takes two columns.
+
+If the optional argument pixelwise is non-nil, delta is interpreted as pixels.
+
+Function: window-resize window delta &optional horizontal ignore pixelwise ¶
+This function resizes window by delta increments. If horizontal is nil, it changes the height by delta lines; otherwise, it changes the width by delta columns. A positive delta means to enlarge the window, and a negative delta means to shrink it.
+
+If window is nil, it defaults to the selected window. If the window cannot be resized as demanded, an error is signaled.
+
+The optional argument ignore has the same meaning as for the function window-resizable above.
+
+If the optional argument pixelwise is non-nil, delta will be interpreted as pixels.
+
+The choice of which window edges this function alters depends on the values of the option window-combination-resize and the combination limits of the involved windows; in some cases, it may alter both edges. See Recombining Windows. To resize by moving only the bottom or right edge of a window, use the function adjust-window-trailing-edge.
+
+Function: adjust-window-trailing-edge window delta &optional horizontal pixelwise ¶
+This function moves window’s bottom edge by delta lines. If optional argument horizontal is non-nil, it instead moves the right edge by delta columns. If window is nil, it defaults to the selected window.
+
+If the optional argument pixelwise is non-nil, delta is interpreted as pixels.
+
+A positive delta moves the edge downwards or to the right; a negative delta moves it upwards or to the left. If the edge cannot be moved as far as specified by delta, this function moves it as far as possible but does not signal an error.
+
+This function tries to resize windows adjacent to the edge that is moved. If this is not possible for some reason (e.g., if that adjacent window is fixed-size), it may resize other windows.
+
+User Option: window-resize-pixelwise ¶
+If the value of this option is non-nil, Emacs resizes windows in units of pixels. This currently affects functions like split-window (see Splitting Windows), maximize-window, minimize-window, fit-window-to-buffer, fit-frame-to-buffer and shrink-window-if-larger-than-buffer (all listed below).
+
+Note that when a frame’s pixel size is not a multiple of its character size, at least one window may get resized pixelwise even if this option is nil. The default value is nil.
+
+The following commands resize windows in more specific ways. When called interactively, they act on the selected window.
+
+Command: fit-window-to-buffer &optional window max-height min-height max-width min-width preserve-size ¶
+This command adjusts the height or width of window to fit the text in it. It returns non-nil if it was able to resize window, and nil otherwise. If window is omitted or nil, it defaults to the selected window. Otherwise, it should be a live window.
+
+If window is part of a vertical combination, this function adjusts window’s height. The new height is calculated from the actual height of the accessible portion of its buffer. The optional argument max-height, if non-nil, specifies the maximum total height that this function can give window. The optional argument min-height, if non-nil, specifies the minimum total height that it can give, which overrides the variable window-min-height. Both max-height and min-height are specified in lines and include any top or bottom decorations of window.
+
+If window is part of a horizontal combination and the value of the option fit-window-to-buffer-horizontally (see below) is non-nil, this function adjusts window’s width. The new width of window is calculated from the maximum length of its buffer’s lines that follow the current start position of window. The optional argument max-width specifies a maximum width and defaults to the width of window’s frame. The optional argument min-width specifies a minimum width and defaults to window-min-width. Both max-width and min-width are specified in columns and include any left or right decorations of window.
+
+The optional argument preserve-size, if non-nil, will install a parameter to preserve the size of window during future resize operations (see Preserving Window Sizes).
+
+If the option fit-frame-to-buffer (see below) is non-nil, this function will try to resize the frame of window to fit its contents by calling fit-frame-to-buffer (see below).
+
+User Option: fit-window-to-buffer-horizontally ¶
+If this is non-nil, fit-window-to-buffer can resize windows horizontally. If this is nil (the default) fit-window-to-buffer never resizes windows horizontally. If this is only, it can resize windows horizontally only. Any other value means fit-window-to-buffer can resize windows in both dimensions.
+
+User Option: fit-frame-to-buffer ¶
+If this option is non-nil, fit-window-to-buffer can fit a frame to its buffer. A frame is fit if and only if its root window is a live window and this option is non-nil. If this is horizontally, frames are fit horizontally only. If this is vertically, frames are fit vertically only. Any other non-nil value means frames can be resized in both dimensions.
+
+If you have a frame that displays only one window, you can fit that frame to its buffer using the command fit-frame-to-buffer.
+
+Command: fit-frame-to-buffer &optional frame max-height min-height max-width min-width only ¶
+This command adjusts the size of frame to display the contents of its buffer exactly. frame can be any live frame and defaults to the selected one. Fitting is done only if frame’s root window is live.
+
+The arguments max-height, min-height, max-width and min-width, if non-nil, specify bounds on the new body size of frame’s root window. A non-nil value specified by any of these arguments overrides the corresponding value specified by the option fit-frame-to-buffer-sizes described below.
+
+If the optional argument only is vertically, this function may resize the frame vertically only. If only is horizontally, it may resize the frame horizontally only.
+
+The behavior of fit-frame-to-buffer can be controlled with the help of the two options listed next.
+
+User Option: fit-frame-to-buffer-margins ¶
+This option can be used to specify margins around frames to be fit by fit-frame-to-buffer. Such margins can be useful to avoid, for example, that the resized frame overlaps the taskbar or parts of its parent frame.
+
+It specifies the numbers of pixels to be left free on the left, above, the right, and below a frame that shall be fit. The default specifies nil for each which means to use no margins. The value specified here can be overridden for a specific frame by that frame’s fit-frame-to-buffer-margins parameter, if present.
+
+User Option: fit-frame-to-buffer-sizes ¶
+This option specifies size boundaries for fit-frame-to-buffer. It specifies the maximum and minimum lines and maximum and minimum columns of the root window’s body of any frame that shall be fit to its buffer. Any value this option specifies will be overridden by the corresponding argument of fit-frame-to-buffer, if non-nil.
+
+Command: shrink-window-if-larger-than-buffer &optional window ¶
+This command attempts to reduce window’s height as much as possible while still showing its full buffer, but no less than window-min-height lines. The return value is non-nil if the window was resized, and nil otherwise. If window is omitted or nil, it defaults to the selected window. Otherwise, it should be a live window.
+
+This command does nothing if the window is already too short to display all of its buffer, or if any of the buffer is scrolled off-screen, or if the window is the only live window in its frame.
+
+This command calls fit-window-to-buffer (see above) to do its work.
+
+Command: balance-windows &optional window-or-frame ¶
+This function balances windows in a way that gives more space to full-width and/or full-height windows. If window-or-frame specifies a frame, it balances all windows on that frame. If window-or-frame specifies a window, it balances only that window and its siblings (see Windows and Frames).
+
+Command: balance-windows-area ¶
+This function attempts to give all windows on the selected frame approximately the same share of the screen area. Full-width or full-height windows are not given more space than other windows.
+
+Command: maximize-window &optional window ¶
+This function attempts to make window as large as possible, in both dimensions, without resizing its frame or deleting other windows. If window is omitted or nil, it defaults to the selected window.
+
+Command: minimize-window &optional window ¶
+This function attempts to make window as small as possible, in both dimensions, without deleting it or resizing its frame. If window is omitted or nil, it defaults to the selected window.
+
+
+** Preserving Window Sizes
+
+A window can get resized explicitly by using one of the functions from the preceding section or implicitly, for example, when resizing an adjacent window, when splitting or deleting a window (see Splitting Windows, see Deleting Windows) or when resizing the window’s frame (see Frame Size).
+
+It is possible to avoid implicit resizing of a specific window when there are one or more other resizable windows on the same frame. For this purpose, Emacs must be advised to preserve the size of that window. There are two basic ways to do that.
+
+Variable: window-size-fixed ¶
+If this buffer-local variable is non-nil, the size of any window displaying the buffer cannot normally be changed. Deleting a window or changing the frame’s size may still change the window’s size, if there is no choice.
+
+If the value is height, then only the window’s height is fixed; if the value is width, then only the window’s width is fixed. Any other non-nil value fixes both the width and the height.
+
+If this variable is nil, this does not necessarily mean that any window showing the buffer can be resized in the desired direction. To determine that, use the function window-resizable. See Resizing Windows.
+
+Often window-size-fixed is overly aggressive because it inhibits any attempt to explicitly resize or split an affected window as well. This may even happen after the window has been resized implicitly, for example, when deleting an adjacent window or resizing the window’s frame. The following function tries hard to never disallow resizing such a window explicitly:
+
+Function: window-preserve-size &optional window horizontal preserve ¶
+This function (un-)marks the height of window window as preserved for future resize operations. window must be a live window and defaults to the selected one. If the optional argument horizontal is non-nil, it (un-)marks the width of window as preserved.
+
+If the optional argument preserve is t, this means to preserve the current height/width of window’s body. The height/width of window will change only if Emacs has no better choice. Resizing a window whose height/width is preserved by this function never throws an error.
+
+If preserve is nil, this means to stop preserving the height/width of window, lifting any respective restraint induced by a previous call of this function for window. Calling enlarge-window, shrink-window or fit-window-to-buffer with window as argument may also remove the respective restraint.
+
+window-preserve-size is currently invoked by the following functions:
+
+fit-window-to-buffer
+If the optional argument preserve-size of that function (see Resizing Windows) is non-nil, the size established by that function is preserved.
+
+display-buffer
+If the alist argument of that function (see Choosing a Window for Displaying a Buffer) contains a preserve-size entry, the size of the window produced by that function is preserved.
+
+window-preserve-size installs a window parameter (see Window Parameters) called window-preserved-size which is consulted by the window resizing functions. This parameter will not prevent resizing the window when the window shows another buffer than the one when window-preserve-size was invoked or if its size has changed since then.
+
+The following function can be used to check whether the height of a particular window is preserved:
+
+Function: window-preserved-size &optional window horizontal ¶
+This function returns the preserved height of window window in pixels. window must be a live window and defaults to the selected one. If the optional argument horizontal is non-nil, it returns the preserved width of window. It returns nil if the size of window is not preserved.
+
+
+** Splitting Windows
+
+This section describes functions for creating a new window by splitting an existing one. Note that some windows are special in the sense that these functions may fail to split them as described here. Examples of such windows are side windows (see Side Windows) and atomic windows (see Atomic Windows).
+
+Function: split-window &optional window size side pixelwise ¶
+This function creates a new live window next to the window window. If window is omitted or nil, it defaults to the selected window. That window is split, and reduced in size. The space is taken up by the new window, which is returned.
+
+The optional second argument size determines the sizes of window and/or the new window. If it is omitted or nil, both windows are given equal sizes; if there is an odd line, it is allocated to the new window. If size is a positive number, window is given size lines (or columns, depending on the value of side). If size is a negative number, the new window is given −size lines (or columns).
+
+If size is nil, this function obeys the variables window-min-height and window-min-width (see Window Sizes). Thus, it signals an error if splitting would result in making a window smaller than those variables specify. However, a non-nil value for size causes those variables to be ignored; in that case, the smallest allowable window is considered to be one that has space for a text that is one line tall and/or two columns wide.
+
+Hence, if size is specified, it’s the caller’s responsibility to check whether the emanating windows are large enough to encompass all of their decorations like a mode line or a scroll bar. The function window-min-size (see Window Sizes) can be used to determine the minimum requirements of window in this regard. Since the new window usually inherits areas like the mode line or the scroll bar from window, that function is also a good guess for the minimum size of the new window. The caller should specify a smaller size only if it correspondingly removes an inherited area before the next redisplay.
+
+The optional third argument side determines the position of the new window relative to window. If it is nil or below, the new window is placed below window. If it is above, the new window is placed above window. In both these cases, size specifies a total window height, in lines.
+
+If side is t or right, the new window is placed on the right of window. If side is left, the new window is placed on the left of window. In both these cases, size specifies a total window width, in columns.
+
+The optional fourth argument pixelwise, if non-nil, means to interpret size in units of pixels, instead of lines and columns.
+
+If window is a live window, the new window inherits various properties from it, including margins and scroll bars. If window is an internal window, the new window inherits the properties of the window selected within window’s frame.
+
+The behavior of this function may be altered by the window parameters of window, so long as the variable ignore-window-parameters is nil. If the value of the split-window window parameter is t, this function ignores all other window parameters. Otherwise, if the value of the split-window window parameter is a function, that function is called with the arguments window, size, and side, in lieu of the usual action of split-window. Otherwise, this function obeys the window-atom or window-side window parameter, if any. See Window Parameters.
+
+As an example, here is a sequence of split-window calls that yields the window configuration discussed in Windows and Frames. This example demonstrates splitting a live window as well as splitting an internal window. We begin with a frame containing a single window (a live root window), which we denote by W4. Calling (split-window W4) yields this window configuration:
+
+     ______________________________________
+    | ____________________________________ |
+    ||                                    ||
+    ||                                    ||
+    ||                                    ||
+    ||_________________W4_________________||
+    | ____________________________________ |
+    ||                                    ||
+    ||                                    ||
+    ||                                    ||
+    ||_________________W5_________________||
+    |__________________W3__________________|
+
+The split-window call has created a new live window, denoted by W5. It has also created a new internal window, denoted by W3, which becomes the root window and the parent of both W4 and W5.
+
+Next, we call (split-window W3 nil 'left), passing the internal window W3 as the argument. The result:
+
+     ______________________________________
+    | ______  ____________________________ |
+    ||      || __________________________ ||
+    ||      |||                          |||
+    ||      |||                          |||
+    ||      |||                          |||
+    ||      |||____________W4____________|||
+    ||      || __________________________ ||
+    ||      |||                          |||
+    ||      |||                          |||
+    ||      |||____________W5____________|||
+    ||__W2__||_____________W3_____________ |
+    |__________________W1__________________|
+A new live window W2 is created, to the left of the internal window W3. A new internal window W1 is created, becoming the new root window.
+
+For interactive use, Emacs provides two commands which always split the selected window. These call split-window internally.
+
+Command: split-window-right &optional size window-to-split ¶
+This function splits the window window-to-split into two side-by-side windows, putting window-to-split on the left. window-to-split defaults to the selected window. If size is positive, the left window gets size columns; if size is negative, the right window gets −size columns.
+
+Command: split-window-below &optional size window-to-split ¶
+This function splits the window window-to-split into two windows, one above the other, leaving the upper window selected. window-to-split defaults to the selected window. If size is positive, the upper window gets size lines; if size is negative, the lower window gets −size lines.
+
+Command: split-root-window-below &optional size ¶
+This function splits the whole frame in two. The current window configuration is retained on the top, and a new window is created below, taking up the whole width of the frame. size is treated as by split-window-below.
+
+Command: split-root-window-right &optional size ¶
+This function splits the whole frame in two. The current window configuration is retained on the left, and a new window is created on the right, taking up the whole height of the frame. size is treated as by split-window-right.
+
+User Option: split-window-keep-point ¶
+If the value of this variable is non-nil (the default), split-window-below behaves as described above.
+
+If it is nil, split-window-below adjusts point in each of the two windows to minimize redisplay. (This is useful on slow terminals.) It selects whichever window contains the screen line that point was previously on. Note that this only affects split-window-below, not the lower-level split-window function.
+
+
+** Deleting Windows
+
+Deleting a window removes it from the frame’s window tree. If the window is a live window, it disappears from the screen. If the window is an internal window, its child windows are deleted too.
+
+Even after a window is deleted, it continues to exist as a Lisp object, until there are no more references to it. Window deletion can be reversed, by restoring a saved window configuration (see Window Configurations).
+
+Command: delete-window &optional window ¶
+This function removes window from display and returns nil. If window is omitted or nil, it defaults to the selected window.
+
+If deleting the window would leave no more windows in the window tree (e.g., if it is the only live window in the frame) or all remaining windows on window’s frame are side windows (see Side Windows), an error is signaled. If window is part of an atomic window (see Atomic Windows), this function tries to delete the root of that atomic window instead.
+
+By default, the space taken up by window is given to one of its adjacent sibling windows, if any. However, if the variable window-combination-resize is non-nil, the space is proportionally distributed among any remaining windows in the same window combination. See Recombining Windows.
+
+The behavior of this function may be altered by the window parameters of window, so long as the variable ignore-window-parameters is nil. If the value of the delete-window window parameter is t, this function ignores all other window parameters. Otherwise, if the value of the delete-window window parameter is a function, that function is called with the argument window, in lieu of the usual action of delete-window. See Window Parameters.
+
+When delete-window deletes the selected window of its frame, it has to make another window the new selected window of that frame. The following option allows configuring which window is chosen.
+
+User Option: delete-window-choose-selected ¶
+This option allows specifying which window should become a frame’s selected window after delete-window has deleted the previously selected one. Possible choices are
+
+mru (the default) choose the most recently used window on that frame.
+pos choose the window comprising the frame coordinates of point of the previously selected window on that frame.
+nil choose the first window (the window returned by frame-first-window) on that frame.
+A window with a non-nil no-other-window parameter is chosen only if all other windows on that frame have that parameter set to a non-nil value too.
+
+Command: delete-other-windows &optional window ¶
+This function makes window fill its frame, deleting other windows as necessary. If window is omitted or nil, it defaults to the selected window. An error is signaled if window is a side window (see Side Windows). If window is part of an atomic window (see Atomic Windows), this function tries to make the root of that atomic window fill its frame. The return value is nil.
+
+The behavior of this function may be altered by the window parameters of window, so long as the variable ignore-window-parameters is nil. If the value of the delete-other-windows window parameter is t, this function ignores all other window parameters. Otherwise, if the value of the delete-other-windows window parameter is a function, that function is called with the argument window, in lieu of the usual action of delete-other-windows. See Window Parameters.
+
+Also, if ignore-window-parameters is nil, this function does not delete any window whose no-delete-other-windows parameter is non-nil.
+
+Command: delete-windows-on &optional buffer-or-name frame ¶
+This function deletes all windows showing buffer-or-name, by calling delete-window on those windows. buffer-or-name should be a buffer, or the name of a buffer; if omitted or nil, it defaults to the current buffer. If there are no windows showing the specified buffer, this function does nothing. If the specified buffer is a minibuffer, an error is signaled.
+
+If there is a dedicated window showing the buffer, and that window is the only one on its frame, this function also deletes that frame if it is not the only frame on the terminal.
+
+The optional argument frame specifies which frames to operate on:
+
+nil means operate on all frames.
+t means operate on the selected frame.
+visible means operate on all visible frames.
+0 means operate on all visible or iconified frames.
+A frame means operate on that frame.
+Note that this argument does not have the same meaning as in other functions which scan all live windows (see Cyclic Ordering of Windows). Specifically, the meanings of t and nil here are the opposite of what they are in those other functions.
+
+
+** Recombining Windows
+
+When deleting the last sibling of a window W, its parent window is deleted too, with W replacing it in the window tree. This means that W must be recombined with its parent’s siblings to form a new window combination (see Windows and Frames). In some occasions, deleting a live window may even entail the deletion of two internal windows.
+
+     ______________________________________
+    | ______  ____________________________ |
+    ||      || __________________________ ||
+    ||      ||| ___________  ___________ |||
+    ||      ||||           ||           ||||
+    ||      ||||____W6_____||_____W7____||||
+    ||      |||____________W4____________|||
+    ||      || __________________________ ||
+    ||      |||                          |||
+    ||      |||                          |||
+    ||      |||____________W5____________|||
+    ||__W2__||_____________W3_____________ |
+    |__________________W1__________________|
+
+Deleting W5 in this configuration normally causes the deletion of W3 and W4. The remaining live windows W2, W6 and W7 are recombined to form a new horizontal combination with parent W1.
+
+Sometimes, however, it makes sense to not delete a parent window like W4. In particular, a parent window should not be removed when it was used to preserve a combination embedded in a combination of the same type. Such embeddings make sense to assure that when you split a window and subsequently delete the new window, Emacs reestablishes the layout of the associated frame as it existed before the splitting.
+
+Consider a scenario starting with two live windows W2 and W3 and their parent W1.
+
+     ______________________________________
+    | ____________________________________ |
+    ||                                    ||
+    ||                                    ||
+    ||                                    ||
+    ||                                    ||
+    ||                                    ||
+    ||                                    ||
+    ||_________________W2_________________||
+    | ____________________________________ |
+    ||                                    ||
+    ||                                    ||
+    ||_________________W3_________________||
+    |__________________W1__________________|
+
+Split W2 to make a new window W4 as follows.
+
+     ______________________________________
+    | ____________________________________ |
+    ||                                    ||
+    ||                                    ||
+    ||_________________W2_________________||
+    | ____________________________________ |
+    ||                                    ||
+    ||                                    ||
+    ||_________________W4_________________||
+    | ____________________________________ |
+    ||                                    ||
+    ||                                    ||
+    ||_________________W3_________________||
+    |__________________W1__________________|
+
+Now, when enlarging a window vertically, Emacs tries to obtain the corresponding space from its lower sibling, provided such a window exists. In our scenario, enlarging W4 will steal space from W3.
+
+     ______________________________________
+    | ____________________________________ |
+    ||                                    ||
+    ||                                    ||
+    ||_________________W2_________________||
+    | ____________________________________ |
+    ||                                    ||
+    ||                                    ||
+    ||                                    ||
+    ||                                    ||
+    ||_________________W4_________________||
+    | ____________________________________ |
+    ||_________________W3_________________||
+    |__________________W1__________________|
+
+Deleting W4 will now give its entire space to W2, including the space earlier stolen from W3.
+
+     ______________________________________
+    | ____________________________________ |
+    ||                                    ||
+    ||                                    ||
+    ||                                    ||
+    ||                                    ||
+    ||                                    ||
+    ||                                    ||
+    ||                                    ||
+    ||                                    ||
+    ||_________________W2_________________||
+    | ____________________________________ |
+    ||_________________W3_________________||
+    |__________________W1__________________|
+
+This can be counterintuitive, in particular if W4 were used for displaying a buffer only temporarily (see Temporary Displays), and you want to continue working with the initial layout.
+
+The behavior can be fixed by making a new parent window when splitting W2. The variable described next allows that to be done.
+
+User Option: window-combination-limit ¶
+This variable controls whether splitting a window shall make a new parent window. The following values are recognized:
+
+nil
+This means that the new live window is allowed to share the existing parent window, if one exists, provided the split occurs in the same direction as the existing window combination (otherwise, a new internal window is created anyway).
+
+window-size
+This means that display-buffer makes a new parent window when it splits a window and is passed a window-height or window-width entry in the alist argument (see Action Functions for Buffer Display). Otherwise, window splitting behaves as for a value of nil.
+
+temp-buffer-resize
+In this case with-temp-buffer-window makes a new parent window when it splits a window and temp-buffer-resize-mode is enabled (see Temporary Displays). Otherwise, window splitting behaves as for nil.
+
+temp-buffer
+In this case with-temp-buffer-window always makes a new parent window when it splits an existing window (see Temporary Displays). Otherwise, window splitting behaves as for nil.
+
+display-buffer
+This means that when display-buffer (see Choosing a Window for Displaying a Buffer) splits a window it always makes a new parent window. Otherwise, window splitting behaves as for nil.
+
+t
+This means that splitting a window always creates a new parent window. Thus, if the value of this variable is at all times t, then at all times every window tree is a binary tree (a tree where each window except the root window has exactly one sibling).
+
+The default is window-size. Other values are reserved for future use.
+
+If, as a consequence of this variable’s setting, split-window makes a new parent window, it also calls set-window-combination-limit (see below) on the newly-created internal window. This affects how the window tree is rearranged when the child windows are deleted (see below).
+
+If window-combination-limit is t, splitting W2 in the initial configuration of our scenario would have produced this:
+
+     ______________________________________
+    | ____________________________________ |
+    || __________________________________ ||
+    |||                                  |||
+    |||________________W2________________|||
+    || __________________________________ ||
+    |||                                  |||
+    |||________________W4________________|||
+    ||_________________W5_________________||
+    | ____________________________________ |
+    ||                                    ||
+    ||                                    ||
+    ||_________________W3_________________||
+    |__________________W1__________________|
+
+A new internal window W5 has been created; its children are W2 and the new live window W4. Now, W2 is the only sibling of W4, so enlarging W4 will try to shrink W2, leaving W3 unaffected. Observe that W5 represents a vertical combination of two windows embedded in the vertical combination W1.
+
+Function: set-window-combination-limit window limit ¶
+This function sets the combination limit of the window window to limit. This value can be retrieved via the function window-combination-limit. See below for its effects; note that it is only meaningful for internal windows. The split-window function automatically calls this function, passing it t as limit, provided the value of the variable window-combination-limit is t when it is called.
+
+Function: window-combination-limit window ¶
+This function returns the combination limit for window.
+
+The combination limit is meaningful only for an internal window. If it is nil, then Emacs is allowed to automatically delete window, in response to a window deletion, in order to group the child windows of window with its sibling windows to form a new window combination. If the combination limit is t, the child windows of window are never automatically recombined with its siblings.
+
+If, in the configuration shown at the beginning of this section, the combination limit of W4 (the parent window of W6 and W7) is t, deleting W5 will not implicitly delete W4 too.
+
+Alternatively, the problems sketched above can be avoided by always resizing all windows in the same combination whenever one of its windows is split or deleted. This also permits splitting windows that would be otherwise too small for such an operation.
+
+User Option: window-combination-resize ¶
+If this variable is nil, split-window can only split a window (denoted by window) if window’s screen area is large enough to accommodate both itself and the new window.
+
+If this variable is t, split-window tries to resize all windows that are part of the same combination as window, in order to accommodate the new window. In particular, this may allow split-window to succeed even if window is a fixed-size window or too small to ordinarily split. Furthermore, subsequently resizing or deleting window may resize all other windows in its combination.
+
+The default is nil. Other values are reserved for future use. A specific split operation may ignore the value of this variable if it is affected by a non-nil value of window-combination-limit.
+
+To illustrate the effect of window-combination-resize, consider the following frame layout.
+
+     ______________________________________
+    | ____________________________________ |
+    ||                                    ||
+    ||                                    ||
+    ||                                    ||
+    ||                                    ||
+    ||_________________W2_________________||
+    | ____________________________________ |
+    ||                                    ||
+    ||                                    ||
+    ||                                    ||
+    ||                                    ||
+    ||_________________W3_________________||
+    |__________________W1__________________|
+
+If window-combination-resize is nil, splitting window W3 leaves the size of W2 unchanged:
+
+     ______________________________________
+    | ____________________________________ |
+    ||                                    ||
+    ||                                    ||
+    ||                                    ||
+    ||                                    ||
+    ||_________________W2_________________||
+    | ____________________________________ |
+    ||                                    ||
+    ||_________________W3_________________||
+    | ____________________________________ |
+    ||                                    ||
+    ||_________________W4_________________||
+    |__________________W1__________________|
+
+If window-combination-resize is t, splitting W3 instead leaves all three live windows with approximately the same height:
+
+     ______________________________________
+    | ____________________________________ |
+    ||                                    ||
+    ||                                    ||
+    ||_________________W2_________________||
+    | ____________________________________ |
+    ||                                    ||
+    ||                                    ||
+    ||_________________W3_________________||
+    | ____________________________________ |
+    ||                                    ||
+    ||                                    ||
+    ||_________________W4_________________||
+    |__________________W1__________________|
+
+Deleting any of the live windows W2, W3 or W4 will distribute its space proportionally among the two remaining live windows.

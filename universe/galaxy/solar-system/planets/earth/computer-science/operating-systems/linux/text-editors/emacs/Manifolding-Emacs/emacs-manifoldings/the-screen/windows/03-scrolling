@@ -1,0 +1,322 @@
+#+title:      Window Scrolling
+
+* Window Scrolling :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       add10ca3-aedd-4997-8453-83898db94a68
+:END:
+
+Textual scrolling means moving the text up or down through a window. It works by changing the window’s display-start location. It may also change the value of window-point to keep point on the screen (see Windows and Point).
+
+The basic textual scrolling functions are scroll-up (which scrolls forward) and scroll-down (which scrolls backward). In these function names, “up” and “down” refer to the direction of motion of the buffer text relative to the window. Imagine that the text is written on a long roll of paper and that the scrolling commands move the paper up and down. Thus, if you are looking at the middle of a buffer and repeatedly call scroll-down, you will eventually see the beginning of the buffer.
+
+Unfortunately, this sometimes causes confusion, because some people tend to think in terms of the opposite convention: they imagine the window moving over text that remains in place, so that “down” commands take you to the end of the buffer. This convention is consistent with fact that such a command is bound to a key named PageDown on modern keyboards.
+
+Textual scrolling functions (aside from scroll-other-window) have unpredictable results if the current buffer is not the one displayed in the selected window. See The Current Buffer.
+
+If the window contains a row taller than the height of the window (for example in the presence of a large image), the scroll functions will adjust the window’s vertical scroll position to scroll the partially visible row. Lisp callers can disable this feature by binding the variable auto-window-vscroll to nil (see Vertical Fractional Scrolling).
+
+Command: scroll-up &optional count ¶
+This function scrolls forward by count lines in the selected window.
+
+If count is negative, it scrolls backward instead. If count is nil (or omitted), the distance scrolled is next-screen-context-lines lines less than the height of the window’s body.
+
+If the selected window cannot be scrolled any further, this function signals an error. Otherwise, it returns nil.
+
+Command: scroll-down &optional count ¶
+This function scrolls backward by count lines in the selected window.
+
+If count is negative, it scrolls forward instead. In other respects, it behaves the same way as scroll-up does.
+
+Command: scroll-up-command &optional count ¶
+This behaves like scroll-up, except that if the selected window cannot be scrolled any further and the value of the variable scroll-error-top-bottom is t, it tries to move to the end of the buffer instead. If point is already there, it signals an error.
+
+Command: scroll-down-command &optional count ¶
+This behaves like scroll-down, except that if the selected window cannot be scrolled any further and the value of the variable scroll-error-top-bottom is t, it tries to move to the beginning of the buffer instead. If point is already there, it signals an error.
+
+Command: scroll-other-window &optional count ¶
+This function scrolls the text in another window upward count lines. Negative values of count, or nil, are handled as in scroll-up.
+
+You can specify which buffer to scroll by setting the variable other-window-scroll-buffer to a buffer. If that buffer isn’t already displayed, scroll-other-window displays it in some window.
+
+When the selected window is the minibuffer, the next window is normally the leftmost one immediately above it. You can specify a different window to scroll, when the minibuffer is selected, by setting the variable minibuffer-scroll-window. This variable has no effect when any other window is selected. When it is non-nil and the minibuffer is selected, it takes precedence over other-window-scroll-buffer. See Definition of minibuffer-scroll-window.
+
+Command: scroll-other-window-down &optional count ¶
+This function scrolls the text in another window downward count lines. Negative values of count, or nil, are handled as in scroll-down. In other respects, it behaves the same way as scroll-other-window does.
+
+Variable: other-window-scroll-buffer ¶
+If this variable is non-nil, it tells scroll-other-window which buffer’s window to scroll.
+
+User Option: scroll-margin ¶
+This option specifies the size of the scroll margin—a minimum number of lines between point and the top or bottom of a window. Whenever point gets within this many lines of the top or bottom of the window, redisplay scrolls the text automatically (if possible) to move point out of the margin, closer to the center of the window.
+
+User Option: maximum-scroll-margin ¶
+This variable limits the effective value of scroll-margin to a fraction of the current window line height. For example, if the current window has 20 lines and maximum-scroll-margin is 0.1, then the scroll margins will never be larger than 2 lines, no matter how big scroll-margin is.
+
+maximum-scroll-margin itself has a maximum value of 0.5, which allows setting margins large to keep the cursor at the middle line of the window (or two middle lines if the window has an even number of lines). If it’s set to a larger value (or any value other than a float between 0.0 and 0.5) then the default value of 0.25 will be used instead.
+
+User Option: scroll-conservatively ¶
+This variable controls how scrolling is done automatically when point moves off the screen (or into the scroll margin). If the value is a positive integer n, then redisplay scrolls the text up to n lines in either direction, if that will bring point back into proper view. This behavior is called conservative scrolling. Otherwise, scrolling happens in the usual way, under the control of other variables such as scroll-up-aggressively and scroll-down-aggressively.
+
+The default value is zero, which means that conservative scrolling never happens.
+
+User Option: scroll-down-aggressively ¶
+The value of this variable should be either nil or a fraction f between 0 and 1. If it is a fraction, that specifies where on the screen to put point when scrolling down. More precisely, when a window scrolls down because point is above the window start, the new start position is chosen to put point f part of the window height from the top. The larger f, the more aggressive the scrolling.
+
+A value of nil is equivalent to .5, since its effect is to center point. This variable automatically becomes buffer-local when set in any fashion.
+
+User Option: scroll-up-aggressively ¶
+Likewise, for scrolling up. The value, f, specifies how far point should be placed from the bottom of the window; thus, as with scroll-down-aggressively, a larger value scrolls more aggressively.
+
+User Option: scroll-step ¶
+This variable is an older variant of scroll-conservatively. The difference is that if its value is n, that permits scrolling only by precisely n lines, not a smaller number. This feature does not work with scroll-margin. The default value is zero.
+
+User Option: scroll-preserve-screen-position ¶
+If this option is t, whenever a scrolling command moves point off-window, Emacs tries to adjust point to keep the cursor at its old vertical position in the window, rather than the window edge.
+
+If the value is non-nil and not t, Emacs adjusts point to keep the cursor at the same vertical position, even if the scrolling command didn’t move point off-window.
+
+This option affects all scroll commands that have a non-nil scroll-command symbol property.
+
+User Option: next-screen-context-lines ¶
+The value of this variable is the number of lines of continuity to retain when scrolling by full screens. For example, scroll-up with an argument of nil scrolls so that this many lines at the bottom of the window appear instead at the top. The default value is 2.
+
+User Option: scroll-error-top-bottom ¶
+If this option is nil (the default), scroll-up-command and scroll-down-command simply signal an error when no more scrolling is possible.
+
+If the value is t, these commands instead move point to the beginning or end of the buffer (depending on scrolling direction); only if point is already on that position do they signal an error.
+
+Command: recenter &optional count redisplay ¶
+This function scrolls the text in the selected window so that point is displayed at a specified vertical position within the window. It does not move point with respect to the text.
+
+If count is a non-negative number, that puts the line containing point count lines down from the top of the window. If count is a negative number, then it counts upward from the bottom of the window, so that −1 stands for the last usable line in the window.
+
+If count is nil (or a non-nil list), recenter puts the line containing point in the middle of the window. If count is nil and redisplay is non-nil, this function may redraw the frame, according to the value of recenter-redisplay. Thus, omitting the second argument can be used to countermand the effect of recenter-redisplay being non-nil. Interactive calls pass non-nil for redisplay.
+
+When recenter is called interactively, count is the raw prefix argument. Thus, typing C-u as the prefix sets the count to a non-nil list, while typing C-u 4 sets count to 4, which positions the current line four lines from the top.
+
+With an argument of zero, recenter positions the current line at the top of the window. The command recenter-top-bottom offers a more convenient way to achieve this.
+
+Function: recenter-window-group &optional count ¶
+This function is like recenter, except that when the selected window is part of a group of windows (see Window Group), recenter-window-group scrolls the entire group. This condition holds when the buffer local variable recenter-window-group-function is set to a function. In this case, recenter-window-group calls the function with the argument count, then returns its result. The argument count has the same meaning as in recenter, but with respect to the entire window group.
+
+User Option: recenter-redisplay ¶
+If this variable is non-nil, calling recenter with a nil count argument and non-nil redisplay argument redraws the frame. The default value is tty, which means only redraw the frame if it is a tty frame.
+
+Command: recenter-top-bottom &optional count ¶
+This command, which is the default binding for C-l, acts like recenter, except if called with no argument. In that case, successive calls place point according to the cycling order defined by the variable recenter-positions.
+
+User Option: recenter-positions ¶
+This variable controls how recenter-top-bottom behaves when called with no argument. The default value is (middle top bottom), which means that successive calls of recenter-top-bottom with no argument cycle between placing point at the middle, top, and bottom of the window.
+
+
+** Vertical Fractional Scrolling
+
+Vertical fractional scrolling means shifting text in a window up or down by a specified multiple or fraction of a line. Emacs uses it, for example, on images and screen lines which are taller than the window. Each window has a vertical scroll position, which is a number, never less than zero. It specifies how far to raise the contents of the window when displaying them. Raising the window contents generally makes all or part of some lines disappear off the top, and all or part of some other lines appear at the bottom. The usual value is zero.
+
+The vertical scroll position is measured in units of the normal line height, which is the height of the default font. Thus, if the value is .5, that means the window contents will be scrolled up half the normal line height. If it is 3.3, that means the window contents are scrolled up somewhat over three times the normal line height.
+
+What fraction of a line the vertical scrolling covers, or how many lines, depends on what the lines contain. A value of .5 could scroll a line whose height is very short off the screen, while a value of 3.3 could scroll just part of the way through a tall line or an image.
+
+Function: window-vscroll &optional window pixels-p ¶
+This function returns the current vertical scroll position of window. The default for window is the selected window. If pixels-p is non-nil, the return value is measured in pixels, rather than in units of the normal line height.
+
+(window-vscroll)
+     ⇒ 0
+Function: set-window-vscroll window lines &optional pixels-p preserve-vscroll-p ¶
+This function sets window’s vertical scroll position to lines. If window is nil, the selected window is used. The argument lines should be zero or positive; if not, it is taken as zero.
+
+The actual vertical scroll position must always correspond to an integral number of pixels, so the value you specify is rounded accordingly.
+
+The return value is the result of this rounding.
+
+(set-window-vscroll (selected-window) 1.2)
+     ⇒ 1.13
+If pixels-p is non-nil, lines specifies a number of pixels. In this case, the return value is lines.
+
+Normally, the vscroll does not take effect on windows that aren’t the minibuffer-scroll-window or the selected window when the mini-window is resized (see Minibuffer Windows). This “frozen” behavior is disabled when the preserve-vscroll-p parameter is non-nil, which means to set the vscroll as usual.
+
+Variable: auto-window-vscroll ¶
+If this variable is non-nil, the line-move, scroll-up, and scroll-down functions will automatically modify the vertical scroll position to scroll through display rows that are taller than the height of the window, for example in the presence of large images.
+
+
+** Horizontal Scrolling
+
+Horizontal scrolling means shifting the image in the window left or right by a specified multiple of the normal character width. Each window has a horizontal scroll position, which is a number, never less than zero. It specifies how far to shift the contents left. Shifting the window contents left generally makes all or part of some characters disappear off the left, and all or part of some other characters appear at the right. The usual value is zero.
+
+The horizontal scroll position is measured in units of the normal character width, which is the width of space in the default font. Thus, if the value is 5, that means the window contents are scrolled left by 5 times the normal character width. How many characters actually disappear off to the left depends on their width, and could vary from line to line.
+
+Because we read from side to side in the inner loop, and from top to bottom in the outer loop, the effect of horizontal scrolling is not like that of textual or vertical scrolling. Textual scrolling involves selection of a portion of text to display, and vertical scrolling moves the window contents contiguously; but horizontal scrolling causes part of each line to go off screen.
+
+Usually, no horizontal scrolling is in effect; then the leftmost column is at the left edge of the window. In this state, scrolling to the right is meaningless, since there is no data to the left of the edge to be revealed by it; so this is not allowed. Scrolling to the left is allowed; it scrolls the first columns of text off the edge of the window and can reveal additional columns on the right that were truncated before. Once a window has a nonzero amount of leftward horizontal scrolling, you can scroll it back to the right, but only so far as to reduce the net horizontal scroll to zero. There is no limit to how far left you can scroll, but eventually all the text will disappear off the left edge.
+
+If auto-hscroll-mode is set, redisplay automatically alters the horizontal scrolling of a window as necessary to ensure that point is always visible. However, you can still set the horizontal scrolling value explicitly. The value you specify serves as a lower bound for automatic scrolling, i.e., automatic scrolling will not scroll a window to a column less than the specified one.
+
+The default value of auto-hscroll-mode is t; setting it to current-line activates a variant of automatic horizontal scrolling whereby only the line showing the cursor is horizontally scrolled to make point visible, the rest of the window is left either unscrolled, or at the minimum scroll amount set by scroll-left and scroll-right, see below.
+
+Command: scroll-left &optional count set-minimum ¶
+This function scrolls the selected window count columns to the left (or to the right if count is negative). The default for count is the window width, minus 2.
+
+The return value is the total amount of leftward horizontal scrolling in effect after the change—just like the value returned by window-hscroll (below).
+
+Note that text in paragraphs whose base direction is right-to-left (see Bidirectional Display) moves in the opposite direction: e.g., it moves to the right when scroll-left is invoked with a positive value of count.
+
+Once you scroll a window as far right as it can go, back to its normal position where the total leftward scrolling is zero, attempts to scroll any farther right have no effect.
+
+If set-minimum is non-nil, the new scroll amount becomes the lower bound for automatic scrolling; that is, automatic scrolling will not scroll a window to a column less than the value returned by this function. Interactive calls pass non-nil for set-minimum.
+
+Command: scroll-right &optional count set-minimum ¶
+This function scrolls the selected window count columns to the right (or to the left if count is negative). The default for count is the window width, minus 2. Aside from the direction of scrolling, this works just like scroll-left.
+
+Function: window-hscroll &optional window ¶
+This function returns the total leftward horizontal scrolling of window—the number of columns by which the text in window is scrolled left past the left margin. (In right-to-left paragraphs, the value is the total amount of the rightward scrolling instead.) The default for window is the selected window.
+
+The return value is never negative. It is zero when no horizontal scrolling has been done in window (which is usually the case).
+
+(window-hscroll)
+     ⇒ 0
+(scroll-left 5)
+     ⇒ 5
+(window-hscroll)
+     ⇒ 5
+Function: set-window-hscroll window columns ¶
+This function sets horizontal scrolling of window. The value of columns specifies the amount of scrolling, in terms of columns from the left margin (right margin in right-to-left paragraphs). The argument columns should be zero or positive; if not, it is taken as zero. Fractional values of columns are not supported at present.
+
+Note that set-window-hscroll may appear not to work if you test it by evaluating a call with M-: in a simple way. What happens is that the function sets the horizontal scroll value and returns, but then redisplay adjusts the horizontal scrolling to make point visible, and this overrides what the function did. You can observe the function’s effect if you call it while point is sufficiently far from the left margin that it will remain visible.
+
+The value returned is columns.
+
+(set-window-hscroll (selected-window) 10)
+     ⇒ 10
+Here is how you can determine whether a given position position is off the screen due to horizontal scrolling:
+
+(defun hscroll-on-screen (window position)
+  (save-excursion
+    (goto-char position)
+    (and
+     (>= (- (current-column) (window-hscroll window)) 0)
+     (< (- (current-column) (window-hscroll window))
+        (window-width window)))))
+
+** Coordinates and Windows
+
+This section describes functions that report positions of and within a window. Most of these functions report positions relative to an origin at the native position of the window’s frame (see Frame Geometry). Some functions report positions relative to the origin of the display of the window’s frame. In any case, the origin has the coordinates (0, 0) and X and Y coordinates increase rightward and downward respectively.
+
+For the following functions, X and Y coordinates are reported in integer character units, i.e., numbers of lines and columns respectively. On a graphical display, each “line” and “column” corresponds to the height and width of the default character specified by the frame’s default font (see Frame Font).
+
+Function: window-edges &optional window body absolute pixelwise ¶
+This function returns a list of the edge coordinates of window. If window is omitted or nil, it defaults to the selected window.
+
+The return value has the form (left top right bottom). These list elements are, respectively, the X coordinate of the leftmost column occupied by the window, the Y coordinate of the topmost row, the X coordinate one column to the right of the rightmost column, and the Y coordinate one row down from the bottommost row.
+
+Note that these are the actual outer edges of the window, including any of its decorations. On a text terminal, if the window has a neighbor on its right, its right edge includes the separator line between the window and its neighbor.
+
+If the optional argument body is nil, this means to return the edges corresponding to the total size of window. body non-nil means to return the edges of window’s body. If body is non-nil, window must specify a live window.
+
+If the optional argument absolute is nil, this means to return edges relative to the native position of window’s frame. absolute non-nil means to return coordinates relative to the origin (0, 0) of window’s display. On non-graphical systems this argument has no effect.
+
+If the optional argument pixelwise is nil, this means to return the coordinates in terms of the default character width and height of window’s frame (see Frame Font), rounded if necessary. pixelwise non-nil means to return the coordinates in pixels. Note that the pixel specified by right and bottom is immediately outside of these edges. If absolute is non-nil, pixelwise is implicitly non-nil too.
+
+Function: window-body-edges &optional window ¶
+This function returns the edges of window’s body (see Window Sizes). Calling (window-body-edges window) is equivalent to calling (window-edges window t), see above.
+
+The following functions can be used to relate a set of frame-relative coordinates to a window:
+
+Function: window-at x y &optional frame ¶
+This function returns the live window at the coordinates x and y given in default character sizes (see Frame Font) relative to the native position of frame (see Frame Geometry).
+
+If there is no window at that position, the return value is nil. If frame is omitted or nil, it defaults to the selected frame.
+
+Function: coordinates-in-window-p coordinates window ¶
+This function checks whether a window window occupies the frame relative coordinates coordinates, and if so, which part of the window that is. window should be a live window.
+
+coordinates should be a cons cell of the form (x . y), where x and y are given in default character sizes (see Frame Font) relative to the native position of window’s frame (see Frame Geometry).
+
+If there is no window at the specified position, the return value is nil . Otherwise, the return value is one of the following:
+
+(relx . rely)
+The coordinates are inside window. The numbers relx and rely are the equivalent window-relative coordinates for the specified position, counting from 0 at the top left corner of the window.
+
+mode-line
+The coordinates are in the mode line of window.
+
+header-line
+The coordinates are in the header line of window.
+
+tab-line
+The coordinates are in the tab line of window.
+
+right-divider
+The coordinates are in the divider separating window from a window on the right.
+
+bottom-divider
+The coordinates are in the divider separating window from a window beneath.
+
+vertical-line
+The coordinates are in the vertical line between window and its neighbor to the right. This value occurs only if the window doesn’t have a scroll bar; positions in a scroll bar are considered outside the window for these purposes.
+
+left-fringe
+right-fringe
+The coordinates are in the left or right fringe of the window.
+
+left-margin
+right-margin
+The coordinates are in the left or right margin of the window.
+
+nil
+The coordinates are not in any part of window.
+
+The function coordinates-in-window-p does not require a frame as argument because it always uses the frame that window is on.
+
+The following functions return window positions in pixels, rather than character units. Though mostly useful on graphical displays, they can also be called on text terminals, where the screen area of each text character is taken to be one pixel.
+
+Function: window-pixel-edges &optional window ¶
+This function returns a list of pixel coordinates for the edges of window. Calling (window-pixel-edges window) is equivalent to calling (window-edges window nil nil t), see above.
+
+Function: window-body-pixel-edges &optional window ¶
+This function returns the pixel edges of window’s body. Calling (window-body-pixel-edges window) is equivalent to calling (window-edges window t nil t), see above.
+
+The following functions return window positions in pixels, relative to the origin of the display screen rather than that of the frame:
+
+Function: window-absolute-pixel-edges &optional window ¶
+This function returns the pixel coordinates of window relative to an origin at (0, 0) of the display of window’s frame. Calling (window-absolute-pixel-edges) is equivalent to calling (window-edges window nil t t), see above.
+
+Function: window-absolute-body-pixel-edges &optional window ¶
+This function returns the pixel coordinates of window’s body relative to an origin at (0, 0) of the display of window’s frame. Calling (window-absolute-body-pixel-edges window) is equivalent to calling (window-edges window t t t), see above.
+
+Combined with set-mouse-absolute-pixel-position, this function can be used to move the mouse pointer to an arbitrary buffer position visible in some window:
+
+(let ((edges (window-absolute-body-pixel-edges))
+      (position (pos-visible-in-window-p nil nil t)))
+  (set-mouse-absolute-pixel-position
+   (+ (nth 0 edges) (nth 0 position))
+   (+ (nth 1 edges) (nth 1 position))))
+On a graphical terminal this form “warps” the mouse cursor to the upper left corner of the glyph at the selected window’s point. A position calculated this way can be also used to show a tooltip window there.
+
+The following function returns the screen coordinates of a buffer position visible in a window:
+
+Function: window-absolute-pixel-position &optional position window ¶
+If the buffer position position is visible in window window, this function returns the display coordinates of the upper/left corner of the glyph at position. The return value is a cons of the X- and Y-coordinates of that corner, relative to an origin at (0, 0) of window’s display. It returns nil if position is not visible in window.
+
+window must be a live window and defaults to the selected window. position defaults to the value of window-point of window.
+
+This means that in order to move the mouse pointer to the position of point in the selected window, it’s sufficient to write:
+
+(let ((position (window-absolute-pixel-position)))
+  (set-mouse-absolute-pixel-position
+   (car position) (cdr position)))
+The following function returns the largest rectangle that can be inscribed in a window without covering text displayed in that window.
+
+Function: window-largest-empty-rectangle &optional window count min-width min-height positions left ¶
+This function calculates the dimensions of the largest empty rectangle that can be inscribed in the specified window’s text area. window must be a live window and defaults to the selected one.
+
+The return value is a triple of the width and the start and end y-coordinates of the largest rectangle that can be inscribed into the empty space (space not displaying any text) of the text area of window. No x-coordinates are returned by this function—any such rectangle is assumed to end at the right edge of window’s text area. If no empty space can be found, the return value is nil.
+
+The optional argument count, if non-nil, specifies a maximum number of rectangles to return. This means that the return value is a list of triples specifying rectangles with the largest rectangle first. count can be also a cons cell whose car specifies the number of rectangles to return and whose CDR, if non-nil, states that all rectangles returned must be disjoint.
+
+The optional arguments min-width and min-height, if non-nil, specify the minimum width and height of any rectangle returned.
+
+The optional argument positions, if non-nil, is a cons cell whose CAR specifies the uppermost and whose CDR specifies the lowermost pixel position that must be covered by any rectangle returned. These positions measure from the start of the text area of window.
+
+The optional argument left, if non-nil, means to return values suitable for buffers displaying right to left text. In that case, any rectangle returned is assumed to start at the left edge of window’s text area.
+
+Note that this function has to retrieve the dimensions of each line of window’s glyph matrix via window-lines-pixel-dimensions (see Size of Displayed Text). Hence, this function may also return nil when the current glyph matrix of window is not up-to-date.
