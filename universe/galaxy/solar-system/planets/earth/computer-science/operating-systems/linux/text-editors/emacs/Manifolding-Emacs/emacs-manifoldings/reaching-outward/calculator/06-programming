@@ -1,0 +1,1760 @@
+#+title:      Calc Programming
+
+* Calc Programming :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       eefdf335-f7c3-4dc2-87e7-48d30f6540d0
+:END:
+
+Embedded mode in Calc provides an alternative to copying numbers and formulas back and forth between editing buffers and the Calc stack. In Embedded mode, your editing buffer becomes temporarily linked to the stack and this copying is taken care of automatically.
+
+*** Basic Embedded Mode
+
+To enter Embedded mode, position the Emacs point (cursor) on a formula in any buffer and press C-x * e (calc-embedded). Note that C-x * e is not to be used in the Calc stack buffer like most Calc commands, but rather in regular editing buffers that are visiting your own files.
+
+Calc will try to guess an appropriate language based on the major mode of the editing buffer. (See Language Modes.) If the current buffer is in latex-mode, for example, Calc will set its language to LaTeX. Similarly, Calc will use TeX language for tex-mode, plain-tex-mode and context-mode, C language for c-mode and c++-mode, FORTRAN language for fortran-mode and f90-mode, Pascal for pascal-mode, and eqn for nroff-mode (see Customizing Calc). These can be overridden with Calc’s mode changing commands (see Mode Settings in Embedded Mode). If no suitable language is available, Calc will continue with its current language.
+
+Calc normally scans backward and forward in the buffer for the nearest opening and closing formula delimiters. The simplest delimiters are blank lines. Other delimiters that Embedded mode understands are:
+
+The TeX and LaTeX math delimiters ‘$ $’, ‘$$ $$’, ‘\[ \]’, and ‘\( \)’;
+Lines beginning with ‘\begin’ and ‘\end’ (except matrix delimiters);
+Lines beginning with ‘@’ (Texinfo delimiters).
+Lines beginning with ‘.EQ’ and ‘.EN’ (eqn delimiters);
+Lines containing a single ‘%’ or ‘.\"’ symbol and nothing else.
+See Customizing Embedded Mode, to see how to make Calc recognize your own favorite delimiters. Delimiters like ‘$ $’ can appear on their own separate lines or in-line with the formula.
+
+If you give a positive or negative numeric prefix argument, Calc instead uses the current point as one end of the formula, and includes that many lines forward or backward (respectively, including the current line). Explicit delimiters are not necessary in this case.
+
+With a prefix argument of zero, Calc uses the current region (delimited by point and mark) instead of formula delimiters. With a prefix argument of C-u only, Calc uses the current line as the formula.
+
+The C-x * w (calc-embedded-word) command will start Embedded mode on the current “word”; in this case Calc will scan for the first non-numeric character (i.e., the first character that is not a digit, sign, decimal point, or upper- or lower-case ‘e’) forward and backward to delimit the formula.
+
+When you enable Embedded mode for a formula, Calc reads the text between the delimiters and tries to interpret it as a Calc formula. Calc can generally identify TeX formulas and Big-style formulas even if the language mode is wrong. If Calc can’t make sense of the formula, it beeps and refuses to enter Embedded mode. But if the current language is wrong, Calc can sometimes parse the formula successfully (but incorrectly); for example, the C expression ‘atan(a[1])’ can be parsed in Normal language mode, but the atan won’t correspond to the built-in arctan function, and the ‘a[1]’ will be interpreted as ‘a’ times the vector ‘[1]’!
+
+If you press C-x * e or C-x * w to activate an embedded formula which is blank, say with the cursor on the space between the two delimiters ‘$ $’, Calc will immediately prompt for an algebraic entry.
+
+Only one formula in one buffer can be enabled at a time. If you move to another area of the current buffer and give Calc commands, Calc turns Embedded mode off for the old formula and then tries to restart Embedded mode at the new position. Other buffers are not affected by Embedded mode.
+
+When Embedded mode begins, Calc pushes the current formula onto the stack. No Calc stack window is created; however, Calc copies the top-of-stack position into the original buffer at all times. You can create a Calc window by hand with C-x * o if you find you need to see the entire stack.
+
+For example, typing C-x * e while somewhere in the formula ‘n>2’ in the following line enables Embedded mode on that inequality:
+
+We define $F_n = F_(n-1)+F_(n-2)$ for all $n>2$.
+The formula ‘n>2’ will be pushed onto the Calc stack, and the top of stack will be copied back into the editing buffer. This means that spaces will appear around the ‘>’ symbol to match Calc’s usual display style:
+
+We define $F_n = F_(n-1)+F_(n-2)$ for all $n > 2$.
+No spaces have appeared around the ‘+’ sign because it’s in a different formula, one which we have not yet touched with Embedded mode.
+
+Now that Embedded mode is enabled, keys you type in this buffer are interpreted as Calc commands. At this point we might use the “commute” command j C to reverse the inequality. This is a selection-based command for which we first need to move the cursor onto the operator (‘>’ in this case) that needs to be commuted.
+
+We define $F_n = F_(n-1)+F_(n-2)$ for all $2 < n$.
+The C-x * o command is a useful way to open a Calc window without actually selecting that window. Giving this command verifies that ‘2 < n’ is also on the Calc stack. Typing 17 RET would produce:
+
+We define $F_n = F_(n-1)+F_(n-2)$ for all $17$.
+with ‘2 < n’ and ‘17’ on the stack; typing TAB at this point will exchange the two stack values and restore ‘2 < n’ to the embedded formula. Even though you can’t normally see the stack in Embedded mode, it is still there and it still operates in the same way. But, as with old-fashioned RPN calculators, you can only see the value at the top of the stack at any given time (unless you use C-x * o).
+
+Typing C-x * e again turns Embedded mode off. The Calc window reveals that the formula ‘2 < n’ is automatically removed from the stack, but the ‘17’ is not. Entering Embedded mode always pushes one thing onto the stack, and leaving Embedded mode always removes one thing. Anything else that happens on the stack is entirely your business as far as Embedded mode is concerned.
+
+If you press C-x * e in the wrong place by accident, it is possible that Calc will be able to parse the nearby text as a formula and will mangle that text in an attempt to redisplay it “properly” in the current language mode. If this happens, press C-x * e again to exit Embedded mode, then give the regular Emacs “undo” command (C-_ or C-x u) to put the text back the way it was before Calc edited it. Note that Calc’s own Undo command (typed before you turn Embedded mode back off) will not do you any good, because as far as Calc is concerned you haven’t done anything with this formula yet.
+
+
+*** More About Embedded Mode
+
+When Embedded mode “activates” a formula, i.e., when it examines the formula for the first time since the buffer was created or loaded, Calc tries to sense the language in which the formula was written. If the formula contains any LaTeX-like ‘\’ sequences, it is parsed (i.e., read) in LaTeX mode. If the formula appears to be written in multi-line Big mode, it is parsed in Big mode. Otherwise, it is parsed according to the current language mode.
+
+Note that Calc does not change the current language mode according the formula it reads in. Even though it can read a LaTeX formula when not in LaTeX mode, it will immediately rewrite this formula using whatever language mode is in effect.
+
+Calc’s parser is unable to read certain kinds of formulas. For example, with v ] (calc-matrix-brackets) you can specify matrix display styles which the parser is unable to recognize as matrices. The d p (calc-show-plain) command turns on a mode in which a “plain” version of a formula is placed in front of the fully-formatted version. When Calc reads a formula that has such a plain version in front, it reads the plain version and ignores the formatted version.
+
+Plain formulas are preceded and followed by ‘%%%’ signs by default. This notation has the advantage that the ‘%’ character begins a comment in TeX and LaTeX, so if your formula is embedded in a TeX or LaTeX document its plain version will be invisible in the final printed copy. Certain major modes have different delimiters to ensure that the “plain” version will be in a comment for those modes, also. See Customizing Embedded Mode to see how to change the “plain” formula delimiters.
+
+There are several notations which Calc’s parser for “big” formatted formulas can’t yet recognize. In particular, it can’t read the large symbols for sum, prod, and integ, and it can’t handle ‘=>’ with the righthand argument omitted. Also, Calc won’t recognize special formats you have defined with the Z C command (see User-Defined Compositions). In these cases it is important to use “plain” mode to make sure Calc will be able to read your formula later.
+
+Another example where “plain” mode is important is if you have specified a float mode with few digits of precision. Normally any digits that are computed but not displayed will simply be lost when you save and re-load your embedded buffer, but “plain” mode allows you to make sure that the complete number is present in the file as well as the rounded-down number.
+
+Embedded buffers remember active formulas for as long as they exist in Emacs memory. Suppose you have an embedded formula which is ‘pi’ to the normal 12 decimal places, and then type C-u 5 d n to display only five decimal places. If you then type d n, all 12 places reappear because the full number is still there on the Calc stack. More surprisingly, even if you exit Embedded mode and later re-enter it for that formula, typing d n will restore all 12 places because each buffer remembers all its active formulas. However, if you save the buffer in a file and reload it in a new Emacs session, all non-displayed digits will have been lost unless you used “plain” mode.
+
+In some applications of Embedded mode, you will want to have a sequence of copies of a formula that show its evolution as you work on it. For example, you might want to have a sequence like this in your file (elaborating here on the example from the “Getting Started” chapter):
+
+The derivative of
+
+                              ln(ln(x))
+
+is
+
+                  (the derivative of ln(ln(x)))
+
+whose value at x = 2 is
+
+                            (the value)
+
+and at x = 3 is
+
+                            (the value)
+The C-x * d (calc-embedded-duplicate) command is a handy way to make sequences like this. If you type C-x * d, the formula under the cursor (which may or may not have Embedded mode enabled for it at the time) is copied immediately below and Embedded mode is then enabled for that copy.
+
+For this example, you would start with just
+
+The derivative of
+
+                              ln(ln(x))
+and press C-x * d with the cursor on this formula. The result is
+
+The derivative of
+
+                              ln(ln(x))
+
+
+                              ln(ln(x))
+with the second copy of the formula enabled in Embedded mode. You can now press a d x RET to take the derivative, and C-x * d C-x * d to make two more copies of the derivative. To complete the computations, type 3 s l x RET to evaluate the last formula, then move up to the second-to-last formula and type 2 s l x RET.
+
+Finally, you would want to press C-x * e to exit Embedded mode, then go up and insert the necessary text in between the various formulas and numbers.
+
+The C-x * f (calc-embedded-new-formula) command creates a new embedded formula at the current point. It inserts some default delimiters, which are usually just blank lines, and then does an algebraic entry to get the formula (which is then enabled for Embedded mode). This is just shorthand for typing the delimiters yourself, positioning the cursor between the new delimiters, and pressing C-x * e. The key sequence C-x * ' is equivalent to C-x * f.
+
+The C-x * n (calc-embedded-next) and C-x * p (calc-embedded-previous) commands move the cursor to the next or previous active embedded formula in the buffer. They can take positive or negative prefix arguments to move by several formulas. Note that these commands do not actually examine the text of the buffer looking for formulas; they only see formulas which have previously been activated in Embedded mode. In fact, C-x * n and C-x * p are a useful way to tell which embedded formulas are currently active. Also, note that these commands do not enable Embedded mode on the next or previous formula, they just move the cursor.
+
+The C-x * ` (calc-embedded-edit) command edits the embedded formula at the current point as if by ` (calc-edit). Embedded mode does not have to be enabled for this to work. Press C-c C-c to finish the edit, or C-x k to cancel.
+
+
+*** Assignments in Embedded Mode
+
+The ‘:=’ (assignment) and ‘=>’ (“evaluates-to”) operators are especially useful in Embedded mode. They allow you to make a definition in one formula, then refer to that definition in other formulas embedded in the same buffer.
+
+An embedded formula which is an assignment to a variable, as in
+
+foo := 5
+records ‘5’ as the stored value of foo for the purposes of Embedded mode operations in the current buffer. It does not actually store ‘5’ as the “global” value of foo, however. Regular Calc operations, and Embedded formulas in other buffers, will not see this assignment.
+
+One way to use this assigned value is simply to create an Embedded formula elsewhere that refers to foo, and to press = in that formula. However, this permanently replaces the foo in the formula with its current value. More interesting is to use ‘=>’ elsewhere:
+
+foo + 7 => 12
+See The Evaluates-To Operator, for a general discussion of ‘=>’.
+
+If you move back and change the assignment to foo, any ‘=>’ formulas which refer to it are automatically updated.
+
+foo := 17
+
+foo + 7 => 24
+The obvious question then is, how can one easily change the assignment to foo? If you simply select the formula in Embedded mode and type 17, the assignment itself will be replaced by the 17. The effect on the other formula will be that the variable foo becomes unassigned:
+
+17
+
+foo + 7 => foo + 7
+The right thing to do is first to use a selection command (j 2 will do the trick) to select the righthand side of the assignment. Then, 17 TAB DEL will swap the 17 into place (see Selecting Sub-Formulas, to see how this works).
+
+The C-x * j (calc-embedded-select) command provides an easy way to operate on assignments. It is just like C-x * e, except that if the enabled formula is an assignment, it uses j 2 to select the righthand side. If the enabled formula is an evaluates-to, it uses j 1 to select the lefthand side. A formula can also be a combination of both:
+
+bar := foo + 3 => 20
+in which case C-x * j will select the middle part (‘foo + 3’).
+
+The formula is automatically deselected when you leave Embedded mode.
+
+Another way to change the assignment to foo would simply be to edit the number using regular Emacs editing rather than Embedded mode. Then, we have to find a way to get Embedded mode to notice the change. The C-x * u (calc-embedded-update-formula) command is a convenient way to do this.
+
+foo := 6
+
+foo + 7 => 13
+Pressing C-x * u is much like pressing C-x * e = C-x * e, that is, temporarily enabling Embedded mode for the formula under the cursor and then evaluating it with =. But C-x * u does not actually use C-x * e, and in fact another formula somewhere else can be enabled in Embedded mode while you use C-x * u and that formula will not be disturbed.
+
+With a numeric prefix argument, C-x * u updates all active ‘=>’ formulas in the buffer. Formulas which have not yet been activated in Embedded mode, and formulas which do not have ‘=>’ as their top-level operator, are not affected by this. (This is useful only if you have used m C; see below.)
+
+With a plain C-u prefix, C-u C-x * u updates only in the region between mark and point rather than in the whole buffer.
+
+C-x * u is also a handy way to activate a formula, such as an ‘=>’ formula that has freshly been typed in or loaded from a file.
+
+The C-x * a (calc-embedded-activate) command scans through the current buffer and activates all embedded formulas that contain ‘:=’ or ‘=>’ symbols. This does not mean that Embedded mode is actually turned on, but only that the formulas’ positions are registered with Embedded mode so that the ‘=>’ values can be properly updated as assignments are changed.
+
+It is a good idea to type C-x * a right after loading a file that uses embedded ‘=>’ operators. Emacs includes a nifty “buffer-local variables” feature that you can use to do this automatically. The idea is to place near the end of your file a few lines that look like this:
+
+--- Local Variables: ---
+--- eval:(calc-embedded-activate) ---
+--- End: ---
+where the leading and trailing ‘---’ can be replaced by any suitable strings (which must be the same on all three lines) or omitted altogether; in a TeX or LaTeX file, ‘%’ would be a good leading string and no trailing string would be necessary. In a C program, ‘/*’ and ‘*/’ would be good leading and trailing strings.
+
+When Emacs loads a file into memory, it checks for a Local Variables section like this one at the end of the file. If it finds this section, it does the specified things (in this case, running C-x * a automatically) before editing of the file begins. The Local Variables section must be within 3000 characters of the end of the file for Emacs to find it, and it must be in the last page of the file if the file has any page separators. See Local Variables in Files in the Emacs manual.
+
+Note that C-x * a does not update the formulas it finds. To do this, type, say, M-1 C-x * u after C-x * a. Generally this should not be a problem, though, because the formulas will have been up-to-date already when the file was saved.
+
+Normally, C-x * a activates all the formulas it finds, but any previous active formulas remain active as well. With a positive numeric prefix argument, C-x * a first deactivates all current active formulas, then actives the ones it finds in its scan of the buffer. With a negative prefix argument, C-x * a simply deactivates all formulas.
+
+Embedded mode has two symbols, ‘Active’ and ‘~Active’, which it puts next to the major mode name in a buffer’s mode line. It puts ‘Active’ if it has reason to believe that all formulas in the buffer are active, because you have typed C-x * a and Calc has not since had to deactivate any formulas (which can happen if Calc goes to update an ‘=>’ formula somewhere because a variable changed, and finds that the formula is no longer there due to some kind of editing outside of Embedded mode). Calc puts ‘~Active’ in the mode line if some, but probably not all, formulas in the buffer are active. This happens if you activate a few formulas one at a time but never use C-x * a, or if you used C-x * a but then Calc had to deactivate a formula because it lost track of it. If neither of these symbols appears in the mode line, no embedded formulas are active in the buffer (e.g., before Embedded mode has been used, or after a M-- C-x * a).
+
+Embedded formulas can refer to assignments both before and after them in the buffer. If there are several assignments to a variable, the nearest preceding assignment is used if there is one, otherwise the following assignment is used.
+
+x => 1
+
+x := 1
+
+x => 1
+
+x := 2
+
+x => 2
+As well as simple variables, you can also assign to subscript expressions of the form ‘var_number’ (as in x_0), or ‘var_var’ (as in x_max). Assignments to other kinds of objects can be represented by Calc, but the automatic linkage between assignments and references works only for plain variables and these two kinds of subscript expressions.
+
+If there are no assignments to a given variable, the global stored value for the variable is used (see Storing Variables), or, if no value is stored, the variable is left in symbolic form. Note that global stored values will be lost when the file is saved and loaded in a later Emacs session, unless you have used the s p (calc-permanent-variable) command to save them; see Other Operations on Variables.
+
+The m C (calc-auto-recompute) command turns automatic recomputation of ‘=>’ forms on and off. If you turn automatic recomputation off, you will have to use C-x * u to update these formulas manually after an assignment has been changed. If you plan to change several assignments at once, it may be more efficient to type m C, change all the assignments, then use M-1 C-x * u to update the entire buffer afterwards. The m C command also controls ‘=>’ formulas on the stack; see The Evaluates-To Operator. When you turn automatic recomputation back on, the stack will be updated but the Embedded buffer will not; you must use C-x * u to update the buffer by hand.
+
+
+*** Mode Settings in Embedded Mode
+
+The mode settings can be changed while Calc is in embedded mode, but by default they will revert to their original values when embedded mode is ended. However, the modes saved when the mode-recording mode is Save (see below) and the modes in effect when the m e (calc-embedded-preserve-modes) command is given will be preserved when embedded mode is ended.
+
+Embedded mode has a rather complicated mechanism for handling mode settings in Embedded formulas. It is possible to put annotations in the file that specify mode settings either global to the entire file or local to a particular formula or formulas. In the latter case, different modes can be specified for use when a formula is the enabled Embedded mode formula.
+
+When you give any mode-setting command, like m f (for Fraction mode) or d s (for scientific notation), Embedded mode adds a line like the following one to the file just before the opening delimiter of the formula.
+
+% [calc-mode: fractions: t]
+% [calc-mode: float-format: (sci 0)]
+When Calc interprets an embedded formula, it scans the text before the formula for mode-setting annotations like these and sets the Calc buffer to match these modes. Modes not explicitly described in the file are not changed. Calc scans all the way to the top of the file, or up to a line of the form
+
+% [calc-defaults]
+which you can insert at strategic places in the file if this backward scan is getting too slow, or just to provide a barrier between one “zone” of mode settings and another.
+
+If the file contains several annotations for the same mode, the closest one before the formula is used. Annotations after the formula are never used (except for global annotations, described below).
+
+The scan does not look for the leading ‘% ’, only for the square brackets and the text they enclose. In fact, the leading characters are different for different major modes. You can edit the mode annotations to a style that works better in context if you wish. See Customizing Embedded Mode, to see how to change the style that Calc uses when it generates the annotations. You can write mode annotations into the file yourself if you know the syntax; the easiest way to find the syntax for a given mode is to let Calc write the annotation for it once and see what it does.
+
+If you give a mode-changing command for a mode that already has a suitable annotation just above the current formula, Calc will modify that annotation rather than generating a new, conflicting one.
+
+Mode annotations have three parts, separated by colons. (Spaces after the colons are optional.) The first identifies the kind of mode setting, the second is a name for the mode itself, and the third is the value in the form of a Lisp symbol, number, or list. Annotations with unrecognizable text in the first or second parts are ignored. The third part is not checked to make sure the value is of a valid type or range; if you write an annotation by hand, be sure to give a proper value or results will be unpredictable. Mode-setting annotations are case-sensitive.
+
+While Embedded mode is enabled, the word Local appears in the mode line. This is to show that mode setting commands generate annotations that are “local” to the current formula or set of formulas. The m R (calc-mode-record-mode) command causes Calc to generate different kinds of annotations. Pressing m R repeatedly cycles through the possible modes.
+
+LocEdit and LocPerm modes generate annotations that look like this, respectively:
+
+% [calc-edit-mode: float-format: (sci 0)]
+% [calc-perm-mode: float-format: (sci 5)]
+The first kind of annotation will be used only while a formula is enabled in Embedded mode. The second kind will be used only when the formula is not enabled. (Whether the formula is “active” or not, i.e., whether Calc has seen this formula yet, is not relevant here.)
+
+Global mode generates an annotation like this at the end of the file:
+
+% [calc-global-mode: fractions t]
+Global mode annotations affect all formulas throughout the file, and may appear anywhere in the file. This allows you to tuck your mode annotations somewhere out of the way, say, on a new page of the file, as long as those mode settings are suitable for all formulas in the file.
+
+Enabling a formula with C-x * e causes a fresh scan for local mode annotations; you will have to use this after adding annotations above a formula by hand to get the formula to notice them. Updating a formula with C-x * u will also re-scan the local modes, but global modes are only re-scanned by C-x * a.
+
+Another way that modes can get out of date is if you add a local mode annotation to a formula that has another formula after it. In this example, we have used the d s command while the first of the two embedded formulas is active. But the second formula has not changed its style to match, even though by the rules of reading annotations the ‘(sci 0)’ applies to it, too.
+
+% [calc-mode: float-format: (sci 0)]
+1.23e2
+
+456.
+We would have to go down to the other formula and press C-x * u on it in order to get it to notice the new annotation.
+
+Two more mode-recording modes selectable by m R are available which are also available outside of Embedded mode. (see General Mode Commands.) They are Save, in which mode settings are recorded permanently in your Calc init file (the file given by the variable calc-settings-file, typically ~/.emacs.d/calc.el) rather than by annotating the current document, and no-recording mode (where there is no symbol like Save or Local in the mode line), in which mode-changing commands do not leave any annotations at all.
+
+When Embedded mode is not enabled, mode-recording modes except for Save have no effect.
+
+
+*** Customizing Embedded Mode
+
+You can modify Embedded mode’s behavior by setting various Lisp variables described here. These variables are customizable (see Customizing Calc), or you can use M-x set-variable to adjust a variable on the fly. (Another possibility would be to use a file-local variable annotation at the end of the file; see Local Variables in Files in the Emacs manual.) Many of the variables given mentioned here can be set to depend on the major mode of the editing buffer (see Customizing Calc).
+
+The calc-embedded-open-formula variable holds a regular expression for the opening delimiter of a formula. See Regular Expression Search in the Emacs manual, to see how regular expressions work. Basically, a regular expression is a pattern that Calc can search for. A regular expression that considers blank lines, ‘$’, and ‘$$’ to be opening delimiters is "\\`\\|^\n\\|\\$\\$?". Just in case the meaning of this regular expression is not completely plain, let’s go through it in detail.
+
+The surrounding ‘" "’ marks quote the text between them as a Lisp string. If you left them off, set-variable (for example) would try to read the regular expression as a Lisp program.
+
+The most obvious property of this regular expression is that it contains indecently many backslashes. There are actually two levels of backslash usage going on here. First, when Lisp reads a quoted string, all pairs of characters beginning with a backslash are interpreted as special characters. Here, \n changes to a new-line character, and \\ changes to a single backslash. So the actual regular expression seen by Calc is ‘\`\|^ (newline) \|\$\$?’.
+
+Regular expressions also consider pairs beginning with backslash to have special meanings. Sometimes the backslash is used to quote a character that otherwise would have a special meaning in a regular expression, like ‘$’, which normally means “end-of-line,” or ‘?’, which means that the preceding item is optional. So ‘\$\$?’ matches either one or two dollar signs.
+
+The other codes in this regular expression are ‘^’, which matches “beginning-of-line,” ‘\|’, which means “or,” and ‘\`’, which matches “beginning-of-buffer.” So the whole pattern means that a formula begins at the beginning of the buffer, or on a newline that occurs at the beginning of a line (i.e., a blank line), or at one or two dollar signs.
+
+The default value of calc-embedded-open-formula looks just like this example, with several more alternatives added on to recognize various other common kinds of delimiters.
+
+By the way, the reason to use ‘^\n’ rather than ‘^$’ or ‘\n\n’, which also would appear to match blank lines, is that the former expression actually “consumes” only one newline character as part of the delimiter, whereas the latter expressions consume zero or two newlines, respectively. The former choice gives the most natural behavior when Calc must operate on a whole formula including its delimiters.
+
+See the Emacs manual for complete details on regular expressions. But just for your convenience, here is a list of all characters which must be quoted with backslash (like ‘\$’) to avoid some special interpretation: ‘. * + ? [ ] ^ $ \’. (Note the backslash in this list; for example, to match ‘\[’ you must use "\\\\\\[". An exercise for the reader is to account for each of these six backslashes!)
+
+The calc-embedded-close-formula variable holds a regular expression for the closing delimiter of a formula. A closing regular expression to match the above example would be "\\'\\|\n$\\|\\$\\$?". This is almost the same as the other one, except it now uses ‘\'’ (“end-of-buffer”) and ‘\n$’ (newline occurring at end of line, yet another way of describing a blank line that is more appropriate for this case).
+
+The calc-embedded-word-regexp variable holds a regular expression used to define an expression to look for (a “word”) when you type C-x * w to enable Embedded mode.
+
+The calc-embedded-open-plain variable is a string which begins a “plain” formula written in front of the formatted formula when d p mode is turned on. Note that this is an actual string, not a regular expression, because Calc must be able to write this string into a buffer as well as to recognize it. The default string is "%%% " (note the trailing space), but may be different for certain major modes.
+
+The calc-embedded-close-plain variable is a string which ends a “plain” formula. The default is " %%%\n", but may be different for different major modes. Without the trailing newline here, the first line of a Big mode formula that followed might be shifted over with respect to the other lines.
+
+The calc-embedded-open-new-formula variable is a string which is inserted at the front of a new formula when you type C-x * f. Its default value is "\n\n". If this string begins with a newline character and the C-x * f is typed at the beginning of a line, C-x * f will skip this first newline to avoid introducing unnecessary blank lines in the file.
+
+The calc-embedded-close-new-formula variable is the corresponding string which is inserted at the end of a new formula. Its default value is also "\n\n". The final newline is omitted by C-x * f if typed at the end of a line. (It follows that if C-x * f is typed on a blank line, both a leading opening newline and a trailing closing newline are omitted.)
+
+The calc-embedded-announce-formula variable is a regular expression which is sure to be followed by an embedded formula. The C-x * a command searches for this pattern as well as for ‘=>’ and ‘:=’ operators. Note that C-x * a will not activate just anything surrounded by formula delimiters; after all, blank lines are considered formula delimiters by default! But if your language includes a delimiter which can only occur actually in front of a formula, you can take advantage of it here. The default pattern is "%Embed\n\\(% .*\n\\)*", but may be different for different major modes. This pattern will check for ‘%Embed’ followed by any number of lines beginning with ‘%’ and a space. This last is important to make Calc consider mode annotations part of the pattern, so that the formula’s opening delimiter really is sure to follow the pattern.
+
+The calc-embedded-open-mode variable is a string (not a regular expression) which should precede a mode annotation. Calc never scans for this string; Calc always looks for the annotation itself. But this is the string that is inserted before the opening bracket when Calc adds an annotation on its own. The default is "% ", but may be different for different major modes.
+
+The calc-embedded-close-mode variable is a string which follows a mode annotation written by Calc. Its default value is simply a newline, "\n", but may be different for different major modes. If you change this, it is a good idea still to end with a newline so that mode annotations will appear on lines by themselves.
+
+
+** Programming
+
+There are several ways to “program” the Emacs Calculator, depending on the nature of the problem you need to solve.
+
+Keyboard macros allow you to record a sequence of keystrokes and play them back at a later time. This is just the standard Emacs keyboard macro mechanism, dressed up with a few more features such as loops and conditionals.
+Algebraic definitions allow you to use any formula to define a new function. This function can then be used in algebraic formulas or as an interactive command.
+Rewrite rules are discussed in the section on algebra commands. See Rewrite Rules. If you put your rewrite rules in the variable EvalRules, they will be applied automatically to all Calc results in just the same way as an internal “rule” is applied to evaluate ‘sqrt(9)’ to 3 and so on. See Automatic Rewrites.
+Lisp is the programming language that Calc (and most of Emacs) is written in. If the above techniques aren’t powerful enough, you can write Lisp functions to do anything that built-in Calc commands can do. Lisp code is also somewhat faster than keyboard macros or rewrite rules.
+Programming features are available through the z and Z prefix keys. New commands that you define are two-key sequences beginning with z. Commands for managing these definitions use the shift-Z prefix. (The Z T (calc-timing) command is described elsewhere; see Troubleshooting Commands. The Z C (calc-user-define-composition) command is also described elsewhere; see User-Defined Compositions.)
+
+*** Creating User Keys
+
+Any Calculator command may be bound to a key using the Z D (calc-user-define) command. Actually, it is bound to a two-key sequence beginning with the lower-case z prefix.
+
+The Z D command first prompts for the key to define. For example, press Z D a to define the new key sequence z a. You are then prompted for the name of the Calculator command that this key should run. For example, the calc-sincos command is not normally available on a key. Typing Z D s sincos RET programs the z s key sequence to run calc-sincos. This definition will remain in effect for the rest of this Emacs session, or until you redefine z s to be something else.
+
+You can actually bind any Emacs command to a z key sequence by backspacing over the ‘calc-’ when you are prompted for the command name.
+
+As with any other prefix key, you can type z ? to see a list of all the two-key sequences you have defined that start with z. Initially, no z sequences (except z ? itself) are defined.
+
+User keys are typically letters, but may in fact be any key. (META-keys are not permitted, nor are a terminal’s special function keys which generate multi-character sequences when pressed.) You can define different commands on the shifted and unshifted versions of a letter if you wish.
+
+The Z U (calc-user-undefine) command unbinds a user key. For example, the key sequence Z U s will undefine the sincos key we defined above.
+
+The Z P (calc-user-define-permanent) command makes a key binding permanent so that it will remain in effect even in future Emacs sessions. (It does this by adding a suitable bit of Lisp code into your Calc init file; that is, the file given by the variable calc-settings-file, typically ~/.emacs.d/calc.el.) For example, Z P s would register our sincos command permanently. If you later wish to unregister this command you must edit your Calc init file by hand. (See General Mode Commands, for a way to tell Calc to use a different file for the Calc init file.)
+
+The Z P command also saves the user definition, if any, for the command bound to the key. After Z F and Z C, a given user key could invoke a command, which in turn calls an algebraic function, which might have one or more special display formats. A single Z P command will save all of these definitions. To save an algebraic function, type ' (the apostrophe) when prompted for a key, and type the function name. To save a command without its key binding, type M-x and enter a function name. (The ‘calc-’ prefix will automatically be inserted for you.) (If the command you give implies a function, the function will be saved, and if the function has any display formats, those will be saved, but not the other way around: Saving a function will not save any commands or key bindings associated with the function.)
+
+The Z E (calc-user-define-edit) command edits the definition of a user key. This works for keys that have been defined by either keyboard macros or formulas; further details are contained in the relevant following sections.
+
+
+*** Programming with Keyboard Macros
+
+The easiest way to “program” the Emacs Calculator is to use standard keyboard macros. Press C-x ( to begin recording a macro. From this point on, keystrokes you type will be saved away as well as performing their usual functions. Press C-x ) to end recording. Press shift-X (or the standard Emacs key sequence C-x e) to execute your keyboard macro by replaying the recorded keystrokes. See Keyboard Macros in the Emacs Manual, for further information.
+
+When you use X to invoke a keyboard macro, the entire macro is treated as a single command by the undo and trail features. The stack display buffer is not updated during macro execution, but is instead fixed up once the macro completes. Thus, commands defined with keyboard macros are convenient and efficient. The C-x e command, on the other hand, invokes the keyboard macro with no special treatment: Each command in the macro will record its own undo information and trail entry, and update the stack buffer accordingly. If your macro uses features outside of Calc’s control to operate on the contents of the Calc stack buffer, or if it includes Undo, Redo, or last-arguments commands, you must use C-x e to make sure the buffer and undo list are up-to-date at all times. You could also consider using K (calc-keep-args) instead of M-RET (calc-last-args).
+
+Calc extends the standard Emacs keyboard macros in several ways. Keyboard macros can be used to create user-defined commands. Keyboard macros can include conditional and iteration structures, somewhat analogous to those provided by a traditional programmable calculator.
+
+**** Naming Keyboard Macros
+
+Once you have defined a keyboard macro, you can bind it to a z key sequence with the Z K (calc-user-define-kbd-macro) command. This command prompts first for a key, then for a command name. For example, if you type C-x ( n TAB n TAB C-x ) you will define a keyboard macro which negates the top two numbers on the stack (TAB swaps the top two stack elements). Now you can type Z K n RET to define this keyboard macro onto the z n key sequence. The default command name (if you answer the second prompt with just the RET key as in this example) will be something like ‘calc-User-n’. The keyboard macro will now be available as both z n and M-x calc-User-n. You can backspace and enter a more descriptive command name if you wish.
+
+Macros defined by Z K act like single commands; they are executed in the same way as by the X key. If you wish to define the macro as a standard no-frills Emacs macro (to be executed as if by C-x e), give a negative prefix argument to Z K.
+
+Once you have bound your keyboard macro to a key, you can use Z P to register it permanently with Emacs. See Creating User Keys.
+
+The Z E (calc-user-define-edit) command on a key that has been defined by a keyboard macro tries to use the edmacro package edit the macro. Type C-c C-c to finish editing and update the definition stored on the key, or, to cancel the edit, kill the buffer with C-x k. The special characters RET, LFD, TAB, SPC, DEL, and NUL must be entered as these three character sequences, written in all uppercase, as must the prefixes C- and M-. Spaces and line breaks are ignored. Other characters are copied verbatim into the keyboard macro. Basically, the notation is the same as is used in all of this manual’s examples, except that the manual takes some liberties with spaces: When we say ' [1 2 3] RET, we take it for granted that it is clear we really mean ' [1 SPC 2 SPC 3] RET.
+
+The C-x * m (read-kbd-macro) command reads an Emacs “region” of spelled-out keystrokes and defines it as the current keyboard macro. It is a convenient way to define a keyboard macro that has been stored in a file, or to define a macro without executing it at the same time.
+
+
+**** Conditionals in Keyboard Macros
+
+The Z [ (calc-kbd-if) and Z ] (calc-kbd-end-if) commands allow you to put simple tests in a keyboard macro. When Calc sees the Z [, it pops an object from the stack and, if the object is a non-zero value, continues executing keystrokes. But if the object is zero, or if it is not provably nonzero, Calc skips ahead to the matching Z ] keystroke. See Logical Operations, for a set of commands for performing tests which conveniently produce 1 for true and 0 for false.
+
+For example, RET 0 a < Z [ n Z ] implements an absolute-value function in the form of a keyboard macro. This macro duplicates the number on the top of the stack, pushes zero and compares using a < (calc-less-than), then, if the number was less than zero, executes n (calc-change-sign). Otherwise, the change-sign command is skipped.
+
+To program this macro, type C-x (, type the above sequence of keystrokes, then type C-x ). Note that the keystrokes will be executed while you are making the definition as well as when you later re-execute the macro by typing X. Thus you should make sure a suitable number is on the stack before defining the macro so that you don’t get a stack-underflow error during the definition process.
+
+Conditionals can be nested arbitrarily. However, there should be exactly one Z ] for each Z [ in a keyboard macro.
+
+The Z : (calc-kbd-else) command allows you to choose between two keystroke sequences. The general format is cond Z [ then-part Z : else-part Z ]. If cond is true (i.e., if the top of stack contains a non-zero number after cond has been executed), the then-part will be executed and the else-part will be skipped. Otherwise, the then-part will be skipped and the else-part will be executed.
+
+The Z | (calc-kbd-else-if) command allows you to choose between any number of alternatives. For example, cond1 Z [ part1 Z : cond2 Z | part2 Z : part3 Z ] will execute part1 if cond1 is true, otherwise it will execute part2 if cond2 is true, otherwise it will execute part3.
+
+More precisely, Z [ pops a number and conditionally skips to the next matching Z : or Z ] key. Z ] has no effect when actually executed. Z : skips to the next matching Z ]. Z | pops a number and conditionally skips to the next matching Z : or Z ]; thus, Z [ and Z | are functionally equivalent except that Z [ participates in nesting but Z | does not.
+
+Calc’s conditional and looping constructs work by scanning the keyboard macro for occurrences of character sequences like ‘Z:’ and ‘Z]’. One side-effect of this is that if you use these constructs you must be careful that these character pairs do not occur by accident in other parts of the macros. Since Calc rarely uses shift-Z for any purpose except as a prefix character, this is not likely to be a problem. Another side-effect is that it will not work to define your own custom key bindings for these commands. Only the standard shift-Z bindings will work correctly.
+
+If Calc gets stuck while skipping characters during the definition of a macro, type Z C-g to cancel the definition. (Typing plain C-g actually adds a C-g keystroke to the macro.)
+
+
+**** Loops in Keyboard Macros
+
+The Z < (calc-kbd-repeat) and Z > (calc-kbd-end-repeat) commands pop a number from the stack, which must be an integer, then repeat the keystrokes between the brackets the specified number of times. If the integer is zero or negative, the body is skipped altogether. For example, 1 TAB Z < 2 * Z > computes two to a nonnegative integer power. First, we push 1 on the stack and then swap the integer argument back to the top. The Z < pops that argument leaving the 1 back on top of the stack. Then, we repeat a multiply-by-two step however many times.
+
+Once again, the keyboard macro is executed as it is being entered. In this case it is especially important to set up reasonable initial conditions before making the definition: Suppose the integer 1000 just happened to be sitting on the stack before we typed the above definition! Another approach is to enter a harmless dummy definition for the macro, then go back and edit in the real one with a Z E command. Yet another approach is to type the macro as written-out keystroke names in a buffer, then use C-x * m (read-kbd-macro) to read the macro.
+
+The Z / (calc-kbd-break) command allows you to break out of a keyboard macro loop prematurely. It pops an object from the stack; if that object is true (a non-zero number), control jumps out of the innermost enclosing Z < … Z > loop and continues after the Z >. If the object is false, the Z / has no effect. Thus cond Z / is similar to ‘if (cond) break;’ in the C language.
+
+The Z ( (calc-kbd-for) and Z ) (calc-kbd-end-for) commands are similar to Z < and Z >, except that they make the value of the counter available inside the loop. The general layout is init final Z ( body step Z ). The Z ( command pops initial and final values from the stack. It then creates a temporary internal counter and initializes it with the value init. The Z ( command then repeatedly pushes the counter value onto the stack and executes body and step, adding step to the counter each time until the loop finishes.
+
+By default, the loop finishes when the counter becomes greater than (or less than) final, assuming initial is less than (greater than) final. If initial is equal to final, the body executes exactly once. The body of the loop always executes at least once. For example, 0 1 10 Z ( 2 ^ + 1 Z ) computes the sum of the squares of the integers from 1 to 10, in steps of 1.
+
+If you give a numeric prefix argument of 1 to Z (, the loop is forced to use upward-counting conventions. In this case, if initial is greater than final the body will not be executed at all. Note that step may still be negative in this loop; the prefix argument merely constrains the loop-finished test. Likewise, a prefix argument of -1 forces downward-counting conventions.
+
+The Z { (calc-kbd-loop) and Z } (calc-kbd-end-loop) commands are similar to Z < and Z >, except that they do not pop a count from the stack—they effectively create an infinite loop. Every Z { … Z } loop ought to include at least one Z / to make sure the loop doesn’t run forever. (If any error message occurs which causes Emacs to beep, the keyboard macro will also be halted; this is a standard feature of Emacs. You can also generally press C-g to halt a running keyboard macro, although not all versions of Unix support this feature.)
+
+The conditional and looping constructs are not actually tied to keyboard macros, but they are most often used in that context. For example, the keystrokes 10 Z < 23 RET Z > push ten copies of 23 onto the stack. This can be typed “live” just as easily as in a macro definition.
+
+See Conditionals in Keyboard Macros, for some additional notes about conditional and looping commands.
+
+
+**** Local Values in Macros
+
+Keyboard macros sometimes want to operate under known conditions without affecting surrounding conditions. For example, a keyboard macro may wish to turn on Fraction mode, or set a particular precision, independent of the user’s normal setting for those modes.
+
+Macros also sometimes need to use local variables. Assignments to local variables inside the macro should not affect any variables outside the macro. The Z ` (calc-kbd-push) and Z ' (calc-kbd-pop) commands give you both of these capabilities.
+
+When you type Z ` (with a grave accent), the values of various mode settings are saved away. The ten “quick” variables q0 through q9 are also saved. When you type Z ' (with an apostrophe), these values are restored. Pairs of Z ` and Z ' commands may be nested.
+
+If a keyboard macro halts due to an error in between a Z ` and a Z ', the saved values will be restored correctly even though the macro never reaches the Z ' command. Thus you can use Z ` and Z ' without having to worry about what happens in exceptional conditions.
+
+If you type Z ` “live” (not in a keyboard macro), Calc puts you into a “recursive edit.” You can tell you are in a recursive edit because there will be extra square brackets in the mode line, as in ‘[(Calculator)]’. These brackets will go away when you type the matching Z ' command. The modes and quick variables will be saved and restored in just the same way as if actual keyboard macros were involved.
+
+The modes saved by Z ` and Z ' are the current precision and binary word size, the angular mode (Deg, Rad, or HMS), the simplification mode, Algebraic mode, Symbolic mode, Infinite mode, Matrix or Scalar mode, Fraction mode, and the current complex mode (Polar or Rectangular). The ten “quick” variables’ values (or lack thereof) are also saved.
+
+Most mode-setting commands act as toggles, but with a numeric prefix they force the mode either on (positive prefix) or off (negative or zero prefix). Since you don’t know what the environment might be when you invoke your macro, it’s best to use prefix arguments for all mode-setting commands inside the macro.
+
+In fact, C-u Z ` is like Z ` except that it sets the modes listed above to their default values. As usual, the matching Z ' will restore the modes to their settings from before the C-u Z `. Also, Z ` with a negative prefix argument resets the algebraic mode to its default (off) but leaves the other modes the same as they were outside the construct.
+
+The contents of the stack and trail, values of non-quick variables, and other settings such as the language mode and the various display modes, are not affected by Z ` and Z '.
+
+
+**** Queries in Keyboard Macros
+
+The Z # (calc-kbd-query) command prompts for an algebraic entry which takes its input from the keyboard, even during macro execution. All the normal conventions of algebraic input, including the use of $ characters, are supported. The prompt message itself is taken from the top of the stack, and so must be entered (as a string) before the Z # command. (Recall, as a string it can be entered by pressing the " key and will appear as a vector when it is put on the stack. The prompt message is only put on the stack to provide a prompt for the Z # command; it will not play any role in any subsequent calculations.) This command allows your keyboard macros to accept numbers or formulas as interactive input.
+
+As an example, 2 RET "Power: " RET Z # 3 RET ^ will prompt for input with “Power: ” in the minibuffer, then return 2 to the provided power. (The response to the prompt that’s given, 3 in this example, will not be part of the macro.)
+
+See Keyboard Macro Query in the Emacs Manual, for a description of C-x q (kbd-macro-query), the standard Emacs way to accept keyboard input during a keyboard macro. In particular, you can use C-x q to enter a recursive edit, which allows the user to perform any Calculator operations interactively before pressing C-M-c to return control to the keyboard macro.
+
+
+*** Invocation Macros
+
+Calc provides one special keyboard macro, called up by C-x * z (calc-user-invocation), that is intended to allow you to define your own special way of starting Calc. To define this “invocation macro,” create the macro in the usual way with C-x ( and C-x ), then type Z I (calc-user-define-invocation). There is only one invocation macro, so you don’t need to type any additional letters after Z I. From now on, you can type C-x * z at any time to execute your invocation macro.
+
+For example, suppose you find yourself often grabbing rectangles of numbers into Calc and multiplying their columns. You can do this by typing C-x * r to grab, and V R : * to multiply columns. To make this into an invocation macro, just type C-x ( C-x * r V R : * C-x ), then Z I. Then, to multiply a rectangle of data, just mark the data in its buffer in the usual way and type C-x * z.
+
+Invocation macros are treated like regular Emacs keyboard macros; all the special features described above for Z K-style macros do not apply. C-x * z is just like C-x e, except that it uses the macro that was last stored by Z I. (In fact, the macro does not even have to have anything to do with Calc!)
+
+The m m command saves the last invocation macro defined by Z I along with all the other Calc mode settings. See General Mode Commands.
+
+
+*** Programming with Formulas
+
+Another way to create a new Calculator command uses algebraic formulas. The Z F (calc-user-define-formula) command stores the formula at the top of the stack as the definition for a key. This command prompts for five things: The key, the command name, the function name, the argument list, and the behavior of the command when given non-numeric arguments.
+
+For example, suppose we type ' a+2b RET to push the formula ‘a + 2*b’ onto the stack. We now type Z F m to define this formula on the z m key sequence. The next prompt is for a command name, beginning with ‘calc-’, which should be the long (M-x) form for the new command. If you simply press RET, a default name like calc-User-m will be constructed. In our example, suppose we enter spam RET to define the new command as calc-spam.
+
+If you want to give the formula a long-style name only, you can press SPC or RET when asked which single key to use. For example Z F RET spam RET defines the new command as M-x calc-spam, with no keyboard equivalent.
+
+The third prompt is for an algebraic function name. The default is to use the same name as the command name but without the ‘calc-’ prefix. (If this is of the form ‘User-m’, the hyphen is removed so it won’t be taken for a minus sign in algebraic formulas.) This is the name you will use if you want to enter your new function in an algebraic formula. Suppose we enter yow RET. Then the new function can be invoked by pushing two numbers on the stack and typing z m or x spam, or by entering the algebraic formula ‘yow(x,y)’.
+
+The fourth prompt is for the function’s argument list. This is used to associate values on the stack with the variables that appear in the formula. The default is a list of all variables which appear in the formula, sorted into alphabetical order. In our case, the default would be ‘(a b)’. This means that, when the user types z m, the Calculator will remove two numbers from the stack, substitute these numbers for ‘a’ and ‘b’ (respectively) in the formula, then simplify the formula and push the result on the stack. In other words, 10 RET 100 z m would replace the 10 and 100 on the stack with the number 210, which is ‘a + 2 b’ with ‘a=10’ and ‘b=100’. Likewise, the formula ‘yow(10, 100)’ will be evaluated by substituting ‘a=10’ and ‘b=100’ in the definition.
+
+You can rearrange the order of the names before pressing RET to control which stack positions go to which variables in the formula. If you remove a variable from the argument list, that variable will be left in symbolic form by the command. Thus using an argument list of ‘(b)’ for our function would cause 10 z m to replace the 10 on the stack with the formula ‘a + 20’. If we had used an argument list of ‘(b a)’, the result with inputs 10 and 100 would have been 120.
+
+You can also put a nameless function on the stack instead of just a formula, as in ‘<a, b : a + 2 b>’. See Specifying Operators. In this example, the command will be defined by the formula ‘a + 2 b’ using the argument list ‘(a b)’.
+
+The final prompt is a y-or-n question concerning what to do if symbolic arguments are given to your function. If you answer y, then executing z m (using the original argument list ‘(a b)’) with arguments ‘10’ and ‘x’ will leave the function in symbolic form, i.e., ‘yow(10,x)’. On the other hand, if you answer n, then the formula will always be expanded, even for non-constant arguments: ‘10 + 2 x’. If you never plan to feed algebraic formulas to your new function, it doesn’t matter how you answer this question.
+
+If you answered y to this question you can still cause a function call to be expanded by typing a " (calc-expand-formula). Also, Calc will expand the function if necessary when you take a derivative or integral or solve an equation involving the function.
+
+Once you have defined a formula on a key, you can retrieve this formula with the Z G (calc-user-define-get-defn) command. Press a key, and this command pushes the formula that was used to define that key onto the stack. Actually, it pushes a nameless function that specifies both the argument list and the defining formula. You will get an error message if the key is undefined, or if the key was not defined by a Z F command.
+
+The Z E (calc-user-define-edit) command on a key that has been defined by a formula uses a variant of the calc-edit command to edit the defining formula. Press C-c C-c to finish editing and store the new formula back in the definition, or kill the buffer with C-x k to cancel the edit. (The argument list and other properties of the definition are unchanged; to adjust the argument list, you can use Z G to grab the function onto the stack, edit with `, and then re-execute the Z F command.)
+
+As usual, the Z P command records your definition permanently. In this case it will permanently record all three of the relevant definitions: the key, the command, and the function.
+
+You may find it useful to turn off the default simplifications with m O (calc-no-simplify-mode) when entering a formula to be used as a function definition. For example, the formula ‘deriv(a^2,v)’ which might be used to define a new function ‘dsqr(a,v)’ will be “simplified” to 0 immediately upon entry since deriv considers ‘a’ to be constant with respect to ‘v’. Turning off default simplifications cures this problem: The definition will be stored in symbolic form without ever activating the deriv function. Press m D to turn the default simplifications back on afterwards.
+
+
+*** Programming Calc, with Lisp
+
+The Calculator can be programmed quite extensively in Lisp. All you do is write a normal Lisp function definition, but with defmath in place of defun. This has the same form as defun, but it automagically replaces calls to standard Lisp functions like + and zerop with calls to the corresponding functions in Calc’s own library. Thus you can write natural-looking Lisp code which operates on all of the standard Calculator data types. You can then use Z D if you wish to bind your new command to a z-prefix key sequence. The Z E command will not edit a Lisp-based definition.
+
+Emacs Lisp is described in the GNU Emacs Lisp Reference Manual. This section assumes a familiarity with Lisp programming concepts; if you do not know Lisp, you may find keyboard macros or rewrite rules to be an easier way to program the Calculator.
+
+This section first discusses ways to write commands, functions, or small programs to be executed inside of Calc. Then it discusses how your own separate programs are able to call Calc from the outside. Finally, there is a list of internal Calc functions and data structures for the true Lisp enthusiast.
+
+**** Defining New Functions
+
+The defmath function (actually a Lisp macro) is like defun except that code in the body of the definition can make use of the full range of Calculator data types. The prefix ‘calcFunc-’ is added to the specified name to get the actual Lisp function name. As a simple example,
+
+(defmath myfact (n)
+  (if (> n 0)
+      (* n (myfact (1- n)))
+    1))
+This actually expands to the code,
+
+(defun calcFunc-myfact (n)
+  (if (math-posp n)
+      (math-mul n (calcFunc-myfact (math-add n -1)))
+    1))
+This function can be used in algebraic expressions, e.g., ‘myfact(5)’.
+
+The ‘myfact’ function as it is defined above has the bug that an expression ‘myfact(a+b)’ will be simplified to 1 because the formula ‘a+b’ is not considered to be posp. A robust factorial function would be written along the following lines:
+
+(defmath myfact (n)
+  (if (> n 0)
+      (* n (myfact (1- n)))
+    (if (= n 0)
+        1
+      nil)))    ; this could be simplified as: (and (= n 0) 1)
+If a function returns nil, it is left unsimplified by the Calculator (except that its arguments will be simplified). Thus, ‘myfact(a+1+2)’ will be simplified to ‘myfact(a+3)’ but no further. Beware that every time the Calculator reexamines this formula it will attempt to resimplify it, so your function ought to detect the returning-nil case as efficiently as possible.
+
+The following standard Lisp functions are treated by defmath: +, -, *, /, %, ^ or expt, =, <, >, <=, >=, /=, 1+, 1-, logand, logior, logxor, logandc2, lognot. Also, ~= is an abbreviation for math-nearly-equal, which is useful in implementing Taylor series.
+
+For other functions func, if a function by the name ‘calcFunc-func’ exists it is used, otherwise if a function by the name ‘math-func’ exists it is used, otherwise if func itself is defined as a function it is used, otherwise ‘calcFunc-func’ is used on the assumption that this is a to-be-defined math function. Also, if the function name is quoted as in ‘('integerp a)’ the function name is always used exactly as written (but not quoted).
+
+Variable names have ‘var-’ prepended to them unless they appear in the function’s argument list or in an enclosing let, let*, for, or foreach form, or their names already contain a ‘-’ character. Thus a reference to ‘foo’ is the same as a reference to ‘var-foo’.
+
+A few other Lisp extensions are available in defmath definitions:
+
+The elt function accepts any number of index variables. Note that Calc vectors are stored as Lisp lists whose first element is the symbol vec; thus, ‘(elt v 2)’ yields the second element of vector v, and ‘(elt m i j)’ yields one element of a Calc matrix.
+The setq function has been extended to act like the Common Lisp setf function. (The name setf is recognized as a synonym of setq.) Specifically, the first argument of setq can be an nth, elt, car, or cdr form, in which case the effect is to store into the specified element of a list. Thus, ‘(setq (elt m i j) x)’ stores ‘x’ into one element of a matrix.
+A for looping construct is available. For example, ‘(for ((i 0 10)) body)’ executes body once for each binding of ‘i’ from zero to 10. This is like a let form in that ‘i’ is temporarily bound to the loop count without disturbing its value outside the for construct. Nested loops, as in ‘(for ((i 0 10) (j 0 (1- i) 2)) body)’, are also available. For each value of ‘i’ from zero to 10, ‘j’ counts from 0 to ‘i-1’ in steps of two. Note that for has the same general outline as let*, except that each element of the header is a list of three or four things, not just two.
+The foreach construct loops over elements of a list. For example, ‘(foreach ((x (cdr v))) body)’ executes body with ‘x’ bound to each element of Calc vector ‘v’ in turn. The purpose of cdr here is to skip over the initial vec symbol in the vector.
+The break function breaks out of the innermost enclosing while, for, or foreach loop. If given a value, as in ‘(break x)’, this value is returned by the loop. (Lisp loops otherwise always return nil.)
+The return function prematurely returns from the enclosing function. For example, ‘(return (+ x y))’ returns ‘x+y’ as the value of a function. You can use return anywhere inside the body of the function.
+Non-integer numbers cannot be included directly into a defmath definition. This is because the Lisp reader will fail to parse them long before defmath ever gets control. Instead, use the notation, ‘:"3.1415"’. In fact, any algebraic formula can go between the quotes. For example,
+
+(defmath sqexp (x)     ; sqexp(x) == sqrt(exp(x)) == exp(x*0.5)
+  (and (numberp x)
+       (exp :"x * 0.5")))
+expands to
+
+(defun calcFunc-sqexp (x)
+  (and (math-numberp x)
+       (calcFunc-exp (math-mul x '(float 5 -1)))))
+Note the use of numberp as a guard to ensure that the argument is a number first, returning nil if not. The exponential function could itself have been included in the expression, if we had preferred: ‘:"exp(x * 0.5)"’. As another example, the multiplication-and-recursion step of myfact could have been written
+
+:"n * myfact(n-1)"
+A good place to put your defmath commands is your Calc init file (the file given by calc-settings-file, typically ~/.emacs.d/calc.el), which will not be loaded until Calc starts. If a file named .emacs exists in your home directory, Emacs reads and executes the Lisp forms in this file as it starts up. While it may seem reasonable to put your favorite defmath commands there, this has the unfortunate side-effect that parts of the Calculator must be loaded in to process the defmath commands whether or not you will actually use the Calculator! If you want to put the defmath commands there (for example, if you redefine calc-settings-file to be .emacs), a better effect can be had by writing
+
+(put 'calc-define 'thing '(progn
+ (defmath ... )
+ (defmath ... )
+))
+The put function adds a property to a symbol. Each Lisp symbol has a list of properties associated with it. Here we add a property with a name of thing and a ‘(progn ...)’ form as its value. When Calc starts up, and at the start of every Calc command, the property list for the symbol calc-define is checked and the values of any properties found are evaluated as Lisp forms. The properties are removed as they are evaluated. The property names (like thing) are not used; you should choose something like the name of your project so as not to conflict with other properties.
+
+The net effect is that you can put the above code in your .emacs file and it will not be executed until Calc is loaded. Or, you can put that same code in another file which you load by hand either before or after Calc itself is loaded.
+
+The properties of calc-define are evaluated in the same order that they were added. They can assume that the Calc modules calc.el, calc-ext.el, and calc-macs.el have been fully loaded, and that the *Calculator* buffer will be the current buffer.
+
+If your calc-define property only defines algebraic functions, you can be sure that it will have been evaluated before Calc tries to call your function, even if the file defining the property is loaded after Calc is loaded. But if the property defines commands or key sequences, it may not be evaluated soon enough. (Suppose it defines the new command tweak-calc; the user can load your file, then type M-x tweak-calc before Calc has had chance to do anything.) To protect against this situation, you can put
+
+(run-hooks 'calc-check-defines)
+at the end of your file. The calc-check-defines function is what looks for and evaluates properties on calc-define; run-hooks has the advantage that it is quietly ignored if calc-check-defines is not yet defined because Calc has not yet been loaded.
+
+Examples of things that ought to be enclosed in a calc-define property are defmath calls, define-key calls that modify the Calc key map, and any calls that redefine things defined inside Calc. Ordinary defuns need not be enclosed with calc-define.
+
+
+**** Defining New Simple Commands
+
+If a defmath form contains an interactive clause, it defines a Calculator command. Actually such a defmath results in two function definitions: One, a ‘calcFunc-’ function as was just described, with the interactive clause removed. Two, a ‘calc-’ function with a suitable interactive clause and some sort of wrapper to make the command work in the Calc environment.
+
+In the simple case, the interactive clause has the same form as for normal Emacs Lisp commands:
+
+(defmath increase-precision (delta)
+  "Increase precision by DELTA."     ; This is the "documentation string"
+  (interactive "p")                  ; Register this as a M-x-able command
+  (setq calc-internal-prec (+ calc-internal-prec delta)))
+This expands to the pair of definitions,
+
+(defun calc-increase-precision (delta)
+  "Increase precision by DELTA."
+  (interactive "p")
+  (calc-wrapper
+   (setq calc-internal-prec (math-add calc-internal-prec delta))))
+
+(defun calcFunc-increase-precision (delta)
+  "Increase precision by DELTA."
+  (setq calc-internal-prec (math-add calc-internal-prec delta)))
+where in this case the latter function would never really be used! Note that since the Calculator stores integers as plain Lisp integers, the math-add function will work just as well as the native + even when the intent is to operate on native Lisp integers.
+
+The ‘calc-wrapper’ call invokes a macro which surrounds the body of the function with code that looks roughly like this:
+
+(let ((calc-command-flags nil))
+  (unwind-protect
+      (save-current-buffer
+        (calc-select-buffer)
+        body of function
+        renumber stack
+        clear Working message)
+    realign cursor and window
+    clear Inverse, Hyperbolic, and Keep Args flags
+    update Emacs mode line))
+The calc-select-buffer function selects the *Calculator* buffer if necessary, say, because the command was invoked from inside the *Calc Trail* window.
+
+You can call, for example, (calc-set-command-flag 'no-align) to set the above-mentioned command flags. Calc routines recognize the following command flags:
+
+renum-stack
+Stack line numbers ‘1:’, ‘2:’, and so on must be renumbered after this command completes. This is set by routines like calc-push.
+
+clear-message
+Calc should call ‘(message "")’ if this command completes normally (to clear a “Working…” message out of the echo area).
+
+no-align
+Do not move the cursor back to the ‘.’ top-of-stack marker.
+
+position-point
+Use the variables calc-position-point-line and calc-position-point-column to position the cursor after this command finishes.
+
+keep-flags
+Do not clear calc-inverse-flag, calc-hyperbolic-flag, and calc-keep-args-flag at the end of this command.
+
+do-edit
+Switch to buffer *Calc Edit* after this command.
+
+hold-trail
+Do not move trail pointer to end of trail when something is recorded there.
+
+Calc reserves a special prefix key, shift-Y, for user-written extensions to Calc. There are no built-in commands that work with this prefix key; you must call define-key from Lisp (probably from inside a calc-define property) to add to it. Initially only Y ? is defined; it takes help messages from a list of strings (initially nil) in the variable calc-Y-help-msgs. All other undefined keys except for Y are reserved for use by future versions of Calc.
+
+If you are writing a Calc enhancement which you expect to give to others, it is best to minimize the number of Y-key sequences you use. In fact, if you have more than one key sequence you should consider defining three-key sequences with a Y, then a key that stands for your package, then a third key for the particular command within your package.
+
+Users may wish to install several Calc enhancements, and it is possible that several enhancements will choose to use the same key. In the example below, a variable inc-prec-base-key has been defined to contain the key that identifies the inc-prec package. Its value is initially "P", but a user can change this variable if necessary without having to modify the file.
+
+Here is a complete file, inc-prec.el, which makes a Y P I command that increases the precision, and a Y P D command that decreases the precision.
+
+;;; Increase and decrease Calc precision.  Dave Gillespie, 5/31/91.
+;; (Include copyright or copyleft stuff here.)
+
+(defvar inc-prec-base-key "P"
+  "Base key for inc-prec.el commands.")
+
+(put 'calc-define 'inc-prec '(progn
+
+(define-key calc-mode-map (format "Y%sI" inc-prec-base-key)
+            'calc-increase-precision)
+(define-key calc-mode-map (format "Y%sD" inc-prec-base-key)
+            'calc-decrease-precision)
+
+(setq calc-Y-help-msgs
+      (cons (format "%s + Inc-prec, Dec-prec" inc-prec-base-key)
+            calc-Y-help-msgs))
+
+(defmath increase-precision (delta)
+  "Increase precision by DELTA."
+  (interactive "p")
+  (setq calc-internal-prec (+ calc-internal-prec delta)))
+
+(defmath decrease-precision (delta)
+  "Decrease precision by DELTA."
+  (interactive "p")
+  (setq calc-internal-prec (- calc-internal-prec delta)))
+
+))  ; end of calc-define property
+
+(run-hooks 'calc-check-defines)
+
+
+**** Defining New Stack-Based Commands
+
+To define a new computational command which takes and/or leaves arguments on the stack, a special form of interactive clause is used.
+
+(interactive num tag)
+where num is an integer, and tag is a string. The effect is to pop num values off the stack, resimplify them by calling calc-normalize, and hand them to your function according to the function’s argument list. Your function may include &optional and &rest parameters, so long as calling the function with num parameters is valid.
+
+Your function must return either a number or a formula in a form acceptable to Calc, or a list of such numbers or formulas. These value(s) are pushed onto the stack when the function completes. They are also recorded in the Calc Trail buffer on a line beginning with tag, a string of (normally) four characters or less. If you omit tag or use nil as a tag, the result is not recorded in the trail.
+
+As an example, the definition
+
+(defmath myfact (n)
+  "Compute the factorial of the integer at the top of the stack."
+  (interactive 1 "fact")
+  (if (> n 0)
+      (* n (myfact (1- n)))
+    (and (= n 0) 1)))
+is a version of the factorial function shown previously which can be used as a command as well as an algebraic function. It expands to
+
+(defun calc-myfact ()
+  "Compute the factorial of the integer at the top of the stack."
+  (interactive)
+  (calc-slow-wrapper
+   (calc-enter-result 1 "fact"
+     (cons 'calcFunc-myfact (calc-top-list-n 1)))))
+
+(defun calcFunc-myfact (n)
+  "Compute the factorial of the integer at the top of the stack."
+  (if (math-posp n)
+      (math-mul n (calcFunc-myfact (math-add n -1)))
+    (and (math-zerop n) 1)))
+The calc-slow-wrapper function is a version of calc-wrapper that automatically puts up a ‘Working...’ message before the computation begins. (This message can be turned off by the user with an m w (calc-working) command.)
+
+The calc-top-list-n function returns a list of the specified number of values from the top of the stack. It resimplifies each value by calling calc-normalize. If its argument is zero it returns an empty list. It does not actually remove these values from the stack.
+
+The calc-enter-result function takes an integer num and string tag as described above, plus a third argument which is either a Calculator data object or a list of such objects. These objects are resimplified and pushed onto the stack after popping the specified number of values from the stack. If tag is non-nil, the values being pushed are also recorded in the trail.
+
+Note that if calcFunc-myfact returns nil this represents “leave the function in symbolic form.” To return an actual empty list, in the sense that calc-enter-result will push zero elements back onto the stack, you should return the special value ‘'(nil)’, a list containing the single symbol nil.
+
+The interactive declaration can actually contain a limited Emacs-style code string as well which comes just before num and tag. Currently the only Emacs code supported is ‘"p"’, as in
+
+(defmath foo (a b &optional c)
+  (interactive "p" 2 "foo")
+  body)
+In this example, the command calc-foo will evaluate the expression ‘foo(a,b)’ if executed with no argument, or ‘foo(a,b,n)’ if executed with a numeric prefix argument of ‘n’.
+
+The other code string allowed is ‘"m"’ (unrelated to the usual ‘"m"’ code as used with defun). It uses the numeric prefix argument as the number of objects to remove from the stack and pass to the function. In this case, the integer num serves as a default number of arguments to be used when no prefix is
+
+
+**** Argument Qualifiers
+
+Anywhere a parameter name can appear in the parameter list you can also use an argument qualifier. Thus the general form of a definition is:
+
+(defmath name (param param...
+               &optional param param...
+               &rest param)
+  body)
+where each param is either a symbol or a list of the form
+
+(qual param)
+The following qualifiers are recognized:
+
+‘complete’ ¶
+The argument must not be an incomplete vector, interval, or complex number. (This is rarely needed since the Calculator itself will never call your function with an incomplete argument. But there is nothing stopping your own Lisp code from calling your function with an incomplete argument.)
+
+‘integer’ ¶
+The argument must be an integer. If it is an integer-valued float it will be accepted but converted to integer form. Non-integers and formulas are rejected.
+
+‘natnum’ ¶
+Like ‘integer’, but the argument must be non-negative.
+
+‘fixnum’ ¶
+Like ‘integer’, but the argument must fit into a native Lisp fixnum, which on most systems means less than 2^61 in absolute value. The argument is converted into Lisp-integer form if necessary.
+
+‘float’ ¶
+The argument is converted to floating-point format if it is a number or vector. If it is a formula it is left alone. (The argument is never actually rejected by this qualifier.)
+
+‘pred’
+The argument must satisfy predicate pred, which is one of the standard Calculator predicates. See Predicates.
+
+‘not-pred’
+The argument must not satisfy predicate pred.
+
+For example,
+
+(defmath foo (a (constp (not-matrixp b)) &optional (float c)
+              &rest (integer d))
+  body)
+expands to
+
+(defun calcFunc-foo (a b &optional c &rest d)
+  (and (math-matrixp b)
+       (math-reject-arg b 'not-matrixp))
+  (or (math-constp b)
+      (math-reject-arg b 'constp))
+  (and c (setq c (math-check-float c)))
+  (setq d (mapcar 'math-check-integer d))
+  body)
+which performs the necessary checks and conversions before executing the body of the function.
+
+
+**** Example Definitions
+
+This section includes some Lisp programming examples on a larger scale. These programs make use of some of the Calculator’s internal functions; see Calculator Internals.
+
+***** Bit-Counting
+
+Calc does not include a built-in function for counting the number of “one” bits in a binary integer. It’s easy to invent one using b u to convert the integer to a set, and V # to count the elements of that set; let’s write a function that counts the bits without having to create an intermediate set.
+
+(defmath bcount ((natnum n))
+  (interactive 1 "bcnt")
+  (let ((count 0))
+    (while (> n 0)
+      (if (oddp n)
+          (setq count (1+ count)))
+      (setq n (ash n -1)))
+    count))
+When this is expanded by defmath, it will become the following Emacs Lisp function:
+
+(defun calcFunc-bcount (n)
+  (setq n (math-check-natnum n))
+  (let ((count 0))
+    (while (math-posp n)
+      (if (math-oddp n)
+          (setq count (math-add count 1)))
+      (setq n (calcFunc-lsh n -1)))
+    count))
+
+***** The Sine Function
+
+A somewhat limited sine function could be defined as follows, using the well-known Taylor series expansion for ‘sin(x)’:
+
+(defmath mysin ((float (anglep x)))
+  (interactive 1 "mysn")
+  (setq x (to-radians x))    ; Convert from current angular mode.
+  (let ((sum x)              ; Initial term of Taylor expansion of sin.
+        newsum
+        (nfact 1)            ; "nfact" equals "n" factorial at all times.
+        (xnegsqr :"-(x^2)")) ; "xnegsqr" equals -x^2.
+    (for ((n 3 100 2))       ; Upper limit of 100 is a good precaution.
+      (working "mysin" sum)  ; Display "Working" message, if enabled.
+      (setq nfact (* nfact (1- n) n)
+            x (* x xnegsqr)
+            newsum (+ sum (/ x nfact)))
+      (if (~= newsum sum)    ; If newsum is "nearly equal to" sum,
+          (break))           ;  then we are done.
+      (setq sum newsum))
+    sum))
+The actual sin function in Calc works by first reducing the problem to a sine or cosine of a nonnegative number less than ‘pi/4’. This ensures that the Taylor series will converge quickly. Also, the calculation is carried out with two extra digits of precision to guard against cumulative round-off in ‘sum’. Finally, complex arguments are allowed and handled by a separate algorithm.
+
+(defmath mysin ((float (scalarp x)))
+  (interactive 1 "mysn")
+  (setq x (to-radians x))    ; Convert from current angular mode.
+  (with-extra-prec 2         ; Evaluate with extra precision.
+    (cond ((complexp x)
+           (mysin-complex x))
+          ((< x 0)
+           (- (mysin-raw (- x)))    ; Always call mysin-raw with x >= 0.
+          (t (mysin-raw x))))))
+
+(defmath mysin-raw (x)
+  (cond ((>= x 7)
+         (mysin-raw (% x (two-pi))))     ; Now x < 7.
+        ((> x (pi-over-2))
+         (- (mysin-raw (- x (pi)))))     ; Now -pi/2 <= x <= pi/2.
+        ((> x (pi-over-4))
+         (mycos-raw (- x (pi-over-2))))  ; Now -pi/2 <= x <= pi/4.
+        ((< x (- (pi-over-4)))
+         (- (mycos-raw (+ x (pi-over-2)))))  ; Now -pi/4 <= x <= pi/4,
+        (t (mysin-series x))))           ; so the series will be efficient.
+where mysin-complex is an appropriate function to handle complex numbers, mysin-series is the routine to compute the sine Taylor series as before, and mycos-raw is a function analogous to mysin-raw for cosines.
+
+The strategy is to ensure that ‘x’ is nonnegative before calling mysin-raw. This function then recursively reduces its argument to a suitable range, namely, plus-or-minus ‘pi/4’. Note that each test, and particularly the first comparison against 7, is designed so that small roundoff errors cannot produce an infinite loop. (Suppose we compared with ‘(two-pi)’ instead; if due to roundoff problems the modulo operator ever returned ‘(two-pi)’ exactly, an infinite recursion could result!) We use modulo only for arguments that will clearly get reduced, knowing that the next rule will catch any reductions that this rule misses.
+
+If a program is being written for general use, it is important to code it carefully as shown in this second example. For quick-and-dirty programs, when you know that your own use of the sine function will never encounter a large argument, a simpler program like the first one shown is fine.
+
+
+**** Calling Calc from Your Lisp Programs
+
+A later section (see Calculator Internals) gives a full description of Calc’s internal Lisp functions. It’s not hard to call Calc from inside your programs, but the number of these functions can be daunting. So Calc provides one special “programmer-friendly” function called calc-eval that can be made to do just about everything you need. It’s not as fast as the low-level Calc functions, but it’s much simpler to use!
+
+It may seem that calc-eval itself has a daunting number of options, but they all stem from one simple operation.
+
+In its simplest manifestation, ‘(calc-eval "1+2")’ parses the string "1+2" as if it were a Calc algebraic entry and returns the result formatted as a string: "3".
+
+Since calc-eval is on the list of recommended autoload functions, you don’t need to make any special preparations to load Calc before calling calc-eval the first time. Calc will be loaded and initialized for you.
+
+All the Calc modes that are currently in effect will be used when evaluating the expression and formatting the result.
+
+***** Additional Arguments to calc-eval
+
+If the input string parses to a list of expressions, Calc returns the results separated by ", ". You can specify a different separator by giving a second string argument to calc-eval: ‘(calc-eval "1+2,3+4" ";")’ returns "3;7".
+
+The “separator” can also be any of several Lisp symbols which request other behaviors from calc-eval. These are discussed one by one below.
+
+You can give additional arguments to be substituted for ‘$’, ‘$$’, and so on in the main expression. For example, ‘(calc-eval "$/$$" nil "7" "1+1")’ evaluates the expression "7/(1+1)" to yield the result "3.5" (assuming Fraction mode is not in effect). Note the nil used as a placeholder for the item-separator argument.
+
+***** Error Handling
+
+If calc-eval encounters an error, it returns a list containing the character position of the error, plus a suitable message as a string. Note that ‘1 / 0’ is not an error by Calc’s standards; it simply returns the string "1 / 0" which is the division left in symbolic form. But ‘(calc-eval "1/")’ will return the list ‘(2 "Expected a number")’.
+
+If you bind the variable calc-eval-error to t using a let form surrounding the call to calc-eval, errors instead call the Emacs error function which aborts to the Emacs command loop with a beep and an error message.
+
+If you bind this variable to the symbol string, error messages are returned as strings instead of lists. The character position is ignored.
+
+As a courtesy to other Lisp code which may be using Calc, be sure to bind calc-eval-error using let rather than changing it permanently with setq.
+
+***** Numbers Only
+
+Sometimes it is preferable to treat ‘1 / 0’ as an error rather than returning a symbolic result. If you pass the symbol num as the second argument to calc-eval, results that are not constants are treated as errors. The error message reported is the first calc-why message if there is one, or otherwise “Number expected.”
+
+A result is “constant” if it is a number, vector, or other object that does not include variables or function calls. If it is a vector, the components must themselves be constants.
+
+***** Default Modes
+
+If the first argument to calc-eval is a list whose first element is a formula string, then calc-eval sets all the various Calc modes to their default values while the formula is evaluated and formatted. For example, the precision is set to 12 digits, digit grouping is turned off, and the Normal language mode is used.
+
+This same principle applies to the other options discussed below. If the first argument would normally be x, then it can also be the list ‘(x)’ to use the default mode settings.
+
+If there are other elements in the list, they are taken as variable-name/value pairs which override the default mode settings. Look at the documentation at the front of the calc.el file to find the names of the Lisp variables for the various modes. The mode settings are restored to their original values when calc-eval is done.
+
+For example, ‘(calc-eval '("$+$$" calc-internal-prec 8) 'num a b)’ computes the sum of two numbers, requiring a numeric result, and using default mode settings except that the precision is 8 instead of the default of 12.
+
+It’s usually best to use this form of calc-eval unless your program actually considers the interaction with Calc’s mode settings to be a feature. This will avoid all sorts of potential “gotchas”; consider what happens with ‘(calc-eval "sqrt(2)" 'num)’ when the user has left Calc in Symbolic mode or No-Simplify mode.
+
+As another example, ‘(equal (calc-eval '("$<$$") nil a b) "1")’ checks if the number in string ‘a’ is less than the one in string ‘b’. Without using a list, the integer 1 might come out in a variety of formats which would be hard to test for conveniently: "1", "8#1", "00001". (But see “Predicates” mode, below.)
+
+***** Raw Numbers
+
+Normally all input and output for calc-eval is done with strings. You can do arithmetic with, say, ‘(calc-eval "$+$$" nil a b)’ in place of ‘(+ a b)’, but this is very inefficient since the numbers must be converted to and from string format as they are passed from one calc-eval to the next.
+
+If the separator is the symbol raw, the result will be returned as a raw Calc data structure rather than a string. You can read about how these objects look in the following sections, but usually you can treat them as “black box” objects with no important internal structure.
+
+There is also a rawnum symbol, which is a combination of raw (returning a raw Calc object) and num (signaling an error if that object is not a constant).
+
+You can pass a raw Calc object to calc-eval in place of a string, either as the formula itself or as one of the ‘$’ arguments. Thus ‘(calc-eval "$+$$" 'raw a b)’ is an addition function that operates on raw Calc objects. Of course in this case it would be easier to call the low-level math-add function in Calc, if you can remember its name.
+
+In particular, note that a plain Lisp integer is acceptable to Calc as a raw object.
+
+When it comes time to display the object, just use ‘(calc-eval a)’ to format it as a string.
+
+It is an error if the input expression evaluates to a list of values. The separator symbol list is like raw except that it returns a list of one or more raw Calc objects.
+
+Note that a Lisp string is not a valid Calc object, nor is a list containing a string. Thus you can still safely distinguish all the various kinds of error returns discussed above.
+
+17.6.6.6 Predicates
+If the separator symbol is pred, the result of the formula is treated as a true/false value; calc-eval returns t or nil, respectively. A value is considered “true” if it is a non-zero number, or false if it is zero or if it is not a number.
+
+For example, ‘(calc-eval "$<$$" 'pred a b)’ tests whether one value is less than another.
+
+As usual, it is also possible for calc-eval to return one of the error indicators described above. Lisp will interpret such an indicator as “true” if you don’t check for it explicitly. If you wish to have an error register as “false”, use something like ‘(eq (calc-eval ...) t)’.
+
+***** Variable Values
+
+Variables in the formula passed to calc-eval are not normally replaced by their values. If you wish this, you can use the evalv function (see Algebraic Manipulation). For example, if 4 is stored in Calc variable a (i.e., in Lisp variable var-a), then ‘(calc-eval "a+pi")’ will return the formula "a + pi", but ‘(calc-eval "evalv(a+pi)")’ will return "7.14159265359".
+
+To store in a Calc variable, just use setq to store in the corresponding Lisp variable. (This is obtained by prepending ‘var-’ to the Calc variable name.) Calc routines will understand either string or raw form values stored in variables, although raw data objects are much more efficient. For example, to increment the Calc variable a:
+
+(setq var-a (calc-eval "evalv(a+1)" 'raw))
+17.6.6.8 Stack Access
+If the separator symbol is push, the formula argument is evaluated (with possible ‘$’ expansions, as usual). The result is pushed onto the Calc stack. The return value is nil (unless there is an error from evaluating the formula, in which case the return value depends on calc-eval-error in the usual way).
+
+If the separator symbol is pop, the first argument to calc-eval must be an integer instead of a string. That many values are popped from the stack and thrown away. A negative argument deletes the entry at that stack level. The return value is the number of elements remaining in the stack after popping; ‘(calc-eval 0 'pop)’ is a good way to measure the size of the stack.
+
+If the separator symbol is top, the first argument to calc-eval must again be an integer. The value at that stack level is formatted as a string and returned. Thus ‘(calc-eval 1 'top)’ returns the top-of-stack value. If the integer is out of range, nil is returned.
+
+The separator symbol rawtop is just like top except that the stack entry is returned as a raw Calc object instead of as a string.
+
+In all of these cases the first argument can be made a list in order to force the default mode settings, as described above. Thus ‘(calc-eval '(2 calc-number-radix 16) 'top)’ returns the second-to-top stack entry, formatted as a string using the default instead of current display modes, except that the radix is hexadecimal instead of decimal.
+
+It is, of course, polite to put the Calc stack back the way you found it when you are done, unless the user of your program is actually expecting it to affect the stack.
+
+Note that you do not actually have to switch into the *Calculator* buffer in order to use calc-eval; it temporarily switches into the stack buffer if necessary.
+
+***** Keyboard Macros
+
+If the separator symbol is macro, the first argument must be a string of characters which Calc can execute as a sequence of keystrokes. This switches into the Calc buffer for the duration of the macro. For example, ‘(calc-eval "vx5\rVR+" 'macro)’ pushes the vector ‘[1,2,3,4,5]’ on the stack and then replaces it with the sum of those numbers. Note that ‘\r’ is the Lisp notation for the carriage return, RET, character.
+
+If your keyboard macro wishes to pop the stack, ‘\C-d’ is safer than ‘\177’ (the DEL character) because some installations may have switched the meanings of DEL and C-h. Calc always interprets C-d as a synonym for “pop-stack” regardless of key mapping.
+
+If you provide a third argument to calc-eval, evaluation of the keyboard macro will leave a record in the Trail using that argument as a tag string. Normally the Trail is unaffected.
+
+The return value in this case is always nil.
+
+***** Lisp Evaluation
+
+Finally, if the separator symbol is eval, then the Lisp eval function is called on the first argument, which must be a Lisp expression rather than a Calc formula. Remember to quote the expression so that it is not evaluated until inside calc-eval.
+
+The difference from plain eval is that calc-eval switches to the Calc buffer before evaluating the expression. For example, ‘(calc-eval '(setq calc-internal-prec 17) 'eval)’ will correctly affect the buffer-local Calc precision variable.
+
+An alternative would be ‘(calc-eval '(calc-precision 17) 'eval)’. This is evaluating a call to the function that is normally invoked by the p key, giving it 17 as its “numeric prefix argument.” Note that this function will leave a message in the echo area as a side effect. Also, all Calc functions switch to the Calc buffer automatically if not invoked from there, so the above call is also equivalent to ‘(calc-precision 17)’ by itself. In all cases, Calc uses save-excursion to switch back to your original buffer when it is done.
+
+As usual the first argument can be a list that begins with a Lisp expression to use default instead of current mode settings.
+
+The result of calc-eval in this usage is just the result returned by the evaluated Lisp expression.
+
+***** Example
+
+Here is a sample Emacs command that uses calc-eval. Suppose you have a document with lots of references to temperatures on the Fahrenheit scale, say “98.6 F”, and you wish to convert these references to Centigrade. The following command does this conversion. Place the Emacs cursor right after the letter “F” and invoke the command to change “98.6 F” to “37 C”. Or, if the temperature is already in Centigrade form, the command changes it back to Fahrenheit.
+
+(defun convert-temp ()
+  (interactive)
+  (save-excursion
+    (re-search-backward "[^-.0-9]\\([-.0-9]+\\) *\\([FC]\\)")
+    (let* ((top1 (match-beginning 1))
+           (bot1 (match-end 1))
+           (number (buffer-substring top1 bot1))
+           (top2 (match-beginning 2))
+           (bot2 (match-end 2))
+           (type (buffer-substring top2 bot2)))
+      (if (equal type "F")
+          (setq type "C"
+                number (calc-eval "($ - 32)*5/9" nil number))
+        (setq type "F"
+              number (calc-eval "$*9/5 + 32" nil number)))
+      (goto-char top2)
+      (delete-region top2 bot2)
+      (insert-before-markers type)
+      (goto-char top1)
+      (delete-region top1 bot1)
+      (if (string-match "\\.$" number)   ; change "37." to "37"
+          (setq number (substring number 0 -1)))
+      (insert number))))
+Note the use of insert-before-markers when changing between “F” and “C”, so that the character winds up before the cursor instead of after it.
+
+
+**** Calculator Internals
+
+This section describes the Lisp functions defined by the Calculator that may be of use to user-written Calculator programs (as described in the rest of this chapter). These functions are shown by their names as they conventionally appear in defmath. Their full Lisp names are generally gotten by prepending ‘calcFunc-’ or ‘math-’ to their apparent names. (Names that begin with ‘calc-’ are already in their full Lisp form.) You can use the actual full names instead if you prefer them, or if you are calling these functions from regular Lisp.
+
+The functions described here are scattered throughout the various Calc component files. Note that calc.el includes autoloads for only a few component files; to get autoloads of the more advanced function, one needs to load calc-ext.el, which in turn autoloads all the functions in the remaining component files.
+
+Because defmath itself uses the extensions, user-written code generally always executes with the extensions already loaded, so normally you can use any Calc function and be confident that it will be autoloaded for you when necessary. If you are doing something special, check carefully to make sure each function you are using is from calc.el or its components, and use (require 'calc-ext) before using any function based in calc-ext.el if you can’t prove this file will already be loaded.
+
+***** Data Type Formats
+
+Integers are stored as standard Lisp integers. This is the only storage format for Calc data objects which is not a Lisp list.
+
+Fractions are stored as a list of the form, ‘(frac n d)’ where n is an integer numerator, d is an integer denominator greater than one, and n and d are relatively prime. Note that fractions where d is one are automatically converted to plain integers by all math routines; fractions where d is negative are normalized by negating the numerator and denominator.
+
+Floating-point numbers are stored in the form, ‘(float mant exp)’, where mant (the “mantissa”) is an integer less than ‘10^p’ in absolute value (p represents the current precision), and exp (the “exponent”) is an integer. The value of the float is ‘mant * 10^exp’. For example, the number -3.14 is stored as ‘(float -314 -2) = -314*10^-2’. Other constraints are that the number 0.0 is always stored as ‘(float 0 0)’, and, except for the 0.0 case, the rightmost base-10 digit of mant is always nonzero. (If the rightmost digit is zero, the number is rearranged by dividing mant by ten and incrementing exp.)
+
+Rectangular complex numbers are stored in the form ‘(cplx re im)’, where re and im are each real numbers, either integers, fractions, or floats. The value is ‘re + imi’. The im part is nonzero; complex numbers with zero imaginary components are converted to real numbers automatically.
+
+Polar complex numbers are stored in the form ‘(polar r theta)’, where r is a positive real value and theta is a real value or HMS form representing an angle. This angle is usually normalized to lie in the interval ‘(-180 .. 180)’ degrees, or ‘(-pi .. pi)’ radians, according to the current angular mode. If the angle is 0 the value is converted to a real number automatically. (If the angle is 180 degrees, the value is usually also converted to a negative real number.)
+
+Hours-minutes-seconds forms are stored as ‘(hms h m s)’, where h is an integer or an integer-valued float (i.e., a float with ‘exp >= 0’), m is an integer or integer-valued float in the range ‘[0 .. 60)’, and s is any real number in the range ‘[0 .. 60)’.
+
+Date forms are stored as ‘(date n)’, where n is a real number that counts days since midnight on the morning of January 1, 1 AD. If n is an integer, this is a pure date form. If n is a fraction or float, this is a date/time form.
+
+Modulo forms are stored as ‘(mod n m)’, where m is a positive real number or HMS form, and n is a real number or HMS form in the range ‘[0 .. m)’.
+
+Error forms are stored as ‘(sdev x sigma)’, where x is the mean value and sigma is the standard deviation. Each component is either a number, an HMS form, or a symbolic object (a variable or function call). If sigma is zero, the value is converted to a plain real number. If sigma is negative or complex, it is automatically normalized to be a positive real.
+
+Interval forms are stored as ‘(intv mask lo hi)’, where mask is one of the integers 0, 1, 2, or 3, and lo and hi are real numbers, HMS forms, or symbolic objects. The mask is a binary integer where 1 represents the fact that the interval is closed on the high end, and 2 represents the fact that it is closed on the low end. (Thus 3 represents a fully closed interval.) The interval ‘(intv 3 x x)’ is converted to the plain number x; intervals ‘(intv mask x x)’ for any other mask represent empty intervals. If hi is less than lo, the interval is converted to a standard empty interval by replacing hi with lo.
+
+Vectors are stored as ‘(vec v1 v2 …)’, where v1 is the first element of the vector, v2 is the second, and so on. An empty vector is stored as ‘(vec)’. A matrix is simply a vector where all v’s are themselves vectors of equal lengths. Note that Calc vectors are unrelated to the Emacs Lisp “vector” type, which is generally unused by Calc data structures.
+
+Variables are stored as ‘(var name sym)’, where name is a Lisp symbol whose print name is used as the visible name of the variable, and sym is a Lisp symbol in which the variable’s value is actually stored. Thus, ‘(var pi var-pi)’ represents the special constant ‘pi’. Almost always, the form is ‘(var v var-v)’. If the variable name was entered with # signs (which are converted to hyphens internally), the form is ‘(var u v)’, where u is a symbol whose name contains # characters, and v is a symbol that contains - characters instead. The value of a variable is the Calc object stored in its sym symbol’s value cell. If the symbol’s value cell is void or if it contains nil, the variable has no value. Special constants have the form ‘(special-const value)’ stored in their value cell, where value is a formula which is evaluated when the constant’s value is requested. Variables which represent units are not stored in any special way; they are units only because their names appear in the units table. If the value cell contains a string, it is parsed to get the variable’s value when the variable is used.
+
+A Lisp list with any other symbol as the first element is a function call. The symbols +, -, *, /, %, ^, and | represent special binary operators; these lists are always of the form ‘(op lhs rhs)’ where lhs is the sub-formula on the lefthand side and rhs is the sub-formula on the right. The symbol neg represents unary negation; this list is always of the form ‘(neg arg)’. Any other symbol func represents a function that would be displayed in function-call notation; the symbol func is in general always of the form ‘calcFunc-name’. The function cell of the symbol func should contain a Lisp function for evaluating a call to func. This function is passed the remaining elements of the list (themselves already evaluated) as arguments; such functions should return nil or call reject-arg to signify that they should be left in symbolic form, or they should return a Calc object which represents their value, or a list of such objects if they wish to return multiple values. (The latter case is allowed only for functions which are the outer-level call in an expression whose value is about to be pushed on the stack; this feature is considered obsolete and is not used by any built-in Calc functions.)
+
+
+***** Interactive Functions
+
+The functions described here are used in implementing interactive Calc commands. Note that this list is not exhaustive! If there is an existing command that behaves similarly to the one you want to define, you may find helpful tricks by checking the source code for that command.
+
+Function: calc-set-command-flag flag ¶
+Set the command flag flag. This is generally a Lisp symbol, but may in fact be anything. The effect is to add flag to the list stored in the variable calc-command-flags, unless it is already there. See Defining New Simple Commands.
+
+Function: calc-clear-command-flag flag ¶
+If flag appears among the list of currently-set command flags, remove it from that list.
+
+Function: calc-record-undo rec ¶
+Add the “undo record” rec to the list of steps to take if the current operation should need to be undone. Stack push and pop functions automatically call calc-record-undo, so the kinds of undo records you might need to create take the form ‘(set sym value)’, which says that the Lisp variable sym was changed and had previously contained value; ‘(store var value)’ which says that the Calc variable var (a string which is the name of the symbol that contains the variable’s value) was stored and its previous value was value (either a Calc data object, or nil if the variable was previously void); or ‘(eval undo redo args …)’, which means that to undo requires calling the function ‘(undo args …)’ and, if the undo is later redone, calling ‘(redo args …)’.
+
+Function: calc-record-why msg args ¶
+Record the error or warning message msg, which is normally a string. This message will be replayed if the user types w (calc-why); if the message string begins with a ‘*’, it is considered important enough to display even if the user doesn’t type w. If one or more args are present, the displayed message will be of the form, ‘msg: arg1, arg2, …’, where the arguments are formatted on the assumption that they are either strings or Calc objects of some sort. If msg is a symbol, it is the name of a Calc predicate (such as integerp or numvecp) which the arguments did not satisfy; it is expanded to a suitable string such as “Expected an integer.” The reject-arg function calls calc-record-why automatically; see Predicates.
+
+Function: calc-is-inverse ¶
+This predicate returns true if the current command is inverse, i.e., if the Inverse (I key) flag was set.
+
+Function: calc-is-hyperbolic ¶
+This predicate is the analogous function for the H key.
+
+
+***** Stack-Oriented Functions
+
+The functions described here perform various operations on the Calc stack and trail. They are to be used in interactive Calc commands.
+
+Function: calc-push-list vals n ¶
+Push the Calc objects in list vals onto the stack at stack level n. If n is omitted it defaults to 1, so that the elements are pushed at the top of the stack. If n is greater than 1, the elements will be inserted into the stack so that the last element will end up at level n, the next-to-last at level n+1, etc. The elements of vals are assumed to be valid Calc objects, and are not evaluated, rounded, or renormalized in any way. If vals is an empty list, nothing happens.
+
+The stack elements are pushed without any sub-formula selections. You can give an optional third argument to this function, which must be a list the same size as vals of selections. Each selection must be eq to some sub-formula of the corresponding formula in vals, or nil if that formula should have no selection.
+
+Function: calc-top-list n m ¶
+Return a list of the n objects starting at level m of the stack. If m is omitted it defaults to 1, so that the elements are taken from the top of the stack. If n is omitted, it also defaults to 1, so that the top stack element (in the form of a one-element list) is returned. If m is greater than 1, the mth stack element will be at the end of the list, the m+1st element will be next-to-last, etc. If n or m are out of range, the command is aborted with a suitable error message. If n is zero, the function returns an empty list. The stack elements are not evaluated, rounded, or renormalized.
+
+If any stack elements contain selections, and selections have not been disabled by the j e (calc-enable-selections) command, this function returns the selected portions rather than the entire stack elements. It can be given a third “selection-mode” argument which selects other behaviors. If it is the symbol t, then a selection in any of the requested stack elements produces an “invalid operation on selections” error. If it is the symbol full, the whole stack entry is always returned regardless of selections. If it is the symbol sel, the selected portion is always returned, or nil if there is no selection. (This mode ignores the j e command.) If the symbol is entry, the complete stack entry in list form is returned; the first element of this list will be the whole formula, and the third element will be the selection (or nil).
+
+Function: calc-pop-stack n m ¶
+Remove the specified elements from the stack. The parameters n and m are defined the same as for calc-top-list. The return value of calc-pop-stack is uninteresting.
+
+If there are any selected sub-formulas among the popped elements, and j e has not been used to disable selections, this produces an error without changing the stack. If you supply an optional third argument of t, the stack elements are popped even if they contain selections.
+
+Function: calc-record-list vals tag ¶
+This function records one or more results in the trail. The vals are a list of strings or Calc objects. The tag is the four-character tag string to identify the values. If tag is omitted, a blank tag will be used.
+
+Function: calc-normalize n ¶
+This function takes a Calc object and “normalizes” it. At the very least this involves re-rounding floating-point values according to the current precision and other similar jobs. Also, unless the user has selected No-Simplify mode (see Simplification Modes), this involves actually evaluating a formula object by executing the function calls it contains, and possibly also doing algebraic simplification, etc.
+
+Function: calc-top-list-n n m ¶
+This function is identical to calc-top-list, except that it calls calc-normalize on the values that it takes from the stack. They are also passed through check-complete, so that incomplete objects will be rejected with an error message. All computational commands should use this in preference to calc-top-list; the only standard Calc commands that operate on the stack without normalizing are stack management commands like calc-enter and calc-roll-up. This function accepts the same optional selection-mode argument as calc-top-list.
+
+Function: calc-top-n m ¶
+This function is a convenient form of calc-top-list-n in which only a single element of the stack is taken and returned, rather than a list of elements. This also accepts an optional selection-mode argument.
+
+Function: calc-enter-result n tag vals ¶
+This function is a convenient interface to most of the above functions. The vals argument should be either a single Calc object, or a list of Calc objects; the object or objects are normalized, and the top n stack entries are replaced by the normalized objects. If tag is non-nil, the normalized objects are also recorded in the trail. A typical stack-based computational command would take the form,
+
+(calc-enter-result n tag (cons 'calcFunc-func
+                               (calc-top-list-n n)))
+If any of the n stack elements replaced contain sub-formula selections, and selections have not been disabled by j e, this function takes one of two courses of action. If n is equal to the number of elements in vals, then each element of vals is spliced into the corresponding selection; this is what happens when you use the TAB key, or when you use a unary arithmetic operation like sqrt. If vals has only one element but n is greater than one, there must be only one selection among the top n stack elements; the element from vals is spliced into that selection. This is what happens when you use a binary arithmetic operation like +. Any other combination of n and vals is an error when selections are present.
+
+Function: calc-unary-op tag func arg ¶
+This function implements a unary operator that allows a numeric prefix argument to apply the operator over many stack entries. If the prefix argument arg is nil, this uses calc-enter-result as outlined above. Otherwise, it maps the function over several stack elements; see Numeric Prefix Arguments. For example,
+
+(defun calc-zeta (arg)
+  (interactive "P")
+  (calc-unary-op "zeta" 'calcFunc-zeta arg))
+Function: calc-binary-op tag func arg ident unary ¶
+This function implements a binary operator, analogously to calc-unary-op. The optional ident and unary arguments specify the behavior when the prefix argument is zero or one, respectively. If the prefix is zero, the value ident is pushed onto the stack, if specified, otherwise an error message is displayed. If the prefix is one, the unary function unary is applied to the top stack element, or, if unary is not specified, nothing happens. When the argument is two or more, the binary function func is reduced across the top arg stack elements; when the argument is negative, the function is mapped between the next-to-top -arg stack elements and the top element.
+
+Function: calc-stack-size ¶
+Return the number of elements on the stack as an integer. This count does not include elements that have been temporarily hidden by stack truncation; see Truncating the Stack.
+
+Function: calc-cursor-stack-index n ¶
+Move the point to the nth stack entry. If n is zero, this will be the ‘.’ line. If n is from 1 to the current stack size, this will be the beginning of the first line of that stack entry’s display. If line numbers are enabled, this will move to the first character of the line number, not the stack entry itself.
+
+Function: calc-substack-height n ¶
+Return the number of lines between the beginning of the nth stack entry and the bottom of the buffer. If n is zero, this will be one (assuming no stack truncation). If all stack entries are one line long (i.e., no matrices are displayed), the return value will be equal n+1 as long as n is in range. (Note that in Big mode, the return value includes the blank lines that separate stack entries.)
+
+Function: calc-refresh ¶
+Erase the *Calculator* buffer and reformat its contents from memory. This must be called after changing any parameter, such as the current display radix, which might change the appearance of existing stack entries. (During a keyboard macro invoked by the X key, refreshing is suppressed, but a flag is set so that the entire stack will be refreshed rather than just the top few elements when the macro finishes.)
+
+
+***** Predicates
+
+The functions described here are predicates, that is, they return a true/false value where nil means false and anything else means true. These predicates are expanded by defmath, for example, from zerop to math-zerop. In many cases they correspond to native Lisp functions by the same name, but are extended to cover the full range of Calc data types.
+
+Function: zerop x ¶
+Returns true if x is numerically zero, in any of the Calc data types. (Note that for some types, such as error forms and intervals, it never makes sense to return true.) In defmath, the expression ‘(= x 0)’ will automatically be converted to ‘(math-zerop x)’, and ‘(/= x 0)’ will be converted to ‘(not (math-zerop x))’.
+
+Function: negp x ¶
+Returns true if x is negative. This accepts negative real numbers of various types, negative HMS and date forms, and intervals in which all included values are negative. In defmath, the expression ‘(< x 0)’ will automatically be converted to ‘(math-negp x)’, and ‘(>= x 0)’ will be converted to ‘(not (math-negp x))’.
+
+Function: posp x ¶
+Returns true if x is positive (and non-zero). For complex numbers, none of these three predicates will return true.
+
+Function: looks-negp x ¶
+Returns true if x is “negative-looking.” This returns true if x is a negative number, or a formula with a leading minus sign such as ‘-a/b’. In other words, this is an object which can be made simpler by calling (- x).
+
+Function: integerp x ¶
+Returns true if x is an integer of any size.
+
+Function: fixnump x ¶
+Returns true if x is a native Lisp fixnum.
+
+Function: natnump x ¶
+Returns true if x is a nonnegative integer of any size.
+
+Function: fixnatnump x ¶
+Returns true if x is a nonnegative Lisp fixnum.
+
+Function: num-integerp x ¶
+Returns true if x is numerically an integer, i.e., either a true integer or a float with no significant digits to the right of the decimal point.
+
+Function: messy-integerp x ¶
+Returns true if x is numerically, but not literally, an integer. A value is num-integerp if it is integerp or messy-integerp (but it is never both at once).
+
+Function: num-natnump x ¶
+Returns true if x is numerically a nonnegative integer.
+
+Function: evenp x ¶
+Returns true if x is an even integer.
+
+Function: looks-evenp x ¶
+Returns true if x is an even integer, or a formula with a leading multiplicative coefficient which is an even integer.
+
+Function: oddp x ¶
+Returns true if x is an odd integer.
+
+Function: ratp x ¶
+Returns true if x is a rational number, i.e., an integer or a fraction.
+
+Function: realp x ¶
+Returns true if x is a real number, i.e., an integer, fraction, or floating-point number.
+
+Function: anglep x ¶
+Returns true if x is a real number or HMS form.
+
+Function: floatp x ¶
+Returns true if x is a float, or a complex number, error form, interval, date form, or modulo form in which at least one component is a float.
+
+Function: complexp x ¶
+Returns true if x is a rectangular or polar complex number (but not a real number).
+
+Function: rect-complexp x ¶
+Returns true if x is a rectangular complex number.
+
+Function: polar-complexp x ¶
+Returns true if x is a polar complex number.
+
+Function: numberp x ¶
+Returns true if x is a real number or a complex number.
+
+Function: scalarp x ¶
+Returns true if x is a real or complex number or an HMS form.
+
+Function: vectorp x ¶
+Returns true if x is a vector (this simply checks if its argument is a list whose first element is the symbol vec).
+
+Function: numvecp x ¶
+Returns true if x is a number or vector.
+
+Function: matrixp x ¶
+Returns true if x is a matrix, i.e., a vector of one or more vectors, all of the same size.
+
+Function: square-matrixp x ¶
+Returns true if x is a square matrix.
+
+Function: objectp x ¶
+Returns true if x is any numeric Calc object, including real and complex numbers, HMS forms, date forms, error forms, intervals, and modulo forms. (Note that error forms and intervals may include formulas as their components; see constp below.)
+
+Function: objvecp x ¶
+Returns true if x is an object or a vector. This also accepts incomplete objects, but it rejects variables and formulas (except as mentioned above for objectp).
+
+Function: primp x ¶
+Returns true if x is a “primitive” or “atomic” Calc object, i.e., one whose components cannot be regarded as sub-formulas. This includes variables, and all objectp types except error forms and intervals.
+
+Function: constp x ¶
+Returns true if x is constant, i.e., a real or complex number, HMS form, date form, or error form, interval, or vector all of whose components are constp.
+
+Function: lessp x y ¶
+Returns true if x is numerically less than y. Returns false if x is greater than or equal to y, or if the order is undefined or cannot be determined. Generally speaking, this works by checking whether ‘x - y’ is negp. In defmath, the expression ‘(< x y)’ will automatically be converted to ‘(lessp x y)’; expressions involving >, <=, and >= are similarly converted in terms of lessp.
+
+Function: beforep x y ¶
+Returns true if x comes before y in a canonical ordering of Calc objects. If x and y are both real numbers, this will be the same as lessp. But whereas lessp considers other types of objects to be unordered, beforep puts any two objects into a definite, consistent order. The beforep function is used by the V S vector-sorting command, and also by Calc’s algebraic simplifications to put the terms of a product into canonical order: This allows ‘x y + y x’ to be simplified easily to ‘2 x y’.
+
+Function: equal x y ¶
+This is the standard Lisp equal predicate; it returns true if x and y are structurally identical. This is the usual way to compare numbers for equality, but note that equal will treat 0 and 0.0 as different.
+
+Function: math-equal x y ¶
+Returns true if x and y are numerically equal, either because they are equal, or because their difference is zerop. In defmath, the expression ‘(= x y)’ will automatically be converted to ‘(math-equal x y)’.
+
+Function: equal-int x n ¶
+Returns true if x and n are numerically equal, where n is an integer which is not a multiple of 10. This will automatically be used by defmath in place of the more general math-equal whenever possible.
+
+Function: nearly-equal x y ¶
+Returns true if x and y, as floating-point numbers, are equal except possibly in the last decimal place. For example, 314.159 and 314.166 are considered nearly equal if the current precision is 6 (since they differ by 7 units), but not if the current precision is 7 (since they differ by 70 units). Most functions which use series expansions use with-extra-prec to evaluate the series with 2 extra digits of precision, then use nearly-equal to decide when the series has converged; this guards against cumulative error in the series evaluation without doing extra work which would be lost when the result is rounded back down to the current precision. In defmath, this can be written ‘(~= x y)’. The x and y can be numbers of any kind, including complex.
+
+Function: nearly-zerop x y ¶
+Returns true if x is nearly zero, compared to y. This checks whether x plus y would by be nearly-equal to y itself, to within the current precision, in other words, if adding x to y would have a negligible effect on y due to roundoff error. X may be a real or complex number, but y must be real.
+
+Function: is-true x ¶
+Return true if the formula x represents a true value in Calc, not Lisp, terms. It tests if x is a non-zero number or a provably non-zero formula.
+
+Function: reject-arg val pred ¶
+Abort the current function evaluation due to unacceptable argument values. This calls ‘(calc-record-why pred val)’, then signals a Lisp error which normalize will trap. The net effect is that the function call which led here will be left in symbolic form.
+
+Function: inexact-value ¶
+If Symbolic mode is enabled, this will signal an error that causes normalize to leave the formula in symbolic form, with the message “Inexact result.” (This function has no effect when not in Symbolic mode.) Note that if your function calls ‘(sin 5)’ in Symbolic mode, the sin function will call inexact-value, which will cause your function to be left unsimplified. You may instead wish to call ‘(normalize (list 'calcFunc-sin 5))’, which in Symbolic mode will return the formula ‘sin(5)’ to your function.
+
+Function: overflow ¶
+This signals an error that will be reported as a floating-point overflow.
+
+Function: underflow ¶
+This signals a floating-point underflow.
+
+
+***** Computational Functions
+
+The functions described here do the actual computational work of the Calculator. In addition to these, note that any function described in the main body of this manual may be called from Lisp; for example, if the documentation refers to the calc-sqrt [sqrt] command, this means calc-sqrt is an interactive stack-based square-root command and sqrt (which defmath expands to calcFunc-sqrt) is the actual Lisp function for taking square roots.
+
+The functions math-add, math-sub, math-mul, math-div, math-mod, and math-neg are not included in this list, since defmath allows you to write native Lisp +, -, *, /, %, and unary -, respectively, instead.
+
+Function: normalize val ¶
+(Full form: math-normalize.) Reduce the value val to standard form. Variables are left alone, but function calls are actually evaluated in formulas. For example, normalizing ‘(+ 2 (calcFunc-abs -4))’ will return 6.
+
+If a function call fails, because the function is void or has the wrong number of parameters, or because it returns nil or calls reject-arg or inexact-result, normalize returns the formula still in symbolic form.
+
+If the current simplification mode is “none” or “numeric arguments only,” normalize will act appropriately. However, the more powerful simplification modes (like Algebraic Simplification) are not handled by normalize. They are handled by calc-normalize, which calls normalize and possibly some other routines, such as simplify or simplify-units. Programs generally will never call calc-normalize except when popping or pushing values on the stack.
+
+Function: evaluate-expr expr ¶
+Replace all variables in expr that have values with their values, then use normalize to simplify the result. This is what happens when you press the = key interactively.
+
+Macro: with-extra-prec n body ¶
+Evaluate the Lisp forms in body with precision increased by n digits. This is a macro which expands to
+
+(math-normalize
+  (let ((calc-internal-prec (+ calc-internal-prec n)))
+    body))
+The surrounding call to math-normalize causes a floating-point result to be rounded down to the original precision afterwards. This is important because some arithmetic operations assume a number’s mantissa contains no more digits than the current precision allows.
+
+Function: make-frac n d ¶
+Build a fraction ‘n:d’. This is equivalent to calling ‘(normalize (list 'frac n d))’, but more efficient.
+
+Function: make-float mant exp ¶
+Build a floating-point value out of mant and exp, both of which are arbitrary integers. This function will return a properly normalized float value, or signal an overflow or underflow if exp is out of range.
+
+Function: make-sdev x sigma ¶
+Build an error form out of x and the absolute value of sigma. If sigma is zero, the result is the number x directly. If sigma is negative or complex, its absolute value is used. If x or sigma is not a valid type of object for use in error forms, this calls reject-arg.
+
+Function: make-intv mask lo hi ¶
+Build an interval form out of mask (which is assumed to be an integer from 0 to 3), and the limits lo and hi. If lo is greater than hi, an empty interval form is returned. This calls reject-arg if lo or hi is unsuitable.
+
+Function: sort-intv mask lo hi ¶
+Build an interval form, similar to make-intv, except that if lo is less than hi they are simply exchanged, and the bits of mask are swapped accordingly.
+
+Function: make-mod n m ¶
+Build a modulo form out of n and the modulus m. Since modulo forms do not allow formulas as their components, if n or m is not a real number or HMS form the result will be a formula which is a call to makemod, the algebraic version of this function.
+
+Function: float x ¶
+Convert x to floating-point form. Integers and fractions are converted to numerically equivalent floats; components of complex numbers, vectors, HMS forms, date forms, error forms, intervals, and modulo forms are recursively floated. If the argument is a variable or formula, this calls reject-arg.
+
+Function: compare x y ¶
+Compare the numbers x and y, and return -1 if ‘(lessp x y)’, 1 if ‘(lessp y x)’, 0 if ‘(math-equal x y)’, or 2 if the order is undefined or cannot be determined.
+
+Function: numdigs n ¶
+Return the number of digits of integer n, effectively ‘ceil(log10(n))’, but much more efficient. Zero is considered to have zero digits.
+
+Function: scale-int x n ¶
+Shift integer x left n decimal digits, or right -n digits with truncation toward zero.
+
+Function: scale-rounding x n ¶
+Like scale-int, except that a right shift rounds to the nearest integer rather than truncating.
+
+Function: fixnum n ¶
+Return the integer n as a fixnum, i.e., a small Lisp integer. If n is outside the permissible range for Lisp fixnums (usually 62 binary bits) the result is undefined.
+
+Function: sqr x ¶
+Compute the square of x; short for ‘(* x x)’.
+
+Function: quotient x y ¶
+Divide integer x by integer y; return an integer quotient and discard the remainder. If x or y is negative, the direction of rounding is undefined.
+
+Function: idiv x y ¶
+Perform an integer division; if x and y are both nonnegative integers, this uses the quotient function, otherwise it computes ‘floor(x/y)’. Thus the result is well-defined but slower than for quotient.
+
+Function: imod x y ¶
+Divide integer x by integer y; return the integer remainder and discard the quotient. Like quotient, this works only for integer arguments and is not well-defined for negative arguments. For a more well-defined result, use ‘(% x y)’.
+
+Function: idivmod x y ¶
+Divide integer x by integer y; return a cons cell whose car is ‘(quotient x y)’ and whose cdr is ‘(imod x y)’.
+
+Function: pow x y ¶
+Compute x to the power y. In defmath code, this can also be written ‘(^ x y)’ or ‘(expt x y)’.
+
+Function: abs-approx x ¶
+Compute a fast approximation to the absolute value of x. For example, for a rectangular complex number the result is the sum of the absolute values of the components.
+
+Function: pi ¶
+The function ‘(pi)’ computes ‘pi’ to the current precision. Other related constant-generating functions are two-pi, pi-over-2, pi-over-4, pi-over-180, sqrt-two-pi, e, sqrt-e, ln-2, ln-10, phi and gamma-const. Each function returns a floating-point value in the current precision, and each uses caching so that all calls after the first are essentially free.
+
+Macro: math-defcache func initial form ¶
+This macro, usually used as a top-level call like defun or defvar, defines a new cached constant analogous to pi, etc. It defines a function func which returns the requested value; if initial is non-nil it must be a ‘(float …)’ form which serves as an initial value for the cache. If func is called when the cache is empty or does not have enough digits to satisfy the current precision, the Lisp expression form is evaluated with the current precision increased by four, and the result minus its two least significant digits is stored in the cache. For example, calling ‘(pi)’ with a precision of 30 computes ‘pi’ to 34 digits, rounds it down to 32 digits for future use, then rounds it again to 30 digits for use in the present request.
+
+Function: full-circle symb ¶
+If the current angular mode is Degrees or HMS, this function returns the integer 360. In Radians mode, this function returns either the corresponding value in radians to the current precision, or the formula ‘2*pi’, depending on the Symbolic mode. There are also similar function half-circle and quarter-circle.
+
+Function: power-of-2 n ¶
+Compute two to the integer power n, as a (potentially very large) integer. Powers of two are cached, so only the first call for a particular n is expensive.
+
+Function: integer-log2 n ¶
+Compute the base-2 logarithm of n, which must be an integer which is a power of two. If n is not a power of two, this function will return nil.
+
+Function: div-mod a b m ¶
+Divide a by b, modulo m. This returns nil if there is no solution, or if any of the arguments are not integers.
+
+Function: pow-mod a b m ¶
+Compute a to the power b, modulo m. If a, b, and m are integers, this uses an especially efficient algorithm. Otherwise, it simply computes ‘(% (^ a b) m)’.
+
+Function: isqrt n ¶
+Compute the integer square root of n. This is the square root of n rounded down toward zero, i.e., ‘floor(sqrt(n))’. If n is itself an integer, the computation is especially efficient.
+
+Function: to-hms a ang ¶
+Convert the argument a into an HMS form. If ang is specified, it is the angular mode in which to interpret a, either deg or rad. Otherwise, the current angular mode is used. If a is already an HMS form it is returned as-is.
+
+Function: from-hms a ang ¶
+Convert the HMS form a into a real number. If ang is specified, it is the angular mode in which to express the result, otherwise the current angular mode is used. If a is already a real number, it is returned as-is.
+
+Function: to-radians a ¶
+Convert the number or HMS form a to radians from the current angular mode.
+
+Function: from-radians a ¶
+Convert the number a from radians to the current angular mode. If a is a formula, this returns the formula ‘deg(a)’.
+
+Function: to-radians-2 a ¶
+Like to-radians, except that in Symbolic mode a degrees to radians conversion yields a formula like ‘a*pi/180’.
+
+Function: from-radians-2 a ¶
+Like from-radians, except that in Symbolic mode a radians to degrees conversion yields a formula like ‘a*180/pi’.
+
+Function: random-digit ¶
+Produce a random base-1000 digit in the range 0 to 999.
+
+Function: random-digits n ¶
+Produce a random n-digit integer; this will be an integer in the interval ‘[0, 10^n)’.
+
+Function: random-float ¶
+Produce a random float in the interval ‘[0, 1)’.
+
+Function: prime-test n iters ¶
+Determine whether the integer n is prime. Return a list which has one of these forms: ‘(nil f)’ means the number is non-prime because it was found to be divisible by f; ‘(nil)’ means it was found to be non-prime by table look-up (so no factors are known); ‘(nil unknown)’ means it is definitely non-prime but no factors are known because n was large enough that Fermat’s probabilistic test had to be used; ‘(t)’ means the number is definitely prime; and ‘(maybe i p)’ means that Fermat’s test, after i iterations, is p percent sure that the number is prime. The iters parameter is the number of Fermat iterations to use, in the case that this is necessary. If prime-test returns “maybe,” you can call it again with the same n to get a greater certainty; prime-test remembers where it left off.
+
+Function: to-simple-fraction f ¶
+If f is a floating-point number which can be represented exactly as a small rational number, return that number, else return f. For example, 0.75 would be converted to 3:4. This function is very fast.
+
+Function: to-fraction f tol ¶
+Find a rational approximation to floating-point number f to within a specified tolerance tol; this corresponds to the algebraic function frac, and can be rather slow.
+
+Function: quarter-integer n ¶
+If n is an integer or integer-valued float, this function returns zero. If n is a half-integer (i.e., an integer plus 1:2 or 0.5), it returns 2. If n is a quarter-integer, it returns 1 or 3. If n is anything else, this function returns nil.
+
+
+***** Vector Functions
+
+The functions described here perform various operations on vectors and matrices.
+
+Function: math-concat x y ¶
+Do a vector concatenation; this operation is written ‘x | y’ in a symbolic formula. See Building Vectors.
+
+Function: vec-length v ¶
+Return the length of vector v. If v is not a vector, the result is zero. If v is a matrix, this returns the number of rows in the matrix.
+
+Function: mat-dimens m ¶
+Determine the dimensions of vector or matrix m. If m is not a vector, the result is an empty list. If m is a plain vector but not a matrix, the result is a one-element list containing the length of the vector. If m is a matrix with r rows and c columns, the result is the list ‘(r c)’. Higher-order tensors produce lists of more than two dimensions. Note that the object ‘[[1, 2, 3], [4, 5]]’ is a vector of vectors not all the same size, and is treated by this and other Calc routines as a plain vector of two elements.
+
+Function: dimension-error ¶
+Abort the current function with a message of “Dimension error.” The Calculator will leave the function being evaluated in symbolic form; this is really just a special case of reject-arg.
+
+Function: build-vector args ¶
+Return a Calc vector with args as elements. For example, ‘(build-vector 1 2 3)’ returns the Calc vector ‘[1, 2, 3]’, stored internally as the list ‘(vec 1 2 3)’.
+
+Function: make-vec obj dims ¶
+Return a Calc vector or matrix all of whose elements are equal to obj. For example, ‘(make-vec 27 3 4)’ returns a 3x4 matrix filled with 27’s.
+
+Function: row-matrix v ¶
+If v is a plain vector, convert it into a row matrix, i.e., a matrix whose single row is v. If v is already a matrix, leave it alone.
+
+Function: col-matrix v ¶
+If v is a plain vector, convert it into a column matrix, i.e., a matrix with each element of v as a separate row. If v is already a matrix, leave it alone.
+
+Function: map-vec f v ¶
+Map the Lisp function f over the Calc vector v. For example, ‘(map-vec 'math-floor v)’ returns a vector of the floored components of vector v.
+
+Function: map-vec-2 f a b ¶
+Map the Lisp function f over the two vectors a and b. If a and b are vectors of equal length, the result is a vector of the results of calling ‘(f ai bi)’ for each pair of elements ai and bi. If either a or b is a scalar, it is matched with each value of the other vector. For example, ‘(map-vec-2 'math-add v 1)’ returns the vector v with each element increased by one. Note that using ‘'+’ would not work here, since defmath does not expand function names everywhere, just where they are in the function position of a Lisp expression.
+
+Function: reduce-vec f v ¶
+Reduce the function f over the vector v. For example, if v is ‘[10, 20, 30, 40]’, this calls ‘(f (f (f 10 20) 30) 40)’. If v is a matrix, this reduces over the rows of v.
+
+Function: reduce-cols f m ¶
+Reduce the function f over the columns of matrix m. For example, if m is ‘[[1, 2], [3, 4], [5, 6]]’, the result is a vector of the two elements ‘(f (f 1 3) 5)’ and ‘(f (f 2 4) 6)’.
+
+Function: mat-row m n ¶
+Return the nth row of matrix m. This is equivalent to ‘(elt m n)’. For a slower but safer version, use mrow. (See Extracting Vector Elements.)
+
+Function: mat-col m n ¶
+Return the nth column of matrix m, in the form of a vector. The arguments are not checked for correctness.
+
+Function: mat-less-row m n ¶
+Return a copy of matrix m with its nth row deleted. The number n must be in range from 1 to the number of rows in m.
+
+Function: mat-less-col m n ¶
+Return a copy of matrix m with its nth column deleted.
+
+Function: transpose m ¶
+Return the transpose of matrix m.
+
+Function: flatten-vector v ¶
+Flatten nested vector v into a vector of scalars. For example, if v is ‘[[1, 2, 3], [4, 5]]’ the result is ‘[1, 2, 3, 4, 5]’.
+
+Function: copy-matrix m ¶
+If m is a matrix, return a copy of m. This maps copy-sequence over the rows of m; in Lisp terms, each element of the result matrix will be eq to the corresponding element of m, but none of the cons cells that make up the structure of the matrix will be eq. If m is a plain vector, this is the same as copy-sequence.
+
+Function: swap-rows m r1 r2 ¶
+Exchange rows r1 and r2 of matrix m in-place. In other words, unlike most of the other functions described here, this function changes m itself rather than building up a new result matrix. The return value is m, i.e., ‘(eq (swap-rows m 1 2) m)’ is true, with the side effect of exchanging the first two rows of m.
+
+
+***** Symbolic Functions
+
+The functions described here operate on symbolic formulas in the Calculator.
+
+Function: calc-prepare-selection num ¶
+Prepare a stack entry for selection operations. If num is omitted, the stack entry containing the cursor is used; otherwise, it is the number of the stack entry to use. This function stores useful information about the current stack entry into a set of variables. calc-selection-cache-num contains the number of the stack entry involved (equal to num if you specified it); calc-selection-cache-entry contains the stack entry as a list (such as calc-top-list would return with entry as the selection mode); and calc-selection-cache-comp contains a special “tagged” composition (see I/O and Formatting Functions) which allows Calc to relate cursor positions in the buffer with their corresponding sub-formulas.
+
+A slight complication arises in the selection mechanism because formulas may contain small integers. For example, in the vector ‘[1, 2, 1]’ the first and last elements are eq to each other; selections are recorded as the actual Lisp object that appears somewhere in the tree of the whole formula, but storing 1 would falsely select both 1’s in the vector. So calc-prepare-selection also checks the stack entry and replaces any plain integers with “complex number” lists of the form ‘(cplx n 0)’. This list will be displayed the same as a plain n and the change will be completely invisible to the user, but it will guarantee that no two sub-formulas of the stack entry will be eq to each other. Next time the stack entry is involved in a computation, calc-normalize will replace these lists with plain numbers again, again invisibly to the user.
+
+Function: calc-encase-atoms x ¶
+This modifies the formula x to ensure that each part of the formula is a unique atom, using the ‘(cplx n 0)’ trick described above. This function may use setcar to modify the formula in-place.
+
+Function: calc-find-selected-part ¶
+Find the smallest sub-formula of the current formula that contains the cursor. This assumes calc-prepare-selection has been called already. If the cursor is not actually on any part of the formula, this returns nil.
+
+Function: calc-change-current-selection selection ¶
+Change the currently prepared stack element’s selection to selection, which should be eq to some sub-formula of the stack element, or nil to unselect the formula. The stack element’s appearance in the Calc buffer is adjusted to reflect the new selection.
+
+Function: calc-find-nth-part expr n ¶
+Return the nth sub-formula of expr. This function is used by the selection commands, and (unless j b has been used) treats sums and products as flat many-element formulas. Thus if expr is ‘((a + b) - c) + d’, calling calc-find-nth-part with n equal to four will return ‘d’.
+
+Function: calc-find-parent-formula expr part ¶
+Return the sub-formula of expr which immediately contains part. If expr is ‘a*b + (c+1)*d’ and part is eq to the ‘c+1’ term of expr, then this function will return ‘(c+1)*d’. If part turns out not to be a sub-formula of expr, the function returns nil. If part is eq to expr, the function returns t. This function does not take associativity into account.
+
+Function: calc-find-assoc-parent-formula expr part ¶
+This is the same as calc-find-parent-formula, except that (unless j b has been used) it continues widening the selection to contain a complete level of the formula. Given ‘a’ from ‘((a + b) - c) + d’, calc-find-parent-formula will return ‘a + b’ but calc-find-assoc-parent-formula will return the whole expression.
+
+Function: calc-grow-assoc-formula expr part ¶
+This expands sub-formula part of expr to encompass a complete level of the formula. If part and its immediate parent are not compatible associative operators, or if j b has been used, this simply returns part.
+
+Function: calc-find-sub-formula expr part ¶
+This finds the immediate sub-formula of expr which contains part. It returns an index n such that ‘(calc-find-nth-part expr n)’ would return part. If part is not a sub-formula of expr, it returns nil. If part is eq to expr, it returns t. This function does not take associativity into account.
+
+Function: calc-replace-sub-formula expr old new ¶
+This function returns a copy of formula expr, with the sub-formula that is eq to old replaced by new.
+
+Function: simplify expr ¶
+Simplify the expression expr by applying Calc’s algebraic simplifications. This always returns a copy of the expression; the structure expr points to remains unchanged in memory.
+
+More precisely, here is what simplify does: The expression is first normalized and evaluated by calling normalize. If any AlgSimpRules have been defined, they are then applied. Then the expression is traversed in a depth-first, bottom-up fashion; at each level, any simplifications that can be made are made until no further changes are possible. Once the entire formula has been traversed in this way, it is compared with the original formula (from before the call to normalize) and, if it has changed, the entire procedure is repeated (starting with normalize) until no further changes occur. Usually only two iterations are needed: one to simplify the formula, and another to verify that no further simplifications were possible.
+
+Function: simplify-extended expr ¶
+Simplify the expression expr, with additional rules enabled that help do a more thorough job, while not being entirely “safe” in all circumstances. (For example, this mode will simplify ‘sqrt(x^2)’ to ‘x’, which is only valid when x is positive.) This is implemented by temporarily binding the variable math-living-dangerously to t (using a let form) and calling simplify. Dangerous simplification rules are written to check this variable before taking any action.
+
+Function: simplify-units expr ¶
+Simplify the expression expr, treating variable names as units whenever possible. This works by binding the variable math-simplifying-units to t while calling simplify.
+
+Macro: math-defsimplify funcs body ¶
+Register a new simplification rule; this is normally called as a top-level form, like defun or defmath. If funcs is a symbol (like + or calcFunc-sqrt), this simplification rule is applied to the formulas which are calls to the specified function. Or, funcs can be a list of such symbols; the rule applies to all functions on the list. The body is written like the body of a function with a single argument called expr. The body will be executed with expr bound to a formula which is a call to one of the functions funcs. If the function body returns nil, or if it returns a result equal to the original expr, it is ignored and Calc goes on to try the next simplification rule that applies. If the function body returns something different, that new formula is substituted for expr in the original formula.
+
+At each point in the formula, rules are tried in the order of the original calls to math-defsimplify; the search stops after the first rule that makes a change. Thus later rules for that same function will not have a chance to trigger until the next iteration of the main simplify loop.
+
+Note that, since defmath is not being used here, body must be written in true Lisp code without the conveniences that defmath provides. If you prefer, you can have body simply call another function (defined with defmath) which does the real work.
+
+The arguments of a function call will already have been simplified before any rules for the call itself are invoked. Since a new argument list is consed up when this happens, this means that the rule’s body is allowed to rearrange the function’s arguments destructively if that is convenient. Here is a typical example of a simplification rule:
+
+(math-defsimplify calcFunc-arcsinh
+  (or (and (math-looks-negp (nth 1 expr))
+           (math-neg (list 'calcFunc-arcsinh
+                           (math-neg (nth 1 expr)))))
+      (and (eq (car-safe (nth 1 expr)) 'calcFunc-sinh)
+           (or math-living-dangerously
+               (math-known-realp (nth 1 (nth 1 expr))))
+           (nth 1 (nth 1 expr)))))
+This is really a pair of rules written with one math-defsimplify for convenience; the first replaces ‘arcsinh(-x)’ with ‘-arcsinh(x)’, and the second, which is safe only for real ‘x’, replaces ‘arcsinh(sinh(x))’ with ‘x’.
+
+Function: common-constant-factor expr ¶
+Check expr to see if it is a sum of terms all multiplied by the same rational value. If so, return this value. If not, return nil. For example, if called on ‘6x + 9y + 12z’, it would return 3, since 3 is a common factor of all the terms.
+
+Function: cancel-common-factor expr factor ¶
+Assuming expr is a sum with factor as a common factor, divide each term of the sum by factor. This is done by destructively modifying parts of expr, on the assumption that it is being used by a simplification rule (where such things are allowed; see above). For example, consider this built-in rule for square roots:
+
+(math-defsimplify calcFunc-sqrt
+  (let ((fac (math-common-constant-factor (nth 1 expr))))
+    (and fac (not (eq fac 1))
+         (math-mul (math-normalize (list 'calcFunc-sqrt fac))
+                   (math-normalize
+                    (list 'calcFunc-sqrt
+                          (math-cancel-common-factor
+                           (nth 1 expr) fac)))))))
+Function: frac-gcd a b ¶
+Compute a “rational GCD” of a and b, which must both be rational numbers. This is the fraction composed of the GCD of the numerators of a and b, over the GCD of the denominators. It is used by common-constant-factor. Note that the standard gcd function uses the LCM to combine the denominators.
+
+Function: map-tree func expr many ¶
+Try applying Lisp function func to various sub-expressions of expr. Initially, call func with expr itself as an argument. If this returns an expression which is not equal to expr, apply func again until eventually it does return expr with no changes. Then, if expr is a function call, recursively apply func to each of the arguments. This keeps going until no changes occur anywhere in the expression; this final expression is returned by map-tree. Note that, unlike simplification rules, func functions may not make destructive changes to expr. If a third argument many is provided, it is an integer which says how many times func may be applied; the default, as described above, is infinitely many times.
+
+Function: compile-rewrites rules ¶
+Compile the rewrite rule set specified by rules, which should be a formula that is either a vector or a variable name. If the latter, the compiled rules are saved so that later compile-rules calls for that same variable can return immediately. If there are problems with the rules, this function calls error with a suitable message.
+
+Function: apply-rewrites expr crules heads ¶
+Apply the compiled rewrite rule set crules to the expression expr. This will make only one rewrite and only checks at the top level of the expression. The result nil if no rules matched, or if the only rules that matched did not actually change the expression. The heads argument is optional; if is given, it should be a list of all function names that (may) appear in expr. The rewrite compiler tags each rule with the rarest-looking function name in the rule; if you specify heads, apply-rewrites can use this information to narrow its search down to just a few rules in the rule set.
+
+Function: rewrite-heads expr ¶
+Compute a heads list for expr suitable for use with apply-rewrites, as discussed above.
+
+Function: rewrite expr rules many ¶
+This is an all-in-one rewrite function. It compiles the rule set specified by rules, then uses map-tree to apply the rules throughout expr up to many (default infinity) times.
+
+Function: match-patterns pat vec not-flag ¶
+Given a Calc vector vec and an uncompiled pattern set or pattern set variable pat, this function returns a new vector of all elements of vec which do (or don’t, if not-flag is non-nil) match any of the patterns in pat.
+
+Function: deriv expr var value symb ¶
+Compute the derivative of expr with respect to variable var (which may actually be any sub-expression). If value is specified, the derivative is evaluated at the value of var; otherwise, the derivative is left in terms of var. If the expression contains functions for which no derivative formula is known, new derivative functions are invented by adding primes to the names; see Calculus. However, if symb is non-nil, the presence of nondifferentiable functions in expr instead cancels the whole differentiation, and deriv returns nil instead.
+
+Derivatives of an n-argument function can be defined by adding a math-derivative-n property to the property list of the symbol for the function’s derivative, which will be the function name followed by an apostrophe. The value of the property should be a Lisp function; it is called with the same arguments as the original function call that is being differentiated. It should return a formula for the derivative. For example, the derivative of ln is defined by
+
+(put 'calcFunc-ln\' 'math-derivative-1
+     (lambda (u) (math-div 1 u)))
+The two-argument log function has two derivatives,
+
+(put 'calcFunc-log\' 'math-derivative-2     ; d(log(x,b)) / dx
+     (lambda (x b) ... ))
+(put 'calcFunc-log\'2 'math-derivative-2    ; d(log(x,b)) / db
+     (lambda (x b) ... ))
+Function: tderiv expr var value symb ¶
+Compute the total derivative of expr. This is the same as deriv, except that variables other than var are not assumed to be constant with respect to var.
+
+Function: integ expr var low high ¶
+Compute the integral of expr with respect to var. See Calculus, for further details.
+
+Macro: math-defintegral funcs body ¶
+Define a rule for integrating a function or functions of one argument; this macro is very similar in format to math-defsimplify. The main difference is that here body is the body of a function with a single argument u which is bound to the argument to the function being integrated, not the function call itself. Also, the variable of integration is available as math-integ-var. If evaluation of the integral requires doing further integrals, the body should call ‘(math-integral x)’ to find the integral of x with respect to math-integ-var; this function returns nil if the integral could not be done. Some examples:
+
+(math-defintegral calcFunc-conj
+  (let ((int (math-integral u)))
+    (and int
+         (list 'calcFunc-conj int))))
+
+(math-defintegral calcFunc-cos
+  (and (equal u math-integ-var)
+       (math-from-radians-2 (list 'calcFunc-sin u))))
+In the cos example, we define only the integral of ‘cos(x) dx’, relying on the general integration-by-substitution facility to handle cosines of more complicated arguments. An integration rule should return nil if it can’t do the integral; if several rules are defined for the same function, they are tried in order until one returns a non-nil result.
+
+Macro: math-defintegral-2 funcs body ¶
+Define a rule for integrating a function or functions of two arguments. This is exactly analogous to math-defintegral, except that body is written as the body of a function with two arguments, u and v.
+
+Function: solve-for lhs rhs var full ¶
+Attempt to solve the equation ‘lhs = rhs’ by isolating the variable var on the lefthand side; return the resulting righthand side, or nil if the equation cannot be solved. The variable var must appear at least once in lhs or rhs. Note that the return value is a formula which does not contain var; this is different from the user-level solve and finv functions, which return a rearranged equation or a functional inverse, respectively. If full is non-nil, a full solution including dummy signs and dummy integers will be produced. User-defined inverses are provided as properties in a manner similar to derivatives:
+
+(put 'calcFunc-ln 'math-inverse
+     (lambda (x) (list 'calcFunc-exp x)))
+This function can call ‘(math-solve-get-sign x)’ to create a new arbitrary sign variable, returning x times that sign, and ‘(math-solve-get-int x)’ to create a new arbitrary integer variable multiplied by x. These functions simply return x if the caller requested a non-“full” solution.
+
+Function: solve-eqn expr var full ¶
+This version of solve-for takes an expression which will typically be an equation or inequality. (If it is not, it will be interpreted as the equation ‘expr = 0’.) It returns an equation or inequality, or nil if no solution could be found.
+
+Function: solve-system exprs vars full ¶
+This function solves a system of equations. Generally, exprs and vars will be vectors of equal length. See Solving Systems of Equations, for other options.
+
+Function: expr-contains expr var ¶
+Returns a non-nil value if var occurs as a subexpression of expr.
+
+This function might seem at first to be identical to calc-find-sub-formula. The key difference is that expr-contains uses equal to test for matches, whereas calc-find-sub-formula uses eq. In the formula ‘f(a, a)’, the two ‘a’s will be equal but not eq to each other.
+
+Function: expr-contains-count expr var ¶
+Returns the number of occurrences of var as a subexpression of expr, or nil if there are no occurrences.
+
+Function: expr-depends expr var ¶
+Returns true if expr refers to any variable the occurs in var. In other words, it checks if expr and var have any variables in common.
+
+Function: expr-contains-vars expr ¶
+Return true if expr contains any variables, or nil if expr contains only constants and functions with constant arguments.
+
+Function: expr-subst expr old new ¶
+Returns a copy of expr, with all occurrences of old replaced by new. This treats lambda forms specially with respect to the dummy argument variables, so that the effect is always to return expr evaluated at old = new.
+
+Function: multi-subst expr old new ¶
+This is like expr-subst, except that old and new are lists of expressions to be substituted simultaneously. If one list is shorter than the other, trailing elements of the longer list are ignored.
+
+Function: expr-weight expr ¶
+Returns the “weight” of expr, basically a count of the total number of objects and function calls that appear in expr. For “primitive” objects, this will be one.
+
+Function: expr-height expr ¶
+Returns the “height” of expr, which is the deepest level to which function calls are nested. (Note that ‘a + b’ counts as a function call.) For primitive objects, this returns zero.
+
+Function: polynomial-p expr var ¶
+Check if expr is a polynomial in variable (or sub-expression) var. If so, return the degree of the polynomial, that is, the highest power of var that appears in expr. For example, for ‘(x^2 + 3)^3 + 4’ this would return 6. This function returns nil unless expr, when expanded out by a x (calc-expand), would consist of a sum of terms in which var appears only raised to nonnegative integer powers. Note that if var does not occur in expr, then expr is considered a polynomial of degree 0.
+
+Function: is-polynomial expr var degree loose ¶
+Check if expr is a polynomial in variable or sub-expression var, and, if so, return a list representation of the polynomial where the elements of the list are coefficients of successive powers of var: ‘a + b x + c x^3’ would produce the list ‘(a b 0 c)’, and ‘(x + 1)^2’ would produce the list ‘(1 2 1)’. The highest element of the list will be non-zero, with the special exception that if expr is the constant zero, the returned value will be ‘(0)’. Return nil if expr is not a polynomial in var. If degree is specified, this will not consider polynomials of degree higher than that value. This is a good precaution because otherwise an input of ‘(x+1)^1000’ will cause a huge coefficient list to be built. If loose is non-nil, then a looser definition of a polynomial is used in which coefficients are no longer required not to depend on var, but are only required not to take the form of polynomials themselves. For example, ‘sin(x) x^2 + cos(x)’ is a loose polynomial with coefficients ‘((calcFunc-cos x) 0 (calcFunc-sin x))’. The result will never be nil in loose mode, since any expression can be interpreted as a “constant” loose polynomial.
+
+Function: polynomial-base expr pred ¶
+Check if expr is a polynomial in any variable that occurs in it; if so, return that variable. (If expr is a multivariate polynomial, this chooses one variable arbitrarily.) If pred is specified, it should be a Lisp function which is called as ‘(pred subexpr)’, and which should return true if mpb-top-expr (a global name for the original expr) is a suitable polynomial in subexpr. The default predicate uses ‘(polynomial-p mpb-top-expr subexpr)’; you can use pred to specify additional conditions. Or, you could have pred build up a list of every suitable subexpr that is found.
+
+Function: poly-simplify poly ¶
+Simplify polynomial coefficient list poly by (destructively) clipping off trailing zeros.
+
+Function: poly-mix a ac b bc ¶
+Mix two polynomial lists a and b (in the form returned by is-polynomial) in a linear combination with coefficient expressions ac and bc. The result is a (not necessarily simplified) polynomial list representing ‘ac a + bc b’.
+
+Function: poly-mul a b ¶
+Multiply two polynomial coefficient lists a and b. The result will be in simplified form if the inputs were simplified.
+
+Function: build-polynomial-expr poly var ¶
+Construct a Calc formula which represents the polynomial coefficient list poly applied to variable var. The a c (calc-collect) command uses is-polynomial to turn an expression into a coefficient list, then build-polynomial-expr to turn the list back into an expression in regular form.
+
+Function: check-unit-name var ¶
+Check if var is a variable which can be interpreted as a unit name. If so, return the units table entry for that unit. This will be a list whose first element is the unit name (not counting prefix characters) as a symbol and whose second element is the Calc expression which defines the unit. (Refer to the Calc sources for details on the remaining elements of this list.) If var is not a variable or is not a unit name, return nil.
+
+Function: units-in-expr-p expr sub-exprs ¶
+Return true if expr contains any variables which can be interpreted as units. If sub-exprs is t, the entire expression is searched. If sub-exprs is nil, this checks whether expr is directly a units expression.
+
+Function: single-units-in-expr-p expr ¶
+Check whether expr contains exactly one units variable. If so, return the units table entry for the variable. If expr does not contain any units, return nil. If expr contains two or more units, return the symbol wrong.
+
+Function: to-standard-units expr which ¶
+Convert units expression expr to base units. If which is nil, use Calc’s native base units. Otherwise, which can specify a units system, which is a list of two-element lists, where the first element is a Calc base symbol name and the second is an expression to substitute for it.
+
+Function: remove-units expr ¶
+Return a copy of expr with all units variables replaced by ones. This expression is generally normalized before use.
+
+Function: extract-units expr ¶
+Return a copy of expr with everything but units variables replaced by ones.
+
+
+***** I/O and Formatting Functions
+
+The functions described here are responsible for parsing and formatting Calc numbers and formulas.
+
+Function: calc-eval str sep arg1 arg2 … ¶
+This is the simplest interface to the Calculator from another Lisp program. See Calling Calc from Your Lisp Programs.
+
+Function: read-number str ¶
+If string str contains a valid Calc number, either integer, fraction, float, or HMS form, this function parses and returns that number. Otherwise, it returns nil.
+
+Function: read-expr str ¶
+Read an algebraic expression from string str. If str does not have the form of a valid expression, return a list of the form ‘(error pos msg)’ where pos is an integer index into str of the general location of the error, and msg is a string describing the problem.
+
+Function: read-exprs str ¶
+Read a list of expressions separated by commas, and return it as a Lisp list. If an error occurs in any expressions, an error list as shown above is returned instead.
+
+Function: calc-do-alg-entry initial prompt no-norm ¶
+Read an algebraic formula or formulas using the minibuffer. All conventions of regular algebraic entry are observed. The return value is a list of Calc formulas; there will be more than one if the user entered a list of values separated by commas. The result is nil if the user presses Return with a blank line. If initial is given, it is a string which the minibuffer will initially contain. If prompt is given, it is the prompt string to use; the default is “Algebraic:”. If no-norm is t, the formulas will be returned exactly as parsed; otherwise, they will be passed through calc-normalize first.
+
+To support the use of $ characters in the algebraic entry, use let to bind calc-dollar-values to a list of the values to be substituted for $, $$, and so on, and bind calc-dollar-used to 0. Upon return, calc-dollar-used will have been changed to the highest number of consecutive $s that actually appeared in the input.
+
+Function: format-number a ¶
+Convert the real or complex number or HMS form a to string form.
+
+Function: format-flat-expr a prec ¶
+Convert the arbitrary Calc number or formula a to string form, in the style used by the trail buffer and the calc-edit command. This is a simple format designed mostly to guarantee the string is of a form that can be re-parsed by read-expr. Most formatting modes, such as digit grouping, complex number format, and point character, are ignored to ensure the result will be re-readable. The prec parameter is normally 0; if you pass a large integer like 1000 instead, the expression will be surrounded by parentheses unless it is a plain number or variable name.
+
+Function: format-nice-expr a width ¶
+This is like format-flat-expr (with prec equal to 0), except that newlines will be inserted to keep lines down to the specified width, and vectors that look like matrices or rewrite rules are written in a pseudo-matrix format. The calc-edit command uses this when only one stack entry is being edited.
+
+Function: format-value a width ¶
+Convert the Calc number or formula a to string form, using the format seen in the stack buffer. Beware the string returned may not be re-readable by read-expr, for example, because of digit grouping. Multi-line objects like matrices produce strings that contain newline characters to separate the lines. The w parameter, if given, is the target window size for which to format the expressions. If w is omitted, the width of the Calculator window is used.
+
+Function: compose-expr a prec ¶
+Format the Calc number or formula a according to the current language mode, returning a “composition.” To learn about the structure of compositions, see the comments in the Calc source code. You can specify the format of a given type of function call by putting a math-compose-lang property on the function’s symbol, whose value is a Lisp function that takes a and prec as arguments and returns a composition. Here lang is a language mode name, one of normal, big, c, pascal, fortran, tex, eqn, math, or maple. In Big mode, Calc actually tries math-compose-big first, then tries math-compose-normal. If this property does not exist, or if the function returns nil, the function is written in the normal function-call notation for that language.
+
+Function: composition-to-string c w ¶
+Convert a composition structure returned by compose-expr into a string. Multi-line compositions convert to strings containing newline characters. The target window size is given by w. The format-value function basically calls compose-expr followed by composition-to-string.
+
+Function: comp-width c ¶
+Compute the width in characters of composition c.
+
+Function: comp-height c ¶
+Compute the height in lines of composition c.
+
+Function: comp-ascent c ¶
+Compute the portion of the height of composition c which is on or above the baseline. For a one-line composition, this will be one.
+
+Function: comp-descent c ¶
+Compute the portion of the height of composition c which is below the baseline. For a one-line composition, this will be zero.
+
+Function: comp-first-char c ¶
+If composition c is a “flat” composition, return the first (leftmost) character of the composition as an integer. Otherwise, return nil.
+
+Function: comp-last-char c ¶
+If composition c is a “flat” composition, return the last (rightmost) character, otherwise return nil.
+
+
+***** Hooks
+
+Hooks are variables which contain Lisp functions (or lists of functions) which are called at various times. Calc defines a number of hooks that help you to customize it in various ways. Calc uses the Lisp function run-hooks to invoke the hooks shown below. Several other customization-related variables are also described here. To run code after Calc has loaded, use with-eval-after-load.
+
+Variable: calc-start-hook ¶
+This hook is called as the last step in a M-x calc command. At this point, the Calc buffer has been created and initialized if necessary, the Calc window and trail window have been created, and the “Welcome to Calc” message has been displayed.
+
+Variable: calc-mode-hook ¶
+This hook is called when the Calc buffer is being created. Usually this will only happen once per Emacs session. The hook is called after Emacs has switched to the new buffer, the mode-settings file has been read if necessary, and all other buffer-local variables have been set up. After this hook returns, Calc will perform a calc-refresh operation, set up the mode line display, then evaluate any deferred calc-define properties that have not been evaluated yet.
+
+Variable: calc-trail-mode-hook ¶
+This hook is called when the Calc Trail buffer is being created. It is called as the very last step of setting up the Trail buffer. Like calc-mode-hook, this will normally happen only once per Emacs session.
+
+Variable: calc-end-hook ¶
+This hook is called by calc-quit, generally because the user presses q or C-x * c while in Calc. The Calc buffer will be the current buffer. The hook is called as the very first step, before the Calc window is destroyed.
+
+Variable: calc-window-hook ¶
+If this hook is non-nil, it is called to create the Calc window. Upon return, this new Calc window should be the current window. (The Calc buffer will already be the current buffer when the hook is called.) If the hook is not defined, Calc will generally use split-window, set-window-buffer, and select-window to create the Calc window.
+
+Variable: calc-trail-window-hook ¶
+If this hook is non-nil, it is called to create the Calc Trail window. The variable calc-trail-buffer will contain the buffer which the window should use. Unlike calc-window-hook, this hook must not switch into the new window.
+
+Variable: calc-embedded-mode-hook ¶
+This hook is called the first time that Embedded mode is entered.
+
+Variable: calc-embedded-new-buffer-hook ¶
+This hook is called each time that Embedded mode is entered in a new buffer.
+
+Variable: calc-embedded-new-formula-hook ¶
+This hook is called each time that Embedded mode is enabled for a new formula.
+
+Variable: calc-edit-mode-hook ¶
+This hook is called by calc-edit (and the other “edit” commands) when the temporary editing buffer is being created. The buffer will have been selected and set up to be in calc-edit-mode, but will not yet have been filled with text. (In fact it may still have leftover text from a previous calc-edit command.)
+
+Variable: calc-mode-save-hook ¶
+This hook is called by the calc-save-modes command, after Calc’s own mode features have been inserted into the Calc init file and just before the “End of mode settings” message is inserted.
+
+Variable: calc-reset-hook ¶
+This hook is called after C-x * 0 (calc-reset) has reset all modes. The Calc buffer will be the current buffer.
+
+Variable: calc-other-modes ¶
+This variable contains a list of strings. The strings are concatenated at the end of the modes portion of the Calc mode line (after standard modes such as “Deg”, “Inv” and “Hyp”). Each string should be a short, single word followed by a space. The variable is nil by default.
+
+Variable: calc-mode-map ¶
+This is the keymap that is used by Calc mode. The best time to adjust it is probably in a calc-mode-hook. If the Calc extensions package (calc-ext.el) has not yet been loaded, many of these keys will be bound to calc-missing-key, which is a command that loads the extensions package and “retypes” the key. If your calc-mode-hook rebinds one of these keys, it will probably be overridden when the extensions are loaded.
+
+Variable: calc-digit-map ¶
+This is the keymap that is used during numeric entry. Numeric entry uses the minibuffer, but this map binds every non-numeric key to calcDigit-nondigit which generally calls exit-minibuffer and “retypes” the key.
+
+Variable: calc-alg-ent-map ¶
+This is the keymap that is used during algebraic entry. This is mostly a copy of minibuffer-local-map.
+
+Variable: calc-store-var-map ¶
+This is the keymap that is used during entry of variable names for commands like calc-store and calc-recall. This is mostly a copy of minibuffer-local-completion-map.
+
+Variable: calc-edit-mode-map ¶
+This is the (sparse) keymap used by calc-edit and other temporary editing commands. It binds RET, LFD, and C-c C-c to calc-edit-finish.
+
+Variable: calc-mode-var-list ¶
+This is a list of variables which are saved by calc-save-modes. Each entry is a list of two items, the variable (as a Lisp symbol) and its default value. When modes are being saved, each variable is compared with its default value (using equal) and any non-default variables are written out.
+
+Variable: calc-local-var-list ¶
+This is a list of variables which should be buffer-local to the Calc buffer. Each entry is a variable name (as a Lisp symbol). These variables also have their default values manipulated by the calc and calc-quit commands; see Multiple Calculators. Since calc-mode-hook is called after this list has been used the first time, your hook should add a variable to the list and also call make-local-variable itself.

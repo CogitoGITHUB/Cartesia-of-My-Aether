@@ -1,0 +1,1357 @@
+#+title:      Calc Mathematics
+
+* Calc Mathematics :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       2db0199c-00df-4c68-b7e5-ab9628629505
+:END:
+
+This chapter describes the Calc commands for doing simple calculations on numbers, such as addition, absolute value, and square roots. These commands work by removing the top one or two values from the stack, performing the desired operation, and pushing the result back onto the stack. If the operation cannot be performed, the result pushed is a formula instead of a number, such as ‘2/0’ (because division by zero is invalid) or ‘sqrt(x)’ (because the argument ‘x’ is a formula).
+
+Most of the commands described here can be invoked by a single keystroke. Some of the more obscure ones are two-letter sequences beginning with the f (“functions”) prefix key.
+
+See Numeric Prefix Arguments, for a discussion of the effect of numeric prefix arguments on commands in this chapter which do not otherwise interpret a prefix argument.
+
+*** Basic Arithmetic
+
+The + (calc-plus) command adds two numbers. The numbers may be any of the standard Calc data types. The resulting sum is pushed back onto the stack.
+
+If both arguments of + are vectors or matrices (of matching dimensions), the result is a vector or matrix sum. If one argument is a vector and the other a scalar (i.e., a non-vector), the scalar is added to each of the elements of the vector to form a new vector. If the scalar is not a number, the operation is left in symbolic form: Suppose you added ‘x’ to the vector ‘[1,2]’. You may want the result ‘[1+x,2+x]’, or you may plan to substitute a 2-vector for ‘x’ in the future. Since the Calculator can’t tell which interpretation you want, it makes the safest assumption. See Reducing and Mapping Vectors, for a way to add ‘x’ to every element of a vector.
+
+If either argument of + is a complex number, the result will in general be complex. If one argument is in rectangular form and the other polar, the current Polar mode determines the form of the result. If Symbolic mode is enabled, the sum may be left as a formula if the necessary conversions for polar addition are non-trivial.
+
+If both arguments of + are HMS forms, the forms are added according to the usual conventions of hours-minutes-seconds notation. If one argument is an HMS form and the other is a number, that number is converted from degrees or radians (depending on the current Angular mode) to HMS format and then the two HMS forms are added.
+
+If one argument of + is a date form, the other can be either a real number, which advances the date by a certain number of days, or an HMS form, which advances the date by a certain amount of time. Subtracting two date forms yields the number of days between them. Adding two date forms is meaningless, but Calc interprets it as the subtraction of one date form and the negative of the other. (The negative of a date form can be understood by remembering that dates are stored as the number of days before or after Jan 1, 1 AD.)
+
+If both arguments of + are error forms, the result is an error form with an appropriately computed standard deviation. If one argument is an error form and the other is a number, the number is taken to have zero error. Error forms may have symbolic formulas as their mean and/or error parts; adding these will produce a symbolic error form result. However, adding an error form to a plain symbolic formula (as in ‘(a +/- b) + c’) will not work, for the same reasons just mentioned for vectors. Instead you must write ‘(a +/- b) + (c +/- 0)’.
+
+If both arguments of + are modulo forms with equal values of ‘M’, or if one argument is a modulo form and the other a plain number, the result is a modulo form which represents the sum, modulo ‘M’, of the two values.
+
+If both arguments of + are intervals, the result is an interval which describes all possible sums of the possible input values. If one argument is a plain number, it is treated as the interval ‘[x .. x]’.
+
+If one argument of + is an infinity and the other is not, the result is that same infinity. If both arguments are infinite and in the same direction, the result is the same infinity, but if they are infinite in different directions the result is nan.
+
+The - (calc-minus) command subtracts two values. The top number on the stack is subtracted from the one behind it, so that the computation 5 RET 2 - produces 3, not -3. All options available for + are available for - as well.
+
+The * (calc-times) command multiplies two numbers. If one argument is a vector and the other a scalar, the scalar is multiplied by the elements of the vector to produce a new vector. If both arguments are vectors, the interpretation depends on the dimensions of the vectors: If both arguments are matrices, a matrix multiplication is done. If one argument is a matrix and the other a plain vector, the vector is interpreted as a row vector or column vector, whichever is dimensionally correct. If both arguments are plain vectors, the result is a single scalar number which is the dot product of the two vectors.
+
+If one argument of * is an HMS form and the other a number, the HMS form is multiplied by that amount. It is an error to multiply two HMS forms together, or to attempt any multiplication involving date forms. Error forms, modulo forms, and intervals can be multiplied; see the comments for addition of those forms. When two error forms or intervals are multiplied they are considered to be statistically independent; thus, ‘[-2 .. 3] * [-2 .. 3]’ is ‘[-6 .. 9]’, whereas ‘[-2 .. 3] ^ 2’ is ‘[0 .. 9]’.
+
+The / (calc-divide) command divides two numbers.
+
+When combining multiplication and division in an algebraic formula, it is good style to use parentheses to distinguish between possible interpretations; the expression ‘a/b*c’ should be written ‘(a/b)*c’ or ‘a/(b*c)’, as appropriate. Without the parentheses, Calc will interpret ‘a/b*c’ as ‘a/(b*c)’, since in algebraic entry Calc gives division a lower precedence than multiplication. (This is not standard across all computer languages, and Calc may change the precedence depending on the language mode being used. See Language Modes.) This default ordering can be changed by setting the customizable variable calc-multiplication-has-precedence to nil (see Customizing Calc); this will give multiplication and division equal precedences. Note that Calc’s default choice of precedence allows ‘a b / c d’ to be used as a shortcut for
+
+a b
+---.
+c d
+When dividing a scalar ‘B’ by a square matrix ‘A’, the computation performed is ‘B’ times the inverse of ‘A’. This also occurs if ‘B’ is itself a vector or matrix, in which case the effect is to solve the set of linear equations represented by ‘B’. If ‘B’ is a matrix with the same number of rows as ‘A’, or a plain vector (which is interpreted here as a column vector), then the equation ‘A X = B’ is solved for the vector or matrix ‘X’. Otherwise, if ‘B’ is a non-square matrix with the same number of columns as ‘A’, the equation ‘X A = B’ is solved. If you wish a vector ‘B’ to be interpreted as a row vector to be solved as ‘X A = B’, make it into a one-row matrix with C-u 1 v p first. To force a left-handed solution with a square matrix ‘B’, transpose ‘A’ and ‘B’ before dividing, then transpose the result.
+
+HMS forms can be divided by real numbers or by other HMS forms. Error forms can be divided in any combination of ways. Modulo forms where both values and the modulo are integers can be divided to get an integer modulo form result. Intervals can be divided; dividing by an interval that encompasses zero or has zero as a limit will result in an infinite interval.
+
+The ^ (calc-power) command raises a number to a power. If the power is an integer, an exact result is computed using repeated multiplications. For non-integer powers, Calc uses Newton’s method or logarithms and exponentials. Square matrices can be raised to integer powers. If either argument is an error (or interval or modulo) form, the result is also an error (or interval or modulo) form.
+
+If you press the I (inverse) key first, the I ^ command computes an Nth root: 125 RET 3 I ^ computes the number 5. (This is entirely equivalent to 125 RET 1:3 ^.)
+
+The \ (calc-idiv) command divides two numbers on the stack to produce an integer result. It is equivalent to dividing with /, then rounding down with F (calc-floor), only a bit more convenient and efficient. Also, since it is an all-integer operation when the arguments are integers, it avoids problems that / F would have with floating-point roundoff.
+
+The % (calc-mod) command performs a “modulo” (or “remainder”) operation. Mathematically, ‘a%b = a - (a\b)*b’, and is defined for all real numbers ‘a’ and ‘b’ (except ‘b=0’). For positive ‘b’, the result will always be between 0 (inclusive) and ‘b’ (exclusive). Modulo does not work for HMS forms and error forms. If ‘a’ is a modulo form, its modulo is changed to ‘b’, which must be positive real number.
+
+The : (calc-fdiv) [fdiv] command divides the two integers on the top of the stack to produce a fractional result. This is a convenient shorthand for enabling Fraction mode (with m f) temporarily and using ‘/’. Note that during numeric entry the : key is interpreted as a fraction separator, so to divide 8 by 6 you would have to type 8 RET 6 RET :. (Of course, in this case, it would be much easier simply to enter the fraction directly as 8:6 RET!)
+
+The n (calc-change-sign) command negates the number on the top of the stack. It works on numbers, vectors and matrices, HMS forms, date forms, error forms, intervals, and modulo forms.
+
+The A (calc-abs) [abs] command computes the absolute value of a number. The result of abs is always a nonnegative real number: With a complex argument, it computes the complex magnitude. With a vector or matrix argument, it computes the Frobenius norm, i.e., the square root of the sum of the squares of the absolute values of the elements. The absolute value of an error form is defined by replacing the mean part with its absolute value and leaving the error part the same. The absolute value of a modulo form is undefined. The absolute value of an interval is defined in the obvious way.
+
+The f A (calc-abssqr) [abssqr] command computes the absolute value squared of a number, vector or matrix, or error form.
+
+The f s (calc-sign) [sign] command returns 1 if its argument is positive, -1 if its argument is negative, or 0 if its argument is zero. In algebraic form, you can also write ‘sign(a,x)’ which evaluates to ‘x * sign(a)’, i.e., either ‘x’, ‘-x’, or zero depending on the sign of ‘a’.
+
+The & (calc-inv) [inv] command computes the reciprocal of a number, i.e., ‘1 / x’. Operating on a square matrix, it computes the inverse of that matrix.
+
+The Q (calc-sqrt) [sqrt] command computes the square root of a number. For a negative real argument, the result will be a complex number whose form is determined by the current Polar mode.
+
+The f h (calc-hypot) [hypot] command computes the square root of the sum of the squares of two numbers. That is, ‘hypot(a,b)’ is the length of the hypotenuse of a right triangle with sides ‘a’ and ‘b’. If the arguments are complex numbers, their squared magnitudes are used.
+
+The f Q (calc-isqrt) [isqrt] command computes the integer square root of an integer. This is the true square root of the number, rounded down to an integer. For example, ‘isqrt(10)’ produces 3. Note that, like \ [idiv], this uses exact integer arithmetic throughout to avoid roundoff problems. If the input is a floating-point number or other non-integer value, this is exactly the same as ‘floor(sqrt(x))’.
+
+The f n (calc-min) [min] and f x (calc-max) [max] commands take the minimum or maximum of two real numbers, respectively. These commands also work on HMS forms, date forms, intervals, and infinities. (In algebraic expressions, these functions take any number of arguments and return the maximum or minimum among all the arguments.)
+
+The f M (calc-mant-part) [mant] function extracts the “mantissa” part ‘m’ of its floating-point argument; f X (calc-xpon-part) [xpon] extracts the “exponent” part ‘e’. The original number is equal to ‘m * 10^e’, where ‘m’ is in the interval ‘[1.0 .. 10.0)’ except that ‘m=e=0’ if the original number is zero. For integers and fractions, mant returns the number unchanged and xpon returns zero. The v u (calc-unpack) command can also be used to “unpack” a floating-point number; this produces an integer mantissa and exponent, with the constraint that the mantissa is not a multiple of ten (again except for the ‘m=e=0’ case).
+
+The f S (calc-scale-float) [scf] function scales a number by a given power of ten. Thus, ‘scf(mant(x), xpon(x)) = x’ for any real ‘x’. The second argument must be an integer, but the first may actually be any numeric value. For example, ‘scf(5,-2) = 0.05’ or ‘1:20’ depending on the current Fraction mode.
+
+The f [ (calc-decrement) [decr] and f ] (calc-increment) [incr] functions decrease or increase a number by one unit. For integers, the effect is obvious. For floating-point numbers, the change is by one unit in the last place. For example, incrementing ‘12.3456’ when the current precision is 6 digits yields ‘12.3457’. If the current precision had been 8 digits, the result would have been ‘12.345601’. Incrementing ‘0.0’ produces ‘10^-p’, where ‘p’ is the current precision. These operations are defined only on integers and floats. With numeric prefix arguments, they change the number by ‘n’ units.
+
+Note that incrementing followed by decrementing, or vice-versa, will almost but not quite always cancel out. Suppose the precision is 6 digits and the number ‘9.99999’ is on the stack. Incrementing will produce ‘10.0000’; decrementing will produce ‘9.9999’. One digit has been dropped. This is an unavoidable consequence of the way floating-point numbers work.
+
+Incrementing a date/time form adjusts it by a certain number of seconds. Incrementing a pure date form adjusts it by a certain number of days.
+
+
+*** Integer Truncation
+
+There are four commands for truncating a real number to an integer, differing mainly in their treatment of negative numbers. All of these commands have the property that if the argument is an integer, the result is the same integer. An integer-valued floating-point argument is converted to integer form.
+
+If you press H (calc-hyperbolic) first, the result will be expressed as an integer-valued floating-point number.
+
+The F (calc-floor) [floor or ffloor] command truncates a real number to the next lower integer, i.e., toward minus infinity. Thus 3.6 F produces 3, but _3.6 F produces -4.
+
+The I F (calc-ceiling) [ceil or fceil] command truncates toward positive infinity. Thus 3.6 I F produces 4, and _3.6 I F produces -3.
+
+The R (calc-round) [round or fround] command rounds to the nearest integer. When the fractional part is .5 exactly, this command rounds away from zero. (All other rounding in the Calculator uses this convention as well.) Thus 3.5 R produces 4 but 3.4 R produces 3; _3.5 R produces -4.
+
+The I R (calc-trunc) [trunc or ftrunc] command truncates toward zero. In other words, it “chops off” everything after the decimal point. Thus 3.6 I R produces 3 and _3.6 I R produces -3.
+
+These functions may not be applied meaningfully to error forms, but they do work for intervals. As a convenience, applying floor to a modulo form floors the value part of the form. Applied to a vector, these functions operate on all elements of the vector one by one. Applied to a date form, they operate on the internal numerical representation of dates, converting a date/time form into a pure date.
+
+There are two more rounding functions which can only be entered in algebraic notation. The roundu function is like round except that it rounds up, toward plus infinity, when the fractional part is .5. This distinction matters only for negative arguments. Also, rounde rounds to an even number in the case of a tie, rounding up or down as necessary. For example, ‘rounde(3.5)’ and ‘rounde(4.5)’ both return 4, but ‘rounde(5.5)’ returns 6. The advantage of round-to-even is that the net error due to rounding after a long calculation tends to cancel out to zero. An important subtle point here is that the number being fed to rounde will already have been rounded to the current precision before rounde begins. For example, ‘rounde(2.500001)’ with a current precision of 6 will incorrectly, or at least surprisingly, yield 2 because the argument will first have been rounded down to ‘2.5’ (which rounde sees as an exact tie between 2 and 3).
+
+Each of these functions, when written in algebraic formulas, allows a second argument which specifies the number of digits after the decimal point to keep. For example, ‘round(123.4567, 2)’ will produce the answer 123.46, and ‘round(123.4567, -1)’ will produce 120 (i.e., the cutoff is one digit to the left of the decimal point). A second argument of zero is equivalent to no second argument at all.
+
+To compute the fractional part of a number (i.e., the amount which, when added to ‘floor(n)’, will produce n) just take n modulo 1 using the % command.
+
+Note also the \ (integer quotient), f I (integer logarithm), and f Q (integer square root) commands, which are analogous to /, B, and Q, respectively, except that they take integer arguments and return the result rounded down to an integer.
+
+
+*** Complex Number Functions
+
+The J (calc-conj) [conj] command computes the complex conjugate of a number. For complex number ‘a+bi’, the complex conjugate is ‘a-bi’. If the argument is a real number, this command leaves it the same. If the argument is a vector or matrix, this command replaces each element by its complex conjugate.
+
+The G (calc-argument) [arg] command computes the “argument” or polar angle of a complex number. For a number in polar notation, this is simply the second component of the pair ‘(r;theta)’. The result is expressed according to the current angular mode and will be in the range -180 degrees (exclusive) to +180 degrees (inclusive), or the equivalent range in radians.
+
+The calc-imaginary command multiplies the number on the top of the stack by the imaginary number ‘i = (0,1)’. This command is not normally bound to a key in Calc, but it is available on the IMAG button in Keypad mode.
+
+The f r (calc-re) [re] command replaces a complex number by its real part. This command has no effect on real numbers. (As an added convenience, re applied to a modulo form extracts the value part.)
+
+The f i (calc-im) [im] command replaces a complex number by its imaginary part; real numbers are converted to zero. With a vector or matrix argument, these functions operate element-wise.
+
+The v p (calc-pack) command can pack the top two numbers on the stack into a composite object such as a complex number. With a prefix argument of -1, it produces a rectangular complex number; with an argument of -2, it produces a polar complex number. (Also, see Building Vectors.)
+
+The v u (calc-unpack) command takes the complex number (or other composite object) on the top of the stack and unpacks it into its separate components.
+
+
+*** Conversions
+
+The commands described in this section convert numbers from one form to another; they are two-key sequences beginning with the letter c.
+
+The c f (calc-float) [pfloat] command converts the number on the top of the stack to floating-point form. For example, ‘23’ is converted to ‘23.0’, ‘3:2’ is converted to ‘1.5’, and ‘2.3’ is left the same. If the value is a composite object such as a complex number or vector, each of the components is converted to floating-point. If the value is a formula, all numbers in the formula are converted to floating-point. Note that depending on the current floating-point precision, conversion to floating-point format may lose information.
+
+As a special exception, integers which appear as powers or subscripts are not floated by c f. If you really want to float a power, you can use a j s command to select the power followed by c f. Because c f cannot examine the formula outside of the selection, it does not notice that the thing being floated is a power. See Selecting Sub-Formulas.
+
+The normal c f command is “pervasive” in the sense that it applies to all numbers throughout the formula. The pfloat algebraic function never stays around in a formula; ‘pfloat(a + 1)’ changes to ‘a + 1.0’ as soon as it is evaluated.
+
+With the Hyperbolic flag, H c f [float] operates only on the number or vector of numbers at the top level of its argument. Thus, ‘float(1)’ is 1.0, but ‘float(a + 1)’ is left unevaluated because its argument is not a number.
+
+You should use H c f if you wish to guarantee that the final value, once all the variables have been assigned, is a float; you would use c f if you wish to do the conversion on the numbers that appear right now.
+
+The c F (calc-fraction) [pfrac] command converts a floating-point number into a fractional approximation. By default, it produces a fraction whose decimal representation is the same as the input number, to within the current precision. You can also give a numeric prefix argument to specify a tolerance, either directly, or, if the prefix argument is zero, by using the number on top of the stack as the tolerance. If the tolerance is a positive integer, the fraction is correct to within that many significant figures. If the tolerance is a non-positive integer, it specifies how many digits fewer than the current precision to use. If the tolerance is a floating-point number, the fraction is correct to within that absolute amount.
+
+The pfrac function is pervasive, like pfloat. There is also a non-pervasive version, H c F [frac], which is analogous to H c f discussed above.
+
+The c d (calc-to-degrees) [deg] command converts a number into degrees form. The value on the top of the stack may be an HMS form (interpreted as degrees-minutes-seconds), or a real number which will be interpreted in radians regardless of the current angular mode.
+
+The c r (calc-to-radians) [rad] command converts an HMS form or angle in degrees into an angle in radians.
+
+The c h (calc-to-hms) [hms] command converts a real number, interpreted according to the current angular mode, to an HMS form describing the same angle. In algebraic notation, the hms function also accepts three arguments: ‘hms(h, m, s)’. (The three-argument version is independent of the current angular mode.)
+
+The calc-from-hms command converts the HMS form on the top of the stack into a real number according to the current angular mode.
+
+The c p (calc-polar) command converts the complex number on the top of the stack from polar to rectangular form, or from rectangular to polar form, whichever is appropriate. Real numbers are left the same. This command is equivalent to the rect or polar functions in algebraic formulas, depending on the direction of conversion. (It uses polar, except that if the argument is already a polar complex number, it uses rect instead. The I c p command always uses rect.)
+
+The c c (calc-clean) [pclean] command “cleans” the number on the top of the stack. Floating point numbers are re-rounded according to the current precision. Polar numbers whose angular components have strayed from the -180 to +180 degree range are normalized. (Note that results will be undesirable if the current angular mode is different from the one under which the number was produced!) Integers and fractions are generally unaffected by this operation. Vectors and formulas are cleaned by cleaning each component number (i.e., pervasively).
+
+If the simplification mode is set below basic simplification, it is raised for the purposes of this command. Thus, c c applies the basic simplifications even if their automatic application is disabled. See Simplification Modes.
+
+A numeric prefix argument to c c sets the floating-point precision to that value for the duration of the command. A positive prefix (of at least 3) sets the precision to the specified value; a negative or zero prefix decreases the precision by the specified amount.
+
+The keystroke sequences c 0 through c 9 are equivalent to c c with the corresponding negative prefix argument. If roundoff errors have changed 2.0 into 1.999999, typing c 1 to clip off one decimal place often conveniently does the trick.
+
+The c c command with a numeric prefix argument, and the c 0 through c 9 commands, also “clip” very small floating-point numbers to zero. If the exponent is less than or equal to the negative of the specified precision, the number is changed to 0.0. For example, if the current precision is 12, then c 2 changes the vector ‘[1e-8, 1e-9, 1e-10, 1e-11]’ to ‘[1e-8, 1e-9, 0, 0]’. Numbers this small generally arise from roundoff noise.
+
+If the numbers you are using really are legitimately this small, you should avoid using the c 0 through c 9 commands. (The plain c c command rounds to the current precision but does not clip small numbers.)
+
+One more property of c 0 through c 9, and of c c with a prefix argument, is that integer-valued floats are converted to plain integers, so that c 1 on ‘[1., 1.5, 2., 2.5, 3.]’ produces ‘[1, 1.5, 2, 2.5, 3]’. This is not done for huge numbers (‘1e100’ is technically an integer-valued float, but you wouldn’t want it automatically converted to a 100-digit integer).
+
+With the Hyperbolic flag, H c c and H c 0 through H c 9 operate non-pervasively [clean].
+
+
+*** Date Arithmetic
+
+The commands described in this section perform various conversions and calculations involving date forms (see Date Forms). They use the t (for time/date) prefix key followed by shifted letters.
+
+The simplest date arithmetic is done using the regular + and - commands. In particular, adding a number to a date form advances the date form by a certain number of days; adding an HMS form to a date form advances the date by a certain amount of time; and subtracting two date forms produces a difference measured in days. The commands described here provide additional, more specialized operations on dates.
+
+Many of these commands accept a numeric prefix argument; if you give plain C-u as the prefix, these commands will instead take the additional argument from the top of the stack.
+
+**** Date Conversions
+
+The t D (calc-date) [date] command converts a date form into a number, measured in days since Jan 1, 1 AD. The result will be an integer if date is a pure date form, or a fraction or float if date is a date/time form. Or, if its argument is a number, it converts this number into a date form.
+
+With a numeric prefix argument, t D takes that many objects (up to six) from the top of the stack and interprets them in one of the following ways:
+
+The ‘date(year, month, day)’ function builds a pure date form out of the specified year, month, and day, which must all be integers. Year is a year number, such as 1991 (not the same as 91!). Month must be an integer in the range 1 to 12; day must be in the range 1 to 31. If the specified month has fewer than 31 days and day is too large, the equivalent day in the following month will be used.
+
+The ‘date(month, day)’ function builds a pure date form using the current year, as determined by the real-time clock.
+
+The ‘date(year, month, day, hms)’ function builds a date/time form using an hms form.
+
+The ‘date(year, month, day, hour, minute, second)’ function builds a date/time form. hour should be an integer in the range 0 to 23; minute should be an integer in the range 0 to 59; second should be any real number in the range ‘[0 .. 60)’. The last two arguments default to zero if omitted.
+
+The t J (calc-julian) [julian] command converts a date form into a Julian day count, which is the number of days since noon (GMT) on Jan 1, 4713 BC. A pure date is converted to an integer Julian count representing noon of that day. A date/time form is converted to an exact floating-point Julian count, adjusted to interpret the date form in the current time zone but the Julian day count in Greenwich Mean Time. A numeric prefix argument allows you to specify the time zone; see Time Zones. Use a prefix of zero to suppress the time zone adjustment. Note that pure date forms are never time-zone adjusted.
+
+This command can also do the opposite conversion, from a Julian day count (either an integer day, or a floating-point day and time in the GMT zone), into a pure date form or a date/time form in the current or specified time zone.
+
+The t U (calc-unix-time) [unixtime] command converts a date form into a Unix time value, which is the number of seconds since midnight on Jan 1, 1970, or vice-versa. The numeric result will be an integer if the current precision is 12 or less; for higher precision, the result may be a float with (precision-12) digits after the decimal. Just as for t J, the numeric time is interpreted in the GMT time zone and the date form is interpreted in the current or specified zone. Some systems use Unix-like numbering but with the local time zone; give a prefix of zero to suppress the adjustment if so.
+
+The t C (calc-convert-time-zones) [tzconv] command converts a date form from one time zone to another. You are prompted for each time zone name in turn; you can answer with any suitable Calc time zone expression (see Time Zones). If you answer either prompt with a blank line, the local time zone is used for that prompt. You can also answer the first prompt with $ to take the two time zone names from the stack (and the date to be converted from the third stack level).
+
+
+**** Date Functions
+
+The t N (calc-now) [now] command pushes the current date and time on the stack as a date form. The time is reported in terms of the specified time zone; with no numeric prefix argument, t N reports for the current time zone.
+
+The t P (calc-date-part) command extracts one part of a date form. The prefix argument specifies the part; with no argument, this command prompts for a part code from 1 to 9. The various part codes are described in the following paragraphs.
+
+The M-1 t P [year] function extracts the year number from a date form as an integer, e.g., 1991. This and the following functions will also accept a real number for an argument, which is interpreted as a standard Calc day number. Note that this function will never return zero, since the year 1 BC immediately precedes the year 1 AD.
+
+The M-2 t P [month] function extracts the month number from a date form as an integer in the range 1 to 12.
+
+The M-3 t P [day] function extracts the day number from a date form as an integer in the range 1 to 31.
+
+The M-4 t P [hour] function extracts the hour from a date form as an integer in the range 0 (midnight) to 23. Note that 24-hour time is always used. This returns zero for a pure date form. This function (and the following two) also accept HMS forms as input.
+
+The M-5 t P [minute] function extracts the minute from a date form as an integer in the range 0 to 59.
+
+The M-6 t P [second] function extracts the second from a date form. If the current precision is 12 or less, the result is an integer in the range 0 to 59. For higher precision, the result may instead be a floating-point number.
+
+The M-7 t P [weekday] function extracts the weekday number from a date form as an integer in the range 0 (Sunday) to 6 (Saturday).
+
+The M-8 t P [yearday] function extracts the day-of-year number from a date form as an integer in the range 1 (January 1) to 366 (December 31 of a leap year).
+
+The M-9 t P [time] function extracts the time portion of a date form as an HMS form. This returns ‘0@ 0' 0"’ for a pure date form.
+
+The t M (calc-new-month) [newmonth] command computes a new date form that represents the first day of the month specified by the input date. The result is always a pure date form; only the year and month numbers of the input are retained. With a numeric prefix argument n in the range from 1 to 31, t M computes the nth day of the month. (If n is greater than the actual number of days in the month, or if n is zero, the last day of the month is used.)
+
+The t Y (calc-new-year) [newyear] command computes a new pure date form that represents the first day of the year specified by the input. The month, day, and time of the input date form are lost. With a numeric prefix argument n in the range from 1 to 366, t Y computes the nth day of the year (366 is treated as 365 in non-leap years). A prefix argument of 0 computes the last day of the year (December 31). A negative prefix argument from -1 to -12 computes the first day of the nth month of the year.
+
+The t W (calc-new-week) [newweek] command computes a new pure date form that represents the Sunday on or before the input date. With a numeric prefix argument, it can be made to use any day of the week as the starting day; the argument must be in the range from 0 (Sunday) to 6 (Saturday). This function always subtracts between 0 and 6 days from the input date.
+
+Here’s an example use of newweek: Find the date of the next Wednesday after a given date. Using M-3 t W or ‘newweek(d, 3)’ will give you the preceding Wednesday, so ‘newweek(d+7, 3)’ will give you the following Wednesday. A further look at the definition of newweek shows that if the input date is itself a Wednesday, this formula will return the Wednesday one week in the future. An exercise for the reader is to modify this formula to yield the same day if the input is already a Wednesday. Another interesting exercise is to preserve the time-of-day portion of the input (newweek resets the time to midnight; hint: how can newweek be defined in terms of the weekday function?).
+
+The ‘pwday(date)’ function (not on any key) computes the day-of-month number of the Sunday on or before date. With two arguments, ‘pwday(date, day)’ computes the day number of the Sunday on or before day number day of the month specified by date. The day must be in the range from 7 to 31; if the day number is greater than the actual number of days in the month, the true number of days is used instead. Thus ‘pwday(date, 7)’ finds the first Sunday of the month, and ‘pwday(date, 31)’ finds the last Sunday of the month. With a third weekday argument, pwday can be made to look for any day of the week instead of Sunday.
+
+The t I (calc-inc-month) [incmonth] command increases a date form by one month, or by an arbitrary number of months specified by a numeric prefix argument. The time portion, if any, of the date form stays the same. The day also stays the same, except that if the new month has fewer days the day number may be reduced to lie in the valid range. For example, ‘incmonth(<Jan 31, 1991>)’ produces ‘<Feb 28, 1991>’. Because of this, t I t I and M-2 t I do not always give the same results (‘<Mar 28, 1991>’ versus ‘<Mar 31, 1991>’ in this case).
+
+The ‘incyear(date, step)’ function increases a date form by the specified number of years, which may be any positive or negative integer. Note that ‘incyear(d, n)’ is equivalent to ‘incmonth(d, 12*n)’, but these do not have simple equivalents in terms of day arithmetic because months and years have varying lengths. If the step argument is omitted, 1 year is assumed. There is no keyboard command for this function; use C-u 12 t I instead.
+
+There is no newday function at all because F [floor] serves this purpose. Similarly, instead of incday and incweek simply use ‘d + n’ or ‘d + 7 n’.
+
+See Basic Arithmetic, for the f ] [incr] command which can adjust a date/time form by a certain number of seconds.
+
+
+**** Business Days
+
+Often time is measured in “business days” or “working days,” where weekends and holidays are skipped. Calc’s normal date arithmetic functions use calendar days, so that subtracting two consecutive Mondays will yield a difference of 7 days. By contrast, subtracting two consecutive Mondays would yield 5 business days (assuming two-day weekends and the absence of holidays).
+
+The t + (calc-business-days-plus) [badd] and t - (calc-business-days-minus) [bsub] commands perform arithmetic using business days. For t +, one argument must be a date form and the other must be a real number (positive or negative). If the number is not an integer, then a certain amount of time is added as well as a number of days; for example, adding 0.5 business days to a time in Friday evening will produce a time in Monday morning. It is also possible to add an HMS form; adding ‘12@ 0' 0"’ also adds half a business day. For t -, the arguments are either a date form and a number or HMS form, or two date forms, in which case the result is the number of business days between the two dates.
+
+By default, Calc considers any day that is not a Saturday or Sunday to be a business day. You can define any number of additional holidays by editing the variable Holidays. (There is an s H convenience command for editing this variable.) Initially, Holidays contains the vector ‘[sat, sun]’. Entries in the Holidays vector may be any of the following kinds of objects:
+
+Date forms (pure dates, not date/time forms). These specify particular days which are to be treated as holidays.
+Intervals of date forms. These specify a range of days, all of which are holidays (e.g., Christmas week). See Interval Forms.
+Nested vectors of date forms. Each date form in the vector is considered to be a holiday.
+Any Calc formula which evaluates to one of the above three things. If the formula involves the variable ‘y’, it stands for a yearly repeating holiday; ‘y’ will take on various year numbers like 1992. For example, ‘date(y, 12, 25)’ specifies Christmas day, and ‘newweek(date(y, 11, 7), 4) + 21’ specifies Thanksgiving (which is held on the fourth Thursday of November). If the formula involves the variable ‘m’, that variable takes on month numbers from 1 to 12: ‘date(y, m, 15)’ is a holiday that takes place on the 15th of every month.
+A weekday name, such as sat or sun. This is really a variable whose name is a three-letter, lower-case day name.
+An interval of year numbers (integers). This specifies the span of years over which this holiday list is to be considered valid. Any business-day arithmetic that goes outside this range will result in an error message. Use this if you are including an explicit list of holidays, rather than a formula to generate them, and you want to make sure you don’t accidentally go beyond the last point where the holidays you entered are complete. If there is no limiting interval in the Holidays vector, the default ‘[1 .. 2737]’ is used. (This is the absolute range of years for which Calc’s business-day algorithms will operate.)
+An interval of HMS forms. This specifies the span of hours that are to be considered one business day. For example, if this range is ‘[9@ 0' 0" .. 17@ 0' 0"]’ (i.e., 9am to 5pm), then the business day is only eight hours long, so that 1.5 t + on ‘<4:00pm Fri Dec 13, 1991>’ will add one business day and four business hours to produce ‘<12:00pm Tue Dec 17, 1991>’. Likewise, t - will now express differences in time as fractions of an eight-hour day. Times before 9am will be treated as 9am by business date arithmetic, and times at or after 5pm will be treated as 4:59:59pm. If there is no HMS interval in Holidays, the full 24-hour day ‘[0 0' 0" .. 24 0' 0"]’ is assumed. (Regardless of the type of bounds you specify, the interval is treated as inclusive on the low end and exclusive on the high end, so that the work day goes from 9am up to, but not including, 5pm.)
+If the Holidays vector is empty, then t + and t - will act just like + and - because there will then be no difference between business days and calendar days.
+
+Calc expands the intervals and formulas you give into a complete list of holidays for internal use. This is done mainly to make sure it can detect multiple holidays. (For example, ‘<Jan 1, 1989>’ is both New Year’s Day and a Sunday, but Calc’s algorithms take care to count it only once when figuring the number of holidays between two dates.)
+
+Since the complete list of holidays for all the years from 1 to 2737 would be huge, Calc actually computes only the part of the list between the smallest and largest years that have been involved in business-day calculations so far. Normally, you won’t have to worry about this. Keep in mind, however, that if you do one calculation for 1992, and another for 1792, even if both involve only a small range of years, Calc will still work out all the holidays that fall in that 200-year span.
+
+If you add a (positive) number of days to a date form that falls on a weekend or holiday, the date form is treated as if it were the most recent business day. (Thus adding one business day to a Friday, Saturday, or Sunday will all yield the following Monday.) If you subtract a number of days from a weekend or holiday, the date is effectively on the following business day. (So subtracting one business day from Saturday, Sunday, or Monday yields the preceding Friday.) The difference between two dates one or both of which fall on holidays equals the number of actual business days between them. These conventions are consistent in the sense that, if you add n business days to any date, the difference between the result and the original date will come out to n business days. (It can’t be completely consistent though; a subtraction followed by an addition might come out a bit differently, since t + is incapable of producing a date that falls on a weekend or holiday.)
+
+There is a holiday function, not on any keys, that takes any date form and returns 1 if that date falls on a weekend or holiday, as defined in Holidays, or 0 if the date is a business day.
+
+
+**** Time Zones
+
+Time zones and daylight saving time are a complicated business. The conversions to and from Julian and Unix-style dates automatically compute the correct time zone and daylight saving adjustment to use, provided they can figure out this information. This section describes Calc’s time zone adjustment algorithm in detail, in case you want to do conversions in different time zones or in case Calc’s algorithms can’t determine the right correction to use.
+
+Adjustments for time zones and daylight saving time are done by t U, t J, t N, and t C, but not by any other commands. In particular, ‘<may 1 1991> - <apr 1 1991>’ evaluates to exactly 30 days even though there is a daylight-saving transition in between. This is also true for Julian pure dates: ‘julian(<may 1 1991>) - julian(<apr 1 1991>)’. But Julian and Unix date/times will adjust for daylight saving time: using Calc’s default daylight saving time rule (see the explanation below), ‘julian(<12am may 1 1991>) - julian(<12am apr 1 1991>)’ evaluates to ‘29.95833’ (that’s 29 days and 23 hours) because one hour was lost when daylight saving commenced on April 7, 1991.
+
+In brief, the idiom ‘julian(date1) - julian(date2)’ computes the actual number of 24-hour periods between two dates, whereas ‘date1 - date2’ computes the number of calendar days between two dates without taking daylight saving into account.
+
+The calc-time-zone [tzone] command converts the time zone specified by its numeric prefix argument into a number of seconds difference from Greenwich mean time (GMT). If the argument is a number, the result is simply that value multiplied by 3600. Typical arguments for North America are 5 (Eastern) or 8 (Pacific). If Daylight Saving time is in effect, one hour should be subtracted from the normal difference.
+
+If you give a prefix of plain C-u, calc-time-zone (like other date arithmetic commands that include a time zone argument) takes the zone argument from the top of the stack. (In the case of t J and t U, the normal argument is then taken from the second-to-top stack position.) This allows you to give a non-integer time zone adjustment. The time-zone argument can also be an HMS form, or it can be a variable which is a time zone name in upper- or lower-case. For example ‘tzone(PST) = tzone(8)’ and ‘tzone(pdt) = tzone(7)’ (for Pacific standard and daylight saving times, respectively).
+
+North American and European time zone names are defined as follows; note that for each time zone there is one name for standard time, another for daylight saving time, and a third for “generalized” time in which the daylight saving adjustment is computed from context.
+
+YST  PST  MST  CST  EST  AST    NST    GMT   WET     MET    MEZ
+ 9    8    7    6    5    4     3.5     0     -1      -2     -2
+
+YDT  PDT  MDT  CDT  EDT  ADT    NDT    BST  WETDST  METDST  MESZ
+ 8    7    6    5    4    3     2.5     -1    -2      -3     -3
+
+YGT  PGT  MGT  CGT  EGT  AGT    NGT    BGT   WEGT    MEGT   MEGZ
+9/8  8/7  7/6  6/5  5/4  4/3  3.5/2.5  0/-1 -1/-2   -2/-3  -2/-3
+To define time zone names that do not appear in the above table, you must modify the Lisp variable math-tzone-names. This is a list of lists describing the different time zone names; its structure is best explained by an example. The three entries for Pacific Time look like this:
+
+( ( "PST" 8 0 )    ; Name as an upper-case string, then standard
+  ( "PDT" 8 -1 )   ; adjustment, then daylight saving adjustment.
+  ( "PGT" 8 "PST" "PDT" ) )   ; Generalized time zone.
+With no arguments, calc-time-zone or ‘tzone()’ will by default get the time zone and daylight saving information from the calendar (see The Calendar and the Diary in The GNU Emacs Manual). To use a different time zone, or if the calendar does not give the desired result, you can set the Calc variable TimeZone (which is by default nil) to an appropriate time zone name. (The easiest way to do this is to edit the TimeZone variable using Calc’s s T command, then use the s p (calc-permanent-variable) command to save the value of TimeZone permanently.) If the time zone given by TimeZone is a generalized time zone, e.g., EGT, Calc examines the date being converted to tell whether to use standard or daylight saving time. But if the current time zone is explicit, e.g., EST or EDT, then that adjustment is used exactly and Calc’s daylight saving algorithm is not consulted. The special time zone name local is equivalent to no argument; i.e., it uses the information obtained from the calendar.
+
+The t J and t U commands with no numeric prefix arguments do the same thing as ‘tzone()’; namely, use the information from the calendar if TimeZone is nil, otherwise use the time zone given by TimeZone.
+
+When Calc computes the daylight saving information itself (i.e., when the TimeZone variable is set), it will by default consider daylight saving time to begin at 2 a.m. on the second Sunday of March (for years from 2007 on) or on the last Sunday in April (for years before 2007), and to end at 2 a.m. on the first Sunday of November. (for years from 2007 on) or the last Sunday in October (for years before 2007). These are the rules that have been in effect in much of North America since 1966 and take into account the rule change that began in 2007. If you are in a country that uses different rules for computing daylight saving time, you have two choices: Write your own daylight saving hook, or control time zones explicitly by setting the TimeZone variable and/or always giving a time-zone argument for the conversion functions.
+
+The Lisp variable math-daylight-savings-hook holds the name of a function that is used to compute the daylight saving adjustment for a given date. The default is math-std-daylight-savings, which computes an adjustment (either 0 or -1) using the North American rules given above.
+
+The daylight saving hook function is called with four arguments: The date, as a floating-point number in standard Calc format; a six-element list of the date decomposed into year, month, day, hour, minute, and second, respectively; a string which contains the generalized time zone name in upper-case, e.g., "WEGT"; and a special adjustment to be applied to the hour value when converting into a generalized time zone (see below).
+
+The Lisp function math-prev-weekday-in-month is useful for daylight saving computations. This is an internal version of the user-level pwday function described in the previous section. It takes four arguments: The floating-point date value, the corresponding six-element date list, the day-of-month number, and the weekday number (0–6).
+
+The default daylight saving hook ignores the time zone name, but a more sophisticated hook could use different algorithms for different time zones. It would also be possible to use different algorithms depending on the year number, but the default hook always uses the algorithm for 1987 and later. Here is a listing of the default daylight saving hook:
+
+(defun math-std-daylight-savings (date dt zone bump)
+  (cond ((< (nth 1 dt) 4) 0)
+        ((= (nth 1 dt) 4)
+         (let ((sunday (math-prev-weekday-in-month date dt 7 0)))
+           (cond ((< (nth 2 dt) sunday) 0)
+                 ((= (nth 2 dt) sunday)
+                  (if (>= (nth 3 dt) (+ 3 bump)) -1 0))
+                 (t -1))))
+        ((< (nth 1 dt) 10) -1)
+        ((= (nth 1 dt) 10)
+         (let ((sunday (math-prev-weekday-in-month date dt 31 0)))
+           (cond ((< (nth 2 dt) sunday) -1)
+                 ((= (nth 2 dt) sunday)
+                  (if (>= (nth 3 dt) (+ 2 bump)) 0 -1))
+                 (t 0))))
+        (t 0))
+)
+The bump parameter is equal to zero when Calc is converting from a date form in a generalized time zone into a GMT date value. It is -1 when Calc is converting in the other direction. The adjustments shown above ensure that the conversion behaves correctly and reasonably around the 2 a.m. transition in each direction.
+
+There is a “missing” hour between 2 a.m. and 3 a.m. at the beginning of daylight saving time; converting a date/time form that falls in this hour results in a time value for the following hour, from 3 a.m. to 4 a.m. At the end of daylight saving time, the hour from 1 a.m. to 2 a.m. repeats itself; converting a date/time form that falls in this hour results in a time value for the first manifestation of that time (not the one that occurs one hour later).
+
+If math-daylight-savings-hook is nil, then the daylight saving adjustment is always taken to be zero.
+
+In algebraic formulas, ‘tzone(zone, date)’ computes the time zone adjustment for a given zone name at a given date. The date is ignored unless zone is a generalized time zone. If date is a date form, the daylight saving computation is applied to it as it appears. If date is a numeric date value, it is adjusted for the daylight-saving version of zone before being given to the daylight saving hook. This odd-sounding rule ensures that the daylight-saving computation is always done in local time, not in the GMT time that a numeric date is typically represented in.
+
+The ‘dsadj(date, zone)’ function computes the daylight saving adjustment that is appropriate for date in time zone zone. If zone is explicitly in or not in daylight saving time (e.g., PDT or PST) the date is ignored. If zone is a generalized time zone, the algorithms described above are used. If zone is omitted, the computation is done for the current time zone.
+
+
+*** Financial Functions
+
+Calc’s financial or business functions use the b prefix key followed by a shifted letter. (The b prefix followed by a lower-case letter is used for operations on binary numbers.)
+
+Note that the rate and the number of intervals given to these functions must be on the same time scale, e.g., both months or both years. Mixing an annual interest rate with a time expressed in months will give you very wrong answers!
+
+It is wise to compute these functions to a higher precision than you really need, just to make sure your answer is correct to the last penny; also, you may wish to check the definitions at the end of this section to make sure the functions have the meaning you expect.
+
+**** Percentages
+
+The M-% (calc-percent) command takes a percentage value, say 5.4, and converts it to an equivalent actual number. For example, 5.4 M-% enters 0.054 on the stack. (That’s the META or ESC key combined with %.)
+
+Actually, M-% creates a formula of the form ‘5.4%’. You can enter ‘5.4%’ yourself during algebraic entry. The ‘%’ operator simply means, “the preceding value divided by 100.” The ‘%’ operator has very high precedence, so that ‘1+8%’ is interpreted as ‘1+(8%)’, not as ‘(1+8)%’. (The ‘%’ operator is just a postfix notation for the percent function, just like ‘20!’ is the notation for ‘fact(20)’, or twenty-factorial.)
+
+The formula ‘5.4%’ would normally evaluate immediately to 0.054, but the M-% command suppresses evaluation as it puts the formula onto the stack. However, the next Calc command that uses the formula ‘5.4%’ will evaluate it as its first step. The net effect is that you get to look at ‘5.4%’ on the stack, but Calc commands see it as ‘0.054’, which is what they expect.
+
+In particular, ‘5.4%’ and ‘0.054’ are suitable values for the rate arguments of the various financial functions, but the number ‘5.4’ is probably not suitable—it represents a rate of 540 percent!
+
+The key sequence M-% * effectively means “percent-of.” For example, 68 RET 25 M-% * computes 17, which is 25% of 68 (and also 68% of 25, which comes out to the same thing).
+
+The c % (calc-convert-percent) command converts the value on the top of the stack from numeric to percentage form. For example, if 0.08 is on the stack, c % converts it to ‘8%’. The quantity is the same, it’s just represented differently. (Contrast this with M-%, which would convert this number to ‘0.08%’.) The = key is a convenient way to convert a formula like ‘8%’ back to numeric form, 0.08.
+
+To compute what percentage one quantity is of another quantity, use / c %. For example, 17 RET 68 / c % displays ‘25%’.
+
+The b % (calc-percent-change) [relch] command calculates the percentage change from one number to another. For example, 40 RET 50 b % produces the answer ‘25%’, since 50 is 25% larger than 40. A negative result represents a decrease: 50 RET 40 b % produces ‘-20%’, since 40 is 20% smaller than 50. (The answers are different in magnitude because, in the first case, we’re increasing by 25% of 40, but in the second case, we’re decreasing by 20% of 50.) The effect of 40 RET 50 b % is to compute ‘(50-40)/40’, converting the answer to percentage form as if by c %.
+
+
+**** Future Value
+
+The b F (calc-fin-fv) [fv] command computes the future value of an investment. It takes three arguments from the stack: ‘fv(rate, n, payment)’. If you give payments of payment every year for n years, and the money you have paid earns interest at rate per year, then this function tells you what your investment would be worth at the end of the period. (The actual interval doesn’t have to be years, as long as n and rate are expressed in terms of the same intervals.) This function assumes payments occur at the end of each interval.
+
+The I b F [fvb] command does the same computation, but assuming your payments are at the beginning of each interval. Suppose you plan to deposit $1000 per year in a savings account earning 5.4% interest, starting right now. How much will be in the account after five years? fvb(5.4%, 5, 1000) = 5870.73. Thus you will have earned $870 worth of interest over the years. Using the stack, this calculation would have been 5.4 M-% 5 RET 1000 I b F. Note that the rate is expressed as a number between 0 and 1, not as a percentage.
+
+The H b F [fvl] command computes the future value of an initial lump sum investment. Suppose you could deposit those five thousand dollars in the bank right now; how much would they be worth in five years? fvl(5.4%, 5, 5000) = 6503.89.
+
+The algebraic functions fv and fvb accept an optional fourth argument, which is used as an initial lump sum in the sense of fvl. In other words, fv(rate, n, payment, initial) = fv(rate, n, payment) + fvl(rate, n, initial).
+
+To illustrate the relationships between these functions, we could do the fvb calculation “by hand” using fvl. The final balance will be the sum of the contributions of our five deposits at various times. The first deposit earns interest for five years: fvl(5.4%, 5, 1000) = 1300.78. The second deposit only earns interest for four years: fvl(5.4%, 4, 1000) = 1234.13. And so on down to the last deposit, which earns one year’s interest: fvl(5.4%, 1, 1000) = 1054.00. The sum of these five values is, sure enough, $5870.73, just as was computed by fvb directly.
+
+What does fv(5.4%, 5, 1000) = 5569.96 mean? The payments are now at the ends of the periods. The end of one year is the same as the beginning of the next, so what this really means is that we’ve lost the payment at year zero (which contributed $1300.78), but we’re now counting the payment at year five (which, since it didn’t have a chance to earn interest, counts as $1000). Indeed, ‘5569.96 = 5870.73 - 1300.78 + 1000’ (give or take a bit of roundoff error).
+
+
+**** Present Value
+
+The b P (calc-fin-pv) [pv] command computes the present value of an investment. Like fv, it takes three arguments: pv(rate, n, payment). It computes the present value of a series of regular payments. Suppose you have the chance to make an investment that will pay $2000 per year over the next four years; as you receive these payments you can put them in the bank at 9% interest. You want to know whether it is better to make the investment, or to keep the money in the bank where it earns 9% interest right from the start. The calculation pv(9%, 4, 2000) gives the result 6479.44. If your initial investment must be less than this, say, $6000, then the investment is worthwhile. But if you had to put up $7000, then it would be better just to leave it in the bank.
+
+Here is the interpretation of the result of pv: You are trying to compare the return from the investment you are considering, which is fv(9%, 4, 2000) = 9146.26, with the return from leaving the money in the bank, which is fvl(9%, 4, x) where x is the amount of money you would have to put up in advance. The pv function finds the break-even point, ‘x = 6479.44’, at which fvl(9%, 4, 6479.44) is also equal to 9146.26. This is the largest amount you should be willing to invest.
+
+The I b P [pvb] command solves the same problem, but with payments occurring at the beginning of each interval. It has the same relationship to fvb as pv has to fv. For example pvb(9%, 4, 2000) = 7062.59, a larger number than pv produced because we get to start earning interest on the return from our investment sooner.
+
+The H b P [pvl] command computes the present value of an investment that will pay off in one lump sum at the end of the period. For example, if we get our $8000 all at the end of the four years, pvl(9%, 4, 8000) = 5667.40. This is much less than pv reported, because we don’t earn any interest on the return from this investment. Note that pvl and fvl are simple inverses: fvl(9%, 4, 5667.40) = 8000.
+
+You can give an optional fourth lump-sum argument to pv and pvb; this is handled in exactly the same way as the fourth argument for fv and fvb.
+
+The b N (calc-fin-npv) [npv] command computes the net present value of a series of irregular investments. The first argument is the interest rate. The second argument is a vector which represents the expected return from the investment at the end of each interval. For example, if the rate represents a yearly interest rate, then the vector elements are the return from the first year, second year, and so on.
+
+Thus, npv(9%, [2000,2000,2000,2000]) = pv(9%, 4, 2000) = 6479.44. Obviously this function is more interesting when the payments are not all the same!
+
+The npv function can actually have two or more arguments. Multiple arguments are interpreted in the same way as for the vector statistical functions like vsum. See Single-Variable Statistics. Basically, if there are several payment arguments, each either a vector or a plain number, all these values are collected left-to-right into the complete list of payments. A numeric prefix argument on the b N command says how many payment values or vectors to take from the stack.
+
+The I b N [npvb] command computes the net present value where payments occur at the beginning of each interval rather than at the end.
+
+
+**** Related Financial Functions
+
+The functions in this section are basically inverses of the present value functions with respect to the various arguments.
+
+The b M (calc-fin-pmt) [pmt] command computes the amount of periodic payment necessary to amortize a loan. Thus pmt(rate, n, amount) equals the value of payment such that pv(rate, n, payment) = amount.
+
+The I b M [pmtb] command does the same computation but using pvb instead of pv. Like pv and pvb, these functions can also take a fourth argument which represents an initial lump-sum investment.
+
+The H b M key just invokes the fvl function, which is the inverse of pvl. There is no explicit pmtl function.
+
+The b # (calc-fin-nper) [nper] command computes the number of regular payments necessary to amortize a loan. Thus nper(rate, payment, amount) equals the value of n such that pv(rate, n, payment) = amount. If payment is too small ever to amortize a loan for amount at interest rate rate, the nper function is left in symbolic form.
+
+The I b # [nperb] command does the same computation but using pvb instead of pv. You can give a fourth lump-sum argument to these functions, but the computation will be rather slow in the four-argument case.
+
+The H b # [nperl] command does the same computation using pvl. By exchanging payment and amount you can also get the solution for fvl. For example, nperl(8%, 2000, 1000) = 9.006, so if you place $1000 in a bank account earning 8%, it will take nine years to grow to $2000.
+
+The b T (calc-fin-rate) [rate] command computes the rate of return on an investment. This is also an inverse of pv: rate(n, payment, amount) computes the value of rate such that pv(rate, n, payment) = amount. The result is expressed as a formula like ‘6.3%’.
+
+The I b T [rateb] and H b T [ratel] commands solve the analogous equations with pvb or pvl in place of pv. Also, rate and rateb can accept an optional fourth argument just like pv and pvb. To redo the above example from a different perspective, ratel(9, 2000, 1000) = 8.00597%, which says you will need an interest rate of 8% in order to double your account in nine years.
+
+The b I (calc-fin-irr) [irr] command is the analogous function to rate but for net present value. Its argument is a vector of payments. Thus irr(payments) computes the rate such that npv(rate, payments) = 0; this rate is known as the internal rate of return.
+
+The I b I [irrb] command computes the internal rate of return assuming payments occur at the beginning of each period.
+
+
+**** Depreciation Functions
+
+The functions in this section calculate depreciation, which is the amount of value that a possession loses over time. These functions are characterized by three parameters: cost, the original cost of the asset; salvage, the value the asset will have at the end of its expected “useful life”; and life, the number of years (or other periods) of the expected useful life.
+
+There are several methods for calculating depreciation that differ in the way they spread the depreciation over the lifetime of the asset.
+
+The b S (calc-fin-sln) [sln] command computes the “straight-line” depreciation. In this method, the asset depreciates by the same amount every year (or period). For example, ‘sln(12000, 2000, 5)’ returns 2000. The asset costs $12000 initially and will be worth $2000 after five years; it loses $2000 per year.
+
+The b Y (calc-fin-syd) [syd] command computes the accelerated “sum-of-years’-digits” depreciation. Here the depreciation is higher during the early years of the asset’s life. Since the depreciation is different each year, b Y takes a fourth period parameter which specifies which year is requested, from 1 to life. If period is outside this range, the syd function will return zero.
+
+The b D (calc-fin-ddb) [ddb] command computes an accelerated depreciation using the double-declining balance method. It also takes a fourth period parameter.
+
+For symmetry, the sln function will accept a period parameter as well, although it will ignore its value except that the return value will as usual be zero if period is out of range.
+
+For example, pushing the vector ‘[1,2,3,4,5]’ (perhaps with v x 5) and then mapping V M ' [sln(12000,2000,5,$), syd(12000,2000,5,$), ddb(12000,2000,5,$)] RET produces a matrix that allows us to compare the three depreciation methods:
+
+[ [ 2000, 3333, 4800 ]
+  [ 2000, 2667, 2880 ]
+  [ 2000, 2000, 1728 ]
+  [ 2000, 1333,  592 ]
+  [ 2000,  667,   0  ] ]
+(Values have been rounded to nearest integers in this figure.) We see that sln depreciates by the same amount each year, syd depreciates more at the beginning and less at the end, and ddb weights the depreciation even more toward the beginning.
+
+Summing columns with V R : + yields ‘[10000, 10000, 10000]’; the total depreciation in any method is (by definition) the difference between the cost and the salvage value.
+
+
+**** Definitions
+
+For your reference, here are the actual formulas used to compute Calc’s financial functions.
+
+Calc will not evaluate a financial function unless the rate or n argument is known. However, payment or amount can be a variable. Calc expands these functions according to the formulas below for symbolic arguments only when you use the a " (calc-expand-formula) command, or when taking derivatives or integrals or solving equations involving the functions.
+
+These formulas are shown using the conventions of Big display mode (d B); for example, the formula for fv written linearly is ‘pmt * ((1 + rate)^n) - 1) / rate’.
+
+                                        n
+                              (1 + rate)  - 1
+fv(rate, n, pmt) =      pmt * ---------------
+                                   rate
+
+                                         n
+                              ((1 + rate)  - 1) (1 + rate)
+fvb(rate, n, pmt) =     pmt * ----------------------------
+                                         rate
+
+                                        n
+fvl(rate, n, pmt) =     pmt * (1 + rate)
+
+                                            -n
+                              1 - (1 + rate)
+pv(rate, n, pmt) =      pmt * ----------------
+                                    rate
+
+                                             -n
+                              (1 - (1 + rate)  ) (1 + rate)
+pvb(rate, n, pmt) =     pmt * -----------------------------
+                                         rate
+
+                                        -n
+pvl(rate, n, pmt) =     pmt * (1 + rate)
+
+                                    -1               -2               -3
+npv(rate, [a, b, c]) =  a*(1 + rate)   + b*(1 + rate)   + c*(1 + rate)
+
+                                        -1               -2
+npvb(rate, [a, b, c]) = a + b*(1 + rate)   + c*(1 + rate)
+
+                                             -n
+                        (amt - x * (1 + rate)  ) * rate
+pmt(rate, n, amt, x) =  -------------------------------
+                                             -n
+                               1 - (1 + rate)
+
+                                             -n
+                        (amt - x * (1 + rate)  ) * rate
+pmtb(rate, n, amt, x) = -------------------------------
+                                        -n
+                         (1 - (1 + rate)  ) (1 + rate)
+
+                                   amt * rate
+nper(rate, pmt, amt) =  - log(1 - ------------, 1 + rate)
+                                      pmt
+
+                                    amt * rate
+nperb(rate, pmt, amt) = - log(1 - ---------------, 1 + rate)
+                                  pmt * (1 + rate)
+
+                              amt
+nperl(rate, pmt, amt) = - log(---, 1 + rate)
+                              pmt
+
+                           1/n
+                        pmt
+ratel(n, pmt, amt) =    ------ - 1
+                           1/n
+                        amt
+
+                        cost - salv
+sln(cost, salv, life) = -----------
+                           life
+
+                             (cost - salv) * (life - per + 1)
+syd(cost, salv, life, per) = --------------------------------
+                                  life * (life + 1) / 2
+
+                             book * 2
+ddb(cost, salv, life, per) = --------,  book = cost - depreciation so far
+                               life
+In pmt and pmtb, ‘x=0’ if omitted.
+
+These functions accept any numeric objects, including error forms, intervals, and even (though not very usefully) complex numbers. The above formulas specify exactly the behavior of these functions with all sorts of inputs.
+
+Note that if the first argument to the log in nper is negative, nper leaves itself in symbolic form rather than returning a (financially meaningless) complex number.
+
+‘rate(num, pmt, amt)’ solves the equation ‘pv(rate, num, pmt) = amt’ for ‘rate’ using H a R (calc-find-root), with the interval ‘[.01% .. 100%]’ for an initial guess. The rateb function is the same except that it uses pvb. Note that ratel can be solved directly; its formula is shown in the above list.
+
+Similarly, ‘irr(pmts)’ solves the equation ‘npv(rate, pmts) = 0’ for ‘rate’.
+
+If you give a fourth argument to nper or nperb, Calc will also use H a R to solve the equation using an initial guess interval of ‘[0 .. 100]’.
+
+A fourth argument to fv simply sums the two components calculated from the above formulas for fv and fvl. The same is true of fvb, pv, and pvb.
+
+The ddb function is computed iteratively; the “book” value starts out equal to cost, and decreases according to the above formula for the specified number of periods. If the book value would decrease below salvage, it only decreases to salvage and the depreciation is zero for all subsequent periods. The ddb function returns the amount the book value decreased in the specified period.
+
+
+*** Binary Number Functions
+
+The commands in this chapter all use two-letter sequences beginning with the b prefix.
+
+The “binary” operations actually work regardless of the currently displayed radix, although their results make the most sense in a radix like 2, 8, or 16 (as obtained by the d 2, d 8, or d 6 commands, respectively). You may also wish to enable display of leading zeros with d z. See Radix Modes.
+
+The Calculator maintains a current word size ‘w’, an arbitrary integer. For a positive word size, all of the binary operations described here operate modulo ‘2^w’. In particular, negative arguments are converted to positive integers modulo ‘2^w’ by all binary functions.
+
+If the word size is negative, binary operations produce twos-complement integers from ‘-(2^(-w-1))’ to ‘2^(-w-1)-1’ inclusive. Either mode accepts inputs in any range; the sign of ‘w’ affects only the results produced.
+
+If the word size is zero, binary operations work on the entire number without clipping, as if the word size had been negative infinity.
+
+The b c (calc-clip) [clip] command can be used to clip a number by reducing it modulo ‘2^w’. The commands described in this chapter automatically clip their results to the current word size. Note that other operations like addition do not use the current word size, since integer addition generally is not “binary.” (However, see Simplification Modes, calc-bin-simplify-mode.) For example, with a word size of 8 bits b c converts a number to the range 0 to 255; with a word size of -8 b c converts to the range -128 to 127.
+
+The default word size is 32 bits. All operations except the shifts and rotates allow you to specify a different word size for that one operation by giving a numeric prefix argument: C-u 8 b c clips the top of stack to the range 0 to 255 regardless of the current word size. To set the word size permanently, use b w (calc-word-size). This command displays a prompt with the current word size; press RET immediately to keep this word size, or type a new word size at the prompt.
+
+When the binary operations are written in symbolic form, they take an optional second (or third) word-size parameter. When a formula like ‘and(a,b)’ is finally evaluated, the word size current at that time will be used, but when ‘and(a,b,-8)’ is evaluated, a word size of -8 will always be used. A symbolic binary function will be left in symbolic form unless the all of its argument(s) are integers or integer-valued floats.
+
+If either or both arguments are modulo forms for which ‘M’ is a power of two, that power of two is taken as the word size unless a numeric prefix argument overrides it. The current word size is never consulted when modulo-power-of-two forms are involved.
+
+The b a (calc-and) [and] command computes the bitwise AND of the two numbers on the top of the stack. In other words, for each of the ‘w’ binary digits of the two numbers (pairwise), the corresponding bit of the result is 1 if and only if both input bits are 1: ‘and(2#1100, 2#1010) = 2#1000’.
+
+The b o (calc-or) [or] command computes the bitwise inclusive OR of two numbers. A bit is 1 if either of the input bits, or both, are 1: ‘or(2#1100, 2#1010) = 2#1110’.
+
+The b x (calc-xor) [xor] command computes the bitwise exclusive OR of two numbers. A bit is 1 if exactly one of the input bits is 1: ‘xor(2#1100, 2#1010) = 2#0110’.
+
+The b d (calc-diff) [diff] command computes the bitwise difference of two numbers; this is defined by ‘diff(a,b) = and(a,not(b))’, so that ‘diff(2#1100, 2#1010) = 2#0100’.
+
+The b n (calc-not) [not] command computes the bitwise NOT of a number. A bit is 1 if the input bit is 0 and vice-versa.
+
+The b l (calc-lshift-binary) [lsh] command shifts a number left by one bit, or by the number of bits specified in the numeric prefix argument. A negative prefix argument performs a logical right shift, in which zeros are shifted in on the left. In symbolic form, ‘lsh(a)’ is short for ‘lsh(a,1)’, which in turn is short for ‘lsh(a,n,w)’. Bits shifted “off the end,” according to the current word size, are lost.
+
+The H b l command also does a left shift, but it takes two arguments from the stack (the value to shift, and, at top-of-stack, the number of bits to shift). This version interprets the prefix argument just like the regular binary operations, i.e., as a word size. The Hyperbolic flag has a similar effect on the rest of the binary shift and rotate commands.
+
+The b r (calc-rshift-binary) [rsh] command shifts a number right by one bit, or by the number of bits specified in the numeric prefix argument: ‘rsh(a,n) = lsh(a,-n)’.
+
+The b L (calc-lshift-arith) [ash] command shifts a number left. It is analogous to lsh, except that if the shift is rightward (the prefix argument is negative), an arithmetic shift is performed as described below.
+
+The b R (calc-rshift-arith) [rash] command performs an “arithmetic” shift to the right, in which the leftmost bit (according to the current word size) is duplicated rather than shifting in zeros. This corresponds to dividing by a power of two where the input is interpreted as a signed, twos-complement number. (The distinction between the ‘rsh’ and ‘rash’ operations is totally independent from whether the word size is positive or negative.) With a negative prefix argument, this performs a standard left shift.
+
+When the word size is zero, logical and arithmetic shift operations are identical: a negative value shifted right remains negative, since there is an infinite supply of ones to shift in.
+
+The b t (calc-rotate-binary) [rot] command rotates a number one bit to the left. The leftmost bit (according to the current word size) is dropped off the left and shifted in on the right. With a numeric prefix argument, the number is rotated that many bits to the left or right.
+
+Rotation is not possible with a zero word size.
+
+See Set Operations using Vectors, for the b p and b u commands that pack and unpack binary integers into sets. (For example, b u unpacks the number ‘2#11001’ to the set of bit-numbers ‘[0, 3, 4]’.) Type b u V # to count the number of “1” bits in a binary integer.
+
+Another interesting use of the set representation of binary integers is to reverse the bits in, say, a 32-bit integer. Type b u to unpack; type 31 TAB - to replace each bit-number in the set with 31 minus that bit-number; type b p to pack the set back into a binary integer.
+
+
+** Scientific Functions
+
+The functions described here perform trigonometric and other transcendental calculations. They generally produce floating-point answers correct to the full current precision. The H (Hyperbolic) and I (Inverse) flag keys must be used to get some of these functions from the keyboard.
+
+One miscellaneous command is shift-P (calc-pi), which pushes the value of ‘pi’ (at the current precision) onto the stack. With the Hyperbolic flag, it pushes the value ‘e’, the base of natural logarithms. With the Inverse flag, it pushes Euler’s constant ‘gamma’ (about 0.5772). With both Inverse and Hyperbolic, it pushes the “golden ratio” ‘phi’ (about 1.618). (At present, Euler’s constant is not available to unlimited precision; Calc knows only the first 100 digits.) In Symbolic mode, these commands push the actual variables ‘pi’, ‘e’, ‘gamma’, and ‘phi’, respectively, instead of their values; see Symbolic Mode.
+
+The Q (calc-sqrt) [sqrt] function is described elsewhere; see Basic Arithmetic. With the Inverse flag [sqr], this command computes the square of the argument.
+
+See Numeric Prefix Arguments, for a discussion of the effect of numeric prefix arguments on commands in this chapter which do not otherwise interpret a prefix argument.
+
+*** Logarithmic Functions
+
+The shift-L (calc-ln) [ln] command computes the natural logarithm of the real or complex number on the top of the stack. With the Inverse flag it computes the exponential function instead, although this is redundant with the E command.
+
+The shift-E (calc-exp) [exp] command computes the exponential, i.e., ‘e’ raised to the power of the number on the stack. The meanings of the Inverse and Hyperbolic flags follow from those for the calc-ln command.
+
+The H L (calc-log10) [log10] command computes the common (base-10) logarithm of a number. (With the Inverse flag [exp10], it raises ten to a given power.) Note that the common logarithm of a complex number is computed by taking the natural logarithm and dividing by ‘ln(10)’.
+
+The B (calc-log) [log] command computes a logarithm to any base. For example, 1024 RET 2 B produces 10, since ‘2^10 = 1024’. In certain cases like ‘log(3,9)’, the result will be either ‘1:2’ or ‘0.5’ depending on the current Fraction mode setting. With the Inverse flag [alog], this command is similar to ^ except that the order of the arguments is reversed.
+
+The f I (calc-ilog) [ilog] command computes the integer logarithm of a number to any base. The number and the base must themselves be positive integers. This is the true logarithm, rounded down to an integer. Thus ilog(x,10) is 3 for all ‘x’ in the range from 1000 to 9999. If both arguments are positive integers, exact integer arithmetic is used; otherwise, this is equivalent to ‘floor(log(x,b))’.
+
+The f E (calc-expm1) [expm1] command computes ‘exp(x)-1’, but using an algorithm that produces a more accurate answer when the result is close to zero, i.e., when ‘exp(x)’ is close to one.
+
+The f L (calc-lnp1) [lnp1] command computes ‘ln(x+1)’, producing a more accurate answer when ‘x’ is close to zero.
+
+
+*** Trigonometric/Hyperbolic Functions
+
+The shift-S (calc-sin) [sin] command computes the sine of an angle or complex number. If the input is an HMS form, it is interpreted as degrees-minutes-seconds; otherwise, the input is interpreted according to the current angular mode. It is best to use Radians mode when operating on complex numbers.
+
+Calc’s “units” mechanism includes angular units like deg, rad, and grad. While ‘sin(45 deg)’ is not evaluated all the time, the u s (calc-simplify-units) command will simplify ‘sin(45 deg)’ by taking the sine of 45 degrees, regardless of the current angular mode. See Basic Operations on Units.
+
+Also, the symbolic variable pi is not ordinarily recognized in arguments to trigonometric functions, as in ‘sin(3 pi / 4)’, but the default algebraic simplifications recognize many such formulas when the current angular mode is Radians and Symbolic mode is enabled; this example would be replaced by ‘sqrt(2) / 2’. See Symbolic Mode. Beware, this simplification occurs even if you have stored a different value in the variable ‘pi’; this is one reason why changing built-in variables is a bad idea. Arguments of the form ‘x’ plus a multiple of ‘pi/2’ are also simplified. Calc includes similar formulas for cos and tan.
+
+Calc’s algebraic simplifications know all angles which are integer multiples of ‘pi/12’, ‘pi/10’, or ‘pi/8’ radians. In Degrees mode, analogous simplifications occur for integer multiples of 15 or 18 degrees, and for arguments plus multiples of 90 degrees.
+
+With the Inverse flag, calc-sin computes an arcsine. This is also available as the calc-arcsin command or arcsin algebraic function. The returned argument is converted to degrees, radians, or HMS notation depending on the current angular mode.
+
+With the Hyperbolic flag, calc-sin computes the hyperbolic sine, also available as calc-sinh [sinh]. With the Hyperbolic and Inverse flags, it computes the hyperbolic arcsine (calc-arcsinh) [arcsinh].
+
+The shift-C (calc-cos) [cos] command computes the cosine of an angle or complex number, and shift-T (calc-tan) [tan] computes the tangent, along with all the various inverse and hyperbolic variants of these functions.
+
+The f T (calc-arctan2) [arctan2] command takes two numbers from the stack and computes the arc tangent of their ratio. The result is in the full range from -180 (exclusive) to +180 (inclusive) degrees, or the analogous range in radians. A similar result would be obtained with / followed by I T, but the value would only be in the range from -90 to +90 degrees since the division loses information about the signs of the two components, and an error might result from an explicit division by zero which arctan2 would avoid. By (arbitrary) definition, ‘arctan2(0,0)=0’.
+
+The calc-sincos [sincos] command computes the sine and cosine of a number, returning them as a vector of the form ‘[cos, sin]’. With the Inverse flag [arcsincos], this command takes a two-element vector as an argument and computes arctan2 of the elements. (This command does not accept the Hyperbolic flag.)
+
+The remaining trigonometric functions, calc-sec [sec], calc-csc [csc] and calc-cot [cot], are also available. With the Hyperbolic flag, these compute their hyperbolic counterparts, which are also available separately as calc-sech [sech], calc-csch [csch] and calc-coth [coth]. (These commands do not accept the Inverse flag.)
+
+
+*** Advanced Mathematical Functions
+
+Calc can compute a variety of less common functions that arise in various branches of mathematics. All of the functions described in this section allow arbitrary complex arguments and, except as noted, will work to arbitrarily large precision. They can not at present handle error forms or intervals as arguments.
+
+NOTE: These functions are still experimental. In particular, their accuracy is not guaranteed in all domains. It is advisable to set the current precision comfortably higher than you actually need when using these functions. Also, these functions may be impractically slow for some values of the arguments.
+
+The f g (calc-gamma) [gamma] command computes the Euler gamma function. For positive integer arguments, this is related to the factorial function: ‘gamma(n+1) = fact(n)’. For general complex arguments the gamma function can be defined by the following definite integral: ‘gamma(a) = integ(t^(a-1) exp(-t), t, 0, inf)’. (The actual implementation uses far more efficient computational methods.)
+
+The f G (calc-inc-gamma) [gammaP] command computes the incomplete gamma function, denoted ‘P(a,x)’. This is defined by the integral, ‘gammaP(a,x) = integ(t^(a-1) exp(t), t, 0, x) / gamma(a)’. This implies that ‘gammaP(a,inf) = 1’ for any ‘a’ (see the definition of the normal gamma function).
+
+Several other varieties of incomplete gamma function are defined. The complement of ‘P(a,x)’, called ‘Q(a,x) = 1-P(a,x)’ by some authors, is computed by the I f G [gammaQ] command. You can think of this as taking the other half of the integral, from ‘x’ to infinity.
+
+The functions corresponding to the integrals that define ‘P(a,x)’ and ‘Q(a,x)’ but without the normalizing ‘1/gamma(a)’ factor are called ‘g(a,x)’ and ‘G(a,x)’, respectively (where ‘g’ and ‘G’ represent the lower- and upper-case Greek letter gamma). You can obtain these using the H f G [gammag] and H I f G [gammaG] commands.
+
+The f b (calc-beta) [beta] command computes the Euler beta function, which is defined in terms of the gamma function as ‘beta(a,b) = gamma(a) gamma(b) / gamma(a+b)’, or by ‘beta(a,b) = integ(t^(a-1) (1-t)^(b-1), t, 0, 1)’.
+
+The f B (calc-inc-beta) [betaI] command computes the incomplete beta function ‘I(x,a,b)’. It is defined by ‘betaI(x,a,b) = integ(t^(a-1) (1-t)^(b-1), t, 0, x) / beta(a,b)’. Once again, the H (hyperbolic) prefix gives the corresponding un-normalized version [betaB].
+
+The f e (calc-erf) [erf] command computes the error function ‘erf(x) = 2 integ(exp(-(t^(2))), t, 0, x) / sqrt(pi)’. The complementary error function I f e (calc-erfc) [erfc] is the corresponding integral from ‘x’ to infinity; the sum ‘erf(x) + erfc(x) = 1’.
+
+The f j (calc-bessel-J) [besJ] and f y (calc-bessel-Y) [besY] commands compute the Bessel functions of the first and second kinds, respectively. In ‘besJ(n,x)’ and ‘besY(n,x)’ the “order” parameter ‘n’ is often an integer, but is not required to be one. Calc’s implementation of the Bessel functions currently limits the precision to 8 digits, and may not be exact even to that precision. Use with care!
+
+
+*** Branch Cuts and Principal Values
+
+All of the logarithmic, trigonometric, and other scientific functions are defined for complex numbers as well as for reals. This section describes the values returned in cases where the general result is a family of possible values. Calc follows section 12.5.3 of Steele’s Common Lisp, the Language, second edition, in these matters. This section will describe each function briefly; for a more detailed discussion (including some nifty diagrams), consult Steele’s book.
+
+Note that the branch cuts for arctan and arctanh were changed between the first and second editions of Steele. Recent versions of Calc follow the second edition.
+
+The new branch cuts exactly match those of the HP-28/48 calculators. They also match those of Mathematica 1.2, except that Mathematica’s arctan cut is always in the right half of the complex plane, and its arctanh cut is always in the top half of the plane. Calc’s cuts are continuous with quadrants I and III for arctan, or II and IV for arctanh.
+
+Note: The current implementations of these functions with complex arguments are designed with proper behavior around the branch cuts in mind, not efficiency or accuracy. You may need to increase the floating precision and wait a while to get suitable answers from them.
+
+For ‘sqrt(a+bi)’: When ‘a<0’ and ‘b’ is small but positive or zero, the result is close to the ‘+i’ axis. For ‘b’ small and negative, the result is close to the ‘-i’ axis. The result always lies in the right half of the complex plane.
+
+For ‘ln(a+bi)’: The real part is defined as ‘ln(abs(a+bi))’. The imaginary part is defined as ‘arg(a+bi) = arctan2(b,a)’. Thus the branch cuts for sqrt and ln both lie on the negative real axis.
+
+The following table describes these branch cuts in another way. If the real and imaginary parts of ‘z’ are as shown, then the real and imaginary parts of ‘f(z)’ will be as shown. Here eps stands for a small positive value; each occurrence of eps may stand for a different small value.
+
+     z           sqrt(z)       ln(z)
+----------------------------------------
+   +,   0         +,  0       any, 0
+   -,   0         0,  +       any, pi
+   -, +eps      +eps, +      +eps, +
+   -, -eps      +eps, -      +eps, -
+For ‘z1^z2’: This is defined by ‘exp(ln(z1)*z2)’. One interesting consequence of this is that ‘(-8)^1:3’ does not evaluate to -2 as you might expect, but to the complex number ‘(1., 1.732)’. Both of these are valid cube roots of -8 (as is ‘(1., -1.732)’); Calc chooses a perhaps less-obvious root for the sake of mathematical consistency.
+
+For ‘arcsin(z)’: This is defined by ‘-i*ln(i*z + sqrt(1-z^2))’. The branch cuts are on the real axis, less than -1 and greater than 1.
+
+For ‘arccos(z)’: This is defined by ‘-i*ln(z + i*sqrt(1-z^2))’, or equivalently by ‘pi/2 - arcsin(z)’. The branch cuts are on the real axis, less than -1 and greater than 1.
+
+For ‘arctan(z)’: This is defined by ‘(ln(1+i*z) - ln(1-i*z)) / (2*i)’. The branch cuts are on the imaginary axis, below ‘-i’ and above ‘i’.
+
+For ‘arcsinh(z)’: This is defined by ‘ln(z + sqrt(1+z^2))’. The branch cuts are on the imaginary axis, below ‘-i’ and above ‘i’.
+
+For ‘arccosh(z)’: This is defined by ‘ln(z + (z+1)*sqrt((z-1)/(z+1)))’. The branch cut is on the real axis less than 1.
+
+For ‘arctanh(z)’: This is defined by ‘(ln(1+z) - ln(1-z)) / 2’. The branch cuts are on the real axis, less than -1 and greater than 1.
+
+The following tables for arcsin, arccos, and arctan assume the current angular mode is Radians. The hyperbolic functions operate independently of the angular mode.
+
+       z             arcsin(z)            arccos(z)
+-------------------------------------------------------
+ (-1..1),  0      (-pi/2..pi/2), 0       (0..pi), 0
+ (-1..1), +eps    (-pi/2..pi/2), +eps    (0..pi), -eps
+ (-1..1), -eps    (-pi/2..pi/2), -eps    (0..pi), +eps
+   <-1,    0          -pi/2,     +         pi,    -
+   <-1,  +eps      -pi/2 + eps,  +      pi - eps, -
+   <-1,  -eps      -pi/2 + eps,  -      pi - eps, +
+    >1,    0           pi/2,     -          0,    +
+    >1,  +eps       pi/2 - eps,  +        +eps,   -
+    >1,  -eps       pi/2 - eps,  -        +eps,   +
+       z            arccosh(z)         arctanh(z)
+-----------------------------------------------------
+ (-1..1),  0        0,  (0..pi)       any,     0
+ (-1..1), +eps    +eps, (0..pi)       any,    +eps
+ (-1..1), -eps    +eps, (-pi..0)      any,    -eps
+   <-1,    0        +,    pi           -,     pi/2
+   <-1,  +eps       +,  pi - eps       -,  pi/2 - eps
+   <-1,  -eps       +, -pi + eps       -, -pi/2 + eps
+    >1,    0        +,     0           +,    -pi/2
+    >1,  +eps       +,   +eps          +,  pi/2 - eps
+    >1,  -eps       +,   -eps          +, -pi/2 + eps
+       z           arcsinh(z)           arctan(z)
+-----------------------------------------------------
+   0, (-1..1)    0, (-pi/2..pi/2)         0,     any
+   0,   <-1      -,    -pi/2            -pi/2,    -
+ +eps,  <-1      +, -pi/2 + eps       pi/2 - eps, -
+ -eps,  <-1      -, -pi/2 + eps      -pi/2 + eps, -
+   0,    >1      +,     pi/2             pi/2,    +
+ +eps,   >1      +,  pi/2 - eps       pi/2 - eps, +
+ -eps,   >1      -,  pi/2 - eps      -pi/2 + eps, +
+Finally, the following identities help to illustrate the relationship between the complex trigonometric and hyperbolic functions. They are valid everywhere, including on the branch cuts.
+
+sin(i*z)  = i*sinh(z)       arcsin(i*z)  = i*arcsinh(z)
+cos(i*z)  =   cosh(z)       arcsinh(i*z) = i*arcsin(z)
+tan(i*z)  = i*tanh(z)       arctan(i*z)  = i*arctanh(z)
+sinh(i*z) = i*sin(z)        cosh(i*z)    =   cos(z)
+The “advanced math” functions (gamma, Bessel, etc.) are also defined for general complex arguments, but their branch cuts and principal values are not rigorously specified at present.
+
+
+*** Random Numbers
+
+The k r (calc-random) [random] command produces random numbers of various sorts.
+
+Given a positive numeric prefix argument ‘M’, it produces a random integer ‘N’ in the range ‘0 <= N < M’. Each possible value ‘N’ appears with equal probability.
+
+With no numeric prefix argument, the k r command takes its argument from the stack instead. Once again, if this is a positive integer ‘M’ the result is a random integer less than ‘M’. If ‘M’ is negative, the result is a random integer in the range ‘M < N <= 0’.
+
+If the value on the stack is a floating-point number ‘M’, the result is a random floating-point number ‘N’ in the range ‘0 <= N < M’ or ‘M < N <= 0’, according to the sign of ‘M’.
+
+If ‘M’ is zero, the result is a Gaussian-distributed random real number; the distribution has a mean of zero and a standard deviation of one. The algorithm used generates random numbers in pairs; thus, every other call to this function will be especially fast.
+
+If ‘M’ is an error form ‘m +/- s’ where m and s are both real numbers, the result uses a Gaussian distribution with mean m and standard deviation s.
+
+If ‘M’ is an interval form, the lower and upper bounds specify the acceptable limits of the random numbers. If both bounds are integers, the result is a random integer in the specified range. If either bound is floating-point, the result is a random real number in the specified range. If the interval is open at either end, the result will be sure not to equal that end value. (This makes a big difference for integer intervals, but for floating-point intervals it’s relatively minor: with a precision of 6, ‘random([1.0..2.0))’ will return any of one million numbers from 1.00000 to 1.99999; ‘random([1.0..2.0])’ may additionally return 2.00000, but the probability of this happening is extremely small.)
+
+If ‘M’ is a vector, the result is one element taken at random from the vector. All elements of the vector are given equal probabilities.
+
+The sequence of numbers produced by k r is completely random by default, i.e., the sequence is seeded each time you start Calc using the current time and other information. You can get a reproducible sequence by storing a particular “seed value” in the Calc variable RandSeed. Any integer will do for a seed; integers of from 1 to 12 digits are good. If you later store a different integer into RandSeed, Calc will switch to a different pseudo-random sequence. If you “unstore” RandSeed, Calc will re-seed itself from the current time. If you store the same integer that you used before back into RandSeed, you will get the exact same sequence of random numbers as before.
+
+The calc-rrandom command (not on any key) produces a random real number between zero and one. It is equivalent to ‘random(1.0)’.
+
+The k a (calc-random-again) command produces another random number, re-using the most recent value of ‘M’. With a numeric prefix argument n, it produces n more random numbers using that value of ‘M’.
+
+The k h (calc-shuffle) command produces a vector of several random values with no duplicates. The value on the top of the stack specifies the set from which the random values are drawn, and may be any of the ‘M’ formats described above. The numeric prefix argument gives the length of the desired list. (If you do not provide a numeric prefix argument, the length of the list is taken from the top of the stack, and ‘M’ from second-to-top.)
+
+If ‘M’ is a floating-point number, zero, or an error form (so that the random values are being drawn from the set of real numbers) there is little practical difference between using k h and using k r several times. But if the set of possible values consists of just a few integers, or the elements of a vector, then there is a very real chance that multiple k r’s will produce the same number more than once. The k h command produces a vector whose elements are always distinct. (Actually, there is a slight exception: If ‘M’ is a vector, no given vector element will be drawn more than once, but if several elements of ‘M’ are equal, they may each make it into the result vector.)
+
+One use of k h is to rearrange a list at random. This happens if the prefix argument is equal to the number of values in the list: [1, 1.5, 2, 2.5, 3] 5 k h might produce the permuted list ‘[2.5, 1, 1.5, 3, 2]’. As a convenient feature, if the argument n is negative it is replaced by the size of the set represented by ‘M’. Naturally, this is allowed only when ‘M’ specifies a small discrete set of possibilities.
+
+To do the equivalent of k h but with duplications allowed, given ‘M’ on the stack and with n just entered as a numeric prefix, use v b to build a vector of copies of ‘M’, then use V M k r to “map” the normal k r function over the elements of this vector. See Vector/Matrix Functions.
+
+
+**** Random Number Generator
+
+Calc’s random number generator uses several methods to ensure that the numbers it produces are highly random. Knuth’s Art of Computer Programming, Volume II, contains a thorough description of the theory of random number generators and their measurement and characterization.
+
+If RandSeed has no stored value, Calc calls Emacs’s built-in random function to get a stream of random numbers, which it then treats in various ways to avoid problems inherent in the simple random number generators that many systems use to implement random.
+
+When Calc’s random number generator is first invoked, it “seeds” the low-level random sequence using the time of day, so that the random number sequence will be different every time you use Calc.
+
+Since Emacs Lisp doesn’t specify the range of values that will be returned by its random function, Calc exercises the function several times to estimate the range. When Calc subsequently uses the random function, it takes only 10 bits of the result near the most-significant end. (It avoids at least the bottom four bits, preferably more, and also tries to avoid the top two bits.) This strategy works well with the linear congruential generators that are typically used to implement random.
+
+If RandSeed contains an integer, Calc uses this integer to seed an “additive congruential” method (Knuth’s algorithm 3.2.2A, computing ‘X_n-55 - X_n-24’). This method expands the seed value into a large table which is maintained internally; the variable RandSeed is changed from, e.g., 42 to the vector ‘[42]’ to indicate that the seed has been absorbed into this table. When RandSeed contains a vector, k r and related commands continue to use the same internal table as last time. There is no way to extract the complete state of the random number generator so that you can restart it from any point; you can only restart it from the same initial seed value. A simple way to restart from the same seed is to type s r RandSeed to get the seed vector, v u to unpack it back into a number, then s t RandSeed to reseed the generator with that number.
+
+Calc uses a “shuffling” method as described in algorithm 3.2.2B of Knuth. It fills a table with 13 random 10-bit numbers. Then, to generate a new random number, it uses the previous number to index into the table, picks the value it finds there as the new random number, then replaces that table entry with a new value obtained from a call to the base random number generator (either the additive congruential generator or the random function supplied by the system). If there are any flaws in the base generator, shuffling will tend to even them out. But if the system provides an excellent random function, shuffling will not damage its randomness.
+
+To create a random integer of a certain number of digits, Calc builds the integer three decimal digits at a time. For each group of three digits, Calc calls its 10-bit shuffling random number generator (which returns a value from 0 to 1023); if the random value is 1000 or more, Calc throws it out and tries again until it gets a suitable value.
+
+To create a random floating-point number with precision p, Calc simply creates a random p-digit integer and multiplies by ‘10^-p’. The resulting random numbers should be very clean, but note that relatively small numbers will have few significant random digits. In other words, with a precision of 12, you will occasionally get numbers on the order of ‘10^-9’ or ‘10^-10’, but those numbers will only have two or three random digits since they correspond to small integers times ‘10^-12’.
+
+To create a random integer in the interval ‘[0 .. m)’, Calc counts the digits in m, creates a random integer with three additional digits, then reduces modulo m. Unless m is a power of ten the resulting values will be very slightly biased toward the lower numbers, but this bias will be less than 0.1%. (For example, if m is 42, Calc will reduce a random integer less than 100000 modulo 42 to get a result less than 42. It is easy to show that the numbers 40 and 41 will be only 2380/2381 as likely to result from this modulo operation as numbers 39 and below.) If m is a power of ten, however, the numbers should be completely unbiased.
+
+The Gaussian random numbers generated by ‘random(0.0)’ use the “polar” method described in Knuth section 3.4.1C. This method generates a pair of Gaussian random numbers at a time, so only every other call to ‘random(0.0)’ will require significant calculations.
+
+
+*** Combinatorial Functions
+
+Commands relating to combinatorics and number theory begin with the k key prefix.
+
+The k g (calc-gcd) [gcd] command computes the Greatest Common Divisor of two integers. It also accepts fractions; the GCD of two fractions is defined by taking the GCD of the numerators, and the LCM of the denominators. This definition is consistent with the idea that ‘a / gcd(a,x)’ should yield an integer for any ‘a’ and ‘x’. For other types of arguments, the operation is left in symbolic form.
+
+The k l (calc-lcm) [lcm] command computes the Least Common Multiple of two integers or fractions. The product of the LCM and GCD of two numbers is equal to the absolute value of the product of the numbers.
+
+The k E (calc-extended-gcd) [egcd] command computes the GCD of two integers ‘x’ and ‘y’ and returns a vector ‘[g, a, b]’ where ‘g = gcd(x,y) = a x + b y’.
+
+The ! (calc-factorial) [fact] command computes the factorial of the number at the top of the stack. If the number is an integer, the result is an exact integer. If the number is an integer-valued float, the result is a floating-point approximation. If the number is a non-integral real number, the generalized factorial is used, as defined by the Euler Gamma function. Please note that computation of large factorials can be slow; using floating-point format will help since fewer digits must be maintained. The same is true of many of the commands in this section.
+
+The k d (calc-double-factorial) [dfact] command computes the “double factorial” of an integer. For an even integer, this is the product of even integers from 2 to ‘N’. For an odd integer, this is the product of odd integers from 3 to ‘N’. If the argument is an integer-valued float, the result is a floating-point approximation. This function is undefined for negative even integers. The notation ‘N!!’ is also recognized for double factorials.
+
+The k c (calc-choose) [choose] command computes the binomial coefficient ‘N’-choose-‘M’, where ‘M’ is the number on the top of the stack and ‘N’ is second-to-top. If both arguments are integers, the result is an exact integer. Otherwise, the result is a floating-point approximation. The binomial coefficient is defined for all real numbers by ‘N! / M! (N-M)!’.
+
+The H k c (calc-perm) [perm] command computes the number-of-permutations function ‘N! / (N-M)!’.
+
+The k b (calc-bernoulli-number) [bern] command computes a given Bernoulli number. The value at the top of the stack is a nonnegative integer ‘n’ that specifies which Bernoulli number is desired. The H k b command computes a Bernoulli polynomial, taking ‘n’ from the second-to-top position and ‘x’ from the top of the stack. If ‘x’ is a variable or formula the result is a polynomial in ‘x’; if ‘x’ is a number the result is a number.
+
+The k e (calc-euler-number) [euler] command similarly computes an Euler number, and H k e computes an Euler polynomial. Bernoulli and Euler numbers occur in the Taylor expansions of several functions.
+
+The k s (calc-stirling-number) [stir1] command computes a Stirling number of the first kind, given two integers ‘n’ and ‘m’ on the stack. The H k s [stir2] command computes a Stirling number of the second kind. These are the number of ‘m’-cycle permutations of ‘n’ objects, and the number of ways to partition ‘n’ objects into ‘m’ non-empty sets, respectively.
+
+The k p (calc-prime-test) command checks if the integer on the top of the stack is prime. For integers less than eight million, the answer is always exact and reasonably fast. For larger integers, a probabilistic method is used (see Knuth vol. II, section 4.5.4, algorithm P). The number is first checked against small prime factors (up to 13). Then, any number of iterations of the algorithm are performed. Each step either discovers that the number is non-prime, or substantially increases the certainty that the number is prime. After a few steps, the chance that a number was mistakenly described as prime will be less than one percent. (Indeed, this is a worst-case estimate of the probability; in practice even a single iteration is quite reliable.) After the k p command, the number will be reported as definitely prime or non-prime if possible, or otherwise “probably” prime with a certain probability of error.
+
+The normal k p command performs one iteration of the primality test. Pressing k p repeatedly for the same integer will perform additional iterations. Also, k p with a numeric prefix performs the specified number of iterations. There is also an algebraic function ‘prime(n)’ or ‘prime(n,iters)’ which returns 1 if ‘n’ is (probably) prime and 0 if not.
+
+The k f (calc-prime-factors) [prfac] command attempts to decompose an integer into its prime factors. For numbers up to 25 million, the answer is exact although it may take some time. The result is a vector of the prime factors in increasing order. For larger inputs, prime factors above 5000 may not be found, in which case the last number in the vector will be an unfactored integer greater than 25 million (with a warning message). For negative integers, the first element of the list will be -1. For inputs -1, 0, and 1, the result is a list of the same number.
+
+The k n (calc-next-prime) [nextprime] command finds the next prime above a given number. Essentially, it searches by calling calc-prime-test on successive integers until it finds one that passes the test. This is quite fast for integers less than eight million, but once the probabilistic test comes into play the search may be rather slow. Ordinarily this command stops for any prime that passes one iteration of the primality test. With a numeric prefix argument, a number must pass the specified number of iterations before the search stops. (This only matters when searching above eight million.) You can always use additional k p commands to increase your certainty that the number is indeed prime.
+
+The I k n (calc-prev-prime) [prevprime] command analogously finds the next prime less than a given number.
+
+The k t (calc-totient) [totient] command computes the Euler “totient” function, the number of integers less than ‘n’ which are relatively prime to ‘n’.
+
+The k m (calc-moebius) [moebius] command computes the Möbius μ function. If the input number is a product of ‘k’ distinct factors, this is ‘(-1)^k’. If the input number has any duplicate factors (i.e., can be divided by the same prime more than once), the result is zero.
+
+
+*** Probability Distribution Functions
+
+The functions in this section compute various probability distributions. For continuous distributions, this is the integral of the probability density function from ‘x’ to infinity. (These are the “upper tail” distribution functions; there are also corresponding “lower tail” functions which integrate from minus infinity to ‘x’.) For discrete distributions, the upper tail function gives the sum from ‘x’ to infinity; the lower tail function gives the sum from minus infinity up to, but not including, ‘x’.
+
+To integrate from ‘x’ to ‘y’, just use the distribution function twice and subtract. For example, the probability that a Gaussian random variable with mean 2 and standard deviation 1 will lie in the range from 2.5 to 2.8 is ‘utpn(2.5,2,1) - utpn(2.8,2,1)’ (“the probability that it is greater than 2.5, but not greater than 2.8”), or equivalently ‘ltpn(2.8,2,1) - ltpn(2.5,2,1)’.
+
+The k B (calc-utpb) [utpb] function uses the binomial distribution. Push the parameters n, p, and then x onto the stack; the result (‘utpb(x,n,p)’) is the probability that an event will occur x or more times out of n trials, if its probability of occurring in any given trial is p. The I k B [ltpb] function is the probability that the event will occur fewer than x times.
+
+The other probability distribution functions similarly take the form k X (calc-utpx) [utpx] and I k X [ltpx], for various letters x. The arguments to the algebraic functions are the value of the random variable first, then whatever other parameters define the distribution. Note these are among the few Calc functions where the order of the arguments in algebraic form differs from the order of arguments as found on the stack. (The random variable comes last on the stack, so that you can type, e.g., 2 RET 1 RET 2.5 k N M-RET DEL 2.8 k N -, using M-RET DEL to recover the original arguments but substitute a new value for ‘x’.)
+
+The ‘utpc(x,v)’ function uses the chi-square distribution with ‘v’ degrees of freedom. It is the probability that a model is correct if its chi-square statistic is ‘x’.
+
+The ‘utpf(F,v1,v2)’ function uses the F distribution, used in various statistical tests. The parameters ‘v1’ and ‘v2’ are the degrees of freedom in the numerator and denominator, respectively, used in computing the statistic ‘F’.
+
+The ‘utpn(x,m,s)’ function uses a normal (Gaussian) distribution with mean ‘m’ and standard deviation ‘s’. It is the probability that such a normal-distributed random variable would exceed ‘x’.
+
+The ‘utpp(n,x)’ function uses a Poisson distribution with mean ‘x’. It is the probability that ‘n’ or more such Poisson random events will occur.
+
+The ‘utpt(t,v)’ function uses the Student’s “t” distribution with ‘v’ degrees of freedom. It is the probability that a t-distributed random variable will be greater than ‘t’. (Note: This computes the distribution function ‘A(t|v)’ where ‘A(0|v) = 1’ and ‘A(inf|v) -> 0’. The UTPT operation on the HP-48 uses a different definition which returns half of Calc’s value: ‘UTPT(t,v) = .5*utpt(t,v)’.)
+
+While Calc does not provide inverses of the probability distribution functions, the a R command can be used to solve for the inverse. Since the distribution functions are monotonic, a R is guaranteed to be able to find a solution given any initial guess. See Numerical Solutions.
+
+
+** Vector/Matrix Functions
+
+Many of the commands described here begin with the v prefix. (For convenience, the shift-V prefix is equivalent to v.) The commands usually apply to both plain vectors and matrices; some apply only to matrices or only to square matrices. If the argument has the wrong dimensions the operation is left in symbolic form.
+
+Vectors are entered and displayed using ‘[a,b,c]’ notation. Matrices are vectors of which all elements are vectors of equal length. (Though none of the standard Calc commands use this concept, a three-dimensional matrix or rank-3 tensor could be defined as a vector of matrices, and so on.)
+
+*** Packing and Unpacking
+
+Calc’s “pack” and “unpack” commands collect stack entries to build composite objects such as vectors and complex numbers. They are described in this chapter because they are most often used to build vectors.
+
+The v p (calc-pack) [pack] command collects several elements from the stack into a matrix, complex number, HMS form, error form, etc. It uses a numeric prefix argument to specify the kind of object to be built; this argument is referred to as the “packing mode.” If the packing mode is a nonnegative integer, a vector of that length is created. For example, C-u 5 v p will pop the top five stack elements and push back a single vector of those five elements. (C-u 0 v p simply creates an empty vector.)
+
+The same effect can be had by pressing [ to push an incomplete vector on the stack, using TAB (calc-roll-down) to sneak the incomplete object up past a certain number of elements, and then pressing ] to complete the vector.
+
+Negative packing modes create other kinds of composite objects:
+
+-1
+Two values are collected to build a complex number. For example, 5 RET 7 C-u -1 v p creates the complex number ‘(5, 7)’. The result is always a rectangular complex number. The two input values must both be real numbers, i.e., integers, fractions, or floats. If they are not, Calc will instead build a formula like ‘a + (0, 1) b’. (The other packing modes also create a symbolic answer if the components are not suitable.)
+
+-2
+Two values are collected to build a polar complex number. The first is the magnitude; the second is the phase expressed in either degrees or radians according to the current angular mode.
+
+-3
+Three values are collected into an HMS form. The first two values (hours and minutes) must be integers or integer-valued floats. The third value may be any real number.
+
+-4
+Two values are collected into an error form. The inputs may be real numbers or formulas.
+
+-5
+Two values are collected into a modulo form. The inputs must be real numbers.
+
+-6
+Two values are collected into the interval ‘[a .. b]’. The inputs may be real numbers, HMS or date forms, or formulas.
+
+-7
+Two values are collected into the interval ‘[a .. b)’.
+
+-8
+Two values are collected into the interval ‘(a .. b]’.
+
+-9
+Two values are collected into the interval ‘(a .. b)’.
+
+-10
+Two integer values are collected into a fraction.
+
+-11
+Two values are collected into a floating-point number. The first is the mantissa; the second, which must be an integer, is the exponent. The result is the mantissa times ten to the power of the exponent.
+
+-12
+This is treated the same as -11 by the v p command. When unpacking, -12 specifies that a floating-point mantissa is desired.
+
+-13
+A real number is converted into a date form.
+
+-14
+Three numbers (year, month, day) are packed into a pure date form.
+
+-15
+Six numbers are packed into a date/time form.
+
+With any of the two-input negative packing modes, either or both of the inputs may be vectors. If both are vectors of the same length, the result is another vector made by packing corresponding elements of the input vectors. If one input is a vector and the other is a plain number, the number is packed along with each vector element to produce a new vector. For example, C-u -4 v p could be used to convert a vector of numbers and a vector of errors into a single vector of error forms; C-u -5 v p could convert a vector of numbers and a single number M into a vector of numbers modulo M.
+
+If you don’t give a prefix argument to v p, it takes the packing mode from the top of the stack. The elements to be packed then begin at stack level 2. Thus 1 RET 2 RET 4 n v p is another way to enter the error form ‘1 +/- 2’.
+
+If the packing mode taken from the stack is a vector, the result is a matrix with the dimensions specified by the elements of the vector, which must each be integers. For example, if the packing mode is ‘[2, 3]’, then six numbers will be taken from the stack and returned in the form ‘[[a, b, c], [d, e, f]]’.
+
+If any elements of the vector are negative, other kinds of packing are done at that level as described above. For example, ‘[2, 3, -4]’ takes 12 objects and creates a 2x3 matrix of error forms: ‘[[a +/- b, c +/- d ... ]]’. Also, ‘[-4, -10]’ will convert four integers into an error form consisting of two fractions: ‘a:b +/- c:d’.
+
+There is an equivalent algebraic function, ‘pack(mode, items)’ where mode is a packing mode (an integer or a vector of integers) and items is a vector of objects to be packed (re-packed, really) according to that mode. For example, ‘pack([3, -4], [a,b,c,d,e,f])’ yields ‘[a +/- b, c +/- d, e +/- f]’. The function is left in symbolic form if the packing mode is invalid, or if the number of data items does not match the number of items required by the mode.
+
+The v u (calc-unpack) command takes the vector, complex number, HMS form, or other composite object on the top of the stack and “unpacks” it, pushing each of its elements onto the stack as separate objects. Thus, it is the “inverse” of v p. If the value at the top of the stack is a formula, v u unpacks it by pushing each of the arguments of the top-level operator onto the stack.
+
+You can optionally give a numeric prefix argument to v u to specify an explicit (un)packing mode. If the packing mode is negative and the input is actually a vector or matrix, the result will be two or more similar vectors or matrices of the elements. For example, given the vector ‘[a +/- b, c^2, d +/- 7]’, the result of C-u -4 v u will be the two vectors ‘[a, c^2, d]’ and ‘[b, 0, 7]’.
+
+Note that the prefix argument can have an effect even when the input is not a vector. For example, if the input is the number -5, then c-u -1 v u yields -5 and 0 (the components of -5 when viewed as a rectangular complex number); C-u -2 v u yields 5 and 180 (assuming Degrees mode); and C-u -10 v u yields -5 and 1 (the numerator and denominator of -5, viewed as a rational number). Plain v u with this input would complain that the input is not a composite object.
+
+Unpacking mode -11 converts a float into an integer mantissa and an integer exponent, where the mantissa is not divisible by 10 (except that 0.0 is represented by a mantissa and exponent of 0). Unpacking mode -12 converts a float into a floating-point mantissa and integer exponent, where the mantissa (for non-zero numbers) is guaranteed to lie in the range [1 .. 10). In both cases, the mantissa is shifted left or right (and the exponent adjusted to compensate) in order to satisfy these constraints.
+
+Positive unpacking modes are treated differently than for v p. A mode of 1 is much like plain v u with no prefix argument, except that in addition to the components of the input object, a suitable packing mode to re-pack the object is also pushed. Thus, C-u 1 v u followed by v p will re-build the original object.
+
+A mode of 2 unpacks two levels of the object; the resulting re-packing mode will be a vector of length 2. This might be used to unpack a matrix, say, or a vector of error forms. Higher unpacking modes unpack the input even more deeply.
+
+There are two algebraic functions analogous to v u. The ‘unpack(mode, item)’ function unpacks the item using the given mode, returning the result as a vector of components. Here the mode must be an integer, not a vector. For example, ‘unpack(-4, a +/- b)’ returns ‘[a, b]’, as does ‘unpack(1, a +/- b)’.
+
+The unpackt function is like unpack but instead of returning a simple vector of items, it returns a vector of two things: The mode, and the vector of items. For example, ‘unpackt(1, 2:3 +/- 1:4)’ returns ‘[-4, [2:3, 1:4]]’, and ‘unpackt(2, 2:3 +/- 1:4)’ returns ‘[[-4, -10], [2, 3, 1, 4]]’. The identity for re-building the original object is ‘apply(pack, unpackt(n, x)) = x’. (The apply function builds a function call given the function name and a vector of arguments.)
+
+Subscript notation is a useful way to extract a particular part of an object. For example, to get the numerator of a rational number, you can use ‘unpack(-10, x)_1’.
+
+
+*** Building Vectors
+
+Vectors and matrices can be added, subtracted, multiplied, and divided; see Basic Arithmetic.
+
+The | (calc-concat) [vconcat] command “concatenates” two vectors into one. For example, after [ 1 , 2 ] [ 3 , 4 ] |, the stack will contain the single vector ‘[1, 2, 3, 4]’. If the arguments are matrices, the rows of the first matrix are concatenated with the rows of the second. (In other words, two matrices are just two vectors of row-vectors as far as | is concerned.)
+
+If either argument to | is a scalar (a non-vector), it is treated like a one-element vector for purposes of concatenation: 1 [ 2 , 3 ] | produces the vector ‘[1, 2, 3]’. Likewise, if one argument is a matrix and the other is a plain vector, the vector is treated as a one-row matrix.
+
+The H | (calc-append) [append] command concatenates two vectors without any special cases. Both inputs must be vectors. Whether or not they are matrices is not taken into account. If either argument is a scalar, the append function is left in symbolic form. See also cons and rcons below.
+
+The I | and H I | commands are similar, but they use their two stack arguments in the opposite order. Thus I | is equivalent to TAB |, but possibly more convenient and also a bit faster.
+
+The v d (calc-diag) [diag] function builds a diagonal square matrix. The optional numeric prefix gives the number of rows and columns in the matrix. If the value at the top of the stack is a vector, the elements of the vector are used as the diagonal elements; the prefix, if specified, must match the size of the vector. If the value on the stack is a scalar, it is used for each element on the diagonal, and the prefix argument is required.
+
+To build a constant square matrix, e.g., a 3x3 matrix filled with ones, use 0 M-3 v d 1 +, i.e., build a zero matrix first and then add a constant value to that matrix. (Another alternative would be to use v b and v a; see below.)
+
+The v i (calc-ident) [idn] function builds an identity matrix of the specified size. It is a convenient form of v d where the diagonal element is always one. If no prefix argument is given, this command prompts for one.
+
+In algebraic notation, ‘idn(a,n)’ acts much like ‘diag(a,n)’, except that ‘a’ is required to be a scalar (non-vector) quantity. If ‘n’ is omitted, ‘idn(a)’ represents ‘a’ times an identity matrix of unknown size. Calc can operate algebraically on such generic identity matrices, and if one is combined with a matrix whose size is known, it is converted automatically to an identity matrix of a suitable matching size. The v i command with an argument of zero creates a generic identity matrix, ‘idn(1)’. Note that in dimensioned Matrix mode (see Matrix and Scalar Modes), generic identity matrices are immediately expanded to the current default dimensions.
+
+The v x (calc-index) [index] function builds a vector of consecutive integers from 1 to n, where n is the numeric prefix argument. If you do not provide a prefix argument, you will be prompted to enter a suitable number. If n is negative, the result is a vector of negative integers from n to -1.
+
+With a prefix argument of just C-u, the v x command takes three values from the stack: n, start, and incr (with incr at top-of-stack). Counting starts at start and increases by incr for successive vector elements. If start or n is in floating-point format, the resulting vector elements will also be floats. Note that start and incr may in fact be any kind of numbers or formulas.
+
+When start and incr are specified, a negative n has a different interpretation: It causes a geometric instead of arithmetic sequence to be generated. For example, ‘index(-3, a, b)’ produces ‘[a, a b, a b^2]’. If you omit incr in the algebraic form, ‘index(n, start)’, the default value for incr is one for positive n or two for negative n.
+
+The v b (calc-build-vector) [cvec] function builds a vector of n copies of the value on the top of the stack, where n is the numeric prefix argument. In algebraic formulas, ‘cvec(x,n,m)’ can also be used to build an n-by-m matrix of copies of x. (Interactively, just use v b twice: once to build a row, then again to build a matrix of copies of that row.)
+
+The v h (calc-head) [head] function returns the first element of a vector. The I v h (calc-tail) [tail] function returns the vector with its first element removed. In both cases, the argument must be a non-empty vector.
+
+The v k (calc-cons) [cons] function takes a value h and a vector t from the stack, and produces the vector whose head is h and whose tail is t. This is similar to |, except if h is itself a vector, | will concatenate the two vectors whereas cons will insert h at the front of the vector t.
+
+Each of these three functions also accepts the Hyperbolic flag [rhead, rtail, rcons] in which case t instead represents the last single element of the vector, with h representing the remainder of the vector. Thus the vector ‘[a, b, c, d] = cons(a, [b, c, d]) = rcons([a, b, c], d)’. Also, ‘head([a, b, c, d]) = a’, ‘tail([a, b, c, d]) = [b, c, d]’, ‘rhead([a, b, c, d]) = [a, b, c]’, and ‘rtail([a, b, c, d]) = d’.
+
+
+*** Extracting Vector Elements
+
+The v r (calc-mrow) [mrow] command extracts one row of the matrix on the top of the stack, or one element of the plain vector on the top of the stack. The row or element is specified by the numeric prefix argument; the default is to prompt for the row or element number. The matrix or vector is replaced by the specified row or element in the form of a vector or scalar, respectively.
+
+With a prefix argument of C-u only, v r takes the index of the element or row from the top of the stack, and the vector or matrix from the second-to-top position. If the index is itself a vector of integers, the result is a vector of the corresponding elements of the input vector, or a matrix of the corresponding rows of the input matrix. This command can be used to obtain any permutation of a vector.
+
+With C-u, if the index is an interval form with integer components, it is interpreted as a range of indices and the corresponding subvector or submatrix is returned.
+
+Subscript notation in algebraic formulas (‘a_b’) stands for the Calc function subscr, which is synonymous with mrow. Thus, ‘[x, y, z]_k’ produces ‘x’, ‘y’, or ‘z’ if ‘k’ is one, two, or three, respectively. A double subscript (‘M_i_j’, equivalent to ‘subscr(subscr(M, i), j)’) will access the element at row ‘i’, column ‘j’ of a matrix. The a _ (calc-subscript) command creates a subscript formula ‘a_b’ out of two stack entries. (It is on the a “algebra” prefix because subscripted variables are often used purely as an algebraic notation.)
+
+Given a negative prefix argument, v r instead deletes one row or element from the matrix or vector on the top of the stack. Thus C-u 2 v r replaces a matrix with its second row, but C-u -2 v r replaces the matrix with the same matrix with its second row removed. In algebraic form this function is called mrrow.
+
+Given a prefix argument of zero, v r extracts the diagonal elements of a square matrix in the form of a vector. In algebraic form this function is called getdiag.
+
+The v c (calc-mcol) [mcol or mrcol] command is the analogous operation on columns of a matrix. Given a plain vector it extracts (or removes) one element, just like v r. If the index in C-u v c is an interval or vector and the argument is a matrix, the result is a submatrix with only the specified columns retained (and possibly permuted in the case of a vector index).
+
+To extract a matrix element at a given row and column, use v r to extract the row as a vector, then v c to extract the column element from that vector. In algebraic formulas, it is often more convenient to use subscript notation: ‘m_i_j’ gives row ‘i’, column ‘j’ of matrix ‘m’.
+
+The v s (calc-subvector) [subvec] command extracts a subvector of a vector. The arguments are the vector, the starting index, and the ending index, with the ending index in the top-of-stack position. The starting index indicates the first element of the vector to take. The ending index indicates the first element past the range to be taken. Thus, ‘subvec([a, b, c, d, e], 2, 4)’ produces the subvector ‘[b, c]’. You could get the same result using ‘mrow([a, b, c, d, e], [2 .. 4))’.
+
+If either the start or the end index is zero or negative, it is interpreted as relative to the end of the vector. Thus ‘subvec([a, b, c, d, e], 2, -2)’ also produces ‘[b, c]’. In the algebraic form, the end index can be omitted in which case it is taken as zero, i.e., elements from the starting element to the end of the vector are used. The infinity symbol, inf, also has this effect when used as the ending index.
+
+With the Inverse flag, I v s [rsubvec] removes a subvector from a vector. The arguments are interpreted the same as for the normal v s command. Thus, ‘rsubvec([a, b, c, d, e], 2, 4)’ produces ‘[a, d, e]’. It is always true that subvec and rsubvec return complementary parts of the input vector.
+
+See Selecting Sub-Formulas, for an alternative way to operate on vectors one element at a time.
+
+
+*** Manipulating Vectors
+
+The v l (calc-vlength) [vlen] command computes the length of a vector. The length of a non-vector is considered to be zero. Note that matrices are just vectors of vectors for the purposes of this command.
+
+With the Hyperbolic flag, H v l [mdims] computes a vector of the dimensions of a vector, matrix, or higher-order object. For example, ‘mdims([[a,b,c],[d,e,f]])’ returns ‘[2, 3]’ since its argument is a 2x3 matrix.
+
+The v f (calc-vector-find) [find] command searches along a vector for the first element equal to a given target. The target is on the top of the stack; the vector is in the second-to-top position. If a match is found, the result is the index of the matching element. Otherwise, the result is zero. The numeric prefix argument, if given, allows you to select any starting index for the search.
+
+The v a (calc-arrange-vector) [arrange] command rearranges a vector to have a certain number of columns and rows. The numeric prefix argument specifies the number of columns; if you do not provide an argument, you will be prompted for the number of columns. The vector or matrix on the top of the stack is flattened into a plain vector. If the number of columns is nonzero, this vector is then formed into a matrix by taking successive groups of n elements. If the number of columns does not evenly divide the number of elements in the vector, the last row will be short and the result will not be suitable for use as a matrix. For example, with the matrix ‘[[1, 2], [3, 4]]’ on the stack, v a 4 produces ‘[[1, 2, 3, 4]]’ (a 1x4 matrix), v a 1 produces ‘[[1], [2], [3], [4]]’ (a 4x1 matrix), v a 2 produces ‘[[1, 2], [3, 4]]’ (the original 2x2 matrix), v a 3 produces ‘[[1, 2, 3], [4]]’ (not a matrix), and v a 0 produces the flattened list ‘[1, 2, 3, 4]’.
+
+The V S (calc-sort) [sort] command sorts the elements of a vector into increasing order. Real numbers, real infinities, and constant interval forms come first in this ordering; next come other kinds of numbers, then variables (in alphabetical order), then finally come formulas and other kinds of objects; these are sorted according to a kind of lexicographic ordering with the useful property that one vector is less or greater than another if the first corresponding unequal elements are less or greater, respectively. Since quoted strings are stored by Calc internally as vectors of ASCII character codes (see Strings), this means vectors of strings are also sorted into alphabetical order by this command.
+
+The I V S [rsort] command sorts a vector into decreasing order.
+
+The V G (calc-grade) [grade, rgrade] command produces an index table or permutation vector which, if applied to the input vector (as the index of C-u v r, say), would sort the vector. A permutation vector is just a vector of integers from 1 to n, where each integer occurs exactly once. One application of this is to sort a matrix of data rows using one column as the sort key; extract that column, grade it with V G, then use the result to reorder the original matrix with C-u v r. Another interesting property of the V G command is that, if the input is itself a permutation vector, the result will be the inverse of the permutation. The inverse of an index table is a rank table, whose kth element says where the kth original vector element will rest when the vector is sorted. To get a rank table, just use V G V G.
+
+With the Inverse flag, I V G produces an index table that would sort the input into decreasing order. Note that V S and V G use a “stable” sorting algorithm, i.e., any two elements which are equal will not be moved out of their original order. Generally there is no way to tell with V S, since two elements which are equal look the same, but with V G this can be an important issue. In the matrix-of-rows example, suppose you have names and telephone numbers as two columns and you wish to sort by phone number primarily, and by name when the numbers are equal. You can sort the data matrix by names first, and then again by phone numbers. Because the sort is stable, any two rows with equal phone numbers will remain sorted by name even after the second sort.
+
+The V H (calc-histogram) [histogram] command builds a histogram of a vector of numbers. Vector elements are assumed to be integers or real numbers in the range [0..n) for some “number of bins” n, which is the numeric prefix argument given to the command. The result is a vector of n counts of how many times each value appeared in the original vector. Non-integers in the input are rounded down to integers. Any vector elements outside the specified range are ignored. (You can tell if elements have been ignored by noting that the counts in the result vector don’t add up to the length of the input vector.)
+
+If no prefix is given, then you will be prompted for a vector which will be used to determine the bins. (If a positive integer is given at this prompt, it will be still treated as if it were given as a prefix.) Each bin will consist of the interval of numbers closest to the corresponding number of this new vector; if the vector ‘[a, b, c, ...]’ is entered at the prompt, the bins will be ‘(-inf, (a+b)/2]’, ‘((a+b)/2, (b+c)/2]’, etc. The result of this command will be a vector counting how many elements of the original vector are in each bin.
+
+The result will then be a vector with the same length as this new vector; each element of the new vector will be replaced by the number of elements of the original vector which are closest to it.
+
+With the Hyperbolic flag, H V H pulls two vectors from the stack. The second-to-top vector is the list of numbers as before. The top vector is an equal-sized list of “weights” to attach to the elements of the data vector. For example, if the first data element is 4.2 and the first weight is 10, then 10 will be added to bin 4 of the result vector. Without the hyperbolic flag, every element has a weight of one.
+
+The v t (calc-transpose) [trn] command computes the transpose of the matrix at the top of the stack. If the argument is a plain vector, it is treated as a row vector and transposed into a one-column matrix.
+
+The v v (calc-reverse-vector) [rev] command reverses a vector end-for-end. Given a matrix, it reverses the order of the rows. (To reverse the columns instead, just use v t v v v t. The same principle can be used to apply other vector commands to the columns of a matrix.)
+
+The v m (calc-mask-vector) [vmask] command uses one vector as a mask to extract elements of another vector. The mask is in the second-to-top position; the target vector is on the top of the stack. These vectors must have the same length. The result is the same as the target vector, but with all elements which correspond to zeros in the mask vector deleted. Thus, for example, ‘vmask([1, 0, 1, 0, 1], [a, b, c, d, e])’ produces ‘[a, c, e]’. See Logical Operations.
+
+The v e (calc-expand-vector) [vexp] command expands a vector according to another mask vector. The result is a vector the same length as the mask, but with nonzero elements replaced by successive elements from the target vector. The length of the target vector is normally the number of nonzero elements in the mask. If the target vector is longer, its last few elements are lost. If the target vector is shorter, the last few nonzero mask elements are left unreplaced in the result. Thus ‘vexp([2, 0, 3, 0, 7], [a, b])’ produces ‘[a, 0, b, 0, 7]’.
+
+With the Hyperbolic flag, H v e takes a filler value from the top of the stack; the mask and target vectors come from the third and second elements of the stack. This filler is used where the mask is zero: ‘vexp([2, 0, 3, 0, 7], [a, b], z)’ produces ‘[a, z, c, z, 7]’. If the filler value is itself a vector, then successive values are taken from it, so that the effect is to interleave two vectors according to the mask: ‘vexp([2, 0, 3, 7, 0, 0], [a, b], [x, y])’ produces ‘[a, x, b, 7, y, 0]’.
+
+Another variation on the masking idea is to combine ‘[a, b, c, d, e]’ with the mask ‘[1, 0, 1, 0, 1]’ to produce ‘[a, 0, c, 0, e]’. You can accomplish this with V M a &, mapping the logical “and” operation across the two vectors. See Logical Operations. Note that the ? : operation also discussed there allows other types of masking using vectors.
+
+
+*** Vector and Matrix Arithmetic
+
+Basic arithmetic operations like addition and multiplication are defined for vectors and matrices as well as for numbers. Division of matrices, in the sense of multiplying by the inverse, is supported. (Division by a matrix actually uses LU-decomposition for greater accuracy and speed.) See Basic Arithmetic.
+
+The following functions are applied element-wise if their arguments are vectors or matrices: change-sign, conj, arg, re, im, polar, rect, clean, float, frac. See Index of Algebraic Functions.
+
+The V J (calc-conj-transpose) [ctrn] command computes the conjugate transpose of its argument, i.e., ‘conj(trn(x))’.
+
+The A (calc-abs) [abs] command computes the Frobenius norm of a vector or matrix argument. This is the square root of the sum of the squares of the absolute values of the elements of the vector or matrix. If the vector is interpreted as a point in two- or three-dimensional space, this is the distance from that point to the origin.
+
+The v n (calc-rnorm) [rnorm] command computes the infinity-norm of a vector, or the row norm of a matrix. For a plain vector, this is the maximum of the absolute values of the elements. For a matrix, this is the maximum of the row-absolute-value-sums, i.e., of the sums of the absolute values of the elements along the various rows.
+
+The V N (calc-cnorm) [cnorm] command computes the one-norm of a vector, or column norm of a matrix. For a plain vector, this is the sum of the absolute values of the elements. For a matrix, this is the maximum of the column-absolute-value-sums. General ‘k’-norms for ‘k’ other than one or infinity are not provided. However, the 2-norm (or Frobenius norm) is provided for vectors by the A (calc-abs) command.
+
+The V C (calc-cross) [cross] command computes the right-handed cross product of two vectors, each of which must have exactly three elements.
+
+The & (calc-inv) [inv] command computes the inverse of a square matrix. If the matrix is singular, the inverse operation is left in symbolic form. Matrix inverses are recorded so that once an inverse (or determinant) of a particular matrix has been computed, the inverse and determinant of the matrix can be recomputed quickly in the future.
+
+If the argument to & is a plain number ‘x’, this command simply computes ‘1/x’. This is okay, because the ‘/’ operator also does a matrix inversion when dividing one by a matrix.
+
+The V D (calc-mdet) [det] command computes the determinant of a square matrix.
+
+The V L (calc-mlud) [lud] command computes the LU decomposition of a matrix. The result is a list of three matrices which, when multiplied together left-to-right, form the original matrix. The first is a permutation matrix that arises from pivoting in the algorithm, the second is lower-triangular with ones on the diagonal, and the third is upper-triangular.
+
+The V T (calc-mtrace) [tr] command computes the trace of a square matrix. This is defined as the sum of the diagonal elements of the matrix.
+
+The V K (calc-kron) [kron] command computes the Kronecker product of two matrices.
+
+
+*** Set Operations using Vectors
+
+Calc includes several commands which interpret vectors as sets of objects. A set is a collection of objects; any given object can appear only once in the set. Calc stores sets as vectors of objects in sorted order. Objects in a Calc set can be any of the usual things, such as numbers, variables, or formulas. Two set elements are considered equal if they are identical, except that numerically equal numbers like the integer 4 and the float 4.0 are considered equal even though they are not “identical.” Variables are treated like plain symbols without attached values by the set operations; subtracting the set ‘[b]’ from ‘[a, b]’ always yields the set ‘[a]’ even though if the variables ‘a’ and ‘b’ both equaled 17, you might expect the answer ‘[]’.
+
+If a set contains interval forms, then it is assumed to be a set of real numbers. In this case, all set operations require the elements of the set to be only things that are allowed in intervals: Real numbers, plus and minus infinity, HMS forms, and date forms. If there are variables or other non-real objects present in a real set, all set operations on it will be left in unevaluated form.
+
+If the input to a set operation is a plain number or interval form a, it is treated like the one-element vector ‘[a]’. The result is always a vector, except that if the set consists of a single interval, the interval itself is returned instead.
+
+See Logical Operations, for the in function which tests if a certain value is a member of a given set. To test if the set ‘A’ is a subset of the set ‘B’, use ‘vdiff(A, B) = []’.
+
+The V + (calc-remove-duplicates) [rdup] command converts an arbitrary vector into set notation. It works by sorting the vector as if by V S, then removing duplicates. (For example, [a, 5, 4, a, 4.0] is sorted to ‘[4, 4.0, 5, a, a]’ and then reduced to ‘[4, 5, a]’). Overlapping intervals are merged as necessary. You rarely need to use V + explicitly, since all the other set-based commands apply V + to their inputs before using them.
+
+The V V (calc-set-union) [vunion] command computes the union of two sets. An object is in the union of two sets if and only if it is in either (or both) of the input sets. (You could accomplish the same thing by concatenating the sets with |, then using V +.)
+
+The V ^ (calc-set-intersect) [vint] command computes the intersection of two sets. An object is in the intersection if and only if it is in both of the input sets. Thus if the input sets are disjoint, i.e., if they share no common elements, the result will be the empty vector ‘[]’. Note that the characters V and ^ were chosen to be close to the conventional mathematical notation for set union and intersection.
+
+The V - (calc-set-difference) [vdiff] command computes the difference between two sets. An object is in the difference ‘A - B’ if and only if it is in ‘A’ but not in ‘B’. Thus subtracting ‘[y,z]’ from a set will remove the elements ‘y’ and ‘z’ if they are present. You can also think of this as a general set complement operator; if ‘A’ is the set of all possible values, then ‘A - B’ is the “complement” of ‘B’. Obviously this is only practical if the set of all possible values in your problem is small enough to list in a Calc vector (or simple enough to express in a few intervals).
+
+The V X (calc-set-xor) [vxor] command computes the “exclusive-or,” or “symmetric difference” of two sets. An object is in the symmetric difference of two sets if and only if it is in one, but not both, of the sets. Objects that occur in both sets “cancel out.”
+
+The V ~ (calc-set-complement) [vcompl] command computes the complement of a set with respect to the real numbers. Thus ‘vcompl(x)’ is equivalent to ‘vdiff([-inf .. inf], x)’. For example, ‘vcompl([2, (3 .. 4]])’ evaluates to ‘[[-inf .. 2), (2 .. 3], (4 .. inf]]’.
+
+The V F (calc-set-floor) [vfloor] command reinterprets a set as a set of integers. Any non-integer values, and intervals that do not enclose any integers, are removed. Open intervals are converted to equivalent closed intervals. Successive integers are converted into intervals of integers. For example, the complement of the set ‘[2, 6, 7, 8]’ is messy, but if you wanted the complement with respect to the set of integers you could type V ~ V F to get ‘[[-inf .. 1], [3 .. 5], [9 .. inf]]’.
+
+The V E (calc-set-enumerate) [venum] command converts a set of integers into an explicit vector. Intervals in the set are expanded out to lists of all integers encompassed by the intervals. This only works for finite sets (i.e., sets which do not involve ‘-inf’ or ‘inf’).
+
+The V : (calc-set-span) [vspan] command converts any set of reals into an interval form that encompasses all its elements. The lower limit will be the smallest element in the set; the upper limit will be the largest element. For an empty set, ‘vspan([])’ returns the empty interval ‘[0 .. 0)’.
+
+The V # (calc-set-cardinality) [vcard] command counts the number of integers in a set. The result is the length of the vector that would be produced by V E, although the computation is much more efficient than actually producing that vector.
+
+Another representation for sets that may be more appropriate in some cases is binary numbers. If you are dealing with sets of integers in the range 0 to 49, you can use a 50-bit binary number where a particular bit is 1 if the corresponding element is in the set. See Binary Number Functions, for a list of commands that operate on binary numbers. Note that many of the above set operations have direct equivalents in binary arithmetic: b o (calc-or), b a (calc-and), b d (calc-diff), b x (calc-xor), and b n (calc-not), respectively. You can use whatever representation for sets is most convenient to you.
+
+The b u (calc-unpack-bits) [vunpack] command converts an integer that represents a set in binary into a set in vector/interval notation. For example, ‘vunpack(67)’ returns ‘[[0 .. 1], 6]’. If the input is negative, the set it represents is semi-infinite: ‘vunpack(-4) = [2 .. inf)’. Use V E afterwards to expand intervals to individual values if you wish. Note that this command uses the b (binary) prefix key.
+
+The b p (calc-pack-bits) [vpack] command converts the other way, from a vector or interval representing a set of nonnegative integers into a binary integer describing the same set. The set may include positive infinity, but must not include any negative numbers. The input is interpreted as a set of integers in the sense of V F (vfloor). Beware that a simple input like ‘[100]’ can result in a huge integer representation (‘2^100’, a 31-digit integer, in this case).
+
+
+*** Statistical Operations on Vectors
+
+The commands in this section take vectors as arguments and compute various statistical measures on the data stored in the vectors. The references used in the definitions of these functions are Bevington’s Data Reduction and Error Analysis for the Physical Sciences, and Numerical Recipes by Press, Flannery, Teukolsky and Vetterling.
+
+The statistical commands use the u prefix key followed by a shifted letter or other character.
+
+See Manipulating Vectors, for a description of V H (calc-histogram).
+
+See Curve Fitting, for the a F command for doing least-squares fits to statistical data.
+
+See Probability Distribution Functions, for several common probability distribution functions.
+
+**** Single-Variable Statistics
+
+These functions do various statistical computations on single vectors. Given a numeric prefix argument, they actually pop n objects from the stack and combine them into a data vector. Each object may be either a number or a vector; if a vector, any sub-vectors inside it are “flattened” as if by v a 0; see Manipulating Vectors. By default one object is popped, which (in order to be useful) is usually a vector.
+
+If an argument is a variable name, and the value stored in that variable is a vector, then the stored vector is used. This method has the advantage that if your data vector is large, you can avoid the slow process of manipulating it directly on the stack.
+
+These functions are left in symbolic form if any of their arguments are not numbers or vectors, e.g., if an argument is a formula, or a non-vector variable. However, formulas embedded within vector arguments are accepted; the result is a symbolic representation of the computation, based on the assumption that the formula does not itself represent a vector. All varieties of numbers such as error forms and interval forms are acceptable.
+
+Some of the functions in this section also accept a single error form or interval as an argument. They then describe a property of the normal or uniform (respectively) statistical distribution described by the argument. The arguments are interpreted in the same way as the M argument of the random number function k r. In particular, an interval with integer limits is considered an integer distribution, so that ‘[2 .. 6)’ is the same as ‘[2 .. 5]’. An interval with at least one floating-point limit is a continuous distribution: ‘[2.0 .. 6.0)’ is not the same as ‘[2.0 .. 5.0]’!
+
+The u # (calc-vector-count) [vcount] command computes the number of data values represented by the inputs. For example, ‘vcount(1, [2, 3], [[4, 5], [], x, y])’ returns 7. If the argument is a single vector with no sub-vectors, this simply computes the length of the vector.
+
+The u + (calc-vector-sum) [vsum] command computes the sum of the data values. The u * (calc-vector-prod) [vprod] command computes the product of the data values. If the input is a single flat vector, these are the same as V R + and V R * (see Reducing and Mapping Vectors).
+
+The u X (calc-vector-max) [vmax] command computes the maximum of the data values, and the u N (calc-vector-min) [vmin] command computes the minimum. If the argument is an interval, this finds the minimum or maximum value in the interval. (Note that ‘vmax([2..6)) = 5’ as described above.) If the argument is an error form, this returns plus or minus infinity.
+
+The u M (calc-vector-mean) [vmean] command computes the average (arithmetic mean) of the data values. If the inputs are error forms ‘x +/- s’, this is the weighted mean of the ‘x’ values with weights ‘1 / s^2’. If the inputs are not error forms, this is simply the sum of the values divided by the count of the values.
+
+Note that a plain number can be considered an error form with error ‘s = 0’. If the input to u M is a mixture of plain numbers and error forms, the result is the mean of the plain numbers, ignoring all values with non-zero errors. (By the above definitions it’s clear that a plain number effectively has an infinite weight, next to which an error form with a finite weight is completely negligible.)
+
+This function also works for distributions (error forms or intervals). The mean of an error form ‘a +/- b’ is simply ‘a’. The mean of an interval is the mean of the minimum and maximum values of the interval.
+
+The I u M (calc-vector-mean-error) [vmeane] command computes the mean of the data points expressed as an error form. This includes the estimated error associated with the mean. If the inputs are error forms, the error is the square root of the reciprocal of the sum of the reciprocals of the squares of the input errors. (I.e., the variance is the reciprocal of the sum of the reciprocals of the variances.) If the inputs are plain numbers, the error is equal to the standard deviation of the values divided by the square root of the number of values. (This works out to be equivalent to calculating the standard deviation and then assuming each value’s error is equal to this standard deviation.)
+
+The H u M (calc-vector-median) [vmedian] command computes the median of the data values. The values are first sorted into numerical order; the median is the middle value after sorting. (If the number of data values is even, the median is taken to be the average of the two middle values.) The median function is different from the other functions in this section in that the arguments must all be real numbers; variables are not accepted even when nested inside vectors. (Otherwise it is not possible to sort the data values.) If any of the input values are error forms, their error parts are ignored.
+
+The median function also accepts distributions. For both normal (error form) and uniform (interval) distributions, the median is the same as the mean.
+
+The H I u M (calc-vector-harmonic-mean) [vhmean] command computes the harmonic mean of the data values. This is defined as the reciprocal of the arithmetic mean of the reciprocals of the values.
+
+The u G (calc-vector-geometric-mean) [vgmean] command computes the geometric mean of the data values. This is the nth root of the product of the values. This is also equal to the exp of the arithmetic mean of the logarithms of the data values.
+
+The H u G [agmean] command computes the “arithmetic-geometric mean” of two numbers taken from the stack. This is computed by replacing the two numbers with their arithmetic mean and geometric mean, then repeating until the two values converge.
+
+The u R (calc-vector-rms) [rms] command computes the RMS (root-mean-square) of the data values. As its name suggests, this is the square root of the mean of the squares of the data values.
+
+The u S (calc-vector-sdev) [vsdev] command computes the standard deviation of the data values. If the values are error forms, the errors are used as weights just as for u M. This is the sample standard deviation, whose value is the square root of the sum of the squares of the differences between the values and the mean of the ‘N’ values, divided by ‘N-1’.
+
+This function also applies to distributions. The standard deviation of a single error form is simply the error part. The standard deviation of a continuous interval happens to equal the difference between the limits, divided by ‘sqrt(12)’. The standard deviation of an integer interval is the same as the standard deviation of a vector of those integers.
+
+The I u S (calc-vector-pop-sdev) [vpsdev] command computes the population standard deviation. It is defined by the same formula as above but dividing by ‘N’ instead of by ‘N-1’. The population standard deviation is used when the input represents the entire set of data values in the distribution; the sample standard deviation is used when the input represents a sample of the set of all data values, so that the mean computed from the input is itself only an estimate of the true mean.
+
+For error forms and continuous intervals, vpsdev works exactly like vsdev. For integer intervals, it computes the population standard deviation of the equivalent vector of integers.
+
+The H u S (calc-vector-variance) [vvar] and H I u S (calc-vector-pop-variance) [vpvar] commands compute the variance of the data values. The variance is the square of the standard deviation, i.e., the sum of the squares of the deviations of the data values from the mean. (This definition also applies when the argument is a distribution.)
+
+The vflat algebraic function returns a vector of its arguments, interpreted in the same way as the other functions in this section. For example, ‘vflat(1, [2, [3, 4]], 5)’ returns ‘[1, 2, 3, 4, 5]’.
+
+
+**** Paired-Sample Statistics
+
+The functions in this section take two arguments, which must be vectors of equal size. The vectors are each flattened in the same way as by the single-variable statistical functions. Given a numeric prefix argument of 1, these functions instead take one object from the stack, which must be an Nx2 matrix of data values. Once again, variable names can be used in place of actual vectors and matrices.
+
+The u C (calc-vector-covariance) [vcov] command computes the sample covariance of two vectors. The covariance of vectors x and y is the sum of the products of the differences between the elements of x and the mean of x times the differences between the corresponding elements of y and the mean of y, all divided by ‘N-1’. Note that the variance of a vector is just the covariance of the vector with itself. Once again, if the inputs are error forms the errors are used as weight factors. If both x and y are composed of error forms, the error for a given data point is taken as the square root of the sum of the squares of the two input errors.
+
+The I u C (calc-vector-pop-covariance) [vpcov] command computes the population covariance, which is the same as the sample covariance computed by u C except dividing by ‘N’ instead of ‘N-1’.
+
+The H u C (calc-vector-correlation) [vcorr] command computes the linear correlation coefficient of two vectors. This is defined by the covariance of the vectors divided by the product of their standard deviations. (There is no difference between sample or population statistics here.)
+
+
+*** Reducing and Mapping Vectors
+
+The commands in this section allow for more general operations on the elements of vectors.
+
+The simplest of these operations is V A (calc-apply) [apply], which applies a given operator to the elements of a vector. For example, applying the hypothetical function f to the vector ‘[1, 2, 3]’ would produce the function call ‘f(1, 2, 3)’. Applying the + function to the vector ‘[a, b]’ gives ‘a + b’. Applying + to the vector ‘[a, b, c]’ is an error, since the + function expects exactly two arguments.
+
+While V A is useful in some cases, you will usually find that either V R or V M, described below, is closer to what you want.
+
+**** Specifying Operators
+
+Commands in this section (like V A) prompt you to press the key corresponding to the desired operator. Press ? for a partial list of the available operators. Generally, an operator is any key or sequence of keys that would normally take one or more arguments from the stack and replace them with a result. For example, V A H C uses the hyperbolic cosine operator, cosh. (Since cosh expects one argument, V A H C requires a vector with a single element as its argument.)
+
+You can press x at the operator prompt to select any algebraic function by name to use as the operator. This includes functions you have defined yourself using the Z F command. (See Programming with Formulas.) If you give a name for which no function has been defined, the result is left in symbolic form, as in ‘f(1, 2, 3)’. Calc will prompt for the number of arguments the function takes if it can’t figure it out on its own (say, because you named a function that is currently undefined). It is also possible to type a digit key before the function name to specify the number of arguments, e.g., V M 3 x f RET calls f with three arguments even if it looks like it ought to have only two. This technique may be necessary if the function allows a variable number of arguments. For example, the v e [vexp] function accepts two or three arguments; if you want to map with the three-argument version, you will have to type V M 3 v e.
+
+It is also possible to apply any formula to a vector by treating that formula as a function. When prompted for the operator to use, press ' (the apostrophe) and type your formula as an algebraic entry. You will then be prompted for the argument list, which defaults to a list of all variables that appear in the formula, sorted into alphabetic order. For example, suppose you enter the formula ‘x + 2y^x’. The default argument list would be ‘(x y)’, which means that if this function is applied to the arguments ‘[3, 10]’ the result will be ‘3 + 2*10^3’. (If you plan to use a certain formula in this way often, you might consider defining it as a function with Z F.)
+
+Another way to specify the arguments to the formula you enter is with $, $$, and so on. For example, V A ' $$ + 2$^$$ has the same effect as the previous example. The argument list is automatically taken to be ‘($$ $)’. (The order of the arguments may seem backwards, but it is analogous to the way normal algebraic entry interacts with the stack.)
+
+If you press $ at the operator prompt, the effect is similar to the apostrophe except that the relevant formula is taken from top-of-stack instead. The actual vector arguments of the V A $ or related command then start at the second-to-top stack position. You will still be prompted for an argument list.
+
+A function can be written without a name using the notation ‘<#1 - #2>’, which means “a function of two arguments that computes the first argument minus the second argument.” The symbols ‘#1’ and ‘#2’ are placeholders for the arguments. You can use any names for these placeholders if you wish, by including an argument list followed by a colon: ‘<x, y : x - y>’. When you type V A ' $$ + 2$^$$ RET, Calc builds the nameless function ‘<#1 + 2 #2^#1>’ as the function to map across the vectors. When you type V A ' x + 2y^x RET RET, Calc builds the nameless function ‘<x, y : x + 2 y^x>’. In both cases, Calc also writes the nameless function to the Trail so that you can get it back later if you wish.
+
+If there is only one argument, you can write ‘#’ in place of ‘#1’. (Note that ‘< >’ notation is also used for date forms. Calc tells that ‘<stuff>’ is a nameless function by the presence of ‘#’ signs inside stuff, or by the fact that stuff begins with a list of variables followed by a colon.)
+
+You can type a nameless function directly to V A ', or put one on the stack and use it with V A $. Calc will not prompt for an argument list in this case, since the nameless function specifies the argument list as well as the function itself. In V A ', you can omit the ‘< >’ marks if you use ‘#’ notation for the arguments, so that V A ' #1+#2 RET is the same as V A ' <#1+#2> RET, which in turn is the same as V A ' $$+$ RET.
+
+The internal format for ‘<x, y : x + y>’ is ‘lambda(x, y, x + y)’. (The word lambda derives from Lisp notation and the theory of functions.) The internal format for ‘<#1 + #2>’ is ‘lambda(ArgA, ArgB, ArgA + ArgB)’. Note that there is no actual Calc function called lambda; the whole point is that the lambda expression is used in its symbolic form, not evaluated for an answer until it is applied to specific arguments by a command like V A or V M.
+
+(Actually, lambda does have one special property: Its arguments are never evaluated; for example, putting ‘<(2/3) #>’ on the stack will not simplify the ‘2/3’ until the nameless function is actually called.)
+
+As usual, commands like V A have algebraic function name equivalents. For example, V A k g with an argument of ‘v’ is equivalent to ‘apply(gcd, v)’. The first argument specifies the operator name, and is either a variable whose name is the same as the function name, or a nameless function like ‘<#^3+1>’. Operators that are normally written as algebraic symbols have the names add, sub, mul, div, pow, neg, mod, and vconcat.
+
+The call function builds a function call out of several arguments: ‘call(gcd, x, y)’ is the same as ‘apply(gcd, [x, y])’, which in turn is the same as ‘gcd(x, y)’. The first argument of call, like the other functions described here, may be either a variable naming a function, or a nameless function (‘call(<#1+2#2>, x, y)’ is the same as ‘x + 2y’).
+
+(Experts will notice that it’s not quite proper to use a variable to name a function, since the name gcd corresponds to the Lisp variable var-gcd but to the Lisp function calcFunc-gcd. Calc automatically makes this translation, so you don’t have to worry about it.)
+
+
+**** Mapping
+
+The V M (calc-map) [map] command applies a given operator elementwise to one or more vectors. For example, mapping A [abs] produces a vector of the absolute values of the elements in the input vector. Mapping + pops two vectors from the stack, which must be of equal length, and produces a vector of the pairwise sums of the elements. If either argument is a non-vector, it is duplicated for each element of the other vector. For example, [1,2,3] 2 V M ^ squares the elements of the specified vector. With the 2 listed first, it would have computed a vector of powers of two. Mapping a user-defined function pops as many arguments from the stack as the function requires. If you give an undefined name, you will be prompted for the number of arguments to use.
+
+If any argument to V M is a matrix, the operator is normally mapped across all elements of the matrix. For example, given the matrix ‘[[1, -2, 3], [-4, 5, -6]]’, V M A takes six absolute values to produce another 3x2 matrix, ‘[[1, 2, 3], [4, 5, 6]]’.
+
+The command V M _ [mapr] (i.e., type an underscore at the operator prompt) maps by rows instead. For example, V M _ A views the above matrix as a vector of two 3-element row vectors. It produces a new vector which contains the absolute values of those row vectors, namely ‘[3.74, 8.77]’. (Recall, the absolute value of a vector is defined as the square root of the sum of the squares of the elements.) Some operators accept vectors and return new vectors; for example, v v reverses a vector, so V M _ v v would reverse each row of the matrix to get a new matrix, ‘[[3, -2, 1], [-6, 5, -4]]’.
+
+Sometimes a vector of vectors (representing, say, strings, sets, or lists) happens to look like a matrix. If so, remember to use V M _ if you want to map a function across the whole strings or sets rather than across their individual elements.
+
+The command V M : [mapc] maps by columns. Basically, it transposes the input matrix, maps by rows, and then, if the result is a matrix, transposes again. For example, V M : A takes the absolute values of the three columns of the matrix, treating each as a 2-vector, and V M : v v reverses the columns to get the matrix ‘[[-4, 5, -6], [1, -2, 3]]’.
+
+(The symbols _ and : were chosen because they had row-like and column-like appearances, and were not already taken by useful operators. Also, they appear shifted on most keyboards so they are easy to type after V M.)
+
+The _ and : modifiers have no effect on arguments that are not matrices (so if none of the arguments are matrices, they have no effect at all). If some of the arguments are matrices and others are plain numbers, the plain numbers are held constant for all rows of the matrix (so that 2 V M _ ^ squares every row of a matrix; squaring a vector takes a dot product of the vector with itself).
+
+If some of the arguments are vectors with the same lengths as the rows (for V M _) or columns (for V M :) of the matrix arguments, those vectors are also held constant for every row or column.
+
+Sometimes it is useful to specify another mapping command as the operator to use with V M. For example, V M _ V A + applies V A + to each row of the input matrix, which in turn adds the two values on that row. If you give another vector-operator command as the operator for V M, it automatically uses map-by-rows mode if you don’t specify otherwise; thus V M V A + is equivalent to V M _ V A +. (If you really want to map-by-elements another mapping command, you can use a triple-nested mapping command: V M V M V A + means to map V M V A + over the rows of the matrix; in turn, V A + is mapped over the elements of each row.)
+
+Previous versions of Calc had “map across” and “map down” modes that are now considered obsolete; the old “map across” is now simply V M V A, and “map down” is now V M : V A. The algebraic functions mapa and mapd are still supported, though. Note also that, while the old mapping modes were persistent (once you set the mode, it would apply to later mapping commands until you reset it), the new : and _ modifiers apply only to the current mapping command. The default V M always means map-by-elements.
+
+See Algebraic Manipulation, for the a M command, which is like V M but for equations and inequalities instead of vectors. See Storing Variables, for the s m command which modifies a variable’s stored value using a V M-like operator.
+
+
+**** Reducing
+
+The V R (calc-reduce) [reduce] command applies a given binary operator across all the elements of a vector. A binary operator is a function such as + or max which takes two arguments. For example, reducing + over a vector computes the sum of the elements of the vector. Reducing - computes the first element minus each of the remaining elements. Reducing max computes the maximum element and so on. In general, reducing f over the vector ‘[a, b, c, d]’ produces ‘f(f(f(a, b), c), d)’.
+
+The I V R [rreduce] command is similar to V R except that works from right to left through the vector. For example, plain V R - on the vector ‘[a, b, c, d]’ produces ‘a - b - c - d’ but I V R - on the same vector produces ‘a - (b - (c - d))’, or ‘a - b + c - d’. This “alternating sum” occurs frequently in power series expansions.
+
+The V U (calc-accumulate) [accum] command does an accumulation operation. Here Calc does the corresponding reduction operation, but instead of producing only the final result, it produces a vector of all the intermediate results. Accumulating + over the vector ‘[a, b, c, d]’ produces the vector ‘[a, a + b, a + b + c, a + b + c + d]’.
+
+The I V U [raccum] command does a right-to-left accumulation. For example, I V U - on the vector ‘[a, b, c, d]’ produces the vector ‘[a - b + c - d, b - c + d, c - d, d]’.
+
+As for V M, V R normally reduces a matrix elementwise. For example, given the matrix ‘[[a, b, c], [d, e, f]]’, V R + will compute ‘a + b + c + d + e + f’. You can type V R _ or V R : to modify this behavior. The V R _ [reducea] command reduces “across” the matrix; it reduces each row of the matrix as a vector, then collects the results. Thus V R _ + of this matrix would produce ‘[a + b + c, d + e + f]’. Similarly, V R : [reduced] reduces down; V R : + would produce ‘[a + d, b + e, c + f]’.
+
+There is a third “by rows” mode for reduction that is occasionally useful; V R = [reducer] simply reduces the operator over the rows of the matrix themselves. Thus V R = + on the above matrix would get the same result as V R : +, since adding two row vectors is equivalent to adding their elements. But V R = * would multiply the two rows (to get a single number, their dot product), while V R : * would produce a vector of the products of the columns.
+
+These three matrix reduction modes work with V R and I V R, but they are not currently supported with V U or I V U.
+
+The obsolete reduce-by-columns function, reducec, is still supported but there is no way to get it through the V R command.
+
+The commands C-x * : and C-x * _ are equivalent to typing C-x * r to grab a rectangle of data into Calc, and then typing V R : + or V R _ +, respectively, to sum the columns or rows of the matrix. See Grabbing from Other Buffers.
+
+
+**** Nesting and Fixed Points
+
+The H V R [nest] command applies a function to a given argument repeatedly. It takes two values, ‘a’ and ‘n’, from the stack, where ‘n’ must be an integer. It then applies the function nested ‘n’ times; if the function is ‘f’ and ‘n’ is 3, the result is ‘f(f(f(a)))’. The number ‘n’ may be negative if Calc knows an inverse for the function ‘f’; for example, ‘nest(sin, a, -2)’ returns ‘arcsin(arcsin(a))’.
+
+The H V U [anest] command is an accumulating version of nest: It returns a vector of ‘n+1’ values, e.g., ‘[a, f(a), f(f(a)), f(f(f(a)))]’. If ‘n’ is negative and ‘F’ is the inverse of ‘f’, then the result is of the form ‘[a, F(a), F(F(a)), F(F(F(a)))]’.
+
+The H I V R [fixp] command is like H V R, except that it takes only an ‘a’ value from the stack; the function is applied until it reaches a “fixed point,” i.e., until the result no longer changes.
+
+The H I V U [afixp] command is an accumulating fixp. The first element of the return vector will be the initial value ‘a’; the last element will be the final result that would have been returned by fixp.
+
+For example, 0.739085 is a fixed point of the cosine function (in radians): ‘cos(0.739085) = 0.739085’. You can find this value by putting, say, 1.0 on the stack and typing H I V U C. (We use the accumulating version so we can see the intermediate results: ‘[1, 0.540302, 0.857553, 0.65329, ...]’. With a precision of six, this command will take 36 steps to converge to 0.739085.)
+
+Newton’s method for finding roots is a classic example of iteration to a fixed point. To find the square root of five starting with an initial guess, Newton’s method would look for a fixed point of the function ‘(x + 5/x) / 2’. Putting a guess of 1 on the stack and typing H I V R ' ($ + 5/$)/2 RET quickly yields the result 2.23607. This is equivalent to using the a R (calc-find-root) command to find a root of the equation ‘x^2 = 5’.
+
+These examples used numbers for ‘a’ values. Calc keeps applying the function until two successive results are equal to within the current precision. For complex numbers, both the real parts and the imaginary parts must be equal to within the current precision. If ‘a’ is a formula (say, a variable name), then the function is applied until two successive results are exactly the same formula. It is up to you to ensure that the function will eventually converge; if it doesn’t, you may have to press C-g to stop the Calculator.
+
+The algebraic fixp function takes two optional arguments, ‘n’ and ‘tol’. The first is the maximum number of steps to be allowed, and must be either an integer or the symbol ‘inf’ (infinity, the default). The second is a convergence tolerance. If a tolerance is specified, all results during the calculation must be numbers, not formulas, and the iteration stops when the magnitude of the difference between two successive results is less than or equal to the tolerance. (This implies that a tolerance of zero iterates until the results are exactly equal.)
+
+Putting it all together, ‘fixp(<(# + A/#)/2>, B, 20, 1e-10)’ computes the square root of ‘A’ given the initial guess ‘B’, stopping when the result is correct within the specified tolerance, or when 20 steps have been taken, whichever is sooner.
+
+
+**** Generalized Products
+
+The V O (calc-outer-product) [outer] command applies a given binary operator to all possible pairs of elements from two vectors, to produce a matrix. For example, V O * with ‘[a, b]’ and ‘[x, y, z]’ on the stack produces a multiplication table: ‘[[a x, a y, a z], [b x, b y, b z]]’. Element r,c of the result matrix is obtained by applying the operator to element r of the lefthand vector and element c of the righthand vector.
+
+The V I (calc-inner-product) [inner] command computes the generalized inner product of two vectors or matrices, given a “multiplicative” operator and an “additive” operator. These can each actually be any binary operators; if they are ‘*’ and ‘+’, respectively, the result is a standard matrix multiplication. Element r,c of the result matrix is obtained by mapping the multiplicative operator across row r of the lefthand matrix and column c of the righthand matrix, and then reducing with the additive operator. Just as for the standard * command, this can also do a vector-matrix or matrix-vector inner product, or a vector-vector generalized dot product.
+
+Since V I requires two operators, it prompts twice. In each case, you can use any of the usual methods for entering the operator. If you use $ twice to take both operator formulas from the stack, the first (multiplicative) operator is taken from the top of the stack and the second (additive) operator is taken from second-to-top.
+
+
+*** Vector and Matrix Display Formats
+
+Commands for controlling vector and matrix display use the v prefix instead of the usual d prefix. But they are display modes; in particular, they are influenced by the I and H prefix keys in the same way (see Display Modes). Matrix display is also influenced by the d O (calc-flat-language) mode; see Normal Language Modes.
+
+The commands v < (calc-matrix-left-justify), v > (calc-matrix-right-justify), and v = (calc-matrix-center-justify) control whether matrix elements are justified to the left, right, or center of their columns.
+
+The v [ (calc-vector-brackets) command turns the square brackets that surround vectors and matrices displayed in the stack on and off. The v { (calc-vector-braces) and v ( (calc-vector-parens) commands use curly braces or parentheses, respectively, instead of square brackets. For example, v { might be used in preparation for yanking a matrix into a buffer running Mathematica. (In fact, the Mathematica language mode uses this mode; see Mathematica Language Mode.) Note that, regardless of the display mode, either brackets or braces may be used to enter vectors, and parentheses may never be used for this purpose.
+
+The v ] (calc-matrix-brackets) command controls the “big” style display of matrices, for matrices which have more than one row. It prompts for a string of code letters; currently implemented letters are R, which enables brackets on each row of the matrix; O, which enables outer brackets in opposite corners of the matrix; and C, which enables commas or semicolons at the ends of all rows but the last. The default format is ‘RO’. (Before Calc 2.00, the format was fixed at ‘ROC’.) Here are some example matrices:
+
+[ [ 123,  0,   0  ]       [ [ 123,  0,   0  ],
+  [  0,  123,  0  ]         [  0,  123,  0  ],
+  [  0,   0,  123 ] ]       [  0,   0,  123 ] ]
+
+         RO                        ROC
+
+  [ 123,  0,   0            [ 123,  0,   0 ;
+     0,  123,  0               0,  123,  0 ;
+     0,   0,  123 ]            0,   0,  123 ]
+
+          O                        OC
+
+  [ 123,  0,   0  ]           123,  0,   0
+  [  0,  123,  0  ]            0,  123,  0
+  [  0,   0,  123 ]            0,   0,  123
+
+          R                       blank
+Note that of the formats shown here, ‘RO’, ‘ROC’, and ‘OC’ are all recognized as matrices during reading, while the others are useful for display only.
+
+The v , (calc-vector-commas) command turns commas on and off in vector and matrix display.
+
+In vectors of length one, and in all vectors when commas have been turned off, Calc adds extra parentheses around formulas that might otherwise be ambiguous. For example, ‘[a b]’ could be a vector of the one formula ‘a b’, or it could be a vector of two variables with commas turned off. Calc will display the former case as ‘[(a b)]’. You can disable these extra parentheses (to make the output less cluttered at the expense of allowing some ambiguity) by adding the letter P to the control string you give to v ] (as described above).
+
+The v . (calc-full-vectors) command turns abbreviated display of long vectors on and off. In this mode, vectors of six or more elements, or matrices of six or more rows or columns, will be displayed in an abbreviated form that displays only the first three elements and the last element: ‘[a, b, c, ..., z]’. When very large vectors are involved this will substantially improve Calc’s display speed.
+
+The t . (calc-full-trail-vectors) command controls a similar mode for recording vectors in the Trail. If you turn on this mode, vectors of six or more elements and matrices of six or more rows or columns will be abbreviated when they are put in the Trail. The t y (calc-trail-yank) command will be unable to recover those vectors. If you are working with very large vectors, this mode will improve the speed of all operations that involve the trail.
+
+The v / (calc-break-vectors) command turns multi-line vector display on and off. Normally, matrices are displayed with one row per line but all other types of vectors are displayed in a single line. This mode causes all vectors, whether matrices or not, to be displayed with a single element per line. Sub-vectors within the vectors will still use the normal linear form.
