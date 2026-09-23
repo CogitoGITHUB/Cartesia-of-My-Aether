@@ -29,7 +29,15 @@ at load.
     (`(and . ,rest) (cl-every (lambda (q) (my/atlas-query--match-p note q)) rest))
     (`(or . ,rest) (cl-some (lambda (q) (my/atlas-query--match-p note q)) rest))
     (`(not ,q) (not (my/atlas-query--match-p note q)))
-    (`(tag ,tag) (member tag (ignore-errors (manifolding-atlas-note-tags note))))
+    (`(tag ,tag)
+     (let ((tags (ignore-errors (manifolding-atlas-note-tags note))))
+       (if (and (fboundp 'my/atlas-tag-transitive)
+                (boundp 'my/atlas-tag-extends)
+                (> (hash-table-count my/atlas-tag-extends) 0))
+           ;; Transitive: note matches on TAG or any descendant.
+           (seq-intersection
+            (ignore-errors (my/atlas-tag-transitive tag)) tags)
+         (member tag tags))))
     (`(title-match ,re)
      (let ((title (ignore-errors (manifolding-atlas-note-title note))))
        (and title (string-match-p re title))))
