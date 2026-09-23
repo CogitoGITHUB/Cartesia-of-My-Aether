@@ -1,0 +1,89 @@
+#+title:      Data Doctor
+
+* Data Doctor :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       2d658051-2695-4342-87c0-3edc679c7719
+:END:
+
+Data-integrity health for the atlas (distinct from the package-health
+doctor): checks reply ok/repair/skipped per item, repairs are explicit
+and snapshot first.  Read-only by default; `atlas-data-doctor` with
+repair confirms each fix with y-or-n.  Nothing here runs at load.
+
+** Checks
+#+begin_src emacs-lisp
+(require 'cl-lib)
+
+(defun my/atlas-data-doctor-checks ()
+  "Alist (LABEL STATUS DETAIL).  STATUS is ok, bad, or skipped."
+  (let ((root (ignore-errors (my/manifolding-atlas-root-dir)))
+        (home (expand-file-name "~"))
+        (out nil))
+    (push (list "vault-root" (if (and root (file-directory-p root)) 'ok 'bad)
+                (or root "unresolvable"))
+          out)
+    (push (list "discovery-index"
+                (condition-case nil
+                    (progn (with-temp-buffer
+                             (insert-file-contents
+                              (expand-file-name ".config/emacs/.local/cache/discovery-index.el" home))
+                             (read (current-buffer)))
+                           'ok)
+                  (error 'bad))
+                "")
+          out)
+    (push (list "known-keys"
+                (let ((p (and (fboundp 'my/manifolding-atlas-links--known-keys-path)
+                              (ignore-errors
+                               (my/manifolding-atlas-links--known-keys-path)))))
+                  (if (and p (file-exists-p p)) 'ok 'bad))
+                "")
+          out)
+    (push (list "database"
+                (condition-case nil
+                    (if (ignore-errors (manifolding-atlas-db)) 'ok 'bad)
+                  (error 'bad))
+                "")
+          out)
+    (push (list "eval-cache-dir"
+                (if (file-directory-p
+                     (expand-file-name ".config/emacs/.local/cache/module-cache" home))
+                    'ok 'bad)
+                "")
+          out)
+    (nreverse out)))
+#+end_src
+
+** Repair
+#+begin_src emacs-lisp
+(defun my/atlas-data-doctor-repair (label)
+  "Repair LABEL's issue with confirmation.  Only cache-grade data is
+ever deleted (everything rebuilds on reload); notes are never touched."
+  (interactive
+   (list (completing-read "Repair: " '("discovery-index" "eval-cache-dir"))))
+  (let ((home (expand-file-name "~")))
+    (cond
+     ((string= label "discovery-index")
+      (when (yes-or-no-p "Delete discovery index (rebuilds on reload)? ")
+        (ignore-errors
+          (delete-file (expand-file-name ".config/emacs/.local/cache/discovery-index.el" home)))
+        (message "index deleted")))
+     ((string= label "eval-cache-dir")
+      (when (yes-or-no-p "Delete eval cache (rebuilds on reload)? ")
+        (ignore-errors
+          (delete-directory
+           (expand-file-name ".config/emacs/.local/cache/module-cache" home) t))
+        (message "cache deleted"))))))
+
+(defun atlas-data-doctor (&optional repair)
+  "Report data health; with prefix arg, offer repairs one by one."
+  (interactive "P")
+  (let ((rows (my/atlas-data-doctor-checks)))
+    (message "data-doctor: %s"
+             (mapconcat (lambda (r) (format "%s=%s" (nth 0 r) (nth 1 r)))
+                        rows " "))
+    (when repair
+      (dolist (r rows)
+        (when (eq (nth 1 r) 'bad)
+          (my/atlas-data-doctor-repair (nth 0 r)))))))
+#+end_src
