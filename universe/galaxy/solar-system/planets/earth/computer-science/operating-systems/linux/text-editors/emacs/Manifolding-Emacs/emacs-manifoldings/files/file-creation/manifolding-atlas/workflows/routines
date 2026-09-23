@@ -7,7 +7,7 @@ routine entries referencing sources via =SOURCE=, =ROUTINE_ID= and
 and the SQLite index, so queries run against the DB without re-parsing
 org. Chains are routines whose sources are themselves routines.
 
-*** Require :EMACS_MECHANISM:
+* Require :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       2894ef3b-7eda-4387-9769-1b30636ea837
 :MM_PARENT: none
