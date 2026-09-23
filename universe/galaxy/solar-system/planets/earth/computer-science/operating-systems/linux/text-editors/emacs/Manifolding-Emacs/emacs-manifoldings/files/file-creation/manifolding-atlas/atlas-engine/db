@@ -589,6 +589,7 @@ review prompts."
                     (mapcar #'car (emacsql db [:select [id] :from notes])))))))
 #+end_src
 
+#+begin_src emacs-lisp
 (defun manifolding-atlas-db-update-file (path)
   (let ((db (manifolding-atlas-db)))
     (if db
