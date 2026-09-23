@@ -44,7 +44,7 @@ headline but zero parseable KEYs. No path anywhere."
 Returns level-2 heading titles top-down, duplicates removed.
 Returns nil when unreadable or empty."
   (let ((f (or file (my/manifolding-atlas-drawer-order-file))))
-    (when (file-exists-p f)
+    (when (and f (file-exists-p f))
       (with-temp-buffer
         (insert-file-contents f)
         (let (keys)
@@ -98,24 +98,21 @@ Move the headings, save, and the vault follows the new order.
   "Install buffer-local save hook for the order file."
   (add-hook 'after-save-hook
             #'my/manifolding-atlas--drawer-order-after-save nil t))
-(add-hook 'find-file-hook
-          (lambda ()
-            ;; Vault files only, and never throw: a nil order file, a
-            ;; failed scan, or an unresolvable root simply skips.  (An
-            ;; unguarded `expand-file-name' on nil once threw out of
-            ;; every find-file in the session, including dashboard's
-            ;; bookmark load and nested latexenc opens of straight
-            ;; test files.)
-            (let ((root (ignore-errors (my/manifolding-atlas-root-dir))))
-              (when (and buffer-file-name root
-                         (file-in-directory-p buffer-file-name root))
-                (let ((order-file
-                       (ignore-errors
-                        (my/manifolding-atlas-drawer-order-file))))
-                  (when (and order-file
-                             (string= (expand-file-name buffer-file-name)
-                                      (expand-file-name order-file)))
-                    (my/manifolding-atlas--install-drawer-order-save-hook)))))))
+(defun my/manifolding-atlas--drawer-order-find-file-hook ()
+  "Install the drawer-order save hook when opening the order file.
+Vault files only, never throws, and idempotent by name: same-session
+reloads never stack duplicate lambdas on `find-file-hook'."
+  (let ((root (ignore-errors (my/manifolding-atlas-root-dir))))
+    (when (and buffer-file-name root
+               (file-in-directory-p buffer-file-name root))
+      (let ((order-file
+             (ignore-errors
+              (my/manifolding-atlas-drawer-order-file))))
+        (when (and order-file
+                   (string= (expand-file-name buffer-file-name)
+                            (expand-file-name order-file)))
+          (my/manifolding-atlas--install-drawer-order-save-hook))))))
+(add-hook 'find-file-hook #'my/manifolding-atlas--drawer-order-find-file-hook)
 #+end_src
 
 ** Boot reconcile
@@ -4171,13 +4168,15 @@ Cached per session; `my/manifolding-atlas-blueprint-refresh' rebuilds."
 
 (defun my/manifolding-atlas-blueprint-file-for (name)
   "Resolve blueprint/template NAME to its file via tag scan.
-Matches exact, upcased, or downcased KEY."
+Matches exact, upcased, or downcased KEY.  NAME may be a symbol
+(prompt files pass quoted symbols) or a string."
   (when name
-    (let ((alist (my/manifolding-atlas-blueprint-key-files)))
-      (or (cdr (assoc name alist))
-          (cdr (assoc (upcase name) alist))
+    (let ((name-str (if (symbolp name) (symbol-name name) name))
+          (alist (my/manifolding-atlas-blueprint-key-files)))
+      (or (cdr (assoc name-str alist))
+          (cdr (assoc (upcase name-str) alist))
           (cl-find-if (lambda (e) (string= (downcase (car e))
-                                           (downcase name)))
+                                           (downcase name-str)))
                       alist)))))
 
 (defun my/manifolding-atlas-template-file (name)
