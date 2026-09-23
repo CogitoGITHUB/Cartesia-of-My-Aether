@@ -1,0 +1,699 @@
+#+title:      Display Echo and Refresh
+
+* Display Echo and Refresh :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       cb0826e1-e64e-438f-8cb4-f6affc01a37c
+:END:
+
+This section describes variables that control miscellaneous aspects of the appearance of the Emacs screen. Beginning users can skip it.
+
+If you want to have Emacs display line numbers for every line in the buffer, customize the buffer-local variable display-line-numbers; it is nil by default. This variable can have several different values to support various modes of line-number display:
+
+t
+Display (an absolute) line number before each non-continuation screen line that displays buffer text. If the line is a continuation line, or if the entire screen line displays a display or an overlay string, that line will not be numbered.
+
+relative
+Display relative line numbers before non-continuation lines which show buffer text. The line numbers are relative to the line showing point, so the numbers grow both up and down as lines become farther from the current line.
+
+visual
+This value causes Emacs to count lines visually: only lines actually shown on the display will be counted (disregarding any lines in invisible parts of text), and lines which wrap to consume more than one screen line will be numbered that many times. The displayed numbers are relative, as with relative value above. This is handy in modes that fold text, such as Outline mode (see Outline Mode), and when you need to move by exact number of screen lines.
+
+anything else
+Any other non-nil value is treated as t.
+
+The command M-x display-line-numbers-mode provides a convenient way to turn on display of line numbers. This mode has a globalized variant, global-display-line-numbers-mode. The user option display-line-numbers-type controls which sub-mode of line-number display, described above, these modes will activate.
+
+Note that line numbers are not displayed in the minibuffer and in the tooltips, even if you turn on display-line-numbers-mode globally.
+
+When Emacs displays relative line numbers, you can control the number displayed before the current line, the line showing point. By default, Emacs displays the absolute number of the current line there, even though all the other line numbers are relative. If you customize the variable display-line-numbers-current-absolute to a nil value, the number displayed for the current line will be zero. This is handy if you don’t care about the number of the current line, and want to leave more horizontal space for text in large buffers.
+
+In a narrowed buffer (see Narrowing) lines are normally numbered starting at the beginning of the narrowing. However, if you customize the variable display-line-numbers-widen to a non-nil value, line numbers will disregard any narrowing and will start at the first character of the buffer.
+
+If the value of display-line-numbers-offset is non-zero, it is added to each absolute line number, and lines are counted from the beginning of the buffer, as if display-line-numbers-widen were non-nil. It has no effect when set to zero, or when line numbers are not absolute.
+
+In selective display mode (see Selective Display), and other modes that hide many lines from display (such as Outline and Org modes), you may wish to customize the variables display-line-numbers-width-start and display-line-numbers-grow-only, or set display-line-numbers-width to a large enough value, to avoid occasional miscalculations of space reserved for the line numbers.
+
+The line numbers are displayed in a special face line-number. The current line number is displayed in a different face, line-number-current-line, so you can make the current line’s number have a distinct appearance, which will help locating the line showing point. Additional faces line-number-major-tick and line-number-minor-tick can be used to highlight the line numbers of lines which are a multiple of certain numbers. Customize display-line-numbers-major-tick and display-line-numbers-minor-tick respectively to set those numbers.
+
+If the variable visible-bell is non-nil, Emacs attempts to make the whole screen blink when it would normally make an audible bell sound. This variable has no effect if your terminal does not have a way to make the screen blink.
+
+The variable echo-keystrokes controls the echoing of multi-character keys; its value is the number of seconds of pause required to cause echoing to start, or zero, meaning don’t echo at all. The value takes effect when there is something to echo. See The Echo Area.
+
+On graphical displays, Emacs displays the mouse pointer as an hourglass if Emacs is busy. To disable this feature, set the variable display-hourglass to nil. The variable hourglass-delay determines the number of seconds of busy time before the hourglass is shown; the default is 1.
+
+If the mouse pointer lies inside an Emacs frame, Emacs makes it invisible each time you type a character to insert text, to prevent it from obscuring the text. (To be precise, the hiding occurs when you type a self-inserting character. See Inserting Text.) Moving the mouse pointer makes it visible again. To disable this feature, set the variable make-pointer-invisible to nil.
+
+On graphical displays, the variable underline-minimum-offset determines the minimum distance between the baseline and underline, in pixels, for underlined text. By default, the value is 1; increasing it may improve the legibility of underlined text for certain fonts. (However, Emacs will never draw the underline below the current line area.) The variable x-underline-at-descent-line determines how to draw underlined text. The default is nil, which means to draw it at the baseline level of the font; if you change it to t, Emacs draws the underline at the same height as the font’s descent line. (If non-default line spacing was specified for the underlined text, see Line Height in The Emacs Lisp Reference Manual, Emacs draws the underline below the additional spacing.)
+
+The variable overline-margin specifies the vertical position of an overline above the text, including the height of the overline itself, in pixels; the default is 2.
+
+On some text terminals, bold face and inverse video together result in text that is hard to read. Call the function tty-suppress-bold-inverse-default-colors with a non-nil argument to suppress the effect of bold-face in this case.
+
+Raw bytes are displayed in octal format by default, for example a byte with a decimal value of 128 is displayed as \200. To change display to the hexadecimal format of \x80, set the variable display-raw-bytes-as-hex to t. Care may be needed when interpreting a raw byte when copying text from a terminal containing an Emacs session, or when a terminal’s escape-glyph face looks like the default face. For example, by default Emacs displays the four characters ‘\’, ‘2’, ‘0’, ‘0’ with the same characters it displays a byte with decimal value 128. The problem can be worse with hex displays, where the raw byte 128 followed by the character ‘7’ is displayed as \x807, which Emacs Lisp reads as the single character U+0807 SAMARITAN LETTER IT; this confusion does not occur with the corresponding octal display \2007 because octal escapes contain at most three digits.
+
+
+
+
+** Refreshing the Screen
+
+The function redraw-frame clears and redisplays the entire contents of a given frame (see Frames). This is useful if the screen is corrupted.
+
+Function: redraw-frame &optional frame ¶
+This function clears and redisplays frame frame. If frame is omitted or nil, it redraws the selected frame.
+
+Even more powerful is redraw-display:
+
+Command: redraw-display ¶
+This function clears and redisplays all visible frames.
+
+In Emacs, processing user input takes priority over redisplay. If you call these functions when input is available, they don’t redisplay immediately, but the requested redisplay does happen eventually—after all the input has been processed.
+
+On text terminals, suspending and resuming Emacs normally also refreshes the screen. Some terminal emulators record separate contents for display-oriented programs such as Emacs and for ordinary sequential display. If you are using such a terminal, you might want to inhibit the redisplay on resumption.
+
+User Option: no-redraw-on-reenter ¶
+This variable controls whether Emacs redraws the entire screen after it has been suspended and resumed. Non-nil means there is no need to redraw, nil means redrawing is needed. The default is nil.
+
+
+** Forcing Redisplay
+
+Emacs normally tries to redisplay the screen whenever it waits for input. With the following function, you can request an immediate attempt to redisplay, in the middle of Lisp code, without actually waiting for input.
+
+Function: redisplay &optional force ¶
+This function tries immediately to redisplay. The optional argument force, if non-nil, forces the redisplay to be performed, instead of being preempted if input is pending.
+
+The function returns t if it actually tried to redisplay, and nil otherwise. A value of t does not mean that redisplay proceeded to completion; it could have been preempted by newly arriving input.
+
+Although redisplay tries immediately to redisplay, it does not change how Emacs decides which parts of its frame(s) to redisplay. By contrast, the following function adds certain windows to the pending redisplay work (as if their contents had completely changed), but does not immediately try to perform redisplay.
+
+Function: force-window-update &optional object ¶
+This function forces some or all windows to be updated the next time Emacs does a redisplay. If object is a window, that window is to be updated. If object is a buffer or buffer name, all windows displaying that buffer are to be updated. If object is nil (or omitted), all windows are to be updated.
+
+This function does not do a redisplay immediately; Emacs does that as it waits for input, or when the function redisplay is called.
+
+Variable: pre-redisplay-function ¶
+A function run just before redisplay. It is called with one argument, the set of windows to be redisplayed. The set can be nil, meaning only the selected window, or t, meaning all the windows.
+
+Variable: pre-redisplay-functions ¶
+This hook is run just before redisplay. It is called once in each window that is about to be redisplayed, with current-buffer set to the buffer displayed in that window.
+
+
+** Truncation
+
+When a line of text extends beyond the right edge of a window, Emacs can continue the line (make it wrap to the next screen line), or truncate the line (limit it to one screen line). The additional screen lines used to display a long text line are called continuation lines. Continuation is not the same as filling; continuation happens on the screen only, not in the buffer contents, and it breaks a line precisely at the right margin, not at a word boundary. See Filling.
+
+On a graphical display, tiny arrow images in the window fringes indicate truncated and continued lines (see Fringes). On a text terminal, a ‘$’ in the rightmost column of the window indicates truncation; a ‘\’ on the rightmost column indicates a line that wraps. (The display table can specify alternate characters to use for this; see Display Tables).
+
+Since wrapping and truncation of text contradict each other, Emacs turns off line truncation when wrapping is requested, and vice versa.
+
+User Option: truncate-lines ¶
+If this buffer-local variable is non-nil, lines that extend beyond the right edge of the window are truncated; otherwise, they are continued. As a special exception, the variable truncate-partial-width-windows takes precedence in partial-width windows (i.e., windows that do not occupy the entire frame width).
+
+User Option: truncate-partial-width-windows ¶
+This variable controls line truncation in partial-width windows. A partial-width window is one that does not occupy the entire frame width (see Splitting Windows). If the value is nil, line truncation is determined by the variable truncate-lines (see above). If the value is an integer n, lines are truncated if the partial-width window has fewer than n columns, regardless of the value of truncate-lines; if the partial-width window has n or more columns, line truncation is determined by truncate-lines. For any other non-nil value, lines are truncated in every partial-width window, regardless of the value of truncate-lines.
+
+When horizontal scrolling (see Horizontal Scrolling) is in use in a window, that forces truncation.
+
+Variable: wrap-prefix ¶
+If this buffer-local variable is non-nil, it defines a wrap prefix which Emacs displays at the start of every continuation line. (If lines are truncated, wrap-prefix is never used.) Its value may be a string or an image (see Other Display Specifications), or a stretch of whitespace such as specified by the :width or :align-to display properties (see Specified Spaces). The value is interpreted in the same way as a display text property. See The display Property.
+
+A wrap prefix may also be specified for regions of text, using the wrap-prefix text or overlay property. This takes precedence over the wrap-prefix variable. See Properties with Special Meanings.
+
+Variable: line-prefix ¶
+If this buffer-local variable is non-nil, it defines a line prefix which Emacs displays at the start of every non-continuation line. Its value may be a string or an image (see Other Display Specifications), or a stretch of whitespace such as specified by the :width or :align-to display properties (see Specified Spaces). The value is interpreted in the same way as a display text property. See The display Property.
+
+A line prefix may also be specified for regions of text using the line-prefix text or overlay property. This takes precedence over the line-prefix variable. See Properties with Special Meanings.
+
+
+** The Echo Area
+
+The echo area is used for displaying error messages (see Errors), for messages made with the message primitive, and for echoing keystrokes. It is not the same as the minibuffer, despite the fact that the minibuffer appears (when active) in the same place on the screen as the echo area. See The Minibuffer in The GNU Emacs Manual.
+
+Apart from the functions documented in this section, you can print Lisp objects to the echo area by specifying t as the output stream. See Output Streams.
+
+**** Displaying Messages in the Echo Area
+
+This section describes the standard functions for displaying messages in the echo area.
+
+Function: message format-string &rest arguments ¶
+This function displays a message in the echo area. format-string is a format string, and arguments are the objects for its format specifications, like in the format-message function (see Formatting Strings). The resulting formatted string is displayed in the echo area; if it contains face text properties, it is displayed with the specified faces (see Faces). The string is also added to the *Messages* buffer, but without text properties (see Logging Messages in *Messages*).
+
+Typically grave accent and apostrophe in the format translate to matching curved quotes, e.g., "Missing `%s'" might result in "Missing ‘foo’". See Text Quoting Style, for how to influence or inhibit this translation.
+
+In batch mode, the message is printed to the standard error stream, followed by a newline.
+
+When inhibit-message is non-nil, no message will be displayed in the echo area, it will only be logged to ‘*Messages*’.
+
+If format-string is nil or the empty string, message clears the echo area; if the echo area has been expanded automatically, this brings it back to its normal size. If the minibuffer is active, this brings the minibuffer contents back onto the screen immediately.
+
+(message "Reverting `%s'..." (buffer-name))
+ -| Reverting ‘subr.el’...
+⇒ "Reverting ‘subr.el’..."
+
+---------- Echo Area ----------
+Reverting ‘subr.el’...
+---------- Echo Area ----------
+To automatically display a message in the echo area or in a pop-buffer, depending on its size, use display-message-or-buffer (see below).
+
+Warning: If you want to use your own string as a message verbatim, don’t just write (message string). If string contains ‘%’, ‘`’, or ‘'’ it may be reformatted, with undesirable results. Instead, use (message "%s" string).
+
+The following facilities allow users and Lisp programs to control how echo-area messages are displayed.
+
+Variable: set-message-function ¶
+If this variable is non-nil, it should be a function of one argument, the text of a message to display in the echo area. That function will be called by message and related functions. If the function returns nil, the message is displayed in the echo area as usual. If the function returns a string, that string is displayed in the echo area instead of the original message. If the function returns any other non-nil value, that means the message was already handled, so message will not display anything in the echo area.
+
+The default value calls set-minibuffer-message, described below.
+
+Variable: clear-message-function ¶
+If this variable is non-nil, it should be a function of no arguments; message and related functions call it when their argument message is nil or the empty string, to clear the echo area.
+
+Usually this function is called when the next input event arrives after displaying an echo-area message. The function is expected to clear the message displayed by its counterpart function specified by set-message-function, but doesn’t have to. If the function wants the echo area to remain uncleared, it should return the symbol dont-clear-message; any other value will result in the echo area being cleared.
+
+The default value is the function that clears the message displayed in an active minibuffer.
+
+User Option: set-message-functions ¶
+The value of this user option is a list of functions to be called for handling display of echo-area messages. Each function is called with one argument, the text of the message to display. If the function returns a string, that string replaces the original message, and the next function in the list is called with the new message text. If the function returns nil, the next function in the list is called with the same text; if the last function in the list returns nil, the message text is displayed in the echo area. If the function returns a non-nil value that is not a string, the message is considered to be handled, and no further functions in the list are called.
+
+The three useful functions to be put in the list that is the value of this option are described below.
+
+Function: set-minibuffer-message message ¶
+This function displays message in the echo-area when the minibuffer is not active, and at the end of the minibuffer when the minibuffer is active. However, if the text shown in the active minibuffer has the minibuffer-message text property (see Properties with Special Meanings) on some character, the message will be displayed before the first character having that property.
+
+This function is by default the only member of the list in set-message-functions.
+
+Function: inhibit-message message ¶
+If an echo-area message matches any regexp in the list that is the value of the user option inhibit-message-regexps, this function suppresses the display of that message and returns a non-nil value that is not a string. Thus, if this function is in the list set-message-functions, the rest of the functions in the list will not be called when message matches the regexps in inhibit-message-regexps. To ensure a matching message will never be displayed, make this function be the first element of the list in set-message-functions.
+
+Function: set-multi-message message ¶
+This function accumulates several echo-area messages emitted one after another, and returns them as a single string in which individual messages are separated by newlines. Up to multi-message-max recent messages can be accumulated. The accumulated messages are discarded when more than multi-message-timeout seconds have elapsed since the time the first message was emitted.
+
+Variable: inhibit-message ¶
+When this variable is non-nil, message and related functions will not display any messages in the Echo Area. Echo-area messages are still logged in the *Messages* buffer, though.
+
+Macro: with-temp-message message &rest body ¶
+This construct displays a message in the echo area temporarily, during the execution of body. It displays message, executes body, then returns the value of the last body form while restoring the previous echo area contents.
+
+Function: message-or-box format-string &rest arguments ¶
+This function displays a message like message, but may display it in a dialog box instead of the echo area. If this function is called in a command that was invoked using the mouse—more precisely, if last-nonmenu-event (see Information from the Command Loop) is either nil or a list—then it uses a dialog box or pop-up menu to display the message. Otherwise, it uses the echo area. (This is the same criterion that y-or-n-p uses to make a similar decision; see Yes-or-No Queries.)
+
+You can force use of the mouse or of the echo area by binding last-nonmenu-event to a suitable value around the call.
+
+Function: message-box format-string &rest arguments ¶
+This function displays a message like message, but uses a dialog box (or a pop-up menu) whenever that is possible. If it is impossible to use a dialog box or pop-up menu, because the terminal does not support them, then message-box uses the echo area, like message.
+
+Function: display-message-or-buffer message &optional buffer-name action frame ¶
+This function displays the message message, which may be either a string or a buffer. If it is shorter than the maximum height of the echo area, as defined by max-mini-window-height, it is displayed in the echo area, using message. Otherwise, display-buffer is used to show it in a pop-up buffer.
+
+Returns either the string shown in the echo area, or when a pop-up buffer is used, the window used to display it.
+
+If message is a string, then the optional argument buffer-name is the name of the buffer used to display it when a pop-up buffer is used, defaulting to *Message*. In the case where message is a string and displayed in the echo area, it is not specified whether the contents are inserted into the buffer anyway.
+
+The optional arguments action and frame are as for display-buffer, and only used if a buffer is displayed.
+
+Function: current-message ¶
+This function returns the message currently being displayed in the echo area, or nil if there is none.
+
+
+**** Reporting Operation Progress
+
+When an operation can take a while to finish, you should inform the user about the progress it makes. This way the user can estimate remaining time and clearly see that Emacs is busy working, not hung. A convenient way to do this is to use a progress reporter.
+
+Here is a working example that does nothing useful:
+
+(let ((progress-reporter
+       (make-progress-reporter "Collecting mana for Emacs..."
+                               0  500)))
+  (dotimes (k 500)
+    (sit-for 0.01)
+    (progress-reporter-update progress-reporter k))
+  (progress-reporter-done progress-reporter))
+Function: make-progress-reporter message &optional min-value max-value current-value min-change min-time ¶
+This function creates and returns a progress reporter object, which you will use as an argument for the other functions listed below. The idea is to precompute as much data as possible to make progress reporting very fast.
+
+When this progress reporter is subsequently used, it will display message in the echo area, followed by progress percentage. message is treated as a simple string. If you need it to depend on a filename, for instance, use format-message before calling this function.
+
+The arguments min-value and max-value should be numbers standing for the starting and final states of the operation. For instance, an operation that scans a buffer should set these to the results of point-min and point-max correspondingly. max-value should be greater than min-value.
+
+Alternatively, you can set min-value and max-value to nil. In that case, the progress reporter does not report process percentages; it instead displays a “spinner” that rotates a notch each time you update the progress reporter.
+
+If min-value and max-value are numbers, you can give the argument current-value a numerical value specifying the initial progress; if omitted, this defaults to min-value.
+
+The remaining arguments control the rate of echo area updates. The progress reporter will wait for at least min-change more percents of the operation to be completed before printing next message; the default is one percent. min-time specifies the minimum time in seconds to pass between successive prints; the default is 0.2 seconds. (On some operating systems, the progress reporter may handle fractions of seconds with varying precision).
+
+This function calls progress-reporter-update, so the first message is printed immediately.
+
+Function: progress-reporter-update reporter &optional value suffix ¶
+This function does the main work of reporting progress of your operation. It displays the message of reporter, followed by progress percentage determined by value. If percentage is zero, or close enough according to the min-change and min-time arguments, then it is omitted from the output.
+
+reporter must be the result of a call to make-progress-reporter. value specifies the current state of your operation and must be between min-value and max-value (inclusive) as passed to make-progress-reporter. For instance, if you scan a buffer, then value should be the result of a call to point.
+
+Optional argument suffix is a string to be displayed after reporter’s main message and progress text. If reporter is a non-numerical reporter, then value should be nil, or a string to use instead of suffix.
+
+This function respects min-change and min-time as passed to make-progress-reporter and so does not output new messages on every invocation. It is thus very fast and normally you should not try to reduce the number of calls to it: resulting overhead will most likely negate your effort.
+
+Function: progress-reporter-force-update reporter &optional value new-message suffix ¶
+This function is similar to progress-reporter-update except that it prints a message in the echo area unconditionally.
+
+reporter, value, and suffix have the same meaning as for progress-reporter-update. Optional new-message allows you to change the message of the reporter. Since this function always updates the echo area, such a change will be immediately presented to the user.
+
+Function: progress-reporter-done reporter ¶
+This function should be called when the operation is finished. It prints the message of reporter followed by word ‘done’ in the echo area.
+
+You should always call this function and not hope for progress-reporter-update to print ‘100%’. Firstly, it may never print it, there are many good reasons for this not to happen. Secondly, ‘done’ is more explicit.
+
+Macro: dotimes-with-progress-reporter (var count [result]) reporter-or-message body… ¶
+This is a convenience macro that works the same way as dotimes does, but also reports loop progress using the functions described above. It allows you to save some typing. The argument reporter-or-message can be either a string or a progress reporter object.
+
+You can rewrite the example in the beginning of this subsection using this macro as follows:
+
+(dotimes-with-progress-reporter
+    (k 500)
+    "Collecting some mana for Emacs..."
+  (sit-for 0.01))
+Using a reporter object as the reporter-or-message argument is useful if you want to specify the optional arguments in make-progress-reporter. For instance, you can write the previous example as follows:
+
+(dotimes-with-progress-reporter
+    (k 500)
+    (make-progress-reporter "Collecting some mana for Emacs..." 0 500 0 1 1.5)
+  (sit-for 0.01))
+Macro: dolist-with-progress-reporter (var list [result]) reporter-or-message body… ¶
+This is another convenience macro that works the same way as dolist does, but also reports loop progress using the functions described above. As in dotimes-with-progress-reporter, reporter-or-message can be a progress reporter or a string. You can rewrite the previous example with this macro as follows:
+
+(dolist-with-progress-reporter
+    (k (number-sequence 0 500))
+    "Collecting some mana for Emacs..."
+  (sit-for 0.01))
+Macro: with-delayed-message (timeout message) body… ¶
+Sometimes it’s unclear whether an operation will take a long time to execute or not, or it can be inconvenient to implement a progress reporter. This macro can be used in those situations.
+
+(with-delayed-message (2 (format "Gathering data for %s" entry))
+  (setq data (gather-data entry)))
+In this example, if the body takes more than two seconds to execute, the message will be displayed. If it takes a shorter time than that, the message won’t be displayed. In either case, the body is evaluated as normally, and the return value of the final element in the body is the return value of the macro.
+
+The message element is evaluated before body, and is always evaluated, whether the message is displayed or not.
+
+
+**** Logging Messages in *Messages*
+Almost all the messages displayed in the echo area are also recorded in the *Messages* buffer so that the user can refer back to them. This includes all the messages that are output with message. By default, this buffer is read-only and uses the major mode messages-buffer-mode. Nothing prevents the user from killing the *Messages* buffer, but the next display of a message recreates it. Any Lisp code that needs to access the *Messages* buffer directly and wants to ensure that it exists should use the function messages-buffer.
+
+Function: messages-buffer ¶
+This function returns the *Messages* buffer. If it does not exist, it creates it, and switches it to messages-buffer-mode.
+
+User Option: message-log-max ¶
+This variable specifies how many lines to keep in the *Messages* buffer. The value t means there is no limit on how many lines to keep. The value nil disables message logging entirely. Here’s how to display a message and prevent it from being logged:
+
+(let (message-log-max)
+  (message …))
+Variable: messages-buffer-name ¶
+This variable has the name of the buffer where messages should be logged to, and defaults to *Messages*. Some packages may find it useful to temporarily redirect the output to a different buffer (perhaps to write the buffer out to a log file later), and they can bind this variable to a different buffer name. (Note that this buffer (if it doesn’t exist already), will be created and put into messages-buffer-mode.)
+
+To make *Messages* more convenient for the user, the logging facility combines successive identical messages. It also combines successive related messages for the sake of two cases: question followed by answer, and a series of progress messages.
+
+A question followed by an answer has two messages like the ones produced by y-or-n-p: the first is ‘question’, and the second is ‘question...answer’. The first message conveys no additional information beyond what’s in the second, so logging the second message discards the first from the log.
+
+A series of progress messages has successive messages like those produced by make-progress-reporter. They have the form ‘base...how-far’, where base is the same each time, while how-far varies. Logging each message in the series discards the previous one, provided they are consecutive.
+
+The functions make-progress-reporter and y-or-n-p don’t have to do anything special to activate the message log combination feature. It operates whenever two consecutive messages are logged that share a common prefix ending in ‘...’.
+
+
+**** Echo Area Customization
+
+These variables control details of how the echo area works.
+
+Variable: cursor-in-echo-area ¶
+This variable controls where the cursor appears when a message is displayed in the echo area. If it is non-nil, then the cursor appears at the end of the message. Otherwise, the cursor appears at point—not in the echo area at all.
+
+The value is normally nil; Lisp programs bind it to t for brief periods of time.
+
+Variable: echo-area-clear-hook ¶
+This normal hook is run whenever the echo area is cleared—either by (message nil) or for any other reason.
+
+User Option: echo-keystrokes ¶
+This variable determines how much time should elapse before command characters echo. Its value must be a number, and specifies the number of seconds to wait before echoing. If the user types a prefix key (such as C-x) and then delays this many seconds before continuing, the prefix key is echoed in the echo area. (Once echoing begins in a key sequence, all subsequent characters in the same key sequence are echoed immediately.)
+
+If the value is zero, then command input is not echoed.
+
+Variable: message-truncate-lines ¶
+Normally, displaying a long message resizes the echo area to display the entire message, wrapping long line as needed. But if the variable message-truncate-lines is non-nil, long lines of echo-area message are instead truncated to fit the mini-window width.
+
+The variable max-mini-window-height, which specifies the maximum height for resizing minibuffer windows, also applies to the echo area (which is really a special use of the minibuffer window; see Minibuffer Windows).
+
+
+** Reporting Warnings
+
+Warnings are a facility for a program to inform the user of a possible problem, but continue running (as opposed to signaling an error, see Errors).
+
+**** Warning Basics
+
+Every warning is a textual message, which explains the problem for the user, with the associated severity level which is a symbol. Here are the supported severity levels, in order of decreasing severity, and their meanings:
+
+:emergency
+A problem that will seriously impair Emacs operation soon if the user does not attend to it promptly.
+
+:error
+A report about data or circumstances that are inherently wrong.
+
+:warning
+A report about data or circumstances that are not inherently wrong, but raise suspicion of a possible problem.
+
+:debug
+A report of information that may be useful if the user is currently debugging the Lisp program which issues the warning.
+
+When your program encounters invalid input data, it can either signal a Lisp error by calling error or signal (see How to Signal an Error) or report a warning with severity :error. Signaling a Lisp error is the easiest thing to do, but it means the signaling program cannot continue execution. If you want to take the trouble of implementing a way to continue processing despite the invalid data, then reporting a warning of severity :error is the right way of informing the user of the problem. For instance, the Emacs Lisp byte compiler can report an error that way and continue compiling other functions. (If the program signals a Lisp error and then handles it with condition-case, the user won’t see the error message; reporting that as a warning instead avoids that problem.)
+
+In addition to severity level, each warning has a warning type to classify it. The warning type is either a symbol or a list of symbols. If it is a symbol, it should be the custom group that you use for the program’s user options; if it is a list, the first element of the list should be that custom group. For example, byte compiler warnings use the warning type (bytecomp). If the warning type is a list, the elements of the list after the first one, which should be arbitrary symbols, represent subcategories of the warning: they will be displayed to the user to better explain the nature of the warning.
+
+Function: display-warning type message &optional level buffer-name ¶
+This function reports a warning, using the string message as the warning text and type as the warning type. level should be the severity level, and defaults to :warning if omitted or nil.
+
+buffer-name, if non-nil, specifies the name of the buffer for logging the warning message. By default, it is *Warnings*.
+
+Function: lwarn type level message &rest args ¶
+This function reports a warning using the value returned by (format-message message args…) as the message text in the *Warnings* buffer. In other respects it is equivalent to display-warning.
+
+Function: warn message &rest args ¶
+This function reports a warning using the value returned by (format-message message args…) as the message text, emacs as the warning type, and :warning as the severity level. It exists for compatibility only; we recommend not using it, because you should specify a specific warning type.
+
+
+**** Warning Variables
+
+Programs can customize how their warnings appear by binding the variables described in this section.
+
+Variable: warning-levels ¶
+This list defines the meaning and severity order of the warning severity levels. Each element defines one severity level, and they are arranged in order of decreasing severity.
+
+Each element has the form (level string [function]), where level is the severity level it defines. string specifies the textual description of this level. string should use ‘%s’ to specify where to put the warning type information, or it can omit the ‘%s’ so as not to include that information.
+
+The optional function, if non-nil, is a function to call with no arguments, to get the user’s attention. A notable example is ding (see Beeping).
+
+Normally you should not change the value of this variable.
+
+Variable: warning-prefix-function ¶
+If non-nil, the value is a function to generate prefix text for warnings. Programs can bind the variable to a suitable function. display-warning calls this function with the warnings buffer the current buffer, and the function can insert text into it. That text becomes the beginning of the warning message.
+
+The function is called with two arguments, the severity level and its entry in warning-levels. It should return a list to use instead of that entry (the value need not be an actual member of warning-levels, but it must have the same structure). By constructing this value, the function can change the severity of the warning, or specify different handling for a given severity level.
+
+If the variable’s value is nil, there’s no prefix text, before the warning is displayed, starting with the string part of the entry in warning-levels corresponding to the warning’s level.
+
+Variable: warning-series ¶
+Programs can bind this variable to t to say that the next warning should begin a series. When several warnings form a series, that means to leave point on the first warning of the series, rather than keep moving it for each warning so that it appears on the last one. The series ends when the local binding of this variable is unbound and warning-series becomes nil again.
+
+The value can also be a symbol with a function definition. That is equivalent to t, except that the next warning will also call the function with no arguments with the warnings buffer the current buffer. The function can, for example, insert text which will serve as a header for the series of warnings.
+
+Once a series has begun, the value of this variable is a marker which points to the buffer position in the warnings buffer of the start of the series.
+
+The variable’s normal value is nil, which means to handle each warning separately.
+
+Variable: warning-fill-prefix ¶
+When this variable is non-nil, it specifies a fill prefix to use for filling the text of each warning.
+
+Variable: warning-fill-column ¶
+The column at which to fill warnings.
+
+Variable: warning-type-format ¶
+This variable specifies the format for displaying the warning type in the warning text. The result of formatting the type this way gets included in the message under the control of the string in the entry in warning-levels. The default value is " (%s)". If you bind it to the empty string "" then the warning type won’t appear at all.
+
+
+**** Warning Options
+
+These variables are used by users to control what happens when a Lisp program reports a warning.
+
+User Option: warning-minimum-level ¶
+This user option specifies the minimum severity level that should be shown immediately to the user, by popping the warnings buffer in some window. The default is :warning, which means to show the warning buffer for any warning severity except :debug. The warnings of lower severity levels will still be written into the warnings buffer, but the buffer will not be forced onto display.
+
+User Option: warning-minimum-log-level ¶
+This user option specifies the minimum severity level that should be logged in the warnings buffer. Warnings of lower severity will be completely ignored: not written to the warnings buffer and not displayed. The default is :warning, which means to log warnings of any severity except :debug.
+
+User Option: warning-suppress-types ¶
+This list specifies which warning types should not be displayed immediately when they occur. Each element of the list should be a list of symbols. If an element of this list has the same elements as the first elements in a warning type, then the warning of that type will not be shown on display by popping the warnings buffer in some window (the warning will still be logged in the warnings buffer).
+
+For example, if the value of this variable is a list like this:
+
+((foo) (bar subtype))
+then warnings whose types are foo or (foo) or (foo something) or (bar subtype other) will not be shown to the user.
+
+User Option: warning-suppress-log-types ¶
+This list specifies which warning types should be ignored: not logged in the warnings buffer and not shown to the user. The structure and the matching of warning types are the same as for warning-suppress-types above.
+
+During startup, Emacs delays showing any warnings until after it loads and processes the site-wide and user’s init files (see Summary: Sequence of Actions at Startup). Let-binding (see Local Variables) the values of these options around some code in your init files which might emit a warning will therefore not work, because it will not be in effect by the time the warning is actually processed. Thus, if you want to suppress some warnings during startup, change the values of the above options in your init file early enough, or put those let-binding forms in your after-init-hook or emacs-startup-hook functions. See The Init File.
+
+
+**** Delayed Warnings
+
+Sometimes, you may wish to avoid showing a warning while a command is running, and only show it only after the end of the command. You can use the function delay-warning for this. Emacs automatically delays any warnings emitted during the early stages of startup, and shows them only after the init files are processed.
+
+Function: delay-warning type message &optional level buffer-name ¶
+This function is the delayed counterpart to display-warning (see Warning Basics), and it is called with the same arguments. The warning message is queued into delayed-warnings-list.
+
+Variable: delayed-warnings-list ¶
+The value of this variable is a list of warnings to be displayed after the current command has finished. Each element must be a list
+
+(type message [level [buffer-name]])
+with the same form, and the same meanings, as the argument list of display-warning. Immediately after running post-command-hook (see Command Loop Overview), the Emacs command loop displays all the warnings specified by this variable, then resets the variable to nil.
+
+Programs which need to further customize the delayed warnings mechanism can change the variable delayed-warnings-hook:
+
+Variable: delayed-warnings-hook ¶
+This is a normal hook which is run by the Emacs command loop, after post-command-hook, in order to process and display delayed warnings. Emacs also runs this hook during startup, after loading the site-start and user init files (see Summary: Sequence of Actions at Startup), because warnings emitted before that are automatically delayed.
+
+Its default value is a list of two functions:
+
+(collapse-delayed-warnings display-delayed-warnings)
+The function collapse-delayed-warnings removes repeated entries from delayed-warnings-list. The function display-delayed-warnings calls display-warning on each of the entries in delayed-warnings-list, in turn, and then sets delayed-warnings-list to nil.
+
+** Invisible Text
+
+You can make characters invisible, so that they do not appear on the screen, with the invisible property. This can be either a text property (see Text Properties) or an overlay property (see Overlays). Cursor motion also partly ignores these characters; if the command loop finds that point is inside a range of invisible text after a command, it relocates point to the other side of the text.
+
+In the simplest case, any non-nil invisible property makes a character invisible. This is the default case—if you don’t alter the default value of buffer-invisibility-spec, this is how the invisible property works. You should normally use t as the value of the invisible property if you don’t plan to set buffer-invisibility-spec yourself.
+
+More generally, you can use the variable buffer-invisibility-spec to control which values of the invisible property make text invisible. This permits you to classify the text into different subsets in advance, by giving them different invisible values, and subsequently make various subsets visible or invisible by changing the value of buffer-invisibility-spec.
+
+Controlling visibility with buffer-invisibility-spec is especially useful in a program to display the list of entries in a database. It permits the implementation of convenient filtering commands to view just a part of the entries in the database. Setting this variable is very fast, much faster than scanning all the text in the buffer looking for properties to change.
+
+Variable: buffer-invisibility-spec ¶
+This variable specifies which kinds of invisible properties actually make a character invisible. Setting this variable makes it buffer-local.
+
+t
+A character is invisible if its invisible property is non-nil. This is the default.
+
+a list
+Each element of the list specifies a criterion for invisibility; if a character’s invisible property fits any one of these criteria, the character is invisible. The list can have two kinds of elements:
+
+atom
+A character is invisible if its invisible property value is atom or if it is a list with atom as a member; comparison is done with eq.
+
+(atom . t)
+A character is invisible if its invisible property value is atom or if it is a list with atom as a member; comparison is done with eq. Moreover, a sequence of such characters displays as an ellipsis.
+
+Two functions are specifically provided for adding elements to buffer-invisibility-spec and removing elements from it.
+
+Function: add-to-invisibility-spec element ¶
+This function adds the element element to buffer-invisibility-spec. If buffer-invisibility-spec was t, it changes to a list, (t), so that text whose invisible property is t remains invisible.
+
+Function: remove-from-invisibility-spec element ¶
+This removes the element element from buffer-invisibility-spec. This does nothing if element is not in the list.
+
+A convention for use of buffer-invisibility-spec is that a major mode should use the mode’s own name as an element of buffer-invisibility-spec and as the value of the invisible property:
+
+;; If you want to display an ellipsis:
+(add-to-invisibility-spec '(my-symbol . t))
+;; If you don’t want ellipsis:
+(add-to-invisibility-spec 'my-symbol)
+
+(overlay-put (make-overlay beginning end)
+             'invisible 'my-symbol)
+
+;; When done with the invisibility:
+(remove-from-invisibility-spec '(my-symbol . t))
+;; Or respectively:
+(remove-from-invisibility-spec 'my-symbol)
+You can check for invisibility using the following function:
+
+Function: invisible-p pos-or-prop ¶
+If pos-or-prop is a marker or number, this function returns a non-nil value if the text at that position is currently invisible.
+
+If pos-or-prop is any other kind of Lisp object, that is taken to mean a possible value of the invisible text or overlay property. In that case, this function returns a non-nil value if that value would cause text to become invisible, based on the current value of buffer-invisibility-spec.
+
+The return value of this function is t if the text would be completely hidden on display, or a non-nil, non-t value if the text would be replaced by an ellipsis.
+
+Ordinarily, functions that operate on text or move point do not care whether the text is invisible, they process invisible characters and visible characters alike. The user-level line motion commands, such as next-line, previous-line, ignore invisible newlines if line-move-ignore-invisible is non-nil (the default), i.e., behave like these invisible newlines didn’t exist in the buffer, but only because they are explicitly programmed to do so.
+
+If a command ends with point inside or at the boundary of invisible text, the main editing loop relocates point to one of the two ends of the invisible text. Emacs chooses the direction of relocation so that it is the same as the overall movement direction of the command; if in doubt, it prefers a position where an inserted char would not inherit the invisible property. Additionally, if the text is not replaced by an ellipsis and the command only moved within the invisible text, then point is moved one extra character so as to try and reflect the command’s movement by a visible movement of the cursor.
+
+Thus, if the command moved point back to an invisible range (with the usual stickiness), Emacs moves point back to the beginning of that range. If the command moved point forward into an invisible range, Emacs moves point forward to the first visible character that follows the invisible text and then forward one more character.
+
+These adjustments of point that ended up in the middle of invisible text can be disabled by setting disable-point-adjustment to a non-nil value. See Adjusting Point After Commands.
+
+Incremental search can make invisible overlays visible temporarily and/or permanently when a match includes invisible text. To enable this, the overlay should have a non-nil isearch-open-invisible property. The property value should be a function to be called with the overlay as an argument. This function should make the overlay visible permanently; it is used when the match overlaps the overlay on exit from the search.
+
+During the search, such overlays are made temporarily visible by temporarily modifying their invisible and intangible properties. If you want this to be done differently for a certain overlay, give it an isearch-open-invisible-temporary property which is a function. The function is called with two arguments: the first is the overlay, and the second is nil to make the overlay visible, or t to make it invisible again.
+
+
+** Selective Display
+
+Selective display refers to a pair of related features for hiding certain lines on the screen.
+
+The first variant, explicit selective display, was designed for use in a Lisp program: it controls which lines are hidden by altering the text. This kind of hiding is now obsolete and deprecated; instead you should use the invisible property (see Invisible Text) to get the same effect.
+
+In the second variant, the choice of lines to hide is made automatically based on indentation. This variant is designed to be a user-level feature.
+
+The way you control explicit selective display is by replacing a newline (control-j) with a carriage return (control-m). The text that was formerly a line following that newline is now hidden. Strictly speaking, it is temporarily no longer a line at all, since only newlines can separate lines; it is now part of the previous line.
+
+Selective display does not directly affect editing commands. For example, C-f (forward-char) moves point unhesitatingly into hidden text. However, the replacement of newline characters with carriage return characters affects some editing commands. For example, next-line skips hidden lines, since it searches only for newlines. Modes that use selective display can also define commands that take account of the newlines, or that control which parts of the text are hidden.
+
+When you write a selectively displayed buffer into a file, all the control-m’s are output as newlines. This means that when you next read in the file, it looks OK, with nothing hidden. The selective display effect is seen only within Emacs.
+
+Variable: selective-display ¶
+This buffer-local variable enables selective display. This means that lines, or portions of lines, may be made hidden.
+
+If the value of selective-display is t, then the character control-m marks the start of hidden text; the control-m, and the rest of the line following it, are not displayed. This is explicit selective display.
+If the value of selective-display is a positive integer, then lines that start with more than that many columns of indentation are not displayed.
+When some portion of a buffer is hidden, the vertical movement commands operate as if that portion did not exist, allowing a single next-line command to skip any number of hidden lines. However, character movement commands (such as forward-char) do not skip the hidden portion, and it is possible (if tricky) to insert or delete text in a hidden portion.
+
+In the examples below, we show the display appearance of the buffer foo, which changes with the value of selective-display. The contents of the buffer do not change.
+
+(setq selective-display nil)
+     ⇒ nil
+
+---------- Buffer: foo ----------
+1 on this column
+ 2on this column
+  3n this column
+  3n this column
+ 2on this column
+1 on this column
+---------- Buffer: foo ----------
+
+(setq selective-display 2)
+     ⇒ 2
+
+---------- Buffer: foo ----------
+1 on this column
+ 2on this column
+ 2on this column
+1 on this column
+---------- Buffer: foo ----------
+User Option: selective-display-ellipses ¶
+If this buffer-local variable is non-nil, then Emacs displays ‘…’ at the end of a line that is followed by hidden text. This example is a continuation of the previous one.
+
+(setq selective-display-ellipses t)
+     ⇒ t
+
+---------- Buffer: foo ----------
+1 on this column
+ 2on this column ...
+ 2on this column
+1 on this column
+---------- Buffer: foo ----------
+You can use a display table to substitute other text for the ellipsis (‘…’). See Display Tables.
+
+
+** Temporary Displays
+
+Temporary displays are used by Lisp programs to put output into a buffer and then present it to the user for perusal rather than for editing. Many help commands use this feature.
+
+Macro: with-output-to-temp-buffer buffer-name body… ¶
+This function executes the forms in body while arranging to insert any output they print into the buffer named buffer-name, which is first created if necessary, and put into Help mode. (See the similar form with-temp-buffer-window below.) Finally, the buffer is displayed in some window, but that window is not selected.
+
+If the forms in body do not change the major mode in the output buffer, so that it is still Help mode at the end of their execution, then with-output-to-temp-buffer makes this buffer read-only at the end, and also scans it for function and variable names to make them into clickable cross-references. See Tips for Documentation Strings, in particular the item on hyperlinks in documentation strings, for more details.
+
+The string buffer-name specifies the temporary buffer, which need not already exist. The argument must be a string, not a buffer. The buffer is erased initially (with no questions asked), and it is marked as unmodified after with-output-to-temp-buffer exits.
+
+with-output-to-temp-buffer binds standard-output to the temporary buffer, then it evaluates the forms in body. Output using the Lisp output functions within body goes by default to that buffer (but screen display and messages in the echo area, although they are “output” in the general sense of the word, are not affected). See Output Functions.
+
+Several hooks are available for customizing the behavior of this construct; they are listed below.
+
+The value of the last form in body is returned.
+
+---------- Buffer: foo ----------
+ This is the contents of foo.
+---------- Buffer: foo ----------
+
+(with-output-to-temp-buffer "foo"
+    (print 20)
+    (print standard-output))
+⇒ #<buffer foo>
+
+---------- Buffer: foo ----------
+
+20
+
+#<buffer foo>
+
+---------- Buffer: foo ----------
+User Option: temp-buffer-show-function ¶
+If this variable is non-nil, with-output-to-temp-buffer calls it as a function to do the job of displaying a help buffer. The function gets one argument, which is the buffer it should display.
+
+It is a good idea for this function to run temp-buffer-show-hook just as with-output-to-temp-buffer normally would, inside of save-selected-window and with the chosen window and buffer selected.
+
+Variable: temp-buffer-setup-hook ¶
+This normal hook is run by with-output-to-temp-buffer before evaluating body. When the hook runs, the temporary buffer is current. This hook is normally set up with a function to put the buffer in Help mode.
+
+Variable: temp-buffer-show-hook ¶
+This normal hook is run by with-output-to-temp-buffer after displaying the temporary buffer. When the hook runs, the temporary buffer is current, and the window it was displayed in is selected.
+
+Macro: with-temp-buffer-window buffer-or-name action quit-function body… ¶
+This macro is similar to with-output-to-temp-buffer. Like that construct, it executes body while arranging to insert any output it prints into the buffer named buffer-or-name and displays that buffer in some window. Unlike with-output-to-temp-buffer, however, it does not automatically switch that buffer to Help mode.
+
+The argument buffer-or-name specifies the temporary buffer. It can be either a buffer, which must already exist, or a string, in which case a buffer of that name is created, if necessary. The buffer is marked as unmodified and read-only when with-temp-buffer-window exits.
+
+This macro does not call temp-buffer-show-function. Rather, it passes the action argument to display-buffer (see Choosing a Window for Displaying a Buffer) in order to display the buffer.
+
+The value of the last form in body is returned, unless the argument quit-function is specified. In that case, it is called with two arguments: the window showing the buffer and the result of body. The final return value is then whatever quit-function returns.
+
+This macro uses the normal hooks temp-buffer-window-setup-hook and temp-buffer-window-show-hook in place of the analogous hooks run by with-output-to-temp-buffer.
+
+The two constructs described next are mostly identical to with-temp-buffer-window but differ from it as specified:
+
+Macro: with-current-buffer-window buffer-or-name action quit-function &rest body ¶
+This macro is like with-temp-buffer-window but unlike that makes the buffer specified by buffer-or-name current for running body.
+
+A window showing a temporary buffer can be fitted to the size of that buffer using the following mode:
+
+User Option: temp-buffer-resize-mode ¶
+When this minor mode is enabled, windows showing a temporary buffer are automatically resized to fit their buffer’s contents.
+
+A window is resized if and only if it has been specially created for the buffer. In particular, windows that have shown another buffer before are not resized. By default, this mode uses fit-window-to-buffer (see Resizing Windows) for resizing. You can specify a different function by customizing the options temp-buffer-max-height and temp-buffer-max-width below.
+
+The effect of this option can be overridden by providing a suitable window-height, window-width or window-size action alist entry for display-buffer (see Action Alists for Buffer Display).
+
+User Option: temp-buffer-max-height ¶
+This option specifies the maximum height (in lines) of a window displaying a temporary buffer when temp-buffer-resize-mode is enabled. It can also be a function to be called to choose the height for such a buffer. It gets one argument, the buffer, and should return a positive integer. At the time the function is called, the window to be resized is selected.
+
+User Option: temp-buffer-max-width ¶
+This option specifies the maximum width of a window (in columns) displaying a temporary buffer when temp-buffer-resize-mode is enabled. It can also be a function to be called to choose the width for such a buffer. It gets one argument, the buffer, and should return a positive integer. At the time the function is called, the window to be resized is selected.
+
+The following function uses the current buffer for temporary display:
+
+Function: momentary-string-display string position &optional char message ¶
+This function momentarily displays string in the current buffer at position. It has no effect on the undo list or on the buffer’s modification status.
+
+The momentary display remains until the next input event. If the next input event is char, momentary-string-display ignores it and returns. Otherwise, that event remains buffered for subsequent use as input. Thus, typing char will simply remove the string from the display, while typing (say) C-f will remove the string from the display and later (presumably) move point forward. The argument char is a space by default.
+
+The return value of momentary-string-display is not meaningful.
+
+If the string string does not contain control characters, you can do the same job in a more general way by creating (and then subsequently deleting) an overlay with a before-string property. See Overlay Properties.
+
+If message is non-nil, it is displayed in the echo area while string is displayed in the buffer. If it is nil, a default message says to type char to continue.
+
+In this example, point is initially located at the beginning of the second line:
+
+---------- Buffer: foo ----------
+This is the contents of foo.
+∗Second line.
+---------- Buffer: foo ----------
+
+(momentary-string-display
+  "**** Important Message! ****"
+  (point) ?\r
+  "Type RET when done reading")
+⇒ t
+
+---------- Buffer: foo ----------
+This is the contents of foo.
+ Important Message! ****Second line.
+---------- Buffer: foo ----------
+
+---------- Echo Area ----------
+Type RET when done reading
+---------- Echo Area ----------

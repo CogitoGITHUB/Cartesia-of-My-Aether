@@ -1,0 +1,1793 @@
+#+title:      Display Frames and Widgets
+
+* Display Frames and Widgets :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       a32e299e-9c03-4edd-8620-7bbfc13251fd
+:END:
+
+On graphical displays, Emacs draws fringes next to each window: thin vertical strips down the sides which can display bitmaps indicating truncation, continuation, horizontal scrolling, and so on.
+
+**** Fringe Size and Position
+
+The following buffer-local variables control the position and width of fringes in windows showing that buffer.
+
+Variable: fringes-outside-margins ¶
+The fringes normally appear between the display margins and the window text. If the value is non-nil, they appear outside the display margins. See Displaying in the Margins.
+
+Variable: left-fringe-width ¶
+This variable, if non-nil, specifies the width of the left fringe in pixels. A value of nil means to use the left fringe width from the window’s frame.
+
+Variable: right-fringe-width ¶
+This variable, if non-nil, specifies the width of the right fringe in pixels. A value of nil means to use the right fringe width from the window’s frame.
+
+Any buffer which does not specify values for these variables uses the values specified by the left-fringe and right-fringe frame parameters (see Layout Parameters).
+
+The above variables actually take effect via the function set-window-buffer (see Buffers and Windows), which calls set-window-fringes as a subroutine. If you change one of these variables, the fringe display is not updated in existing windows showing the buffer, unless you call set-window-buffer again in each affected window. You can also use set-window-fringes to control the fringe display in individual windows.
+
+Function: set-window-fringes window left &optional right outside-margins persistent ¶
+This function sets the fringe widths of window window. If window is nil, the selected window is used.
+
+The argument left specifies the width in pixels of the left fringe, and likewise right for the right fringe. A value of nil for either one stands for the default width. If outside-margins is non-nil, that specifies that fringes should appear outside of the display margins.
+
+If window is not large enough to accommodate fringes of the desired width, this leaves the fringes of window unchanged.
+
+The values specified here may be later overridden by invoking set-window-buffer (see Buffers and Windows) on window with its keep-margins argument nil or omitted. However, if the optional fifth argument persistent is non-nil and the other arguments are processed successfully, the values specified here unconditionally survive subsequent invocations of set-window-buffer. This can be used to permanently turn off fringes in the minibuffer window, consult the description of set-window-scroll-bars for an example (see Scroll Bars).
+
+Function: window-fringes &optional window ¶
+This function returns information about the fringes of a window window. If window is omitted or nil, the selected window is used. The value has the form (left-width right-width outside-margins persistent).
+
+
+**** Fringe Indicators
+
+Fringe indicators are tiny icons displayed in the window fringe to indicate truncated or continued lines, buffer boundaries, etc.
+
+User Option: indicate-empty-lines ¶
+When this is non-nil, Emacs displays a special glyph in the fringe of each empty line at the end of the buffer, on graphical displays. See Fringes. This variable is automatically buffer-local in every buffer.
+
+User Option: indicate-buffer-boundaries ¶
+This buffer-local variable controls how the buffer boundaries and window scrolling are indicated in the window fringes.
+
+Emacs can indicate the buffer boundaries—that is, the first and last line in the buffer—with angle icons when they appear on the screen. In addition, Emacs can display an up-arrow in the fringe to show that there is text above the screen, and a down-arrow to show there is text below the screen.
+
+There are three kinds of basic values:
+
+nil
+Don’t display any of these fringe icons.
+
+left
+Display the angle icons and arrows in the left fringe.
+
+right
+Display the angle icons and arrows in the right fringe.
+
+any non-alist
+Display the angle icons in the left fringe and don’t display the arrows.
+
+Otherwise the value should be an alist that specifies which fringe indicators to display and where. Each element of the alist should have the form (indicator . position). Here, indicator is one of top, bottom, up, down, and t (which covers all the icons not yet specified), while position is one of left, right and nil.
+
+For example, ((top . left) (t . right)) places the top angle bitmap in left fringe, and the bottom angle bitmap as well as both arrow bitmaps in right fringe. To show the angle bitmaps in the left fringe, and no arrow bitmaps, use ((top . left) (bottom . left)).
+
+Variable: fringe-indicator-alist ¶
+This buffer-local variable specifies the mapping from logical fringe indicators to the actual bitmaps displayed in the window fringes. The value is an alist of elements (indicator . bitmaps), where indicator specifies a logical indicator type and bitmaps specifies the fringe bitmaps to use for that indicator.
+
+Each indicator should be one of the following symbols:
+
+truncation, continuation.
+Used for truncation and continuation lines.
+
+up, down, top, bottom, top-bottom
+Used when indicate-buffer-boundaries is non-nil: up and down indicate a buffer boundary lying above or below the window edge; top and bottom indicate the topmost and bottommost buffer text line; and top-bottom indicates where there is just one line of text in the buffer.
+
+empty-line
+Used to indicate empty lines after the buffer end when indicate-empty-lines is non-nil.
+
+overlay-arrow
+Used for overlay arrows (see The Overlay Arrow).
+
+Each bitmaps value may be a list of symbols (left right [left1 right1]). The left and right symbols specify the bitmaps shown in the left and/or right fringe, for the specific indicator. left1 and right1 are specific to the bottom and top-bottom indicators, and are used to indicate that the last text line has no final newline. Alternatively, bitmaps may be a single symbol which is used in both left and right fringes.
+
+See Fringe Bitmaps, for a list of standard bitmap symbols and how to define your own. In addition, nil represents the empty bitmap (i.e., an indicator that is not shown).
+
+When fringe-indicator-alist has a buffer-local value, and there is no bitmap defined for a logical indicator, or the bitmap is t, the corresponding value from the default value of fringe-indicator-alist is used.
+
+
+**** Fringe Cursors
+
+When a line is exactly as wide as the window, Emacs displays the cursor in the right fringe instead of using two lines. Different bitmaps are used to represent the cursor in the fringe depending on the current buffer’s cursor type.
+
+User Option: overflow-newline-into-fringe ¶
+If this is non-nil, lines exactly as wide as the window (not counting the final newline character) are not continued. Instead, when point is at the end of the line, the cursor appears in the right fringe.
+
+Variable: fringe-cursor-alist ¶
+This variable specifies the mapping from logical cursor type to the actual fringe bitmaps displayed in the right fringe. The value is an alist where each element has the form (cursor-type . bitmap), which means to use the fringe bitmap bitmap to display cursors of type cursor-type.
+
+Each cursor-type should be one of box, hollow, bar, hbar, or hollow-small. The first four have the same meanings as in the cursor-type frame parameter (see Cursor Parameters). The hollow-small type is used instead of hollow when the normal hollow-rectangle bitmap is too tall to fit on a specific display line.
+
+Each bitmap should be a symbol specifying the fringe bitmap to be displayed for that logical cursor type. See Fringe Bitmaps.
+
+When fringe-cursor-alist has a buffer-local value, and there is no bitmap defined for a cursor type, the corresponding value from the default value of fringes-indicator-alist is used.
+
+
+**** Fringe Bitmaps
+
+The fringe bitmaps are the actual bitmaps which represent the logical fringe indicators for truncated or continued lines, buffer boundaries, overlay arrows, etc. Each bitmap is represented by a symbol. These symbols are referred to by the variable fringe-indicator-alist, which maps fringe indicators to bitmaps (see Fringe Indicators), and the variable fringe-cursor-alist, which maps fringe cursors to bitmaps (see Fringe Cursors).
+
+Lisp programs can also directly display a bitmap in the left or right fringe, by using a display property for one of the characters appearing in the line (see Other Display Specifications). Such a display specification has the form
+
+(fringe bitmap [face])
+fringe is either the symbol left-fringe or right-fringe. bitmap is a symbol identifying the bitmap to display. The optional face names a face whose foreground and background colors are to be used to display the bitmap, using the attributes of the fringe face for colors that face didn’t specify. If face is omitted, that means to use the attributes of the default face for the colors which the fringe face didn’t specify. For predictable results that don’t depend on the attributes of the default and fringe faces, we recommend you never omit face, but always provide a specific face. In particular, if you want the bitmap to be always displayed in the fringe face, use fringe as face.
+
+For instance, to display an arrow in the left fringe, using the warning face, you could say something like:
+
+(overlay-put
+ (make-overlay (point) (point))
+ 'before-string (propertize
+                 "x" 'display
+                 `(left-fringe right-arrow warning)))
+Here is a list of the standard fringe bitmaps defined in Emacs, and how they are currently used in Emacs (via fringe-indicator-alist and fringe-cursor-alist):
+
+left-arrow, right-arrow
+Used to indicate truncated lines.
+
+left-curly-arrow, right-curly-arrow
+Used to indicate continued lines.
+
+right-triangle, left-triangle
+The former is used by overlay arrows. The latter is unused.
+
+up-arrow, down-arrow
+bottom-left-angle, bottom-right-angle
+top-left-angle, top-right-angle
+left-bracket, right-bracket
+empty-line
+Used to indicate buffer boundaries.
+
+filled-rectangle, hollow-rectangle
+filled-square, hollow-square
+vertical-bar, horizontal-bar
+Used for different types of fringe cursors.
+
+exclamation-mark, question-mark
+large-circle
+Not used by core Emacs features.
+
+The next subsection describes how to define your own fringe bitmaps.
+
+Function: fringe-bitmaps-at-pos &optional pos window ¶
+This function returns the fringe bitmaps of the display line containing position pos in window window. The return value has the form (left right ov), where left is the symbol for the fringe bitmap in the left fringe (or nil if no bitmap), right is similar for the right fringe, and ov is non-nil if there is an overlay arrow in the left fringe.
+
+The value is nil if pos is not visible in window. If window is nil, that stands for the selected window. If pos is nil, that stands for the value of point in window.
+
+
+**** Customizing Fringe Bitmaps
+
+Function: define-fringe-bitmap bitmap bits &optional height width align ¶
+This function defines the symbol bitmap as a new fringe bitmap, or replaces an existing bitmap with that name.
+
+The argument bits specifies the image to use. It should be either a string or a vector of integers, where each element (an integer) corresponds to one row of the bitmap. Each bit of an integer corresponds to one pixel of the bitmap, where the low bit corresponds to the rightmost pixel of the bitmap. (Note that this order of bits is opposite of the order in XBM images; see XBM Images.)
+
+The height is normally the length of bits. However, you can specify a different height with non-nil height. The width is normally 8, but you can specify a different width with non-nil width. The width must be an integer between 1 and 16.
+
+The argument align specifies the positioning of the bitmap relative to the range of rows where it is used; the default is to center the bitmap. The allowed values are top, center, or bottom.
+
+The align argument may also be a list (align periodic) where align is interpreted as described above. If periodic is non-nil, it specifies that the rows in bits should be repeated enough times to reach the specified height.
+
+Function: destroy-fringe-bitmap bitmap ¶
+This function destroys the fringe bitmap identified by bitmap. If bitmap identifies a standard fringe bitmap, it actually restores the standard definition of that bitmap, instead of eliminating it entirely.
+
+Function: set-fringe-bitmap-face bitmap &optional face ¶
+This sets the face for the fringe bitmap bitmap to face. If face is nil, it selects the fringe face. The bitmap’s face controls the color to draw it in.
+
+face is merged with the fringe face, so normally face should specify only the foreground color.
+
+
+**** The Overlay Arrow
+
+The overlay arrow is useful for directing the user’s attention to a particular line in a buffer. For example, in the modes used for interface to debuggers, the overlay arrow indicates the line of code about to be executed. This feature has nothing to do with overlays (see Overlays).
+
+Variable: overlay-arrow-string ¶
+This variable holds the string to display to call attention to a particular line, or nil if the arrow feature is not in use. On a graphical display the contents of the string are ignored if the left fringe is shown; instead a glyph is displayed in the fringe area to the left of the display area.
+
+Variable: overlay-arrow-position ¶
+This variable holds a marker that indicates where to display the overlay arrow. It should point at the beginning of a line. On a non-graphical display, or when the left fringe is not shown, the arrow text appears at the beginning of that line, overlaying any text that would otherwise appear. Since the arrow is usually short, and the line usually begins with indentation, normally nothing significant is overwritten.
+
+The overlay-arrow string is displayed in any given buffer if the value of overlay-arrow-position in that buffer points into that buffer. Thus, it is possible to display multiple overlay arrow strings by creating buffer-local bindings of overlay-arrow-position. However, it is usually cleaner to use overlay-arrow-variable-list to achieve this result.
+
+You can do a similar job by creating an overlay with a before-string property. See Overlay Properties.
+
+You can define multiple overlay arrows via the variable overlay-arrow-variable-list.
+
+Variable: overlay-arrow-variable-list ¶
+This variable’s value is a list of variables, each of which specifies the position of an overlay arrow. The variable overlay-arrow-position has its normal meaning because it is on this list.
+
+Each variable on this list can have properties overlay-arrow-string and overlay-arrow-bitmap that specify an overlay arrow string (for text terminals or graphical terminals without the left fringe shown) or fringe bitmap (for graphical terminals with a left fringe) to display at the corresponding overlay arrow position. If either property is not set, the default overlay-arrow-string or overlay-arrow fringe indicator is used.
+
+
+** Scroll Bars
+
+Normally the frame parameter vertical-scroll-bars controls whether the windows in the frame have vertical scroll bars, and whether they are on the left or right. The frame parameter scroll-bar-width specifies how wide they are (nil meaning the default).
+
+The frame parameter horizontal-scroll-bars controls whether the windows in the frame have horizontal scroll bars. The frame parameter scroll-bar-height specifies how high they are (nil meaning the default). See Layout Parameters.
+
+Horizontal scroll bars are not available on all platforms. The function horizontal-scroll-bars-available-p which takes no argument returns non-nil if they are available on your system.
+
+The following three functions take as argument a live frame which defaults to the selected one.
+
+Function: frame-current-scroll-bars &optional frame ¶
+This function reports the scroll bar types for frame frame. The value is a cons cell (vertical-type . horizontal-type), where vertical-type is either left, right, or nil (which means no vertical scroll bar.) horizontal-type is either bottom or nil (which means no horizontal scroll bar).
+
+Function: frame-scroll-bar-width &optional frame ¶
+This function returns the width of vertical scroll bars of frame in pixels.
+
+Function: frame-scroll-bar-height &optional frame ¶
+This function returns the height of horizontal scroll bars of frame in pixels.
+
+You can override the frame specific settings for individual windows by using the following function:
+
+Function: set-window-scroll-bars window &optional width vertical-type height horizontal-type persistent ¶
+This function sets the width and/or height and the types of scroll bars for window window. If window is nil, the selected window is used.
+
+width specifies the width of the vertical scroll bar in pixels (nil means use the width specified for the frame). vertical-type specifies whether to have a vertical scroll bar and, if so, where. The possible values are left, right, t, which means to use the frame’s default, and nil for no vertical scroll bar.
+
+height specifies the height of the horizontal scroll bar in pixels (nil means use the height specified for the frame). horizontal-type specifies whether to have a horizontal scroll bar. The possible values are bottom, t, which means to use the frame’s default, and nil for no horizontal scroll bar. Note that for a mini window the value t has the same meaning as nil, namely to not show a horizontal scroll bar. You have to explicitly specify bottom in order to show a horizontal scroll bar in a mini window.
+
+If window is not large enough to accommodate a scroll bar of the desired dimension, this leaves the corresponding scroll bar unchanged.
+
+The values specified here may be later overridden by invoking set-window-buffer (see Buffers and Windows) on window with its keep-margins argument nil or omitted. However, if the optional fifth argument persistent is non-nil and the other arguments are processed successfully, the values specified here unconditionally survive subsequent invocations of set-window-buffer.
+
+Using the persistent argument of set-window-scroll-bars and set-window-fringes (see Fringe Size and Position) you can reliably and permanently turn off scroll bars and/or fringes in any minibuffer window by adding the following snippet to your early init file (see The Init File).
+
+(add-hook 'after-make-frame-functions
+          (lambda (frame)
+            (set-window-scroll-bars
+             (minibuffer-window frame) 0 nil 0 nil t)
+            (set-window-fringes
+             (minibuffer-window frame) 0 0 nil t)))
+The following four functions take as argument a live window which defaults to the selected one.
+
+Function: window-scroll-bars &optional window ¶
+This function returns a list of the form (width columns vertical-type height lines horizontal-type persistent).
+
+The value width is the value that was specified for the width of the vertical scroll bar (which may be nil); columns is the (possibly rounded) number of columns that the vertical scroll bar actually occupies.
+
+The value height is the value that was specified for the height of the horizontal scroll bar (which may be nil); lines is the (possibly rounded) number of lines that the horizontally scroll bar actually occupies.
+
+The value of persistent is the value specified for window with the last successful invocation of set-window-scroll-bars, nil if there never was one.
+
+Function: window-current-scroll-bars &optional window ¶
+This function reports the scroll bar type for window window. The value is a cons cell (vertical-type . horizontal-type). Unlike window-scroll-bars, this reports the scroll bar type actually used, once frame defaults and scroll-bar-mode are taken into account.
+
+Function: window-scroll-bar-width &optional window ¶
+This function returns the width in pixels of window’s vertical scrollbar.
+
+Function: window-scroll-bar-height &optional window ¶
+This function returns the height in pixels of window’s horizontal scrollbar.
+
+If you do not specify a window’s scroll bar settings via set-window-scroll-bars, the buffer-local variables vertical-scroll-bar, horizontal-scroll-bar, scroll-bar-width and scroll-bar-height in the buffer being displayed control the window’s scroll bars. The function set-window-buffer examines these variables. If you change them in a buffer that is already visible in a window, you can make the window take note of the new values by calling set-window-buffer specifying the same buffer that is already displayed.
+
+You can control the appearance of scroll bars for a particular buffer by setting the following variables which automatically become buffer-local when set.
+
+Variable: vertical-scroll-bar ¶
+This variable specifies the location of the vertical scroll bar. The possible values are left, right, t, which means to use the frame’s default, and nil for no scroll bar.
+
+Variable: horizontal-scroll-bar ¶
+This variable specifies the location of the horizontal scroll bar. The possible values are bottom, t, which means to use the frame’s default, and nil for no scroll bar.
+
+Variable: scroll-bar-width ¶
+This variable specifies the width of the buffer’s vertical scroll bars, measured in pixels. A value of nil means to use the value specified by the frame.
+
+Variable: scroll-bar-height ¶
+This variable specifies the height of the buffer’s horizontal scroll bar, measured in pixels. A value of nil means to use the value specified by the frame.
+
+Finally you can toggle the display of scroll bars on all frames by customizing the variables scroll-bar-mode and horizontal-scroll-bar-mode.
+
+User Option: scroll-bar-mode ¶
+This variable controls whether and where to put vertical scroll bars in all frames. The possible values are nil for no scroll bars, left to put scroll bars on the left and right to put scroll bars on the right.
+
+User Option: horizontal-scroll-bar-mode ¶
+This variable controls whether to display horizontal scroll bars on all frames.
+
+
+** Window Dividers
+
+Window dividers are bars drawn between a frame’s windows. A right divider is drawn between a window and any adjacent windows on the right. Its width (thickness) is specified by the frame parameter right-divider-width. A bottom divider is drawn between a window and adjacent windows on the bottom or the echo area. Its width is specified by the frame parameter bottom-divider-width. In either case, specifying a width of zero means to not draw such dividers. See Layout Parameters.
+
+Technically, a right divider belongs to the window on its left, which means that its width contributes to the total width of that window. A bottom divider belongs to the window above it, which means that its width contributes to the total height of that window. See Window Sizes. When a window has both, a right and a bottom divider, the bottom divider prevails. This means that a bottom divider is drawn over the full total width of its window while the right divider ends above the bottom divider.
+
+Dividers can be dragged with the mouse and are therefore useful for adjusting the sizes of adjacent windows with the mouse. They also serve to visually set apart adjacent windows when no scroll bars or mode lines are present. The following three faces allow the customization of the appearance of dividers:
+
+window-divider
+When a divider is less than three pixels wide, it is drawn solidly with the foreground of this face. For larger dividers this face is used for the inner part only, excluding the first and last pixel.
+
+window-divider-first-pixel
+This is the face used for drawing the first pixel of a divider that is at least three pixels wide. To obtain a solid appearance, set this to the same value used for the window-divider face.
+
+window-divider-last-pixel
+This is the face used for drawing the last pixel of a divider that is at least three pixels wide. To obtain a solid appearance, set this to the same value used for the window-divider face.
+
+You can get the sizes of the dividers of a specific window with the following two functions.
+
+Function: window-right-divider-width &optional window ¶
+Return the width (thickness) in pixels of window’s right divider. window must be a live window and defaults to the selected one. The return value is always zero for a rightmost window.
+
+Function: window-bottom-divider-width &optional window ¶
+Return the width (thickness) in pixels of window’s bottom divider. window must be a live window and defaults to the selected one. The return value is zero for the minibuffer window or a bottommost window on a minibuffer-less frame.
+
+
+** The display Property
+
+The display text property (or overlay property) is used to insert images into text, and to control other aspects of how text displays. Display specifications in the same display property value generally apply in parallel to the text they cover.
+
+If several sources (overlays and/or a text property) specify values for the display property, only one of the values takes effect, following the rules of get-char-property. See Examining Text Properties.
+
+The value of the display property should be a display specification, or a list or vector containing several display specifications.
+
+Function: get-display-property position prop &optional object properties ¶
+This convenience function can be used to get a specific display property, no matter whether the display property is a vector, a list or a simple property. This is like get-text-property (see Examining Text Properties), but works on the display property only.
+
+position is the position in the buffer or string to examine, and prop is the display property to return. The optional object argument should be either a string or a buffer, and defaults to the current buffer. If the optional properties argument is non-nil, it should be a display property, and in that case, position and object are ignored. (This can be useful if you’ve already gotten the display property with get-char-property, for instance (see Examining Text Properties).
+
+Function: add-display-text-property start end prop value &optional object ¶
+Add display property prop of value to the text from start to end.
+
+If any text in the region has a non-nil display property, those properties are retained. For instance:
+
+(add-display-text-property 4 8 'height 2.0)
+(add-display-text-property 2 12 'raise 0.5)
+After doing this, the region from 2 to 4 will have the raise display property, the region from 4 to 8 will have both the raise and height display properties, and finally the region from 8 to 12 will only have the raise display property.
+
+If object is non-nil, it should be a string or a buffer. If nil, this defaults to the current buffer.
+
+Some of the display specifications allow inclusion of Lisp forms, which are evaluated at display time. This could be unsafe in certain situations, e.g., when the display specification was generated by some external program/agent. Wrapping a display specification in a list that begins with the special symbol disable-eval, as in (disable-eval spec), will disable evaluation of any Lisp in spec, while still supporting all the other display property features.
+
+The rest of this section describes several kinds of display specifications and what they mean.
+
+**** Display Specs That Replace The Text
+
+Some kinds of display specifications specify something to display instead of the text that has the property. These are called replacing display specifications. Emacs does not allow the user to interactively move point into the middle of buffer text that is replaced in this way.
+
+If a list of display specifications includes more than one replacing display specification, the first overrides the rest. Replacing display specifications make most other display specifications irrelevant, since those don’t apply to the replacement.
+
+For replacing display specifications, the text that has the property means all the consecutive characters that have the same Lisp object as their display property; these characters are replaced as a single unit. If two characters have different Lisp objects as their display properties (i.e., objects which are not eq), they are handled separately.
+
+Here is an example which illustrates this point. A string serves as a replacing display specification, which replaces the text that has the property with the specified string (see Other Display Specifications). Consider the following function:
+
+(defun foo ()
+  (dotimes (i 5)
+    (let ((string (concat "A"))
+          (start (+ i i (point-min))))
+      (put-text-property start (1+ start) 'display string)
+      (put-text-property start (+ 2 start) 'display string))))
+This function gives each of the first ten characters in the buffer a display property which is a string "A", but they don’t all get the same string object. The first two characters get the same string object, so they are replaced with one ‘A’; the fact that the display property was assigned in two separate calls to put-text-property is irrelevant. Similarly, the next two characters get a second string (concat creates a new string object), so they are replaced with one ‘A’; and so on. Thus, the ten characters appear as five A’s.
+
+
+**** Specified Spaces
+
+To display a space of specified width and/or height, use a display specification of the form (space . props), where props is a property list (a list of alternating properties and values). You can put this property on one or more consecutive characters; a space of the specified height and width is displayed in place of all of those characters. These are the properties you can use in props to specify the weight of the space:
+
+:width width
+If width is a number, it specifies that the space width should be width times the normal character width. width can also be a pixel width specification (see Pixel Specification for Spaces).
+
+:relative-width factor
+Specifies that the width of the stretch should be computed from the first character in the group of consecutive characters that have the same display property. The space width is the pixel width of that character, multiplied by factor. (On text-mode terminals, the “pixel width” of a character is usually 1, but it could be more for TABs and double-width CJK characters.)
+
+:align-to hpos
+Specifies that the space should be wide enough to reach the column hpos. If hpos is a number, it is a column number, and is measured in units of the canonical character width (see Frame Font). hpos can also be a pixel width specification (see Pixel Specification for Spaces). When the current line is wider than the window, and is either displayed by one or more continuation lines, or is truncated and possibly scrolled horizontally (see Horizontal Scrolling), hpos is measured from the beginning of the logical line, not from the visual beginning of the screen line. This way, alignment produced by :align-to is consistent with functions that count columns, such as current-column and move-to-column (see Counting Columns).
+
+You should use one and only one of the above properties. You can also specify the height of the space, with these properties:
+
+:height height
+Specifies the height of the space. If height is a number, it specifies that the space height should be height times the normal character height. The height may also be a pixel height specification (see Pixel Specification for Spaces).
+
+:relative-height factor
+Specifies the height of the space, multiplying the ordinary height of the text having this display specification by factor.
+
+:ascent ascent
+If the value of ascent is a non-negative number no greater than 100, it specifies that ascent percent of the height of the space should be considered as the ascent of the space—that is, the part above the baseline. The ascent may also be specified in pixel units with a pixel ascent specification (see Pixel Specification for Spaces).
+
+Don’t use both :height and :relative-height together.
+
+The :width and :align-to properties are supported on non-graphic terminals, but the other space properties in this section are not.
+
+Note that space properties are treated as paragraph separators for the purposes of reordering bidirectional text for display. See Bidirectional Display, for the details.
+
+
+**** Pixel Specification for Spaces
+
+The value of the :width, :align-to, :height, and :ascent properties can be a special kind of expression that is evaluated during redisplay. The result of the evaluation is used as an absolute number of pixels.
+
+The following expressions are supported:
+
+  expr ::= num | (num) | unit | elem | pos | image | xwidget | form
+  num  ::= integer | float | symbol
+  unit ::= in | mm | cm | width | height
+  elem ::= left-fringe | right-fringe | left-margin | right-margin
+        |  scroll-bar | text
+  pos  ::= left | center | right
+  form ::= (num . expr) | (op expr ...)
+  op   ::= + | -
+The form num specifies a fraction of the default frame font height or width. The form (num) specifies an absolute number of pixels. If num is a symbol, symbol, its buffer-local variable binding is used; that binding can be either a number or a cons cell of the forms shown above (including yet another cons cell whose car is a symbol that has a buffer-local binding).
+
+The in, mm, and cm units specify the number of pixels per inch, millimeter, and centimeter, respectively. The width and height units correspond to the default width and height of the current face. An image specification of the form (image . props) (see Image Descriptors) corresponds to the width or height of the specified image. Similarly, an xwidget specification of the form (xwidget . props) stands for the width or height of the specified xwidget. See Embedded Native Widgets.
+
+The elements left-fringe, right-fringe, left-margin, right-margin, scroll-bar, and text specify the width of the corresponding area of the window. When the window displays line numbers (see Size of Displayed Text), the width of the text area is decreased by the screen space taken by the line-number display.
+
+The left, center, and right positions can be used with :align-to to specify a position relative to the left edge, center, or right edge of the text area. When the window displays line numbers, and :align-to is used in display properties of buffer text (as opposed to header line, see below), the left and the center positions are offset to account for the screen space taken by the line-number display.
+
+Any of the above window elements (except text) can also be used with :align-to to specify that the position is relative to the left edge of the given area. Once the base offset for a relative position has been set (by the first occurrence of one of these symbols), further occurrences of these symbols are interpreted as the width of the specified area. For example, to align to the center of the left-margin, use
+
+:align-to (+ left-margin (0.5 . left-margin))
+If no specific base offset is set for alignment, it is always relative to the left edge of the text area. For example, ‘:align-to 0’ aligns with the first text column in the text area. When the window displays line numbers, the text is considered to start where the space used for line-number display ends.
+
+A value of the form (num . expr) stands for the product of the values of num and expr. For example, (2 . in) specifies a width of 2 inches, while (0.5 . image) specifies half the width (or height) of the specified image (which should be given by its image spec).
+
+The form (+ expr ...) adds up the value of the expressions. The form (- expr ...) negates or subtracts the value of the expressions.
+
+Text shown in the header line that uses :align-to display specifications is not automatically realigned when display-line-numbers-mode is turned on and off, or when the width of line numbers on display changes. To arrange for the header-line text alignment to be updated, thus keeping the header-line text aligned with the buffer text, turn on the header-line-indent-mode in the buffer and use its two variables, header-line-indent and header-line-indent-width, in the display specification. See Window Header Lines. Here’s a simple example:
+
+(setq header-line-format
+      (concat (propertize " "
+                          'display
+                          '(space :align-to
+                                  (+ header-line-indent-width 10)))
+              "Column"))
+This will keep the text ‘Column’ on the header line aligned with column 10 of buffer text, regardless of whether display-line-numbers-mode is on or off, and also when line-number display changes its width.
+
+
+**** Other Display Specifications
+
+Here are the other sorts of display specifications that you can use in the display text property.
+
+string
+Display string instead of the text that has this property.
+
+Recursive display specifications are not supported—string’s display properties, if any, are not used.
+
+(image . image-props)
+This kind of display specification is an image descriptor (see Image Descriptors). When used as a display specification, it means to display the image instead of the text that has the display specification.
+
+(slice x y width height)
+This specification together with image specifies a slice (a partial area) of the image to display. The elements y and x specify the top left corner of the slice, within the image; width and height specify the width and height of the slice. Integers are numbers of pixels. A floating-point number in the range 0.0–1.0 stands for that fraction of the width or height of the entire image.
+
+((margin nil) string)
+A display specification of this form means to display string instead of the text that has the display specification, at the same position as that text. It is equivalent to using just string, but it is done as a special case of marginal display (see Displaying in the Margins).
+
+(left-fringe bitmap [face])
+(right-fringe bitmap [face])
+This display specification on any character of a line of text causes the specified bitmap be displayed in the left or right fringes for that line, instead of the characters that have the display specification. The optional face specifies the face whose colors are to be used for the bitmap display. See Fringe Bitmaps, for the details.
+
+(space-width factor)
+This display specification affects all the space characters within the text that has the specification. It displays all of these spaces factor times as wide as normal. The element factor should be an integer or float. Characters other than spaces are not affected at all; in particular, this has no effect on tab characters.
+
+(min-width (width))
+This display specification ensures the text that has it takes at least width space on display, by adding a stretch of white space to the end of the text if the text is shorter than width. The text is partitioned using the identity of the parameter, which is why the parameter is a list with one element. For instance:
+
+(insert (propertize "foo" 'display '(min-width (6.0))))
+This will add padding after ‘foo’ bringing the total width up to the width of six normal characters. Note that the affected characters are identified by the (6.0) list in the display property, compared with eq. The element width can be either an integer or a float specifying the required minimum width of the text (see Pixel Specification for Spaces).
+
+(height height)
+This display specification makes the text taller or shorter. Here are the possibilities for height:
+
+(+ n)
+This means to use a font that is n steps larger. A step is defined by the set of available fonts—specifically, those that match what was otherwise specified for this text, in all attributes except height. Each size for which a suitable font is available counts as another step. n should be an integer.
+
+(- n)
+This means to use a font that is n steps smaller.
+
+a number, factor
+A number, factor, means to use a font that is factor times as tall as the default font.
+
+a symbol, function
+A symbol is a function to compute the height. It is called with the current height as argument, and should return the new height to use.
+
+anything else, form
+If the height value doesn’t fit the previous possibilities, it is a form. Emacs evaluates it to get the new height, with the symbol height bound to the current specified font height.
+
+(raise factor)
+This kind of display specification raises or lowers the text it applies to, relative to the baseline of the line. It is mainly meant to support display of subscripts and superscripts.
+
+The factor must be a number, which is interpreted as a multiple of the height of the affected text. If it is positive, that means to display the characters raised. If it is negative, that means to display them lower down.
+
+Note that if the text also has a height display specification, which was specified before (i.e. to the left of) raise, the latter will affect the amount of raising or lowering in pixels, because that is based on the height of the text being raised. Therefore, if you want to display a sub- or superscript that is smaller than the normal text height, consider specifying raise before height.
+
+You can make any display specification conditional. To do that, package it in another list of the form (when condition . spec). Then the specification spec applies only when condition evaluates to a non-nil value. During the evaluation, object is bound to the string or buffer having the conditional display property. position and buffer-position are bound to the position within object and the buffer position where the display property was found, respectively. Both positions can be different when object is a string.
+
+Note that condition will only be evaluated when redisplay examines the text where this display spec is located, so this feature is best suited for conditions that are relatively stable, i.e. yield, for each particular buffer position, the same results on every evaluation. If the results change for the same text location, e.g., if the result depends on the position of point, then the conditional specification might not do what you want, because redisplay examines only those parts of buffer text where it has reasons to assume that something changed since the last display cycle.
+
+
+**** Displaying in the Margins
+
+A buffer can have blank areas called display margins on the left and on the right. Ordinary text never appears in these areas, but you can put things into the display margins using the display property. There is currently no way to make text or images in the margin mouse-sensitive.
+
+The way to display something in the margins is to specify it in a margin display specification in the display property of some text. This is a replacing display specification, meaning that the text you put it on does not get displayed; the margin display appears, but that text does not.
+
+A margin display specification looks like ((margin right-margin) spec) or ((margin left-margin) spec). Here, spec is another display specification that says what to display in the margin. Typically it is a string of text to display, or an image descriptor.
+
+To display something in the margin in association with certain buffer text, without altering or preventing the display of that text, put on that text an overlay with a before-string property, and put the margin display specification on the contents of the before-string.
+
+Note that if the string to be displayed in the margin doesn’t specify a face, its face is determined using the same rules and priorities as it is for strings displayed in the text area (see Displaying Faces). If this results in undesirable “leaking” of faces into the margin, make sure the string has an explicit face specified for it.
+
+Before the display margins can display anything, you must give them a nonzero width. The usual way to do that is to set these variables:
+
+Variable: left-margin-width ¶
+This variable specifies the width of the left margin, in character cell (a.k.a. “column”) units. It is buffer-local in all buffers. A value of nil means no left marginal area.
+
+Variable: right-margin-width ¶
+This variable specifies the width of the right margin, in character cell units. It is buffer-local in all buffers. A value of nil means no right marginal area.
+
+Setting these variables does not immediately affect the window. These variables are checked when a new buffer is displayed in the window. Thus, you can make changes take effect by calling set-window-buffer. Do not use these variables to try to determine the current width of the left or right margin. Instead, use the function window-margins.
+
+You can also set the margin widths immediately.
+
+Function: set-window-margins window left &optional right ¶
+This function specifies the margin widths for window window, in character cell units. The argument left controls the left margin, and right controls the right margin (default 0).
+
+If window is not large enough to accommodate margins of the desired width, this leaves the margins of window unchanged.
+
+The values specified here may be later overridden by invoking set-window-buffer (see Buffers and Windows) on window with its keep-margins argument nil or omitted.
+
+Function: window-margins &optional window ¶
+This function returns the width of the left and right margins of window as a cons cell of the form (left . right). If one of the two marginal areas does not exist, its width is returned as nil; if neither of the two margins exist, the function returns (nil). If window is nil, the selected window is used.
+
+
+** Images
+
+To display an image in an Emacs buffer, you must first create an image descriptor, then use it as a display specifier in the display property of text that is displayed (see The display Property).
+
+Emacs is usually able to display images when it is run on a graphical terminal. Images cannot be displayed in a text terminal, on certain graphical terminals that lack the support for this, or if Emacs is compiled without image support. You can use the function display-images-p to determine if images can in principle be displayed (see Display Feature Testing).
+
+**** Image Formats
+
+Emacs can display a number of different image formats. Some of these image formats are supported only if particular support libraries are installed. On some platforms, Emacs can load support libraries on demand; if so, the variable dynamic-library-alist can be used to modify the set of known names for these dynamic libraries. See Dynamically Loaded Libraries.
+
+Supported image formats (and the required support libraries) include PBM and XBM (which do not depend on support libraries and are always available), XPM (libXpm), GIF (libgif or libungif), JPEG (libjpeg), TIFF (libtiff), PNG (libpng), SVG (librsvg), and WebP (libwebp).
+
+Each of these image formats is associated with an image type symbol. The symbols for the above formats are, respectively, pbm, xbm, xpm, gif, jpeg, tiff, png, svg, and webp.
+
+On some platforms, the built-in image support that doesn’t require any optional libraries includes BMP images.31
+
+Furthermore, if you build Emacs with ImageMagick (libMagickWand) support, Emacs can display any image format that ImageMagick can. See ImageMagick Images. All images displayed via ImageMagick have type symbol imagemagick.
+
+Variable: image-types ¶
+This variable contains a list of type symbols for image formats which are potentially supported in the current configuration.
+
+“Potentially” means that Emacs knows about the image types, not necessarily that they can be used (for example, they could depend on unavailable dynamic libraries). To know which image types are really available, use image-type-available-p.
+
+Function: image-type-available-p type ¶
+This function returns non-nil if images of type type can be loaded and displayed. type must be an image type symbol.
+
+For image types whose support libraries are statically linked, this function always returns t. For image types whose support libraries are dynamically loaded, it returns t if the library could be loaded and nil otherwise.
+
+Footnotes
+(31)
+On MS-Windows, this requires w32-use-native-image-API to be set non-nil.
+
+
+**** Image Descriptors
+
+An image descriptor is a list which specifies the underlying data for an image, and how to display it. It is typically used as the value of a display overlay or text property (see Other Display Specifications); but See Showing Images, for convenient helper functions to insert images into buffers.
+
+Each image descriptor has the form (image . props), where props is a property list of alternating keyword symbols and values, including at least the pair :type type that specifies the image type.
+
+Image descriptors which define image dimensions, :width, :height, :max-width and :max-height, may take either an integer, which represents the dimension in pixels, or a pair (value . em), where value is the dimension’s length in ems32. One em is equivalent to the height of the font and value may be an integer or a float.
+
+The following is a list of properties that are meaningful for all image types (there are also properties which are meaningful only for certain image types, as documented in the following subsections):
+
+:type type
+The image type. See Image Formats. Every image descriptor must include this property.
+
+:file file
+This says to load the image from file file. If file is not an absolute file name, it is expanded relative to each of the directories mentioned by image-load-path (see Defining Images).
+
+:data data
+This specifies the raw image data. Each image descriptor must have either :data or :file, but not both.
+
+For most image types, the value of a :data property should be a string containing the image data. Some image types do not support :data; for some others, :data alone is not enough, so you need to use other image properties along with :data. See the following subsections for details.
+
+:margin margin
+This specifies how many pixels to add as an extra margin around the image. The value, margin, must be a non-negative number, or a pair (x . y) of such numbers. If it is a pair, x specifies how many pixels to add horizontally, and y specifies how many pixels to add vertically. If :margin is not specified, the default is zero.
+
+:ascent ascent
+This specifies the amount of the image’s height to use for its ascent—that is, the part above the baseline. The value, ascent, must be a number in the range 0 to 100, or the symbol center.
+
+If ascent is a number, that percentage of the image’s height is used for its ascent.
+
+If ascent is center, the image is vertically centered around a centerline which would be the vertical centerline of text drawn at the position of the image, in the manner specified by the text properties and overlays that apply to the image.
+
+If this property is omitted, it defaults to 50.
+
+:relief relief
+This adds a shadow rectangle around the image. The value, relief, specifies the width of the shadow lines, in pixels. If relief is negative, shadows are drawn so that the image appears as a pressed button; otherwise, it appears as an unpressed button.
+
+:width width, :height height
+The :width and :height keywords are used for scaling the image. If only one of them is specified, the other one will be calculated so as to preserve the aspect ratio. If both are specified, aspect ratio may not be preserved.
+
+:max-width max-width, :max-height max-height
+The :max-width and :max-height keywords are used for scaling if the size of the image exceeds these values. If :width is set, it will have precedence over max-width, and if :height is set, it will have precedence over max-height, but you can otherwise mix these keywords as you wish.
+
+If both :max-width and :height are specified, but :width is not, preserving the aspect ratio might require that width exceeds :max-width. If this happens, scaling will use a smaller value for the height so as to preserve the aspect ratio while not exceeding :max-width. Similarly when both :max-height and :width are specified, but :height is not. For example, if you have a 200x100 image and specify that :width should be 400 and :max-height should be 150, you’ll end up with an image that is 300x150: Preserving the aspect ratio and not exceeding the “max” setting. This combination of parameters is a useful way of saying “display this image as large as possible, but no larger than the available display area”.
+
+:scale scale
+This should be a number, where values higher than 1 means to increase the size, and lower means to decrease the size, by multiplying both the width and height. For instance, a value of 0.25 will make the image a quarter size of what it originally was. If the scaling makes the image larger than specified by :max-width or :max-height, the resulting size will not exceed those two values. If both :scale and :height/:width are specified, the height/width will be adjusted by the specified scaling factor.
+
+:rotation angle
+Specifies a rotation angle in degrees. Only multiples of 90 degrees are supported, unless the image type is imagemagick. Positive values rotate clockwise, negative values counter-clockwise. Rotation is performed after scaling and cropping.
+
+:flip flip
+If this is t, the image will be horizontally flipped. Currently it has no effect if the image type is imagemagick. Vertical flipping can be achieved by rotating the image 180 degrees and toggling this value.
+
+:transform-smoothing smooth
+If this is t, any image transform will have smoothing applied; if nil, no smoothing will be applied. The exact algorithm used is platform dependent, but should be equivalent to bilinear filtering. Disabling smoothing will use the nearest neighbor algorithm.
+
+If this property is not specified, create-image will use the image-transform-smoothing user option to say whether scaling should be done or not. This option can be nil (no smoothing), t (use smoothing) or a predicate function that’s called with the image object as the only parameter, and should return either nil or t. The default is for down-scaling to apply smoothing, and for large up-scaling to not apply smoothing.
+
+:index frame
+See Multi-Frame Images.
+
+:conversion algorithm
+This specifies a conversion algorithm that should be applied to the image before it is displayed; the value, algorithm, specifies which algorithm.
+
+laplace
+emboss
+Specifies the Laplace edge detection algorithm, which blurs out small differences in color while highlighting larger differences. People sometimes consider this useful for displaying the image for a disabled button.
+
+(edge-detection :matrix matrix :color-adjust adjust) ¶
+Specifies a general edge-detection algorithm. matrix must be either a nine-element list or a nine-element vector of numbers. A pixel at position x/y in the transformed image is computed from original pixels around that position. matrix specifies, for each pixel in the neighborhood of x/y, a factor with which that pixel will influence the transformed pixel; element 0 specifies the factor for the pixel at x-1/y-1, element 1 the factor for the pixel at x/y-1 etc., as shown below:
+
+  (x-1/y-1  x/y-1  x+1/y-1
+   x-1/y    x/y    x+1/y
+   x-1/y+1  x/y+1  x+1/y+1)
+The resulting pixel is computed from the color intensity of the color resulting from summing up the RGB values of surrounding pixels, multiplied by the specified factors, and dividing that sum by the sum of the factors’ absolute values.
+
+Laplace edge-detection currently uses a matrix of
+
+  (1  0  0
+   0  0  0
+   0  0 -1)
+Emboss edge-detection uses a matrix of
+
+  ( 2 -1  0
+   -1  0  1
+    0  1 -2)
+disabled
+Specifies transforming the image so that it looks disabled.
+
+:mask mask
+If mask is heuristic or (heuristic bg), build a clipping mask for the image, so that the background of a frame is visible behind the image. If bg is not specified, or if bg is t, determine the background color of the image by looking at the four corners of the image, assuming the most frequently occurring color from the corners is the background color of the image. Otherwise, bg must be a list (red green blue) specifying the color to assume for the background of the image.
+
+If mask is nil, remove a mask from the image, if it has one. Images in some formats include a mask which can be removed by specifying :mask nil.
+
+:pointer shape
+This specifies the pointer shape when the mouse pointer is over this image. See Pointer Shape, for available pointer shapes.
+
+:map map ¶
+This associates an image map of hot spots with this image.
+
+An image map is an alist where each element has the format (area id plist). An area is specified as either a rectangle, a circle, or a polygon.
+
+A rectangle is a cons (rect . ((x0 . y0) . (x1 . y1))) which specifies the pixel coordinates of the upper left and bottom right corners of the rectangle area.
+
+A circle is a cons (circle . ((x0 . y0) . r)) which specifies the center and the radius of the circle; r may be a float or integer.
+
+A polygon is a cons (poly . [x0 y0 x1 y1 ...]) where each pair in the vector describes one corner in the polygon.
+
+When the mouse pointer lies on a hot-spot area of an image, the plist of that hot-spot is consulted; if it contains a help-echo property, that defines a tool-tip for the hot-spot, and if it contains a pointer property, that defines the shape of the mouse cursor when it is on the hot-spot. See Pointer Shape, for available pointer shapes.
+
+When you click the mouse when the mouse pointer is over a hot-spot, an event is composed by combining the id of the hot-spot with the mouse event; for instance, [area4 mouse-1] if the hot-spot’s id is area4.
+
+Note that the map’s coordinates should reflect the displayed image after all transforms have been done (rotation, scaling and so on), and also note that Emacs (by default) performs auto-scaling of images, so to make things match up, you should either specify :scale 1.0 when creating the image, or use the result of image-compute-scaling-factor to compute the elements of the map.
+
+Function: image-mask-p spec &optional frame ¶
+This function returns t if image spec has a mask bitmap. frame is the frame on which the image will be displayed. frame nil or omitted means to use the selected frame (see Input Focus).
+
+Function: image-transforms-p &optional frame ¶
+This function returns non-nil if frame supports image scaling and rotation. frame nil or omitted means to use the selected frame (see Input Focus). The returned list includes symbols that indicate which image transform operations are supported:
+
+scale
+Image scaling is supported by frame via the :scale, :width, :height, :max-width, and :max-height properties.
+
+rotate90
+Image rotation is supported by frame if the rotation angle is an integral multiple of 90 degrees.
+
+If image transforms are not supported, :rotation, :crop, :width, :height, :scale, :max-width and :max-height will only be usable through ImageMagick, if available (see ImageMagick Images).
+
+Footnotes
+(32)
+In typography an em is a distance equivalent to the height of the type. For example when using 12 point type 1 em is equal to 12 points. Its use ensures distances and type remain proportional.
+
+
+**** XBM Images
+
+To use XBM format, specify xbm as the image type. This image format doesn’t require an external library, so images of this type are always supported.
+
+Additional image properties supported for the xbm image type are:
+
+:foreground foreground
+The value, foreground, should be a string specifying the image foreground color, or nil for the default color. This color is used for each pixel in the XBM that is 1. The default is the frame’s foreground color.
+
+:background background
+The value, background, should be a string specifying the image background color, or nil for the default color. This color is used for each pixel in the XBM that is 0. The default is the frame’s background color.
+
+If you specify an XBM image using data within Emacs instead of an external file, use the following three properties:
+
+:data data
+The value, data, specifies the contents of the image. There are three formats you can use for data:
+
+A vector of strings or bool-vectors, each specifying one line of the image. Do specify :data-height and :data-width.
+A string containing the same byte sequence as an XBM file would contain.
+A string or a bool-vector containing the bits of the image (plus perhaps some extra bits at the end that will not be used). It should contain at least stride * height bits, where stride is the smallest multiple of 8 greater than or equal to the width of the image. In this case, you should specify :data-height, :data-width and :stride, both to indicate that the string contains just the bits rather than a whole XBM file, and to specify the size of the image.
+:stride stride
+The number of bool vector entries stored for each row; the smallest multiple of 8 greater than or equal to width.
+
+
+**** XPM Images
+
+To use XPM format, specify xpm as the image type. The additional image property :color-symbols is also meaningful with the xpm image type:
+
+:color-symbols symbols
+The value, symbols, should be an alist whose elements have the form (name . color). In each element, name is the name of a color as it appears in the image file, and color specifies the actual color to use for displaying that name.
+
+
+**** ImageMagick Images
+
+If your Emacs build has ImageMagick support, you can use the ImageMagick library to load many image formats (see File Conveniences in The GNU Emacs Manual). The image type symbol for images loaded via ImageMagick is imagemagick, regardless of the actual underlying image format.
+
+To check for ImageMagick support, use the following:
+
+(image-type-available-p 'imagemagick)
+Function: imagemagick-types ¶
+This function returns a list of image file extensions supported by the current ImageMagick installation. Each list element is a symbol representing an internal ImageMagick name for an image type, such as BMP for .bmp images.
+
+User Option: imagemagick-enabled-types ¶
+The value of this variable is a list of ImageMagick image types which Emacs may attempt to render using ImageMagick. Each list element should be one of the symbols in the list returned by imagemagick-types, or an equivalent string. Alternatively, a value of t enables ImageMagick for all possible image types. Regardless of the value of this variable, imagemagick-types-inhibit (see below) takes precedence.
+
+User Option: imagemagick-types-inhibit ¶
+The value of this variable lists the ImageMagick image types which should never be rendered using ImageMagick, regardless of the value of imagemagick-enabled-types. A value of t disables ImageMagick entirely.
+
+Variable: image-format-suffixes ¶
+This variable is an alist mapping image types to file name extensions. Emacs uses this in conjunction with the :format image property (see below) to give a hint to the ImageMagick library as to the type of an image. Each element has the form (type extension), where type is a symbol specifying an image content-type, and extension is a string that specifies the associated file name extension.
+
+Images loaded with ImageMagick support the following additional image descriptor properties:
+
+:background background
+background, if non-nil, should be a string specifying a color, which is used as the image’s background color if the image supports transparency. If the value is nil, it defaults to the frame’s background color.
+
+:format type
+The value, type, should be a symbol specifying the type of the image data, as found in image-format-suffixes. This is used when the image does not have an associated file name, to provide a hint to ImageMagick to help it detect the image type.
+
+:crop geometry
+The value of geometry should be a list of the form (width height x y). width and height specify the width and height of the cropped image. If x is a positive number it specifies the offset of the cropped area from the left of the original image, and if negative the offset from the right. If y is a positive number it specifies the offset from the top of the original image, and if negative from the bottom. If x or y are nil or unspecified the crop area will be centered on the original image.
+
+If the crop area is outside or overlaps the edge of the image it will be reduced to exclude any areas outside of the image. This means it is not possible to use :crop to increase the size of the image by entering large width or height values.
+
+Cropping is performed after scaling but before rotation.
+
+
+**** SVG Images
+
+SVG (Scalable Vector Graphics) is an XML format for specifying images. SVG images support the following additional image descriptor properties:
+
+:foreground foreground
+foreground, if non-nil, should be a string specifying a color, which is used as the image’s foreground color. If the value is nil, it defaults to the current face’s foreground color.
+
+:background background
+background, if non-nil, should be a string specifying a color, which is used as the image’s background color if the image supports transparency. If the value is nil, it defaults to the current face’s background color.
+
+:css css
+css, if non-nil, should be a string specifying the CSS to override the default CSS used when generating the image.
+
+SVG library
+If your Emacs build has SVG support, you can create and manipulate these images with the following functions from the svg.el library.
+
+Function: svg-create width height &rest args ¶
+Create a new, empty SVG image with the specified dimensions. args is an argument plist with you can specify following:
+
+:stroke-width
+The default width (in pixels) of any lines created.
+
+:stroke
+The default stroke color on any lines created.
+
+This function returns an SVG object, a Lisp data structure that specifies an SVG image, and all the following functions work on that structure. The argument svg in the following functions specifies such an SVG object.
+
+Function: svg-gradient svg id type stops ¶
+Create a gradient in svg with identifier id. type specifies the gradient type, and can be either linear or radial. stops is a list of percentage/color pairs.
+
+The following will create a linear gradient that goes from red at the start, to green 25% of the way, to blue at the end:
+
+(svg-gradient svg "gradient1" 'linear
+              '((0 . "red") (25 . "green") (100 . "blue")))
+The gradient created (and inserted into the SVG object) can later be used by all functions that create shapes.
+
+All the following functions take an optional list of keyword parameters that alter the various attributes from their default values. Valid attributes include:
+
+:stroke-width
+The width (in pixels) of lines drawn, and outlines around solid shapes.
+
+:stroke-color
+The color of lines drawn, and outlines around solid shapes.
+
+:fill-color
+The color used for solid shapes.
+
+:id
+The identified of the shape.
+
+:gradient
+If given, this should be the identifier of a previously defined gradient object.
+
+:clip-path
+Identifier of a clip path.
+
+Function: svg-rectangle svg x y width height &rest args ¶
+Add to svg a rectangle whose upper left corner is at position x/y and whose size is width/height.
+
+(svg-rectangle svg 100 100 500 500 :gradient "gradient1")
+Function: svg-circle svg x y radius &rest args ¶
+Add to svg a circle whose center is at x/y and whose radius is radius.
+
+Function: svg-ellipse svg x y x-radius y-radius &rest args ¶
+Add to svg an ellipse whose center is at x/y, and whose horizontal radius is x-radius and the vertical radius is y-radius.
+
+Function: svg-line svg x1 y1 x2 y2 &rest args ¶
+Add to svg a line that starts at x1/y1 and extends to x2/y2.
+
+Function: svg-polyline svg points &rest args ¶
+Add to svg a multiple-segment line (a.k.a. “polyline”) that goes through points, which is a list of X/Y position pairs.
+
+(svg-polyline svg '((200 . 100) (500 . 450) (80 . 100))
+              :stroke-color "green")
+Function: svg-polygon svg points &rest args ¶
+Add a polygon to svg where points is a list of X/Y pairs that describe the outer circumference of the polygon.
+
+(svg-polygon svg '((100 . 100) (200 . 150) (150 . 90))
+             :stroke-color "blue" :fill-color "red")
+Function: svg-path svg commands &rest args ¶
+Add the outline of a shape to svg according to commands, see SVG Path Commands.
+
+Coordinates by default are absolute. To use coordinates relative to the last position, or – initially – to the origin, set the attribute :relative to t. This attribute can be specified for the function or for individual commands. If specified for the function, then all commands use relative coordinates by default. To make an individual command use absolute coordinates, set :relative to nil.
+
+(svg-path svg
+	  '((moveto ((100 . 100)))
+	    (lineto ((200 . 0) (0 . 200) (-200 . 0)))
+	    (lineto ((100 . 100)) :relative nil))
+	  :stroke-color "blue"
+	  :fill-color "lightblue"
+	  :relative t)
+Function: svg-text svg text &rest args ¶
+Add the specified text to svg.
+
+(svg-text
+ svg "This is a text"
+ :font-size "40"
+ :font-weight "bold"
+ :stroke "black"
+ :fill "white"
+ :font-family "impact"
+ :letter-spacing "4pt"
+ :x 300
+ :y 400
+ :stroke-width 1)
+Function: svg-embed svg image image-type datap &rest args ¶
+Add an embedded (raster) image to svg. If datap is nil, image should be a file name; otherwise it should be a string containing the image data as raw bytes. image-type should be a MIME image type, for instance "image/jpeg".
+
+(svg-embed svg "~/rms.jpg" "image/jpeg" nil
+           :width "100px" :height "100px"
+           :x "50px" :y "75px")
+Function: svg-embed-base-uri-image svg relative-filename &rest args ¶
+To svg add an embedded (raster) image placed at relative-filename. relative-filename is searched inside file-name-directory of the :base-uri svg image property. :base-uri specifies a (possibly non-existing) file name of the svg image to be created, thus all the embedded files are searched relatively to the :base-uri filename’s directory. If :base-uri is omitted, then filename from where svg image is loaded is used. Using :base-uri improves the performance of embedding large images, comparing to svg-embed, because all the work is done directly by librsvg.
+
+;; Embedding /tmp/subdir/rms.jpg and /tmp/another/rms.jpg
+(svg-embed-base-uri-image svg "subdir/rms.jpg"
+           :width "100px" :height "100px"
+           :x "50px" :y "75px")
+(svg-embed-base-uri-image svg "another/rms.jpg"
+           :width "100px" :height "100px"
+           :x "75px" :y "50px")
+(svg-image svg :scale 1.0
+           :base-uri "/tmp/dummy"
+           :width 175 :height 175)
+Function: svg-clip-path svg &rest args ¶
+Add a clipping path to svg. If applied to a shape via the :clip-path property, parts of that shape which lie outside of the clipping path are not drawn.
+
+(let ((clip-path (svg-clip-path svg :id "foo")))
+  (svg-circle clip-path 200 200 175))
+(svg-rectangle svg 50 50 300 300
+               :fill-color "red"
+               :clip-path "url(#foo)")
+Function: svg-node svg tag &rest args ¶
+Add the custom node tag to svg.
+
+(svg-node svg
+          'rect
+          :width 300 :height 200 :x 50 :y 100 :fill-color "green")
+Function: svg-remove svg id ¶
+Remove the element with identifier id from the svg.
+
+Function: svg-image svg ¶
+Finally, the svg-image takes an SVG object as its argument and returns an image object suitable for use in functions like insert-image.
+
+Here’s a complete example that creates and inserts an image with a circle:
+
+(let ((svg (svg-create 400 400 :stroke-width 10)))
+  (svg-gradient svg "gradient1" 'linear '((0 . "red") (100 . "blue")))
+  (svg-circle svg 200 200 100 :gradient "gradient1"
+                  :stroke-color "green")
+  (insert-image (svg-image svg)))
+SVG Path Commands
+SVG paths allow creation of complex images by combining lines, curves, arcs, and other basic shapes. The functions described below allow invoking SVG path commands from a Lisp program.
+
+Command: moveto points ¶
+Move the pen to the first point in points. Additional points are connected with lines. points is a list of X/Y coordinate pairs. Subsequent moveto commands represent the start of a new subpath.
+
+(svg-path svg '((moveto ((200 . 100) (100 . 200) (0 . 100))))
+          :fill "white" :stroke "black")
+Command: closepath ¶
+End the current subpath by connecting it back to its initial point. A line is drawn along the connection.
+
+(svg-path svg '((moveto ((200 . 100) (100 . 200) (0 . 100)))
+                (closepath)
+                (moveto ((75 . 125) (100 . 150) (125 . 125)))
+                (closepath))
+          :fill "red" :stroke "black")
+Command: lineto points ¶
+Draw a line from the current point to the first element in points, a list of X/Y position pairs. If more than one point is specified, draw a polyline.
+
+(svg-path svg '((moveto ((200 . 100)))
+                (lineto ((100 . 200) (0 . 100))))
+          :fill "yellow" :stroke "red")
+Command: horizontal-lineto x-coordinates ¶
+Draw a horizontal line from the current point to the first element in x-coordinates. Specifying multiple coordinates is possible, although this usually doesn’t make sense.
+
+(svg-path svg '((moveto ((100 . 200)))
+                (horizontal-lineto (300)))
+          :stroke "green")
+Command: vertical-lineto y-coordinates ¶
+Draw vertical lines.
+
+(svg-path svg '((moveto ((200 . 100)))
+                (vertical-lineto (300)))
+          :stroke "green")
+Command: curveto coordinate-sets ¶
+Using the first element in coordinate-sets, draw a cubic Bézier curve from the current point. If there are multiple coordinate sets, draw a polybezier. Each coordinate set is a list of the form (x1 y1 x2 y2 x y), where (x, y) is the curve’s end point. (x1, y1) and (x2, y2) are control points at the beginning and at the end, respectively.
+
+(svg-path svg '((moveto ((100 . 100)))
+                (curveto ((200 100 100 200 200 200)
+                          (300 200 0 100 100 100))))
+          :fill "transparent" :stroke "red")
+Command: smooth-curveto coordinate-sets ¶
+Using the first element in coordinate-sets, draw a cubic Bézier curve from the current point. If there are multiple coordinate sets, draw a polybezier. Each coordinate set is a list of the form (x2 y2 x y), where (x, y) is the curve’s end point and (x2, y2) is the corresponding control point. The first control point is the reflection of the second control point of the previous command relative to the current point, if that command was curveto or smooth-curveto. Otherwise the first control point coincides with the current point.
+
+(svg-path svg '((moveto ((100 . 100)))
+                (curveto ((200 100 100 200 200 200)))
+                (smooth-curveto ((0 100 100 100))))
+          :fill "transparent" :stroke "blue")
+Command: quadratic-bezier-curveto coordinate-sets ¶
+Using the first element in coordinate-sets, draw a quadratic Bézier curve from the current point. If there are multiple coordinate sets, draw a polybezier. Each coordinate set is a list of the form (x1 y1 x y), where (x, y) is the curve’s end point and (x1, y1) is the control point.
+
+(svg-path svg '((moveto ((200 . 100)))
+                (quadratic-bezier-curveto ((300 100 300 200)))
+                (quadratic-bezier-curveto ((300 300 200 300)))
+                (quadratic-bezier-curveto ((100 300 100 200)))
+                (quadratic-bezier-curveto ((100 100 200 100))))
+          :fill "transparent" :stroke "pink")
+Command: smooth-quadratic-bezier-curveto coordinate-sets ¶
+Using the first element in coordinate-sets, draw a quadratic Bézier curve from the current point. If there are multiple coordinate sets, draw a polybezier. Each coordinate set is a list of the form (x y), where (x, y) is the curve’s end point. The control point is the reflection of the control point of the previous command relative to the current point, if that command was quadratic-bezier-curveto or smooth-quadratic-bezier-curveto. Otherwise the control point coincides with the current point.
+
+(svg-path svg '((moveto ((200 . 100)))
+                (quadratic-bezier-curveto ((300 100 300 200)))
+                (smooth-quadratic-bezier-curveto ((200 300)))
+                (smooth-quadratic-bezier-curveto ((100 200)))
+                (smooth-quadratic-bezier-curveto ((200 100))))
+          :fill "transparent" :stroke "lightblue")
+Command: elliptical-arc coordinate-sets ¶
+Using the first element in coordinate-sets, draw an elliptical arc from the current point. If there are multiple coordinate sets, draw a sequence of elliptical arcs. Each coordinate set is a list of the form (rx ry x y), where (x, y) is the end point of the ellipse, and (rx, ry) are its radii. Attributes may be appended to the list:
+
+:x-axis-rotation
+The angle in degrees by which the x-axis of the ellipse is rotated relative to the x-axis of the current coordinate system.
+
+:large-arc
+If set to t, draw an arc sweep greater than or equal to 180 degrees. Otherwise, draw an arc sweep smaller than or equal to 180 degrees.
+
+:sweep
+If set to t, draw an arc in positive angle direction. Otherwise, draw it in negative angle direction.
+
+(svg-path svg '((moveto ((200 . 250)))
+                (elliptical-arc ((75 75 200 350))))
+          :fill "transparent" :stroke "red")
+(svg-path svg '((moveto ((200 . 250)))
+                (elliptical-arc ((75 75 200 350 :large-arc t))))
+          :fill "transparent" :stroke "green")
+(svg-path svg '((moveto ((200 . 250)))
+                (elliptical-arc ((75 75 200 350 :sweep t))))
+          :fill "transparent" :stroke "blue")
+(svg-path svg '((moveto ((200 . 250)))
+                (elliptical-arc ((75 75 200 350 :large-arc t
+                                     :sweep t))))
+          :fill "transparent" :stroke "gray")
+(svg-path svg '((moveto ((160 . 100)))
+                (elliptical-arc ((40 100 80 0)))
+                (elliptical-arc ((40 100 -40 -70
+                                     :x-axis-rotation -120)))
+                (elliptical-arc ((40 100 -40 70
+                                     :x-axis-rotation -240))))
+          :stroke "pink" :fill "lightblue"
+          :relative t)
+
+**** Other Image Types
+
+For PBM images, specify image type pbm. Color, gray-scale and monochromatic images are supported. For mono PBM images, two additional image properties are supported.
+
+:foreground foreground
+The value, foreground, should be a string specifying the image foreground color, or nil for the default color. This color is used for each pixel in the PBM that is 1. The default is the frame’s foreground color.
+
+:background background
+The value, background, should be a string specifying the image background color, or nil for the default color. This color is used for each pixel in the PBM that is 0. The default is the frame’s background color.
+
+The remaining image types that Emacs can support are:
+
+GIF
+Image type gif. Supports the :index property. See Multi-Frame Images.
+
+JPEG
+Image type jpeg.
+
+PNG
+Image type png.
+
+TIFF
+Image type tiff. Supports the :index property. See Multi-Frame Images.
+
+WebP
+Image type webp.
+
+
+**** Defining Images
+
+The functions create-image, defimage and find-image provide convenient ways to create image descriptors.
+
+Function: create-image file-or-data &optional type data-p &rest props ¶
+This function creates and returns an image descriptor which uses the data in file-or-data. file-or-data can be a file name or a string containing the image data; data-p should be nil for the former case, non-nil for the latter case. If file-or-data is a relative file name, the function will search for it in directories mentioned in image-load-path.
+
+The optional argument type is a symbol specifying the image type. If type is omitted or nil, create-image tries to determine the image type from the file’s first few bytes, or else from the file’s name.
+
+The remaining arguments, props, specify additional image properties—for example,
+
+(create-image "foo.xpm" 'xpm nil :heuristic-mask t)
+The function returns nil if images of this type are not supported. Otherwise it returns an image descriptor.
+
+Macro: defimage symbol specs &optional doc ¶
+This macro defines symbol as an image name. The arguments specs is a list which specifies how to display the image. The third argument, doc, is an optional documentation string.
+
+Each argument in specs has the form of a property list, and each one should specify at least the :type property and either the :file or the :data property. The value of :type should be a symbol specifying the image type, the value of :file is the file to load the image from, and the value of :data is a string containing the actual image data. Here is an example:
+
+(defimage test-image
+  ((:type xpm :file "~/test1.xpm")
+   (:type xbm :file "~/test1.xbm")))
+defimage tests each argument, one by one, to see if it is usable—that is, if the type is supported and the file exists. The first usable argument is used to make an image descriptor which is stored in symbol.
+
+If none of the alternatives will work, then symbol is defined as nil.
+
+Function: image-property image property ¶
+Return the value of property in image. Properties can be set by using setf. Setting a property to nil will remove the property from the image.
+
+Function: find-image specs ¶
+This function provides a convenient way to find an image satisfying one of a list of image specifications specs.
+
+Each specification in specs is a property list with contents depending on image type. All specifications must at least contain the properties :type type and either :file file or :data data, where type is a symbol specifying the image type, e.g., xbm, file is the file to load the image from, and data is a string containing the actual image data. The first specification in the list whose type is supported, and file exists, is used to construct the image specification to be returned. If no specification is satisfied, nil is returned.
+
+The image is looked for in image-load-path.
+
+User Option: image-load-path ¶
+This variable’s value is a list of locations in which to search for image files. If an element is a string or a variable symbol whose value is a string, the string is taken to be the name of a directory to search. If an element is a variable symbol whose value is a list, that is taken to be a list of directories to search.
+
+The default is to search in the images subdirectory of the directory specified by data-directory, then the directory specified by data-directory, and finally in the directories in load-path. Subdirectories are not automatically included in the search, so if you put an image file in a subdirectory, you have to supply the subdirectory explicitly. For example, to find the image images/foo/bar.xpm within data-directory, you should specify the image as follows:
+
+(defimage foo-image '((:type xpm :file "foo/bar.xpm")))
+Function: image-load-path-for-library library image &optional path no-error ¶
+This function returns a suitable search path for images used by the Lisp package library.
+
+The function searches for image first using image-load-path, excluding data-directory/images, and then in load-path, followed by a path suitable for library, which includes ../../etc/images and ../etc/images relative to the library file itself, and finally in data-directory/images.
+
+Then this function returns a list of directories which contains first the directory in which image was found, followed by the value of load-path. If path is given, it is used instead of load-path.
+
+If no-error is non-nil and a suitable path can’t be found, don’t signal an error. Instead, return a list of directories as before, except that nil appears in place of the image directory.
+
+Here is an example of using image-load-path-for-library:
+
+(defvar image-load-path) ; shush compiler
+(let* ((load-path (image-load-path-for-library
+                    "mh-e" "mh-logo.xpm"))
+       (image-load-path (cons (car load-path)
+                              image-load-path)))
+  (mh-tool-bar-folder-buttons-init))
+Images are automatically scaled when created based on the image-scaling-factor variable. The value is either a floating point number (where numbers higher than 1 means to increase the size and lower means to shrink the size), or the symbol auto, which will compute a scaling factor based on the font pixel size.
+
+
+**** Showing Images
+
+You can use an image descriptor by setting up the display property yourself, but it is easier to use the functions in this section.
+
+Function: insert-image image &optional string area slice inhibit-isearch ¶
+This function inserts image in the current buffer at point. The value image should be an image descriptor; it could be a value returned by create-image, or the value of a symbol defined with defimage. The argument string specifies the text to put in the buffer to hold the image. If it is omitted or nil, insert-image uses " " by default.
+
+The argument area specifies whether to put the image in a margin. If it is left-margin, the image appears in the left margin; right-margin specifies the right margin. If area is nil or omitted, the image is displayed at point within the buffer’s text.
+
+The argument slice specifies a slice of the image to insert. If slice is nil or omitted the whole image is inserted. (However, note that images are chopped on display at the window’s right edge, because wrapping images is not supported.) Otherwise, slice is a list (x y width height) which specifies the x and y positions and width and height of the image area to insert. Integer values are in units of pixels. A floating-point number in the range 0.0–1.0 stands for that fraction of the width or height of the entire image.
+
+Internally, this function inserts string in the buffer, and gives it a display property which specifies image. See The display Property. By default, doing interactive searches in the buffer will consider string when searching. If inhibit-isearch is non-nil, this is inhibited.
+
+Function: insert-sliced-image image &optional string area rows cols ¶
+This function inserts image in the current buffer at point, like insert-image, but splits the image into rowsxcols equally sized slices.
+
+Emacs displays each slice as a separate image, and allows more intuitive scrolling up/down, instead of jumping up/down the entire image when paging through a buffer that displays (large) images.
+
+Function: put-image image pos &optional string area ¶
+This function puts image image in front of pos in the current buffer. The argument pos should be an integer or a marker. It specifies the buffer position where the image should appear. The argument string specifies the text that should hold the image as an alternative to the default ‘x’.
+
+The argument image must be an image descriptor, perhaps returned by create-image or stored by defimage.
+
+The argument area specifies whether to put the image in a margin. If it is left-margin, the image appears in the left margin; right-margin specifies the right margin. If area is nil or omitted, the image is displayed at point within the buffer’s text.
+
+Internally, this function creates an overlay, and gives it a before-string property containing text that has a display property whose value is the image. (Whew! that was a mouthful…)
+
+Function: remove-images start end &optional buffer ¶
+This function removes images in buffer between positions start and end. If buffer is omitted or nil, images are removed from the current buffer.
+
+This removes only images that were put into buffer the way put-image does it, not images that were inserted with insert-image or in other ways.
+
+Function: image-size spec &optional pixels frame ¶
+This function returns the size of an image as a pair (width . height). spec is an image specification. pixels non-nil means return sizes measured in pixels, otherwise return sizes measured in the default character size of frame (see Frame Font). frame is the frame on which the image will be displayed. frame nil or omitted means use the selected frame (see Input Focus).
+
+Variable: max-image-size ¶
+This variable is used to define the maximum size of image that Emacs will load. Emacs will refuse to load (and display) any image that is larger than this limit.
+
+If the value is an integer, it directly specifies the maximum image height and width, measured in pixels. If it is floating point, it specifies the maximum image height and width as a ratio to the frame height and width. If the value is non-numeric, there is no explicit limit on the size of images.
+
+The purpose of this variable is to prevent unreasonably large images from accidentally being loaded into Emacs. It only takes effect the first time an image is loaded. Once an image is placed in the image cache, it can always be displayed, even if the value of max-image-size is subsequently changed (see Image Cache).
+
+Function: image-at-point-p ¶
+This function returns t if point is on an image, and nil otherwise.
+
+Images inserted with the insertion functions above also get a local keymap installed in the text properties (or overlays) that span the displayed image. This keymap defines the following commands:
+
+i +
+Increase the image size (image-increase-size)
+
+i -
+Decrease the image size (image-decrease-size).
+
+i r
+Rotate the image (image-rotate).
+
+i h
+Flip the image horizontally (image-flip-horizontally).
+
+i v
+Flip the image vertically (image-flip-vertically).
+
+i o
+Save the image to a file (image-save).
+
+i c
+Interactively crop the image (image-crop).
+
+i x
+Interactively cut a rectangle from the image (image-cut).
+
+See Image Mode in The GNU Emacs Manual, for more details about these image-specific key bindings.
+
+
+**** Multi-Frame Images
+
+Some image files can contain more than one image. We say that there are multiple “frames” in the image. At present, Emacs supports multiple frames for GIF, TIFF, and certain ImageMagick formats such as DJVM.
+
+The frames can be used either to represent multiple pages (this is usually the case with multi-frame TIFF files, for example), or to create animation (usually the case with multi-frame GIF files).
+
+A multi-frame image has a property :index, whose value is an integer (counting from 0) that specifies which frame is being displayed.
+
+Function: image-multi-frame-p image ¶
+This function returns non-nil if image contains more than one frame. The actual return value is a cons (nimages . delay), where nimages is the number of frames and delay is the delay in seconds between them, or nil if the image does not specify a delay. Images that are intended to be animated usually specify a frame delay, whereas ones that are intended to be treated as multiple pages do not.
+
+Function: image-current-frame image ¶
+This function returns the index of the current frame number for image, counting from 0.
+
+Function: image-show-frame image n &optional nocheck ¶
+This function switches image to frame number n. It replaces a frame number outside the valid range with that of the end of the range, unless nocheck is non-nil. If image does not contain a frame with the specified number, the image displays as a hollow box.
+
+Function: image-animate image &optional index limit ¶
+This function animates image. The optional integer index specifies the frame from which to start (default 0). The optional argument limit controls the length of the animation. If omitted or nil, the image animates once only; if t it loops forever; if a number animation stops after that many seconds.
+
+Animation operates by means of a timer. Note that Emacs imposes a minimum frame delay of 0.01 (image-minimum-frame-delay) seconds. If the image itself does not specify a delay, Emacs uses image-default-frame-delay.
+
+Function: image-animate-timer image ¶
+This function returns the timer responsible for animating image, if there is one.
+
+
+**** Image Cache
+
+Emacs caches images so that it can display them again more efficiently. When Emacs displays an image, it searches the image cache for an existing image specification equal to the desired specification. If a match is found, the image is displayed from the cache. Otherwise, Emacs loads the image normally.
+
+Function: image-flush spec &optional frame ¶
+This function removes the image with specification spec from the image cache of frame frame. Image specifications are compared using equal. If frame is nil, it defaults to the selected frame. If frame is t, the image is flushed on all existing frames.
+
+In Emacs’s current implementation, each graphical terminal possesses an image cache, which is shared by all the frames on that terminal (see Multiple Terminals). Thus, refreshing an image in one frame also refreshes it in all other frames on the same terminal.
+
+One use for image-flush is to tell Emacs about a change in an image file. If an image specification contains a :file property, the image is cached based on the file’s contents when the image is first displayed. Even if the file subsequently changes, Emacs continues displaying the old version of the image. Calling image-flush flushes the image from the cache, forcing Emacs to re-read the file the next time it needs to display that image.
+
+Another use for image-flush is for memory conservation. If your Lisp program creates a large number of temporary images over a period much shorter than image-cache-eviction-delay (see below), you can opt to flush unused images yourself, instead of waiting for Emacs to do it automatically.
+
+Function: clear-image-cache &optional filter ¶
+This function clears an image cache, removing all the images stored in it. If filter is omitted or nil, it clears the cache for the selected frame. If filter is a frame, it clears the cache for that frame. If filter is t, all image caches are cleared. Otherwise, filter is taken to be a file name, and all images associated with that file name are removed from all image caches.
+
+If an image in the image cache has not been displayed for a specified period of time, Emacs removes it from the cache and frees the associated memory.
+
+Variable: image-cache-eviction-delay ¶
+This variable specifies the number of seconds an image can remain in the cache without being displayed. When an image is not displayed for this length of time, Emacs removes it from the image cache.
+
+Under some circumstances, if the number of images in the cache grows too large, the actual eviction delay may be shorter than this.
+
+If the value is nil, Emacs does not remove images from the cache except when you explicitly clear it. This mode can be useful for debugging.
+
+Function: image-cache-size ¶
+This function returns the total size of the current image cache, in bytes. An image of size 200x100 with 24 bits per color will have a cache size of 60000 bytes, for instance.
+
+
+** Icons
+
+Emacs sometimes uses buttons (for clicking on) or small graphics (to illustrate something). Since Emacs is available on a wide variety of systems with different capabilities, and users have different preferences, Emacs provides a facility to handle this in a convenient way, allowing customization, graceful degradation, accessibility, as well as themability: Icons.
+
+The central macro here is define-icon, and here’s a simple example:
+
+(define-icon outline-open button
+  '((image "right.svg" "open.xpm" "open.pbm" :height line)
+    (emoji "▶️")
+    (symbol "▶" "➤")
+    (text "open" :face icon-button))
+  "Icon used for buttons for opening a section in outline buffers."
+  :version "29.1"
+  :help-echo "Open this section")
+Which alternative will actually be displayed depends on the value of the user option icon-preference (see Icons in The GNU Emacs Manual) and on the results of run-time checks for what the current frame’s terminal can actually display.
+
+The macro in the example above defines outline-open as an icon, and inherits properties from the icon called button (so this is meant as a clickable button to be inserted in a buffer). It is followed by a list of icon types along with the actual icon shapes themselves. In addition, there’s a doc string and various keywords that contain additional information and properties.
+
+To instantiate an icon, you use icon-string, which will consult the current Customize theming, and the icon-preference user option, and finally what the Emacs is able to actually display. If icon-preference is (image emoji symbol text) (i.e., allowing all of these forms of icons), in this case, icon-string will first check that Emacs is able to display images at all, and then whether it has support for each of those different image formats. If that fails, Emacs will check whether Emacs can display emojis (in the current frame). If that fails, it’ll check whether it can display the symbol in question. If that fails, it’ll use the plain text version.
+
+For instance, if icon-preference doesn’t contain image or emoji, it’ll skip those entries.
+
+Code can confidently call icon-string in all circumstances and be sure that something readable will appear on the screen, no matter whether the user is on a graphical terminal or a text terminal, and no matter which features Emacs was built with.
+
+Macro: define-icon name parent specs doc &rest keywords ¶
+Define an icon name, a symbol, with the display alternatives in spec, that can be later instantiated using icon-string. The name is the name of the resulting keyword.
+
+The resulting icon will inherit specs from parent, and from their parent’s parents, and so on, and the lowest descendent element wins.
+
+specs is a list of icon specifications. The first element of each specification is the type, and the rest is something that can be used as an icon of that type, and then optionally followed by a keyword list. The following icon types are available:
+
+image
+In this case, there may be many images listed as candidates. Emacs will choose the first one that the current Emacs instance can show. If an image is listed is an absolute file name, it’s used as is, but it’s otherwise looked up in the list image-load-path (see Defining Images).
+
+emoji
+This should be a (possibly colorful) emoji.
+
+symbol
+This should be a (monochrome) symbol character.
+
+text
+Icons should also have a textual fallback. This can also be used for the visually impaired: if icon-preference is just (text), all icons will be replaced by text.
+
+Various keywords may follow the list of icon specifications. For instance:
+
+(symbol "▶" "➤" :face icon-button)
+Unknown keywords are ignored. The following keywords are allowed:
+
+:face
+The face to be used for the icon.
+
+:height
+This is only valid for image icons, and can be either a number (which specifies the height in pixels), or the symbol line, which will use the default line height in the currently selected window.
+
+:width
+This is only valid for image icons, and can be either a number (which specifies the width in pixels), or the symbol font, which will use the width in pixels of the current buffer’s default face font.
+
+doc should be a doc string.
+
+keywords is a list of keyword/value pairs. The following keywords are allowed:
+
+:version
+The (approximate) Emacs version this button first appeared. (This keyword is mandatory.)
+
+:group
+The customization group this icon belongs in. If not present, it is inferred.
+
+:help-echo
+The help string shown when hovering over the icon with the mouse pointer.
+
+Function: icon-string icon ¶
+This function returns a string suitable for display in the current buffer for icon.
+
+Function: icon-elements icon ¶
+Alternatively, you can get a “deconstructed” version of icon with this function. It returns a plist (see Property Lists) where the keys are string, face and image. (The latter is only present if the icon is represented by an image.) This can be useful if the icon isn’t to be inserted directly in the buffer, but needs some sort of pre-processing first.
+
+Icons can be customized with M-x customize-icon. Themes can specify changes to icons with, for instance:
+
+(custom-theme-set-icons
+  'my-theme
+  '(outline-open ((image :height 100)
+                  (text " OPEN ")))
+  '(outline-close ((image :height 100)
+                   (text " CLOSE " :face warning))))
+
+
+** Embedded Native Widgets
+
+Emacs is able to display native widgets, such as GTK+ WebKit widgets, in Emacs buffers when it was built with the necessary support libraries and is running on a graphical terminal. To test whether Emacs supports display of embedded widgets, check that the xwidget-internal feature is available (see Features).
+
+To display an embedded widget in a buffer, you must first create an xwidget object, and then use that object as the display specifier in a display text or overlay property (see The display Property).
+
+Embedded widgets can send events notifying Lisp code about changes occurring within them. (see Xwidget events).
+
+Function: make-xwidget type title width height arguments &optional buffer related ¶
+This creates and returns an xwidget object. If buffer is omitted or nil, it defaults to the current buffer. If buffer names a buffer that doesn’t exist, it will be created. The type identifies the type of the xwidget component, it can be one of the following:
+
+webkit
+The WebKit component.
+
+The width and height arguments specify the widget size in pixels, and title, a string, specifies its title. related is used internally by the WebKit widget, and specifies another WebKit widget that the newly created widget should share settings and subprocesses with.
+
+The xwidget that is returned will be killed alongside its buffer (see Killing Buffers). You can also kill it using kill-xwidget. Once it is killed, the xwidget may continue to exist as a Lisp object and act as a display property until all references to it are gone, but most actions that can be performed on live xwidgets will no longer be available.
+
+Function: xwidgetp object ¶
+This function returns t if object is an xwidget, nil otherwise.
+
+Function: xwidget-live-p object ¶
+This function returns t if object is an xwidget that hasn’t been killed, and nil otherwise.
+
+Function: kill-xwidget xwidget ¶
+This function kills xwidget, by removing it from its buffer and releasing window system resources it holds.
+
+Function: xwidget-plist xwidget ¶
+This function returns the property list of xwidget.
+
+Function: set-xwidget-plist xwidget plist ¶
+This function replaces the property list of xwidget with a new property list given by plist.
+
+Function: xwidget-buffer xwidget ¶
+This function returns the buffer of xwidget. If xwidget has been killed, it returns nil.
+
+Function: set-xwidget-buffer xwidget buffer ¶
+This function sets the buffer of xwidget to buffer.
+
+Function: get-buffer-xwidgets buffer ¶
+This function returns a list of xwidget objects associated with the buffer, which can be specified as a buffer object or a name of an existing buffer, a string. The value is nil if buffer contains no xwidgets.
+
+Function: xwidget-webkit-goto-uri xwidget uri ¶
+This function browses the specified uri in the given xwidget. The uri is a string that specifies the name of a file or a URL.
+
+Function: xwidget-webkit-execute-script xwidget script ¶
+This function causes the browser widget specified by xwidget to execute the specified JavaScript script.
+
+Function: xwidget-webkit-execute-script-rv xwidget script &optional default ¶
+This function executes the specified script like xwidget-webkit-execute-script does, but it also returns the script’s return value as a string. If script doesn’t return a value, this function returns default, or nil if default was omitted.
+
+Function: xwidget-webkit-get-title xwidget ¶
+This function returns the title of xwidget as a string.
+
+Function: xwidget-resize xwidget width height ¶
+This function resizes the specified xwidget to the size widthxheight pixels.
+
+Function: xwidget-size-request xwidget ¶
+This function returns the desired size of xwidget as a list of the form (width height). The dimensions are in pixels.
+
+Function: xwidget-info xwidget ¶
+This function returns the attributes of xwidget as a vector of the form [type title width height]. The attributes are usually determined by make-xwidget when the xwidget is created.
+
+Function: set-xwidget-query-on-exit-flag xwidget flag ¶
+This function allows you to arrange that Emacs will ask the user for confirmation before exiting or before killing a buffer that has xwidget associated with it. If flag is non-nil, Emacs will query the user, otherwise it will not.
+
+Function: xwidget-query-on-exit-flag xwidget ¶
+This function returns the current setting of xwidgets query-on-exit flag, either t or nil.
+
+Function: xwidget-perform-lispy-event xwidget event frame ¶
+Send an input event event to xwidget. The precise action performed is platform-specific. See Input Events.
+
+You can optionally pass the frame on which the event was generated via frame. On X11, modifier keys in key events will not be considered if frame is nil, and the selected frame is not an X-Windows frame.
+
+On GTK, only keyboard and function key events are supported. Mouse, motion, and click events are dispatched to the xwidget without going through Lisp code, and as such shouldn’t require this function to be called.
+
+Function: xwidget-webkit-search query xwidget &optional case-insensitive backwards wrap-around ¶
+Start an incremental search on the WebKit widget xwidget with the string query as the query. case-insensitive denotes whether or not the search is case-insensitive, backwards determines if the search is performed backwards towards the start of the document, and wrap-around determines whether or not the search terminates at the end of the document.
+
+If the function is called while a search query is already present, then the query specified here will replace the existing query.
+
+To stop a search query, use xwidget-webkit-finish-search.
+
+Function: xwidget-webkit-next-result xwidget ¶
+Display the next search result in xwidget. This function will signal an error if a search query has not been already started in xwidget through xwidget-webkit-search.
+
+If wrap-around was non-nil when xwidget-webkit-search was called, then the search will restart from the beginning of the document when its end is reached.
+
+Function: xwidget-webkit-previous-result xwidget ¶
+Display the previous search result in xwidget. This function signals an error if a search query has not been already started in xwidget through xwidget-webkit-search.
+
+If wrap-around was non-nil when xwidget-webkit-search was called, then the search will restart from the end of the document when its beginning is reached.
+
+Function: xwidget-webkit-finish-search xwidget ¶
+Finish a search operation started with xwidget-webkit-search in xwidget. If there is no query currently ongoing, this function signals an error.
+
+Function: xwidget-webkit-load-html xwidget text &optional base-uri ¶
+Load text, a string, into xwidget, which should be a WebKit xwidget. Any HTML markup in text will be processed by xwidget while rendering the text.
+
+Optional argument base-uri, which should be a string, specifies the absolute location of the web resources referenced by text, to be used for resolving relative links in text.
+
+Function: xwidget-webkit-goto-history xwidget rel-pos ¶
+Make xwidget, a WebKit widget, load the rel-posth element in its navigation history.
+
+If rel-pos is zero, the current page will be reloaded instead.
+
+Function: xwidget-webkit-back-forward-list xwidget &optional limit ¶
+Return the navigation history of xwidget, up to limit items in each direction. If not specified, limit defaults to 50.
+
+The returned value is a list of the form (back here forward), where here is the current navigation item, while back is a list of items containing the items recorded by WebKit before the current navigation item, and forward is a list of items recorded after the current navigation item. back, here and forward can all be nil.
+
+When here is nil, it means that no items have been recorded yet; if back or forward are nil, it means that there is no history recorded before or after the current item respectively.
+
+Navigation items are themselves lists of the form (idx title uri). In these lists, idx is an index that can be passed to xwidget-webkit-goto-history, title is the human-readable title of the item, and uri is the URI of the item. The user should normally have no reason to load uri manually to reach a specific history item. Instead, idx should be passed as an index to xwidget-webkit-goto-history.
+
+Function: xwidget-webkit-estimated-load-progress xwidget ¶
+Return an estimate of how much data is remaining to be transferred before the page displayed by the WebKit widget xwidget is fully loaded.
+
+The value returned is a float ranging between 0.0 and 1.0.
+
+Function: xwidget-webkit-set-cookie-storage-file xwidget file ¶
+Make the WebKit widget xwidget store cookies in file.
+
+file must be an absolute file name. The new setting will also affect any xwidget that was created with xwidget as the related argument to make-xwidget, and widgets related to those as well.
+
+If this function is not called at least once on xwidget or a related widget, xwidget will not store cookies on disk at all.
+
+Function: xwidget-webkit-stop-loading xwidget ¶
+Terminate any data transfer still in progress in the WebKit widget xwidget as part of a page-loading operation. If a page is not being loaded, this function does nothing.
+
+
+** Buttons
+
+The Button package defines functions for inserting and manipulating buttons that can be activated with the mouse or via keyboard commands. These buttons are typically used for various kinds of hyperlinks.
+
+A button is essentially a set of text or overlay properties, attached to a stretch of text in a buffer. These properties are called button properties. One of these properties, the action property, specifies a function which is called when the user invokes the button using the keyboard or the mouse. The action function may examine the button and use its other properties as desired.
+
+In some ways, the Button package duplicates the functionality in the Widget package. See Introduction in The Emacs Widget Library. The advantage of the Button package is that it is faster, smaller, and simpler to program. From the point of view of the user, the interfaces produced by the two packages are very similar.
+
+**** Button Properties
+
+Each button has an associated list of properties defining its appearance and behavior, and other arbitrary properties may be used for application specific purposes. The following properties have special meaning to the Button package:
+
+action ¶
+The function to call when the user invokes the button, which is passed the single argument button. By default this is ignore, which does nothing.
+
+mouse-action ¶
+This is similar to action, and when present, will be used instead of action for button invocations resulting from mouse-clicks (instead of the user hitting RET). If not present, mouse-clicks use action instead.
+
+face ¶
+This is an Emacs face controlling how buttons of this type are displayed; by default this is the button face.
+
+mouse-face ¶
+This is an additional face which controls appearance during mouse-overs (merged with the usual button face); by default this is the usual Emacs highlight face.
+
+keymap ¶
+The button’s keymap, defining bindings active within the button region. By default this is the usual button region keymap, stored in the variable button-map, which defines RET and mouse-2 to invoke the button.
+
+type ¶
+The button type. See Button Types.
+
+help-echo ¶
+A string displayed by the Emacs tooltip help system; by default, "mouse-2, RET: Push this button". Alternatively, a function that returns, or a form that evaluates to, a string to be displayed or nil. For details see Text help-echo.
+
+The function is called with three arguments, window, object, and pos. The second argument, object, is either the overlay that had the property (for overlay buttons), or the buffer containing the button (for text property buttons). The other arguments have the same meaning as for the special text property help-echo.
+
+follow-link ¶
+The follow-link property, defining how a mouse-1 click behaves on this button, See Defining Clickable Text.
+
+button ¶
+All buttons have a non-nil button property, which may be useful in finding regions of text that comprise buttons (which is what the standard button functions do).
+
+There are other properties defined for the regions of text in a button, but these are not generally interesting for typical uses.
+
+
+**** Button Types
+
+Every button has a button type, which defines default values for the button’s properties. Button types are arranged in a hierarchy, with specialized types inheriting from more general types, so that it’s easy to define special-purpose types of buttons for specific tasks.
+
+Function: define-button-type name &rest properties ¶
+Define a button type called name (a symbol). The remaining arguments form a sequence of property value pairs, specifying default property values for buttons with this type (a button’s type may be set by giving it a type property when creating the button, using the :type keyword argument).
+
+In addition, the keyword argument :supertype may be used to specify a button-type from which name inherits its default property values. Note that this inheritance happens only when name is defined; subsequent changes to a supertype are not reflected in its subtypes.
+
+Using define-button-type to define default properties for buttons is not necessary—buttons without any specified type use the built-in button-type button—but it is encouraged, since doing so usually makes the resulting code clearer and more efficient.
+
+
+**** Making Buttons
+
+Buttons are associated with a region of text, using an overlay or text properties to hold button-specific information, all of which are initialized from the button’s type (which defaults to the built-in button type button). Like all Emacs text, the appearance of the button is governed by the face property; by default (via the face property inherited from the button button-type) this is a simple underline, like a typical web-page link.
+
+For convenience, there are two sorts of button-creation functions, those that add button properties to an existing region of a buffer, called make-...button, and those that also insert the button text, called insert-...button.
+
+The button-creation functions all take the &rest argument properties, which should be a sequence of property value pairs, specifying properties to add to the button; see Button Properties. In addition, the keyword argument :type may be used to specify a button-type from which to inherit other properties; see Button Types. Any properties not explicitly specified during creation will be inherited from the button’s type (if the type defines such a property).
+
+The following functions add a button using an overlay (see Overlays) to hold the button properties:
+
+Function: make-button beg end &rest properties ¶
+This makes a button from beg to end in the current buffer, and returns it.
+
+Function: insert-button label &rest properties ¶
+This inserts a button with the label label at point, and returns it.
+
+The following functions are similar, but using text properties (see Text Properties) to hold the button properties. Such buttons do not add markers to the buffer, so editing in the buffer does not slow down if there is an extremely large numbers of buttons. However, if there is an existing face text property on the text (e.g., a face assigned by Font Lock mode), the button face may not be visible. Both of these functions return the starting position of the new button.
+
+Function: make-text-button beg end &rest properties ¶
+This makes a button from beg to end in the current buffer, using text properties.
+
+Function: insert-text-button label &rest properties ¶
+This inserts a button with the label label at point, using text properties.
+
+Function: buttonize string callback &optional data ¶
+Sometimes it’s more convenient to make a string into a button without inserting it into a buffer immediately, for instance when creating data structures that may then, later, be inserted into a buffer. This function makes string into such a string, and callback will be called when the user clicks on the button. The optional data parameter will be used as the parameter when callback is called. If nil, the button is used as the parameter instead.
+
+
+**** Manipulating Buttons
+
+These are functions for getting and setting properties of buttons. Often these are used by a button’s invocation function to determine what to do.
+
+Where a button parameter is specified, it means an object referring to a specific button, either an overlay (for overlay buttons), or a buffer-position or marker (for text property buttons). Such an object is passed as the first argument to a button’s invocation function when it is invoked.
+
+Function: button-start button ¶
+Return the position at which button starts.
+
+Function: button-end button ¶
+Return the position at which button ends.
+
+Function: button-get button prop ¶
+Get the property of button button named prop.
+
+Function: button-put button prop val ¶
+Set button’s prop property to val.
+
+Function: button-activate button &optional use-mouse-action ¶
+Call button’s action property (i.e., invoke the function that is the value of that property, passing it the single argument button). If use-mouse-action is non-nil, try to invoke the button’s mouse-action property instead of action; if the button has no mouse-action property, use action as normal. If the button-data property is present in button, use that as the argument for the action function instead of button.
+
+Function: button-label button ¶
+Return button’s text label.
+
+Function: button-type button ¶
+Return button’s button-type.
+
+Function: button-has-type-p button type ¶
+Return t if button has button-type type, or one of type’s subtypes.
+
+Function: button-at pos ¶
+Return the button at position pos in the current buffer, or nil. If the button at pos is a text property button, the return value is a marker pointing to pos.
+
+Function: button-type-put type prop val ¶
+Set the button-type type’s prop property to val.
+
+Function: button-type-get type prop ¶
+Get the property of button-type type named prop.
+
+Function: button-type-subtype-p type supertype ¶
+Return t if button-type type is a subtype of supertype.
+
+
+**** Button Buffer Commands
+
+These are commands and functions for locating and operating on buttons in an Emacs buffer.
+
+push-button is the command that a user uses to actually push a button, and is bound by default in the button itself to RET and to mouse-2 using a local keymap in the button’s overlay or text properties. Commands that are useful outside the buttons itself, such as forward-button and backward-button are additionally available in the keymap stored in button-buffer-map; a mode which uses buttons may want to use button-buffer-map as a parent keymap for its keymap. Alternatively, the button-mode can be switched on for much the same effect: It’s a minor mode that does nothing else than install button-buffer-map as a minor mode keymap.
+
+If the button has a non-nil follow-link property, and mouse-1-click-follows-link is set, a quick mouse-1 click will also activate the push-button command. See Defining Clickable Text.
+
+Command: push-button &optional pos use-mouse-action ¶
+Perform the action specified by a button at location pos. pos may be either a buffer position or a mouse-event. If use-mouse-action is non-nil, or pos is a mouse-event (see Mouse Events), try to invoke the button’s mouse-action property instead of action; if the button has no mouse-action property, use action as normal. pos defaults to point, except when push-button is invoked interactively as the result of a mouse-event, in which case, the mouse event’s position is used. If there’s no button at pos, do nothing and return nil, otherwise return t.
+
+Command: forward-button n &optional wrap display-message no-error ¶
+Move to the nth next button, or nth previous button if n is negative. If n is zero, move to the start of any button at point. If wrap is non-nil, moving past either end of the buffer continues from the other end. If display-message is non-nil, the button’s help-echo string is displayed. Any button with a non-nil skip property is skipped over. Returns the button found, and signals an error if no buttons can be found. If no-error is non-nil, return nil instead of signaling the error.
+
+Command: backward-button n &optional wrap display-message no-error ¶
+Move to the nth previous button, or nth next button if n is negative. If n is zero, move to the start of any button at point. If wrap is non-nil, moving past either end of the buffer continues from the other end. If display-message is non-nil, the button’s help-echo string is displayed. Any button with a non-nil skip property is skipped over. Returns the button found, and signals an error if no buttons can be found. If no-error is non-nil, return nil instead of signaling the error.
+
+Function: next-button pos &optional count-current ¶
+Function: previous-button pos &optional count-current ¶
+Return the next button after (for next-button) or before (for previous-button) position pos in the current buffer. If count-current is non-nil, count any button at pos in the search, instead of starting at the next button.
+
+
+** Abstract Display
+
+The Ewoc package constructs buffer text that represents a structure of Lisp objects, and updates the text to follow changes in that structure. This is like the “view” component in the “model–view–controller” design paradigm. Ewoc means “Emacs’s Widget for Object Collections”.
+
+An ewoc is a structure that organizes information required to construct buffer text that represents certain Lisp data. The buffer text of the ewoc has three parts, in order: first, fixed header text; next, textual descriptions of a series of data elements (Lisp objects that you specify); and last, fixed footer text. Specifically, an ewoc contains information on:
+
+The buffer which its text is generated in.
+The text’s start position in the buffer.
+The header and footer strings.
+A doubly-linked chain of nodes, each of which contains:
+A data element, a single Lisp object.
+Links to the preceding and following nodes in the chain.
+A pretty-printer function which is responsible for inserting the textual representation of a data element value into the current buffer.
+Typically, you define an ewoc with ewoc-create, and then pass the resulting ewoc structure to other functions in the Ewoc package to build nodes within it, and display it in the buffer. Once it is displayed in the buffer, other functions determine the correspondence between buffer positions and nodes, move point from one node’s textual representation to another, and so forth. See Abstract Display Functions.
+
+A node encapsulates a data element much the way a variable holds a value. Normally, encapsulation occurs as a part of adding a node to the ewoc. You can retrieve the data element value and place a new value in its place, like so:
+
+(ewoc-data node)
+⇒ value
+
+(ewoc-set-data node new-value)
+⇒ new-value
+You can also use, as the data element value, a Lisp object (list or vector) that is a container for the real value, or an index into some other structure. The example (see Abstract Display Example) uses the latter approach.
+
+When the data changes, you will want to update the text in the buffer. You can update all nodes by calling ewoc-refresh, or just specific nodes using ewoc-invalidate, or all nodes satisfying a predicate using ewoc-map. Alternatively, you can delete invalid nodes using ewoc-delete or ewoc-filter, and add new nodes in their place. Deleting a node from an ewoc deletes its associated textual description from buffer, as well.
+
+**** Abstract Display Functions
+
+In this subsection, ewoc and node stand for the structures described above (see Abstract Display), while data stands for an arbitrary Lisp object used as a data element.
+
+Function: ewoc-create pretty-printer &optional header footer nosep ¶
+This constructs and returns a new ewoc, with no nodes (and thus no data elements). pretty-printer should be a function that takes one argument, a data element of the sort you plan to use in this ewoc, and inserts its textual description at point using insert (and never insert-before-markers, because that would interfere with the Ewoc package’s internal mechanisms).
+
+Normally, a newline is automatically inserted after the header, the footer and every node’s textual description. If nosep is non-nil, no newline is inserted. This may be useful for displaying an entire ewoc on a single line, for example, or for making nodes invisible by arranging for pretty-printer to do nothing for those nodes.
+
+An ewoc maintains its text in the buffer that is current when you create it, so switch to the intended buffer before calling ewoc-create.
+
+Function: ewoc-buffer ewoc ¶
+This returns the buffer where ewoc maintains its text.
+
+Function: ewoc-get-hf ewoc ¶
+This returns a cons cell (header . footer) made from ewoc’s header and footer.
+
+Function: ewoc-set-hf ewoc header footer ¶
+This sets the header and footer of ewoc to the strings header and footer, respectively.
+
+Function: ewoc-enter-first ewoc data ¶
+Function: ewoc-enter-last ewoc data ¶
+These add a new node encapsulating data, putting it, respectively, at the beginning or end of ewoc’s chain of nodes.
+
+Function: ewoc-enter-before ewoc node data ¶
+Function: ewoc-enter-after ewoc node data ¶
+These add a new node encapsulating data, adding it to ewoc before or after node, respectively.
+
+Function: ewoc-prev ewoc node ¶
+Function: ewoc-next ewoc node ¶
+These return, respectively, the previous node and the next node of node in ewoc.
+
+Function: ewoc-nth ewoc n ¶
+This returns the node in ewoc found at zero-based index n. A negative n means count from the end. ewoc-nth returns nil if n is out of range.
+
+Function: ewoc-data node ¶
+This extracts the data encapsulated by node and returns it.
+
+Function: ewoc-set-data node data ¶
+This sets the data encapsulated by node to data.
+
+Function: ewoc-locate ewoc &optional pos guess ¶
+This determines the node in ewoc which contains point (or pos if specified), and returns that node. If ewoc has no nodes, it returns nil. If pos is before the first node, it returns the first node; if pos is after the last node, it returns the last node. The optional third arg guess should be a node that is likely to be near pos; this doesn’t alter the result, but makes the function run faster.
+
+Function: ewoc-location node ¶
+This returns the start position of node.
+
+Function: ewoc-goto-prev ewoc arg ¶
+Function: ewoc-goto-next ewoc arg ¶
+These move point to the previous or next, respectively, argth node in ewoc. ewoc-goto-prev does not move if it is already at the first node or if ewoc is empty, whereas ewoc-goto-next moves past the last node, returning nil. Excepting this special case, these functions return the node moved to.
+
+Function: ewoc-goto-node ewoc node ¶
+This moves point to the start of node in ewoc.
+
+Function: ewoc-refresh ewoc ¶
+This function regenerates the text of ewoc. It works by deleting the text between the header and the footer, i.e., all the data elements’ representations, and then calling the pretty-printer function for each node, one by one, in order.
+
+Function: ewoc-invalidate ewoc &rest nodes ¶
+This is similar to ewoc-refresh, except that only nodes in ewoc are updated instead of the entire set.
+
+Function: ewoc-delete ewoc &rest nodes ¶
+This deletes each node in nodes from ewoc.
+
+Function: ewoc-filter ewoc predicate &rest args ¶
+This calls predicate for each data element in ewoc and deletes those nodes for which predicate returns nil. Any args are passed to predicate.
+
+Function: ewoc-collect ewoc predicate &rest args ¶
+This calls predicate for each data element in ewoc and returns a list of those elements for which predicate returns non-nil. The elements in the list are ordered as in the buffer. Any args are passed to predicate.
+
+Function: ewoc-map map-function ewoc &rest args ¶
+This calls map-function for each data element in ewoc and updates those nodes for which map-function returns non-nil. Any args are passed to map-function.
+
+
+**** Abstract Display Example
+
+Here is a simple example using functions of the ewoc package to implement a color components display, an area in a buffer that represents a vector of three integers (itself representing a 24-bit RGB value) in various ways.
+
+(setq colorcomp-ewoc nil
+      colorcomp-data nil
+      colorcomp-mode-map nil
+      colorcomp-labels ["Red" "Green" "Blue"])
+
+(defun colorcomp-pp (data)
+  (if data
+      (let ((comp (aref colorcomp-data data)))
+        (insert (aref colorcomp-labels data) "\t: #x"
+                (format "%02X" comp) " "
+                (make-string (ash comp -2) ?#) "\n"))
+    (let ((cstr (format "#%02X%02X%02X"
+                        (aref colorcomp-data 0)
+                        (aref colorcomp-data 1)
+                        (aref colorcomp-data 2)))
+          (samp " (sample text) "))
+      (insert "Color\t: "
+              (propertize samp 'face
+                          `(foreground-color . ,cstr))
+              (propertize samp 'face
+                          `(background-color . ,cstr))
+              "\n"))))
+
+(defun colorcomp (color)
+  "Allow fiddling with COLOR in a new buffer.
+The buffer is in Color Components mode."
+  (interactive "sColor (name or #RGB or #RRGGBB): ")
+  (when (string= "" color)
+    (setq color "green"))
+  (unless (color-values color)
+    (error "No such color: %S" color))
+  (switch-to-buffer
+   (generate-new-buffer (format "originally: %s" color)))
+  (kill-all-local-variables)
+  (setq major-mode 'colorcomp-mode
+        mode-name "Color Components")
+  (use-local-map colorcomp-mode-map)
+  (erase-buffer)
+  (buffer-disable-undo)
+  (let ((data (apply 'vector (mapcar (lambda (n) (ash n -8))
+                                     (color-values color))))
+        (ewoc (ewoc-create 'colorcomp-pp
+                           "\nColor Components\n\n"
+                           (substitute-command-keys
+                            "\n\\{colorcomp-mode-map}"))))
+    (set (make-local-variable 'colorcomp-data) data)
+    (set (make-local-variable 'colorcomp-ewoc) ewoc)
+    (ewoc-enter-last ewoc 0)
+    (ewoc-enter-last ewoc 1)
+    (ewoc-enter-last ewoc 2)
+    (ewoc-enter-last ewoc nil)))
+This example can be extended to be a color selection widget (in other words, the “controller” part of the “model–view–controller” design paradigm) by defining commands to modify colorcomp-data and to finish the selection process, and a keymap to tie it all together conveniently.
+
+(defun colorcomp-mod (index limit delta)
+  (let ((cur (aref colorcomp-data index)))
+    (unless (= limit cur)
+      (aset colorcomp-data index (+ cur delta)))
+    (ewoc-invalidate
+     colorcomp-ewoc
+     (ewoc-nth colorcomp-ewoc index)
+     (ewoc-nth colorcomp-ewoc -1))))
+
+(defun colorcomp-R-more () (interactive) (colorcomp-mod 0 255 1))
+(defun colorcomp-G-more () (interactive) (colorcomp-mod 1 255 1))
+(defun colorcomp-B-more () (interactive) (colorcomp-mod 2 255 1))
+(defun colorcomp-R-less () (interactive) (colorcomp-mod 0 0 -1))
+(defun colorcomp-G-less () (interactive) (colorcomp-mod 1 0 -1))
+(defun colorcomp-B-less () (interactive) (colorcomp-mod 2 0 -1))
+
+(defun colorcomp-copy-as-kill-and-exit ()
+  "Copy the color components into the kill ring and kill the buffer.
+The string is formatted #RRGGBB (hash followed by six hex digits)."
+  (interactive)
+  (kill-new (format "#%02X%02X%02X"
+                    (aref colorcomp-data 0)
+                    (aref colorcomp-data 1)
+                    (aref colorcomp-data 2)))
+  (kill-buffer nil))
+
+(setq colorcomp-mode-map
+      (define-keymap :suppress t
+        "i" 'colorcomp-R-less
+        "o" 'colorcomp-R-more
+        "k" 'colorcomp-G-less
+        "l" 'colorcomp-G-more
+        "," 'colorcomp-B-less
+        "." 'colorcomp-B-more
+        "SPC" 'colorcomp-copy-as-kill-and-exit))
+Note that we never modify the data in each node, which is fixed when the ewoc is created to be either nil or an index into the vector colorcomp-data, the actual color components.

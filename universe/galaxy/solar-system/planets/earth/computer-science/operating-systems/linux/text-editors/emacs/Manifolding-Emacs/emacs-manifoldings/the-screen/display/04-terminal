@@ -1,0 +1,389 @@
+#+title:      Display Terminal
+
+* Display Terminal :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       05e83712-681d-492f-ad6c-a39d3ffc1fa4
+:END:
+
+This section describes the mechanism by which Emacs shows a matching open parenthesis when the user inserts a close parenthesis.
+
+Variable: blink-paren-function ¶
+The value of this variable should be a function (of no arguments) to be called whenever a character with close parenthesis syntax is inserted. The value of blink-paren-function may be nil, in which case nothing is done.
+
+User Option: blink-matching-paren ¶
+If this variable is nil, then blink-matching-open does nothing.
+
+User Option: blink-matching-paren-distance ¶
+This variable specifies the maximum distance to scan for a matching parenthesis before giving up.
+
+User Option: blink-matching-delay ¶
+This variable specifies the number of seconds to keep indicating the matching parenthesis. A fraction of a second often gives good results, but the default is 1, which works on all systems.
+
+Command: blink-matching-open ¶
+This function is the default value of blink-paren-function. It assumes that point follows a character with close parenthesis syntax and applies the appropriate effect momentarily to the matching opening character. If that character is not already on the screen, it displays the character’s context in the echo area. To avoid long delays, this function does not search farther than blink-matching-paren-distance characters.
+
+Here is an example of calling this function explicitly.
+
+(defun interactive-blink-matching-open ()
+  "Indicate momentarily the start of parenthesized sexp before point."
+  (interactive)
+  (let ((blink-matching-paren-distance
+         (buffer-size))
+        (blink-matching-paren t))
+    (blink-matching-open)))
+
+** Character Display
+
+This section describes how characters are actually displayed by Emacs. Typically, a character is displayed as a glyph (a graphical symbol which occupies one character position on the screen), whose appearance corresponds to the character itself. For example, the character ‘a’ (character code 97) is displayed as ‘a’. Some characters, however, are displayed specially. For example, the formfeed character (character code 12) is usually displayed as a sequence of two glyphs, ‘^L’, while the newline character (character code 10) starts a new screen line.
+
+You can modify how each character is displayed by defining a display table, which maps each character code into a sequence of glyphs. See Display Tables.
+
+**** Usual Display Conventions
+
+Here are the conventions for displaying each character code (in the absence of a display table, which can override these conventions; see Display Tables).
+
+The printable ASCII characters, character codes 32 through 126 (consisting of numerals, English letters, and symbols like ‘#’) are displayed literally.
+The tab character (character code 9) displays as whitespace stretching up to the next tab stop column. See Text Display in The GNU Emacs Manual. The variable tab-width controls the number of spaces per tab stop (see below).
+The newline character (character code 10) has a special effect: it ends the preceding line and starts a new line.
+The non-printable ASCII control characters—character codes 0 through 31, as well as the DEL character (character code 127)—display in one of two ways according to the variable ctl-arrow. If this variable is non-nil (the default), these characters are displayed as sequences of two glyphs, where the first glyph is ‘^’ (a display table can specify a glyph to use instead of ‘^’); e.g., the DEL character is displayed as ‘^?’.
+If ctl-arrow is nil, these characters are displayed as octal escapes (see below).
+
+This rule also applies to carriage return (character code 13), if that character appears in the buffer. But carriage returns usually do not appear in buffer text; they are eliminated as part of end-of-line conversion (see Basic Concepts of Coding Systems).
+
+Raw bytes are non-ASCII characters with codes 128 through 255 (see Text Representations). These characters display as octal escapes: sequences of four glyphs, where the first glyph is the ASCII code for ‘\’, and the others are digit characters representing the character code in octal. (A display table can specify a glyph to use instead of ‘\’.)
+Each non-ASCII character with code above 255 is displayed literally, if the terminal supports it. If the terminal does not support it, the character is said to be glyphless, and it is usually displayed using a placeholder glyph. For example, if a graphical terminal has no font for a character, Emacs usually displays a box containing the character code in hexadecimal. See Glyphless Character Display.
+The above display conventions apply even when there is a display table, for any character whose entry in the active display table is nil. Thus, when you set up a display table, you need only specify the characters for which you want special display behavior.
+
+The following variables affect how certain characters are displayed on the screen. Since they change the number of columns the characters occupy, they also affect the indentation functions. They also affect how the mode line is displayed; if you want to force redisplay of the mode line using the new values, call the function force-mode-line-update (see Mode Line Format).
+
+User Option: ctl-arrow ¶
+This buffer-local variable controls how control characters are displayed. If it is non-nil, they are displayed as a caret followed by the character: ‘^A’. If it is nil, they are displayed as octal escapes: a backslash followed by three octal digits, as in ‘\001’.
+
+User Option: tab-width ¶
+The value of this buffer-local variable is the spacing between tab stops used for displaying tab characters in Emacs buffers. The value is in units of columns, and the default is 8. Note that this feature is completely independent of the user-settable tab stops used by the command tab-to-tab-stop. See Adjustable Tab Stops.
+
+
+**** Display Tables
+
+A display table is a special-purpose char-table (see Char-Tables), with display-table as its subtype, which is used to override the usual character display conventions. This section describes how to make, inspect, and assign elements to a display table object. The next section (see Active Display Table) describes the various standard display tables and their precedence.
+
+Function: make-display-table ¶
+This creates and returns a display table. The table initially has nil in all elements.
+
+The ordinary elements of the display table are indexed by character codes; the element at index c says how to display the character code c. The value should be nil (which means to display the character c according to the usual display conventions; see Usual Display Conventions), or a vector of glyph codes (which means to display the character c as those glyphs; see Glyphs).
+
+Warning: if you use the display table to change the display of newline characters, the whole buffer will be displayed as one long line.
+
+The display table also has six extra slots which serve special purposes. Here is a table of their meanings; nil in any slot means to use the default for that slot, as stated below.
+
+0
+The glyph for the end of a truncated screen line (the default for this is ‘$’). See Glyphs. On graphical terminals, Emacs by default uses arrows in the fringes to indicate truncation, so the display table has no effect, unless you disable the fringes (see Window Fringes in the GNU Emacs Manual).
+
+1
+The glyph for the end of a continued line (the default is ‘\’). On graphical terminals, Emacs by default uses curved arrows in the fringes to indicate continuation, so the display table has no effect, unless you disable the fringes.
+
+2
+The glyph for indicating a character displayed as an octal character code (the default is ‘\’).
+
+3
+The glyph for indicating a control character (the default is ‘^’).
+
+4
+A vector of glyphs for indicating the presence of invisible lines (the default is ‘...’). See Selective Display.
+
+5
+The glyph used to draw the border between side-by-side windows (the default is ‘|’). See Splitting Windows. This currently has effect only on text terminals; on graphical terminals, if vertical scroll bars are supported and in use, a scroll bar separates the two windows, and if there are no vertical scroll bars and no dividers (see Window Dividers), Emacs uses a thin line to indicate the border.
+
+For example, here is how to construct a display table that mimics the effect of setting ctl-arrow to a non-nil value (see Glyphs, for the function make-glyph-code):
+
+(setq disptab (make-display-table))
+(dotimes (i 32)
+  (or (= i ?\t)
+      (= i ?\n)
+      (aset disptab i
+            (vector (make-glyph-code ?^ 'escape-glyph)
+                    (make-glyph-code (+ i 64) 'escape-glyph)))))
+(aset disptab 127
+      (vector (make-glyph-code ?^ 'escape-glyph)
+              (make-glyph-code ?? 'escape-glyph)))
+Function: display-table-slot display-table slot ¶
+This function returns the value of the extra slot slot of display-table. The argument slot may be a number from 0 to 5 inclusive, or a slot name (symbol). Valid symbols are truncation, wrap, escape, control, selective-display, and vertical-border.
+
+Function: set-display-table-slot display-table slot value ¶
+This function stores value in the extra slot slot of display-table. The argument slot may be a number from 0 to 5 inclusive, or a slot name (symbol). Valid symbols are truncation, wrap, escape, control, selective-display, and vertical-border.
+
+Function: describe-display-table display-table ¶
+This function displays a description of the display table display-table in a help buffer.
+
+Command: describe-current-display-table ¶
+This command displays a description of the current display table in a help buffer.
+
+
+**** Active Display Table
+
+Each window can specify a display table, and so can each buffer. The window’s display table, if there is one, takes precedence over the buffer’s display table. If neither exists, Emacs tries to use the standard display table; if that is nil, Emacs uses the usual character display conventions (see Usual Display Conventions). (Emacs does not “merge” display tables: For instance, if the window has a display table, the buffer’s display table and the standard display table are completely ignored.)
+
+Note that display tables affect how the mode line is displayed, so if you want to force redisplay of the mode line using a new display table, call force-mode-line-update (see Mode Line Format).
+
+Function: window-display-table &optional window ¶
+This function returns window’s display table, or nil if there is none. The default for window is the selected window.
+
+Function: set-window-display-table window table ¶
+This function sets the display table of window to table. The argument table should be either a display table or nil.
+
+Variable: buffer-display-table ¶
+This variable is automatically buffer-local in all buffers; its value specifies the buffer’s display table. If it is nil, there is no buffer display table.
+
+Variable: standard-display-table ¶
+The value of this variable is the standard display table, which is used when Emacs is displaying a buffer in a window with neither a window display table nor a buffer display table defined, or when Emacs is outputting text to the standard output or error streams. Although its default is typically nil, in an interactive session if the terminal cannot display curved quotes, its default maps curved quotes to ASCII approximations. See Text Quoting Style.
+
+The disp-table library defines several functions for changing the standard display table.
+
+
+**** Active Display Table
+
+Each window can specify a display table, and so can each buffer. The window’s display table, if there is one, takes precedence over the buffer’s display table. If neither exists, Emacs tries to use the standard display table; if that is nil, Emacs uses the usual character display conventions (see Usual Display Conventions). (Emacs does not “merge” display tables: For instance, if the window has a display table, the buffer’s display table and the standard display table are completely ignored.)
+
+Note that display tables affect how the mode line is displayed, so if you want to force redisplay of the mode line using a new display table, call force-mode-line-update (see Mode Line Format).
+
+Function: window-display-table &optional window ¶
+This function returns window’s display table, or nil if there is none. The default for window is the selected window.
+
+Function: set-window-display-table window table ¶
+This function sets the display table of window to table. The argument table should be either a display table or nil.
+
+Variable: buffer-display-table ¶
+This variable is automatically buffer-local in all buffers; its value specifies the buffer’s display table. If it is nil, there is no buffer display table.
+
+Variable: standard-display-table ¶
+The value of this variable is the standard display table, which is used when Emacs is displaying a buffer in a window with neither a window display table nor a buffer display table defined, or when Emacs is outputting text to the standard output or error streams. Although its default is typically nil, in an interactive session if the terminal cannot display curved quotes, its default maps curved quotes to ASCII approximations. See Text Quoting Style.
+
+The disp-table library defines several functions for changing the standard display table.
+
+
+**** Glyphless Character Display
+
+Glyphless characters are characters which are displayed in a special way, e.g., as a box containing a hexadecimal code, instead of being displayed literally. These include characters which are explicitly defined to be glyphless, as well as characters for which there is no available font (on a graphical display), and characters which cannot be encoded by the terminal’s coding system (on a text terminal).
+
+The glyphless-display-mode minor mode can be used to toggle displaying glyphless characters in a convenient manner in the current buffer. If this mode is enabled, all the glyphless characters are displayed as boxes that display acronyms of their character names.
+
+Variable: glyphless-char-display ¶
+For more fine-grained (and global) control, this variable can be used. The value of this variable is a char-table which defines glyphless characters and how they are displayed. Each entry must be one of the following display methods:
+
+nil
+Display the character in the usual way.
+
+zero-width
+Don’t display the character.
+
+thin-space
+Display a thin space, 1-pixel wide on graphical displays, or 1-character wide on text terminals.
+
+empty-box
+Display an empty box.
+
+hex-code
+Display a box containing the Unicode codepoint of the character, in hexadecimal notation.
+
+an ASCII string
+Display a box containing that string. The string should contain at most 6 ASCII characters. As an exception, if the string includes just one character, on text-mode terminals that character will be displayed without a box; this allows to handle such “acronyms” as a replacement character for characters that cannot be displayed by the terminal.
+
+a cons cell (graphical . text)
+Display with graphical on graphical displays, and with text on text terminals. Both graphical and text must be one of the display methods described above.
+
+The thin-space, empty-box, hex-code, and ASCII string display methods are drawn with the glyphless-char face. On text terminals, a box is emulated by square brackets, ‘[]’.
+
+The char-table has one extra slot, which determines how to display any character that cannot be displayed with any available font, or cannot be encoded by the terminal’s coding system. Its value should be one of the above display methods, except zero-width.
+
+If a character has a non-nil entry in an active display table, the display table takes effect; in this case, Emacs does not consult glyphless-char-display at all.
+
+User Option: glyphless-char-display-control ¶
+This user option provides a convenient way to set glyphless-char-display for groups of similar characters. Do not set its value directly from Lisp code; the value takes effect only via a custom :set function (see Defining Customization Variables), which updates glyphless-char-display.
+
+Its value should be an alist of elements (group . method), where group is a symbol specifying a group of characters, and method is a symbol specifying how to display them.
+
+group should be one of the following:
+
+c0-control
+ASCII control characters U+0000 to U+001F, excluding the newline and tab characters (normally displayed as escape sequences like ‘^A’; see How Text Is Displayed in The GNU Emacs Manual).
+
+c1-control
+Non-ASCII, non-printing characters U+0080 to U+009F (normally displayed as octal escape sequences like ‘\230’).
+
+format-control
+Characters of Unicode General Category [Cf], such as U+200E LEFT-TO-RIGHT MARK, but excluding characters that have graphic images, such as U+00AD SOFT HYPHEN.
+
+bidi-control
+This is a subset of format-control, but only includes characters that are related to bidirectional formatting control, like U+2069 POP DIRECTIONAL ISOLATE and U+202A LEFT-TO-RIGHT EMBEDDING. See Bidirectional Display.
+
+Characters of Unicode General Category [Cf], such as U+200E LEFT-TO-RIGHT MARK, but excluding characters that have graphic images, such as U+00AD SOFT HYPHEN.
+
+variation-selectors
+Unicode VS-1 through VS-256 (U+FE00 through U+FE0F and U+E0100 through U+E01EF), which are used to select between different glyphs for the same codepoints (typically emojis).
+
+no-font
+Characters for which there is no suitable font, or which cannot be encoded by the terminal’s coding system, or those for which the text-mode terminal has no glyphs.
+
+The method symbol should be one of zero-width, thin-space, empty-box, or hex-code. These have the same meanings as in glyphless-char-display, above.
+
+
+** Beeping
+
+This section describes how to make Emacs ring the bell (or blink the screen) to attract the user’s attention. Be conservative about how often you do this; frequent bells can become irritating. Also be careful not to use just beeping when signaling an error is more appropriate (see Errors).
+
+Function: ding &optional do-not-terminate ¶
+This function beeps, or flashes the screen (see visible-bell below). It also terminates any keyboard macro currently executing unless do-not-terminate is non-nil.
+
+Function: beep &optional do-not-terminate ¶
+This is a synonym for ding.
+
+User Option: visible-bell ¶
+This variable determines whether Emacs should flash the screen to represent a bell. Non-nil means yes, nil means no. This is effective on graphical displays, and on text terminals provided the terminal’s Termcap entry defines the visible bell capability (‘vb’).
+
+User Option: ring-bell-function ¶
+If this is non-nil, it specifies how Emacs should ring the bell. Its value should be a function of no arguments. If this is non-nil, it takes precedence over the visible-bell variable.
+
+
+** Window Systems
+
+Emacs works with several window systems, most notably the X Window System. Both Emacs and X use the term “window”, but use it differently. An Emacs frame is a single window as far as X is concerned; the individual Emacs windows are not known to X at all.
+
+Variable: window-system ¶
+This terminal-local variable tells Lisp programs what window system Emacs is using for displaying the frame. The possible values are
+
+x ¶
+Emacs is displaying the frame using X.
+
+w32
+Emacs is displaying the frame using native MS-Windows GUI.
+
+ns
+Emacs is displaying the frame using the Nextstep interface (used on GNUstep and macOS).
+
+pc
+Emacs is displaying the frame using MS-DOS direct screen writes.
+
+haiku
+Emacs is displaying the frame using the Application Kit on Haiku.
+
+pgtk
+Emacs is displaying the frame using pure GTK facilities.
+
+nil
+Emacs is displaying the frame on a character-based terminal.
+
+Variable: initial-window-system ¶
+This variable holds the value of window-system used for the first frame created by Emacs during startup. (When Emacs is invoked as a daemon, it does not create any initial frames, so initial-window-system is nil, except on MS-Windows, where it is still w32. See daemon in The GNU Emacs Manual.)
+
+Function: window-system &optional frame ¶
+This function returns a symbol whose name tells what window system is used for displaying frame (which defaults to the currently selected frame). The list of possible symbols it returns is the same one documented for the variable window-system above.
+
+Do not use window-system and initial-window-system as predicates or boolean flag variables, if you want to write code that works differently on text terminals and graphic displays. That is because window-system is not a good indicator of Emacs capabilities on a given display type. Instead, use display-graphic-p or any of the other display-*-p predicates described in Display Feature Testing.
+
+
+** Tooltips
+
+Tooltips are special frames (see Frames) that are used to display helpful hints (a.k.a. “tips”) related to the current position of the mouse pointer. Emacs uses tooltips to display help strings about active portions of text (see Properties with Special Meanings) and about various UI elements, such as menu items (see Extended Menu Items) and tool-bar buttons (see Tool bars).
+
+Function: tooltip-mode ¶
+Tooltip Mode is a minor mode that enables display of tooltips. Turning off this mode causes the tooltips be displayed in the echo area. On text-mode (a.k.a. “TTY”) frames, tooltips are always displayed in the echo area.
+
+When Emacs is built with the GTK+ toolkit or Haiku windowing support, it by default displays tooltips using toolkit functions, and the appearance of the tooltips is then controlled by the toolkit’s settings. Toolkit-provided tooltips can be disabled by changing the value of the variable use-system-tooltips to nil. The rest of this subsection describes how to control non-toolkit tooltips, which are presented by Emacs itself.
+
+Tooltips are displayed in special frames called tooltip frames, which have their own frame parameters (see Frame Parameters). Unlike other frames, the default parameters for tooltip frames are stored in a special variable.
+
+User Option: tooltip-frame-parameters ¶
+This customizable option holds the default frame parameters used for displaying tooltips. Any font and color parameters are ignored, and the corresponding attributes of the tooltip face are used instead. If left or top parameters are included, they are used as absolute frame-relative coordinates where the tooltip should be shown. (Mouse-relative position of the tooltip can be customized using the variables described in Tooltips in The GNU Emacs Manual.) Note that the left and top parameters, if present, override the values of mouse-relative offsets.
+
+The tooltip face determines the appearance of text shown in tooltips. It should generally use a variable-pitch font of size that is preferably smaller than the default frame font.
+
+Variable: tooltip-functions ¶
+This abnormal hook is a list of functions to call when Emacs needs to display a tooltip. Each function is called with a single argument event which is a copy of the last mouse movement event. If a function on this list actually displays the tooltip, it should return non-nil, and then the rest of the functions will not be called. The default value of this variable is a single function tooltip-help-tips.
+
+If you write your own function to be put on the tooltip-functions list, you may need to know the buffer of the mouse event that triggered the tooltip display. The following function provides that information.
+
+Function: tooltip-event-buffer event ¶
+This function returns the buffer over which event occurred. Call it with the argument of the function from tooltip-functions to obtain the buffer whose text triggered the tooltip. Note that the event might occur not over a buffer (e.g., over the tool bar), in which case this function will return nil.
+
+Other aspects of tooltip display are controlled by several customizable settings; see Tooltips in The GNU Emacs Manual.
+
+
+** Bidirectional Display
+
+Emacs can display text written in scripts, such as Arabic, Farsi, and Hebrew, whose natural ordering for horizontal text display runs from right to left. Furthermore, segments of Latin script and digits embedded in right-to-left text are displayed left-to-right, while segments of right-to-left script embedded in left-to-right text (e.g., Arabic or Hebrew text in comments or strings in a program source file) are appropriately displayed right-to-left. We call such mixtures of left-to-right and right-to-left text bidirectional text. This section describes the facilities and options for editing and displaying bidirectional text.
+
+Text is stored in Emacs buffers and strings in logical (or reading) order, i.e., the order in which a human would read each character. In right-to-left and bidirectional text, the order in which characters are displayed on the screen (called visual order) is not the same as logical order; the characters’ screen positions do not increase monotonically with string or buffer position. In performing this bidirectional reordering, Emacs follows the Unicode Bidirectional Algorithm (a.k.a. UBA), which is described in Annex #9 of the Unicode standard (https://www.unicode.org/reports/tr9/). Emacs provides a “Full Bidirectionality” class implementation of the UBA, consistent with the requirements of the Unicode Standard v9.0. Note, however, that the way Emacs displays continuation lines when text direction is opposite to the base paragraph direction deviates from the UBA, which requires to perform line wrapping before reordering text for display.
+
+Variable: bidi-display-reordering ¶
+If the value of this buffer-local variable is non-nil (the default), Emacs performs bidirectional reordering for display. The reordering affects buffer text, as well as display strings and overlay strings from text and overlay properties in the buffer (see Overlay Properties, and see The display Property). If the value is nil, Emacs does not perform bidirectional reordering in the buffer.
+
+The default value of bidi-display-reordering controls the reordering of strings which are not directly supplied by a buffer, including the text displayed in mode lines (see Mode Line Format) and header lines (see Window Header Lines).
+
+Emacs never reorders the text of a unibyte buffer, even if bidi-display-reordering is non-nil in the buffer. This is because unibyte buffers contain raw bytes, not characters, and thus lack the directionality properties required for reordering. Therefore, to test whether text in a buffer will be reordered for display, it is not enough to test the value of bidi-display-reordering alone. The correct test is this:
+
+ (if (and enable-multibyte-characters
+          bidi-display-reordering)
+     ;; Buffer is being reordered for display
+   )
+However, unibyte display and overlay strings are reordered if their parent buffer is reordered. This is because plain-ASCII strings are stored by Emacs as unibyte strings. If a unibyte display or overlay string includes non-ASCII characters, these characters are assumed to have left-to-right direction.
+
+Text covered by display text properties, by overlays with display properties whose value is a string, and by any other properties that replace buffer text, is treated as a single unit when it is reordered for display. That is, the entire chunk of text covered by these properties is reordered together. Moreover, the bidirectional properties of the characters in such a chunk of text are ignored, and Emacs reorders them as if they were replaced with a single character U+FFFC, known as the Object Replacement Character. This means that placing a display property over a portion of text may change the way that the surrounding text is reordered for display. To prevent this unexpected effect, always place such properties on text whose directionality is identical with text that surrounds it.
+
+Each paragraph of bidirectional text has a base direction, either right-to-left or left-to-right. Left-to-right paragraphs are displayed beginning at the left margin of the window, and are truncated or continued when the text reaches the right margin. Right-to-left paragraphs are displayed beginning at the right margin, and are continued or truncated at the left margin.
+
+Where exactly paragraphs start and end, for the purpose of the Emacs UBA implementation, is determined by the following two buffer-local variables (note that paragraph-start and paragraph-separate have no influence on this). By default both of these variables are nil, and paragraphs are bounded by empty lines, i.e., lines that consist entirely of zero or more whitespace characters followed by a newline.
+
+Variable: bidi-paragraph-start-re ¶
+If non-nil, this variable’s value should be a regular expression matching a line that starts or separates two paragraphs. The regular expression is always matched after a newline, so it is best to anchor it, i.e., begin it with a "^".
+
+Variable: bidi-paragraph-separate-re ¶
+If non-nil, this variable’s value should be a regular expression matching a line separates two paragraphs. The regular expression is always matched after a newline, so it is best to anchor it, i.e., begin it with a "^".
+
+If you modify any of these two variables, you should normally modify both, to make sure they describe paragraphs consistently. For example, to have each new line start a new paragraph for bidi-reordering purposes, set both variables to "^".
+
+By default, Emacs determines the base direction of each paragraph by looking at the text at its beginning. The precise method of determining the base direction is specified by the UBA; in a nutshell, the first character in a paragraph that has an explicit directionality determines the base direction of the paragraph. However, sometimes a buffer may need to force a certain base direction for its paragraphs. For example, buffers containing program source code should force all paragraphs to be displayed left-to-right. You can use following variable to do this:
+
+User Option: bidi-paragraph-direction ¶
+If the value of this buffer-local variable is the symbol right-to-left or left-to-right, all paragraphs in the buffer are assumed to have that specified direction. Any other value is equivalent to nil (the default), which means to determine the base direction of each paragraph from its contents.
+
+Modes for program source code should set this to left-to-right. Prog mode does this by default, so modes derived from Prog mode do not need to set this explicitly (see Basic Major Modes).
+
+Function: current-bidi-paragraph-direction &optional buffer ¶
+This function returns the paragraph direction at point in the named buffer. The returned value is a symbol, either left-to-right or right-to-left. If buffer is omitted or nil, it defaults to the current buffer. If the buffer-local value of the variable bidi-paragraph-direction is non-nil, the returned value will be identical to that value; otherwise, the returned value reflects the paragraph direction determined dynamically by Emacs. For buffers whose value of bidi-display-reordering is nil as well as unibyte buffers, this function always returns left-to-right.
+
+Sometimes there’s a need to move point in strict visual order, either to the left or to the right of its current screen position. Emacs provides a primitive to do that.
+
+Function: move-point-visually direction ¶
+This function moves point of the currently selected window to the buffer position that appears immediately to the right or to the left of point on the screen. If direction is positive, point will move one screen position to the right, otherwise it will move one screen position to the left. Note that, depending on the surrounding bidirectional context, this could potentially move point many buffer positions away. If invoked at the end of a screen line, the function moves point to the rightmost or leftmost screen position of the next or previous screen line, as appropriate for the value of direction.
+
+The function returns the new buffer position as its value.
+
+Bidirectional reordering can have surprising and unpleasant effects when two strings with bidirectional content are juxtaposed in a buffer, or otherwise programmatically concatenated into a string of text. A typical problematic case is when a buffer consists of sequences of text fields separated by whitespace or punctuation characters, like Buffer Menu mode or Rmail Summary Mode. Because the punctuation characters used as separators have weak directionality, they take on the directionality of surrounding text. As result, a numeric field that follows a field with bidirectional content can be displayed to the left of the preceding field, messing up the expected layout. There are several ways to avoid this problem:
+
+Append the special character U+200E LEFT-TO-RIGHT MARK, or LRM, to the end of each field that may have bidirectional content, or prepend it to the beginning of the following field. The function bidi-string-mark-left-to-right, described below, comes in handy for this purpose. (In a right-to-left paragraph, use U+200F RIGHT-TO-LEFT MARK, or RLM, instead.) This is one of the solutions recommended by the UBA.
+Include the tab character in the field separator. The tab character plays the role of segment separator in bidirectional reordering, causing the text on either side to be reordered separately.
+Separate fields with a display property or overlay with a property value of the form (space . PROPS) (see Specified Spaces). Emacs treats this display specification as a paragraph separator, and reorders the text on either side separately.
+Function: bidi-string-mark-left-to-right string ¶
+This function returns its argument string, possibly modified, such that the result can be safely concatenated with another string, or juxtaposed with another string in a buffer, without disrupting the relative layout of this string and the next one on display. If the string returned by this function is displayed as part of a left-to-right paragraph, it will always appear on display to the left of the text that follows it. The function works by examining the characters of its argument, and if any of those characters could cause reordering on display, the function appends the LRM character to the string. The appended LRM character is made invisible by giving it an invisible text property of t (see Invisible Text).
+
+The reordering algorithm uses the bidirectional properties of the characters stored as their bidi-class property (see Character Properties). Lisp programs can change these properties by calling the put-char-code-property function. However, doing this requires a thorough understanding of the UBA, and is therefore not recommended. Any changes to the bidirectional properties of a character have global effect: they affect all Emacs frames and windows.
+
+Similarly, the mirroring property is used to display the appropriate mirrored character in the reordered text. Lisp programs can affect the mirrored display by changing this property. Again, any such changes affect all of Emacs display.
+
+The bidirectional properties of characters can be overridden by inserting into the text special directional control characters, LEFT-TO-RIGHT OVERRIDE (LRO) and RIGHT-TO-LEFT OVERRIDE (RLO). Any characters between a RLO and the following newline or POP DIRECTIONAL FORMATTING (PDF) control character, whichever comes first, will be displayed as if they were strong right-to-left characters, i.e. they will be reversed on display. Similarly, any characters between LRO and PDF or newline will display as if they were strong left-to-right, and will not be reversed even if they are strong right-to-left characters.
+
+These overrides are useful when you want to make some text unaffected by the reordering algorithm, and instead directly control the display order. But they can also be used for malicious purposes, known as phishing. Specifically, a URL on a Web page or a link in an email message can be manipulated to make its visual appearance unrecognizable, or similar to some popular benign location, while the real location, interpreted by a browser in the logical order, is very different.
+
+Emacs provides a primitive that applications can use to detect instances of text whose bidirectional properties were overridden so as to make a left-to-right character display as if it were a right-to-left character, or vice versa.
+
+Function: bidi-find-overridden-directionality from to &optional object ¶
+This function looks at the text of the specified object between positions from (inclusive) and to (exclusive), and returns the first position where it finds a strong left-to-right character whose directional properties were forced to display the character as right-to-left, or for a strong right-to-left character that was forced to display as left-to-right. If it finds no such characters in the specified region of text, it returns nil.
+
+The optional argument object specifies which text to search, and defaults to the current buffer. If object is non-nil, it can be some other buffer, or it can be a string or a window. If it is a string, the function searches that string. If it is a window, the function searches the buffer displayed in that window. If a buffer whose text you want to examine is displayed in some window, we recommend to specify it by that window, rather than pass the buffer to the function. This is because telling the function about the window allows it to correctly account for window-specific overlays, which might change the result of the function if some text in the buffer is covered by overlays.
+
+When text that includes mixed right-to-left and left-to-right characters and bidirectional controls is copied into a different location, it can change its visual appearance, and also can affect the visual appearance of the surrounding text at destination. This is because reordering of bidirectional text specified by the UBA has non-trivial context-dependent effects both on the copied text and on the text at copy destination that will surround it.
+
+Sometimes, a Lisp program may need to preserve the exact visual appearance of the copied text at destination, and of the text that surrounds the copy. Lisp programs can use the following function to achieve that effect.
+
+Function: buffer-substring-with-bidi-context start end &optional no-properties ¶
+This function works similar to buffer-substring (see Examining Buffer Contents), but it prepends and appends to the copied text bidi directional control characters necessary to preserve the visual appearance of the text when it is inserted at another place. Optional argument no-properties, if non-nil, means remove the text properties from the copy of the text.
