@@ -1102,12 +1102,6 @@ Meow #04): this batches an action on every occurrence."
   (manifolding-keyboard-set-state "normal"))
 #+end_src
 #+begin_src emacs-lisp
-(defun my/chord-describe ()
-  "List all defined key chords in a help buffer."
-  (interactive)
-  (describe-bindings [my/chord]))
-#+end_src
-#+begin_src emacs-lisp
 (defun my/chord-define-global (keys command)
   "Globally define a chord of the two keys in KEYS calling COMMAND."
   (interactive "sSet key chord globally (2 keys): \nCSet chord \"%s\" to command: ")

@@ -31,7 +31,7 @@ scope `git add' to these files so unrelated dotfiles never get swept
 into atlas auto-commits.")
 #+end_src
 
-*** Push Machinery :EMACS_MECHANISM:
+* Push Machinery :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       d043ccc0-4355-4b34-a9b6-9a61a622be98
 :MM_PARENT: none
@@ -116,10 +116,6 @@ Saving or opening a watched-tree file without a repo is blocked loudly.
                                    buffer-file-name))))
               (unless (my/manifolding-atlas-git--repo-top root)
                 (warn "No git repo above %s" root)))))
-
-(defun my/manifolding-atlas-git--before-save ()
-  "Check repo exists before saving watched-tree files."
-  (my/manifolding-atlas-git--check-repo))
 
 (defun my/manifolding-atlas-git--before-save ()
   "Check repo exists before saving watched-tree files."

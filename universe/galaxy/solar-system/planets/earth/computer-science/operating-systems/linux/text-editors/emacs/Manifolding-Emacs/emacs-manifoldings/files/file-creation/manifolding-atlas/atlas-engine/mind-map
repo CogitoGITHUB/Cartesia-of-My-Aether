@@ -46,7 +46,7 @@ here. One day a note may join several maps at once (biology, AI,
 personal, project) with no substrate change at all — only a
 map-scoped index beside this one.
 
-*** Schema & Extractor :EMACS_MECHANISM:
+* Schema & Extractor :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       f14d38b9-f954-4dde-bfeb-50fc8919ef0c
 :MM_PARENT: none
@@ -306,7 +306,9 @@ Writes live mm state back into the note file so files stay
 authoritative for boot order. Best-effort: never signals.
 #+begin_src emacs-lisp
 (defun mm/sync-file-drawer (note-id)
-  "Write NOTE-ID's mm parent/order into its file drawer."
+  "Write NOTE-ID's mm parent/order into its own heading drawer.
+Jumps to the heading carrying NOTE-ID's :ID:, so file and heading
+notes each update exactly their own drawer."
   (condition-case err
       (let* ((row (mm/node-at note-id))
              (rec (and row (car (emacsql (manifolding-atlas-db)
@@ -319,30 +321,39 @@ authoritative for boot order. Best-effort: never signals.
         (when (and path (file-exists-p path))
           (with-current-buffer (find-file-noselect path)
             (goto-char (point-min))
-            (when (re-search-forward "^\\*+ " nil t)
-              (forward-line 1)
-              (when (looking-at "^[ \t]*:PROPERTIES:[ \t]*$")
-                (let ((dend (save-excursion
-                              (when (re-search-forward "^[ \t]*:END:" nil t)
-                                (copy-marker (point))))))
-                  (when dend
-                    (dolist (kv `(("MM_PARENT" . ,(or (nth 1 row) "none"))
-                                  ("MM_ORDER" . ,(number-to-string
-                                                  (or (nth 2 row) 0.0)))))
-                      (goto-char (point-min))
-                      (re-search-forward "^\\*+ " nil t)
-                      (if (re-search-forward
-                           (format "^[ \t]*:%s:" (car kv)) dend t)
-                          (progn (beginning-of-line) (kill-line)
-                                 (insert (format ":%s: %s"
-                                                 (car kv) (cdr kv))))
-                        (goto-char dend)
-                        (forward-line -1)
-                        (end-of-line)
-                        (insert (format "\n:%s: %s"
-                                        (car kv) (cdr kv)))))
-                    (set-marker dend nil)
-                    (save-buffer))))))))
+            (let ((hpos (save-excursion
+                          (when (re-search-forward
+                                 (format "^[ \t]*:ID:[ \t]*%s[ \t]*$"
+                                         (regexp-quote note-id))
+                                 nil t)
+                            (when (re-search-backward "^\\*+ " nil t)
+                              (copy-marker (point)))))))
+              (when hpos
+                (goto-char hpos)
+                (forward-line 1)
+                (when (looking-at "^[ \t]*:PROPERTIES:[ \t]*$")
+                  (let ((dend (save-excursion
+                                (when (re-search-forward "^[ \t]*:END:" nil t)
+                                  (copy-marker (point))))))
+                    (when dend
+                      (dolist (kv `(("MM_PARENT" . ,(or (nth 1 row) "none"))
+                                    ("MM_ORDER" . ,(number-to-string
+                                                    (or (nth 2 row) 0.0)))))
+                        (goto-char hpos)
+                        (forward-line 1)
+                        (if (re-search-forward
+                             (format "^[ \t]*:%s:" (car kv)) dend t)
+                            (progn (beginning-of-line) (kill-line)
+                                   (insert (format ":%s: %s"
+                                                   (car kv) (cdr kv))))
+                          (goto-char dend)
+                          (forward-line -1)
+                          (end-of-line)
+                          (insert (format "\n:%s: %s"
+                                          (car kv) (cdr kv)))))
+                      (set-marker dend nil))))
+                (set-marker hpos nil)
+                (save-buffer))))))
     (error (message "mm/file-sync failed [%s]: %s"
                     note-id (error-message-string err)))))
 #+end_src

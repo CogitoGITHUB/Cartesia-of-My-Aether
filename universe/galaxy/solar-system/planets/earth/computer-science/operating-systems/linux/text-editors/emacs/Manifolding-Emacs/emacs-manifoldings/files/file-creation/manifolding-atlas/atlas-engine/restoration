@@ -4,7 +4,7 @@ Guards file and heading deletion when incoming or outgoing =id:= links exist.
 Guards deletion of untracked files and missing links.
 Provides restore command via Git history.
 Uses native =manifolding-atlas-db-query-links-to= and =manifolding-atlas-db-query-links-from= API (v2.1+).
-*** Missing Links File :EMACS_MECHANISM:
+* Missing Links File :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       ac007417-f901-4778-9dd4-751495acb5a9
 :MM_PARENT: none
@@ -65,9 +65,8 @@ Lives in `my/manifolding-atlas-root-dir'. Auto-created if missing.")
 
 **** Admin file inventory and empty cleanup
 #+begin_src emacs-lisp
-(defvar my/manifolding-atlas-missing--file "admin/Static Blueprints"
-  "Filename for the static-values queue. Lives in `my/manifolding-atlas-root-dir'.")
-
+;; `my/manifolding-atlas-missing--file' is owned by file-creation
+;; (defined + set there); this file only reads it at runtime.
 (defun my/manifolding-atlas-links--admin-file-paths ()
   "Absolute paths of all managed admin queue files."
   (mapcar (lambda (f) (expand-file-name f (my/manifolding-atlas-root-dir)))
