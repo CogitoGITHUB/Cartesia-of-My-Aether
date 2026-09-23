@@ -1,0 +1,72 @@
+#+title:      Atlas Transactions
+
+* Atlas Transactions :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       bb9367ac-de5f-4a0a-bf7c-f3eb2c60f402
+:END:
+
+Transaction scope plus a tiny event bus for multi-step mutations
+(capture, drawer writes, index updates).  Scope contract, stated
+plainly: the DATABASE half is atomic (emacsql transaction when
+available); the BUFFER half is the caller's responsibility (save at
+finalize, as capture flows already do); EVENTS defer to commit and
+drop on error.  Nested transactions join the outer one.  Nothing here
+runs at load.
+
+** Event bus
+#+begin_src emacs-lisp
+(defvar my/atlas-event-handlers (make-hash-table :test 'eq)
+  "EVENT symbol -> list of handler functions.")
+
+(defun my/atlas-subscribe (event fn)
+  "Call FN with ARGS on every `my/atlas-emit' of EVENT."
+  (puthash event (cons fn (gethash event my/atlas-event-handlers))
+           my/atlas-event-handlers))
+
+(defun my/atlas-unsubscribe (event fn)
+  "Remove FN from EVENT's handlers."
+  (puthash event (delq fn (gethash event my/atlas-event-handlers))
+           my/atlas-event-handlers))
+
+(defvar my/atlas-tx-queue nil
+  "Deferred (EVENT . ARGS) list while inside `my/atlas-with-transaction'.")
+
+(defun my/atlas-emit (event &rest args)
+  "Emit EVENT with ARGS: queue inside a transaction, run now otherwise."
+  (if my/atlas-tx-queue
+      (push (cons event args) my/atlas-tx-queue)
+    (dolist (fn (gethash event my/atlas-event-handlers))
+      (ignore-errors (apply fn args)))))
+#+end_src
+
+** Transaction macro
+#+begin_src emacs-lisp
+(defvar my/atlas-tx-depth 0
+  "Nesting depth of `my/atlas-with-transaction'.")
+
+(defmacro my/atlas-with-transaction (&rest body)
+  "Run BODY atomically for the database, deferring events to commit.
+Opens an emacsql transaction when supported; without support (or
+without a database) runs BODY plainly.  Inner transactions join the
+outer one.  On error the database rolls back, queued events drop, and
+the error propagates."
+  (declare (indent 0) (debug t))
+  `(let ((my/atlas-tx-outer (zerop my/atlas-tx-depth)))
+     (if (not my/atlas-tx-outer)
+         (progn ,@body)
+       (let ((my/atlas-tx-depth (1+ my/atlas-tx-depth))
+             (my/atlas-tx-queue nil)
+             (my/atlas-tx-db (ignore-errors (manifolding-atlas-db)))
+             (my/atlas-tx-ok nil))
+         (unwind-protect
+             (prog1
+                 (if (and my/atlas-tx-db
+                          (fboundp 'emacsql-with-transaction))
+                     (emacsql-with-transaction my/atlas-tx-db ,@body)
+                   (progn ,@body))
+               (setq my/atlas-tx-ok t))
+           (when my/atlas-tx-ok
+             (dolist (ev (nreverse my/atlas-tx-queue))
+               (dolist (fn (gethash (car ev) my/atlas-event-handlers))
+                 (ignore-errors (apply fn (cdr ev)))))))))))
+#+end_src
