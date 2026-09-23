@@ -1,0 +1,1515 @@
+#+title:      Elisp Evaluation and Control
+
+* Elisp Evaluation and Control :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       955537d4-7bdb-4f67-8fb8-632d6cf0eaa9
+:END:
+
+The evaluation of expressions in Emacs Lisp is performed by the Lisp interpreter—a program that receives a Lisp object as input and computes its value as an expression. How it does this depends on the data type of the object, according to rules described in this chapter. The interpreter runs automatically to evaluate portions of your program, but can also be called explicitly via the Lisp primitive function eval.
+
+*** Introduction to Evaluation
+
+The Lisp interpreter, or evaluator, is the part of Emacs that computes the value of an expression that is given to it. When a function written in Lisp is called, the evaluator computes the value of the function by evaluating the expressions in the function body. Thus, running any Lisp program really means running the Lisp interpreter.
+
+A Lisp object that is intended for evaluation is called a form or expression7. The fact that forms are data objects and not merely text is one of the fundamental differences between Lisp-like languages and typical programming languages. Any object can be evaluated, but in practice only numbers, symbols, lists and strings are evaluated very often.
+
+In subsequent sections, we will describe the details of what evaluation means for each kind of form.
+
+It is very common to read a Lisp form and then evaluate the form, but reading and evaluation are separate activities, and either can be performed alone. Reading per se does not evaluate anything; it converts the printed representation of a Lisp object to the object itself. It is up to the caller of read to specify whether this object is a form to be evaluated, or serves some entirely different purpose. See Input Functions.
+
+Evaluation is a recursive process, and evaluating a form often involves evaluating parts within that form. For instance, when you evaluate a function call form such as (car x), Emacs first evaluates the argument (the subform x). After evaluating the argument, Emacs executes the function (car), and if the function is written in Lisp, execution works by evaluating the body of the function (in this example, however, car is not a Lisp function; it is a primitive function implemented in C). See Functions, for more information about functions and function calls.
+
+Evaluation takes place in a context called the environment, which consists of the current values and bindings of all Lisp variables (see Variables).8 Whenever a form refers to a variable without creating a new binding for it, the variable evaluates to the value given by the current environment. Evaluating a form may also temporarily alter the environment by binding variables (see Local Variables).
+
+Evaluating a form may also make changes that persist; these changes are called side effects. An example of a form that produces a side effect is (setq foo 1).
+
+Do not confuse evaluation with command key interpretation. The editor command loop translates keyboard input into a command (an interactively callable function) using the active keymaps, and then uses call-interactively to execute that command. Executing the command usually involves evaluation, if the command is written in Lisp; however, this step is not considered a part of command key interpretation. See Command Loop.
+
+Footnotes
+(7)
+It is sometimes also referred to as an S-expression or sexp, but we generally do not use this terminology in this manual.
+
+(8)
+This definition of “environment” is specifically not intended to include all the data that can affect the result of a program.
+
+
+*** Kinds of Forms
+
+A Lisp object that is intended to be evaluated is called a form (or an expression). How Emacs evaluates a form depends on its data type. Emacs has three different kinds of form that are evaluated differently: symbols, lists, and all other types. This section describes all three kinds, one by one, starting with the other types, which are self-evaluating forms.
+
+**** Self-Evaluating Forms
+
+A self-evaluating form is any form that is not a list or symbol. Self-evaluating forms evaluate to themselves: the result of evaluation is the same object that was evaluated. Thus, the number 25 evaluates to 25, and the string "foo" evaluates to the string "foo". Likewise, evaluating a vector does not cause evaluation of the elements of the vector—it returns the same vector with its contents unchanged.
+
+'123               ; A number, shown without evaluation.
+     ⇒ 123
+123                ; Evaluated as usual—result is the same.
+     ⇒ 123
+(eval '123)        ; Evaluated "by hand"—result is the same.
+     ⇒ 123
+(eval (eval '123)) ; Evaluating twice changes nothing.
+     ⇒ 123
+A self-evaluating form yields a value that becomes part of the program, and you should not try to modify it via setcar, aset or similar operations. The Lisp interpreter might unify the constants yielded by your program’s self-evaluating forms, so that these constants might share structure. See Mutability.
+
+It is common to write numbers, characters, strings, and even vectors in Lisp code, taking advantage of the fact that they self-evaluate. However, it is quite unusual to do this for types that lack a read syntax, because there’s no way to write them textually. It is possible to construct Lisp expressions containing these types by means of a Lisp program. Here is an example:
+
+;; Build an expression containing a buffer object.
+(setq print-exp (list 'print (current-buffer)))
+     ⇒ (print #<buffer eval.texi>)
+;; Evaluate it.
+(eval print-exp)
+     -| #<buffer eval.texi>
+     ⇒ #<buffer eval.texi>
+
+**** Symbol Forms
+
+When a symbol is evaluated, it is treated as a variable. The result is the variable’s value, if it has one. If the symbol has no value as a variable, the Lisp interpreter signals an error. For more information on the use of variables, see Variables.
+
+In the following example, we set the value of a symbol with setq. Then we evaluate the symbol, and get back the value that setq stored.
+
+(setq a 123)
+     ⇒ 123
+(eval 'a)
+     ⇒ 123
+a
+     ⇒ 123
+The symbols nil and t are treated specially, so that the value of nil is always nil, and the value of t is always t; you cannot set or bind them to any other values. Thus, these two symbols act like self-evaluating forms, even though eval treats them like any other symbol. A symbol whose name starts with ‘:’ also self-evaluates in the same way; likewise, its value ordinarily cannot be changed. See Variables that Never Change.
+
+
+**** Classification of List Forms
+
+A form that is a nonempty list is either a function call, a macro call, or a special form, according to its first element. These three kinds of forms are evaluated in different ways, described below. The remaining list elements constitute the arguments for the function, macro, or special form.
+
+The first step in evaluating a nonempty list is to examine its first element. This element alone determines what kind of form the list is and how the rest of the list is to be processed. The first element is not evaluated, as it would be in some Lisp dialects such as Scheme.
+
+
+**** Symbol Function Indirection
+
+If the first element of the list is a symbol then evaluation examines the symbol’s function cell, and uses its contents instead of the original symbol. If the contents are another symbol, this process, called symbol function indirection, is repeated until it obtains a non-symbol. See Naming a Function, for more information about symbol function indirection.
+
+One possible consequence of this process is an infinite loop, in the event that a symbol’s function cell refers to the same symbol. Otherwise, we eventually obtain a non-symbol, which ought to be a function or other suitable object.
+
+More precisely, we should now have a Lisp function (a lambda expression), a byte-code function, a primitive function, a Lisp macro, a special form, or an autoload object. Each of these types is a case described in one of the following sections. If the object is not one of these types, Emacs signals an invalid-function error.
+
+The following example illustrates the symbol indirection process. We use fset to set the function cell of a symbol and symbol-function to get the function cell contents (see Accessing Function Cell Contents). Specifically, we store the symbol car into the function cell of first, and the symbol first into the function cell of erste.
+
+;; Build this function cell linkage:
+;;   -------------       -----        -------        -------
+;;  | #<subr car> | <-- | car |  <-- | first |  <-- | erste |
+;;   -------------       -----        -------        -------
+(symbol-function 'car)
+     ⇒ #<subr car>
+(fset 'first 'car)
+     ⇒ car
+(fset 'erste 'first)
+     ⇒ first
+(erste '(1 2 3))   ; Call the function referenced by erste.
+     ⇒ 1
+By contrast, the following example calls a function without any symbol function indirection, because the first element is an anonymous Lisp function, not a symbol.
+
+((lambda (arg) (erste arg))
+ '(1 2 3))
+     ⇒ 1
+Executing the function itself evaluates its body; this does involve symbol function indirection when calling erste.
+
+This form is rarely used and is now deprecated. Instead, you should write it as:
+
+(funcall (lambda (arg) (erste arg))
+         '(1 2 3))
+or just
+
+(let ((arg '(1 2 3))) (erste arg))
+The built-in function indirect-function provides an easy way to perform symbol function indirection explicitly.
+
+Function: indirect-function function &optional noerror ¶
+This function returns the meaning of function as a function. If function is a symbol, then it finds function’s function definition and starts over with that value. If function is not a symbol, then it returns function itself.
+
+This function returns nil if the final symbol is unbound. It signals a cyclic-function-indirection error if there is a loop in the chain of symbols.
+
+The optional argument noerror is obsolete, kept for backward compatibility, and has no effect.
+
+Here is how you could define indirect-function in Lisp:
+
+(defun indirect-function (function)
+  (if (and function
+           (symbolp function))
+      (indirect-function (symbol-function function))
+    function))
+
+**** Evaluation of Function Forms
+
+If the first element of a list being evaluated is a Lisp function object, byte-code object or primitive function object, then that list is a function call. For example, here is a call to the function +:
+
+(+ 1 x)
+The first step in evaluating a function call is to evaluate the remaining elements of the list from left to right. The results are the actual argument values, one value for each list element. The next step is to call the function with this list of arguments, effectively using the function apply (see Calling Functions). If the function is written in Lisp, the arguments are used to bind the argument variables of the function (see Lambda Expressions); then the forms in the function body are evaluated in order, and the value of the last body form becomes the value of the function call.
+
+
+**** Lisp Macro Evaluation
+
+If the first element of a list being evaluated is a macro object, then the list is a macro call. When a macro call is evaluated, the elements of the rest of the list are not initially evaluated. Instead, these elements themselves are used as the arguments of the macro. The macro definition computes a replacement form, called the expansion of the macro, to be evaluated in place of the original form. The expansion may be any sort of form: a self-evaluating constant, a symbol, or a list. If the expansion is itself a macro call, this process of expansion repeats until some other sort of form results.
+
+Ordinary evaluation of a macro call finishes by evaluating the expansion. However, the macro expansion is not necessarily evaluated right away, or at all, because other programs also expand macro calls, and they may or may not evaluate the expansions.
+
+Normally, the argument expressions are not evaluated as part of computing the macro expansion, but instead appear as part of the expansion, so they are computed when the expansion is evaluated.
+
+For example, given a macro defined as follows:
+
+(defmacro cadr (x)
+  (list 'car (list 'cdr x)))
+an expression such as (cadr (assq 'handler list)) is a macro call, and its expansion is:
+
+(car (cdr (assq 'handler list)))
+Note that the argument (assq 'handler list) appears in the expansion.
+
+See Macros, for a complete description of Emacs Lisp macros.
+
+
+**** Special Forms
+
+A special form is a primitive specially marked so that its arguments are not all evaluated. Most special forms define control structures or perform variable bindings—things which functions cannot do.
+
+Each special form has its own rules for which arguments are evaluated and which are used without evaluation. Whether a particular argument is evaluated may depend on the results of evaluating other arguments.
+
+If an expression’s first symbol is that of a special form, the expression should follow the rules of that special form; otherwise, Emacs’s behavior is not well-defined (though it will not crash). For example, ((lambda (x) x . 3) 4) contains a subexpression that begins with lambda but is not a well-formed lambda expression, so Emacs may signal an error, or may return 3 or 4 or nil, or may behave in other ways.
+
+Function: special-form-p object ¶
+This predicate tests whether its argument is a special form, and returns t if so, nil otherwise.
+
+Here is a list, in alphabetical order, of all of the special forms in Emacs Lisp with a reference to where each is described.
+
+and
+see Constructs for Combining Conditions
+
+catch
+see Explicit Nonlocal Exits: catch and throw
+
+cond
+see Conditionals
+
+condition-case
+see Writing Code to Handle Errors
+
+defconst
+see Defining Global Variables
+
+defvar
+see Defining Global Variables
+
+function
+see Anonymous Functions
+
+if
+see Conditionals
+
+interactive
+see Interactive Call
+
+lambda
+see Lambda Expressions
+
+let
+let*
+see Local Variables
+
+or
+see Constructs for Combining Conditions
+
+prog1
+prog2
+progn
+see Sequencing
+
+quote
+see Quoting
+
+save-current-buffer
+see The Current Buffer
+
+save-excursion
+see Excursions
+
+save-restriction
+see Narrowing
+
+setq
+see Setting Variable Values
+
+setq-default
+see Creating and Deleting Buffer-Local Bindings
+
+unwind-protect
+see Nonlocal Exits
+
+while
+see Iteration
+
+Common Lisp note: Here are some comparisons of special forms in GNU Emacs Lisp and Common Lisp. setq, if, and catch are special forms in both Emacs Lisp and Common Lisp. save-excursion is a special form in Emacs Lisp, but doesn’t exist in Common Lisp. throw is a special form in Common Lisp (because it must be able to throw multiple values), but it is a function in Emacs Lisp (which doesn’t have multiple values).
+
+
+**** Autoloading
+
+The autoload feature allows you to call a function or macro whose function definition has not yet been loaded into Emacs. It specifies which file contains the definition. When an autoload object appears as a symbol’s function definition, calling that symbol as a function automatically loads the specified file; then it calls the real definition loaded from that file. The way to arrange for an autoload object to appear as a symbol’s function definition is described in Autoload.
+
+
+*** Quoting
+
+The special form quote returns its single argument, as written, without evaluating it. This provides a way to include constant symbols and lists, which are not self-evaluating objects, in a program. (It is not necessary to quote self-evaluating objects such as numbers, strings, and vectors.)
+
+Special Form: quote object ¶
+This special form returns object, without evaluating it. The returned value might be shared and should not be modified. See Self-Evaluating Forms.
+
+Because quote is used so often in programs, Lisp provides a convenient read syntax for it. An apostrophe character (‘'’) followed by a Lisp object (in read syntax) expands to a list whose first element is quote, and whose second element is the object. Thus, the read syntax 'x is an abbreviation for (quote x).
+
+Here are some examples of expressions that use quote:
+
+(quote (+ 1 2))
+     ⇒ (+ 1 2)
+(quote foo)
+     ⇒ foo
+'foo
+     ⇒ foo
+''foo
+     ⇒ 'foo
+'(quote foo)
+     ⇒ 'foo
+['foo]
+     ⇒ ['foo]
+Although the expressions (list '+ 1 2) and '(+ 1 2) both yield lists equal to (+ 1 2), the former yields a freshly-minted mutable list whereas the latter yields a list built from conses that might be shared and should not be modified. See Self-Evaluating Forms.
+
+Other quoting constructs include function (see Anonymous Functions), which causes an anonymous lambda expression written in Lisp to be compiled, and ‘`’ (see Backquote), which is used to quote only part of a list, while computing and substituting other parts.
+
+
+*** Backquote
+
+Backquote constructs allow you to quote a list, but selectively evaluate elements of that list. In the simplest case, it is identical to the special form quote (described in the previous section; see Quoting). For example, these two forms yield identical results:
+
+`(a list of (+ 2 3) elements)
+     ⇒ (a list of (+ 2 3) elements)
+'(a list of (+ 2 3) elements)
+     ⇒ (a list of (+ 2 3) elements)
+The special marker ‘,’ inside of the argument to backquote indicates a value that isn’t constant. The Emacs Lisp evaluator evaluates the argument of ‘,’, and puts the value in the list structure:
+
+`(a list of ,(+ 2 3) elements)
+     ⇒ (a list of 5 elements)
+Substitution with ‘,’ is allowed at deeper levels of the list structure also. For example:
+
+`(1 2 (3 ,(+ 4 5)))
+     ⇒ (1 2 (3 9))
+You can also splice an evaluated value into the resulting list, using the special marker ‘,@’. The elements of the spliced list become elements at the same level as the other elements of the resulting list. The equivalent code without using ‘`’ is often unreadable. Here are some examples:
+
+(setq some-list '(2 3))
+     ⇒ (2 3)
+(cons 1 (append some-list '(4) some-list))
+     ⇒ (1 2 3 4 2 3)
+`(1 ,@some-list 4 ,@some-list)
+     ⇒ (1 2 3 4 2 3)
+
+(setq list '(hack foo bar))
+     ⇒ (hack foo bar)
+(cons 'use
+  (cons 'the
+    (cons 'words (append (cdr list) '(as elements)))))
+     ⇒ (use the words foo bar as elements)
+`(use the words ,@(cdr list) as elements)
+     ⇒ (use the words foo bar as elements)
+If a subexpression of a backquote construct has no substitutions or splices, it acts like quote in that it yields conses, vectors and strings that might be shared and should not be modified. See Self-Evaluating Forms.
+
+
+*** Eval
+
+Most often, forms are evaluated automatically, by virtue of their occurrence in a program being run. On rare occasions, you may need to write code that evaluates a form that is computed at run time, such as after reading a form from text being edited or getting one from a property list. On these occasions, use the eval function. Often eval is not needed and something else should be used instead. For example, to get the value of a variable, while eval works, symbol-value is preferable; or rather than store expressions in a property list that then need to go through eval, it is better to store functions instead that are then passed to funcall.
+
+The functions and variables described in this section evaluate forms, specify limits to the evaluation process, or record recently returned values. Loading a file also does evaluation (see Loading).
+
+It is generally cleaner and more flexible to store a function in a data structure, and call it with funcall or apply, than to store an expression in the data structure and evaluate it. Using functions provides the ability to pass information to them as arguments.
+
+Function: eval form &optional lexical ¶
+This is the basic function for evaluating an expression. It evaluates form in the current environment, and returns the result. The type of the form object determines how it is evaluated. See Kinds of Forms.
+
+The argument lexical specifies the scoping rule for local variables (see Scoping Rules for Variable Bindings). If it is omitted or nil, that means to evaluate form using the default dynamic scoping rule. If it is t, that means to use the lexical scoping rule. The value of lexical can also be a non-empty alist specifying a particular lexical environment for lexical bindings; however, this feature is only useful for specialized purposes, such as in Emacs Lisp debuggers. See Lexical Binding.
+
+Since eval is a function, the argument expression that appears in a call to eval is evaluated twice: once as preparation before eval is called, and again by the eval function itself. Here is an example:
+
+(setq foo 'bar)
+     ⇒ bar
+(setq bar 'baz)
+     ⇒ baz
+;; Here eval receives argument foo
+(eval 'foo)
+     ⇒ bar
+;; Here eval receives argument bar, which is the value of foo
+(eval foo)
+     ⇒ baz
+The number of currently active calls to eval is limited to max-lisp-eval-depth (see below).
+
+Command: eval-region start end &optional stream read-function ¶
+This function evaluates the forms in the current buffer in the region defined by the positions start and end. It reads forms from the region and calls eval on them until the end of the region is reached, or until an error is signaled and not handled.
+
+By default, eval-region does not produce any output. However, if stream is non-nil, any output produced by output functions (see Output Functions), as well as the values that result from evaluating the expressions in the region are printed using stream. See Output Streams.
+
+If read-function is non-nil, it should be a function, which is used instead of read to read expressions one by one. This function is called with one argument, the stream for reading input. You can also use the variable load-read-function (see How Programs Do Loading) to specify this function, but it is more robust to use the read-function argument.
+
+eval-region does not move point. It always returns nil.
+
+Command: eval-buffer &optional buffer-or-name stream filename unibyte print ¶
+This is similar to eval-region, but the arguments provide different optional features. eval-buffer operates on the entire accessible portion of buffer buffer-or-name (see Narrowing in The GNU Emacs Manual). buffer-or-name can be a buffer, a buffer name (a string), or nil (or omitted), which means to use the current buffer. stream is used as in eval-region, unless stream is nil and print non-nil. In that case, values that result from evaluating the expressions are still discarded, but the output of the output functions is printed in the echo area. filename is the file name to use for load-history (see Unloading), and defaults to buffer-file-name (see Buffer File Name). If unibyte is non-nil, read converts strings to unibyte whenever possible.
+
+User Option: max-lisp-eval-depth ¶
+This variable defines the maximum depth allowed in calls to eval, apply, and funcall before an error is signaled (with error message "Lisp nesting exceeds max-lisp-eval-depth").
+
+This limit, with the associated error when it is exceeded, is how Emacs Lisp avoids infinite recursion on an ill-defined function. If you increase the value of max-lisp-eval-depth too much, such code can cause stack overflow instead. On some systems, this overflow can be handled. In that case, normal Lisp evaluation is interrupted and control is transferred back to the top level command loop (top-level). Note that there is no way to enter Emacs Lisp debugger in this situation. See Entering the Debugger on an Error.
+
+The depth limit counts internal uses of eval, apply, and funcall, such as for calling the functions mentioned in Lisp expressions, and recursive evaluation of function call arguments and function body forms, as well as explicit calls in Lisp code.
+
+The default value of this variable is 1600. If you set it to a value less than 100, Lisp will reset it to 100 if the given value is reached. Entry to the Lisp debugger increases the value, if there is little room left, to make sure the debugger itself has room to execute.
+
+Variable: values ¶
+The value of this variable is a list of the values returned by all the expressions that were read, evaluated, and printed from buffers (including the minibuffer) by the standard Emacs commands which do this. (Note that this does not include evaluation in *ielm* buffers, nor evaluation using C-j, C-x C-e, and similar evaluation commands in lisp-interaction-mode.)
+
+This variable is obsolete, and will be removed in a future version, since it constantly enlarges the memory footprint of the Emacs process. For that reason, we recommend against using it.
+
+The elements of values are ordered most recent first.
+
+(setq x 1)
+     ⇒ 1
+(list 'A (1+ 2) auto-save-default)
+     ⇒ (A 3 t)
+values
+     ⇒ ((A 3 t) 1 …)
+This variable could be useful for referring back to values of forms recently evaluated. It is generally a bad idea to print the value of values itself, since this may be very long. Instead, examine particular elements, like this:
+
+;; Refer to the most recent evaluation result.
+(nth 0 values)
+     ⇒ (A 3 t)
+;; That put a new element on,
+;;   so all elements move back one.
+(nth 1 values)
+     ⇒ (A 3 t)
+;; This gets the element that was next-to-most-recent
+;;   before this example.
+(nth 3 values)
+     ⇒ 1
+
+*** Deferred and Lazy Evaluation
+
+Sometimes it is useful to delay the evaluation of an expression, for example if you want to avoid performing a time-consuming calculation if it turns out that the result is not needed in the future of the program. The thunk library provides the following functions and macros to support such deferred evaluation:
+
+Macro: thunk-delay forms… ¶
+Return a thunk for evaluating the forms. A thunk is a closure (see Closures) that inherits the lexical environment of the thunk-delay call. Using this macro requires lexical-binding.
+
+Function: thunk-force thunk ¶
+Force thunk to perform the evaluation of the forms specified in the thunk-delay that created the thunk. The result of the evaluation of the last form is returned. The thunk also “remembers” that it has been forced: Any further calls of thunk-force with the same thunk will just return the same result without evaluating the forms again.
+
+Macro: thunk-let (bindings…) forms… ¶
+This macro is analogous to let but creates “lazy” variable bindings. Any binding has the form (symbol value-form). Unlike let, the evaluation of any value-form is deferred until the binding of the according symbol is used for the first time when evaluating the forms. Any value-form is evaluated at most once. Using this macro requires lexical-binding.
+
+Example:
+
+(defun f (number)
+  (thunk-let ((derived-number
+              (progn (message "Calculating 1 plus 2 times %d" number)
+                     (1+ (* 2 number)))))
+    (if (> number 10)
+        derived-number
+      number)))
+
+(f 5)
+⇒ 5
+
+(f 12)
+-| Calculating 1 plus 2 times 12
+⇒ 25
+
+Because of the special nature of lazily bound variables, it is an error to set them (e.g. with setq).
+
+Macro: thunk-let* (bindings…) forms… ¶
+This is like thunk-let but any expression in bindings is allowed to refer to preceding bindings in this thunk-let* form. Using this macro requires lexical-binding.
+
+(thunk-let* ((x (prog2 (message "Calculating x...")
+                    (+ 1 1)
+                  (message "Finished calculating x")))
+             (y (prog2 (message "Calculating y...")
+                    (+ x 1)
+                  (message "Finished calculating y")))
+             (z (prog2 (message "Calculating z...")
+                    (+ y 1)
+                  (message "Finished calculating z")))
+             (a (prog2 (message "Calculating a...")
+                    (+ z 1)
+                  (message "Finished calculating a"))))
+  (* z x))
+
+-| Calculating z...
+-| Calculating y...
+-| Calculating x...
+-| Finished calculating x
+-| Finished calculating y
+-| Finished calculating z
+⇒ 8
+
+thunk-let and thunk-let* use thunks implicitly: their expansion creates helper symbols and binds them to thunks wrapping the binding expressions. All references to the original variables in the body forms are then replaced by an expression that calls thunk-force with the according helper variable as the argument. So, any code using thunk-let or thunk-let* could be rewritten to use thunks, but in many cases using these macros results in nicer code than using thunks explicitly.
+
+
+** Control Structures
+
+A Lisp program consists of a set of expressions, or forms (see Kinds of Forms). We control the order of execution of these forms by enclosing them in control structures. Control structures are special forms which control when, whether, or how many times to execute the forms they contain.
+
+The simplest order of execution is sequential execution: first form a, then form b, and so on. This is what happens when you write several forms in succession in the body of a function, or at top level in a file of Lisp code—the forms are executed in the order written. We call this textual order. For example, if a function body consists of two forms a and b, evaluation of the function evaluates first a and then b. The result of evaluating b becomes the value of the function.
+
+Explicit control structures make possible an order of execution other than sequential.
+
+Emacs Lisp provides several kinds of control structure, including other varieties of sequencing, conditionals, iteration, and (controlled) jumps—all discussed below. The built-in control structures are special forms since their subforms are not necessarily evaluated or not evaluated sequentially. You can use macros to define your own control structure constructs (see Macros).
+
+*** Sequencing
+
+Evaluating forms in the order they appear is the most common way control passes from one form to another. In some contexts, such as in a function body, this happens automatically. Elsewhere you must use a control structure construct to do this: progn, the simplest control construct of Lisp.
+
+A progn special form looks like this:
+
+(progn a b c …)
+and it says to execute the forms a, b, c, and so on, in that order. These forms are called the body of the progn form. The value of the last form in the body becomes the value of the entire progn. (progn) returns nil.
+
+In the early days of Lisp, progn was the only way to execute two or more forms in succession and use the value of the last of them. But programmers found they often needed to use a progn in the body of a function, where (at that time) only one form was allowed. So the body of a function was made into an implicit progn: several forms are allowed just as in the body of an actual progn. Many other control structures likewise contain an implicit progn. As a result, progn is not used as much as it was many years ago. It is needed now most often inside an unwind-protect, and, or, or in the then-part of an if.
+
+Special Form: progn forms… ¶
+This special form evaluates all of the forms, in textual order, returning the result of the final form.
+
+(progn (print "The first form")
+       (print "The second form")
+       (print "The third form"))
+     -| "The first form"
+     -| "The second form"
+     -| "The third form"
+⇒ "The third form"
+Two other constructs likewise evaluate a series of forms but return different values:
+
+Special Form: prog1 form1 forms… ¶
+This special form evaluates form1 and all of the forms, in textual order, returning the result of form1.
+
+(prog1 (print "The first form")
+       (print "The second form")
+       (print "The third form"))
+     -| "The first form"
+     -| "The second form"
+     -| "The third form"
+⇒ "The first form"
+Here is a way to remove the first element from a list in the variable x, then return the value of that former element:
+
+(prog1 (car x) (setq x (cdr x)))
+Special Form: prog2 form1 form2 forms… ¶
+This special form evaluates form1, form2, and all of the following forms, in textual order, returning the result of form2.
+
+(prog2 (print "The first form")
+       (print "The second form")
+       (print "The third form"))
+     -| "The first form"
+     -| "The second form"
+     -| "The third form"
+⇒ "The second form"
+
+*** Conditionals
+
+Conditional control structures choose among alternatives. Emacs Lisp has five conditional forms: if, which is much the same as in other languages; when and unless, which are variants of if; cond, which is a generalized case statement; and pcase, which is a generalization of cond (see Pattern-Matching Conditional).
+
+Special Form: if condition then-form else-forms… ¶
+if chooses between the then-form and the else-forms based on the value of condition. If the evaluated condition is non-nil, then-form is evaluated and the result returned. Otherwise, the else-forms are evaluated in textual order, and the value of the last one is returned. (The else part of if is an example of an implicit progn. See Sequencing.)
+
+If condition has the value nil, and no else-forms are given, if returns nil.
+
+if is a special form because the branch that is not selected is never evaluated—it is ignored. Thus, in this example, true is not printed because print is never called:
+
+(if nil
+    (print 'true)
+  'very-false)
+⇒ very-false
+Macro: when condition then-forms… ¶
+This is a variant of if where there are no else-forms, and possibly several then-forms. In particular,
+
+(when condition a b c)
+is entirely equivalent to
+
+(if condition (progn a b c) nil)
+Macro: unless condition forms… ¶
+This is a variant of if where there is no then-form:
+
+(unless condition a b c)
+is entirely equivalent to
+
+(if condition nil
+   a b c)
+Special Form: cond clause… ¶
+cond chooses among an arbitrary number of alternatives. Each clause in the cond must be a list. The CAR of this list is the condition; the remaining elements, if any, the body-forms. Thus, a clause looks like this:
+
+(condition body-forms…)
+cond tries the clauses in textual order, by evaluating the condition of each clause. If the value of condition is non-nil, the clause succeeds; then cond evaluates its body-forms, and returns the value of the last of body-forms. Any remaining clauses are ignored.
+
+If the value of condition is nil, the clause fails, so the cond moves on to the following clause, trying its condition.
+
+A clause may also look like this:
+
+(condition)
+Then, if condition is non-nil when tested, the cond form returns the value of condition.
+
+If every condition evaluates to nil, so that every clause fails, cond returns nil.
+
+The following example has four clauses, which test for the cases where the value of x is a number, string, buffer and symbol, respectively:
+
+(cond ((numberp x) x)
+      ((stringp x) x)
+      ((bufferp x)
+       (setq temporary-hack x) ; multiple body-forms
+       (buffer-name x))        ; in one clause
+      ((symbolp x) (symbol-value x)))
+Often we want to execute the last clause whenever none of the previous clauses was successful. To do this, we use t as the condition of the last clause, like this: (t body-forms). The form t evaluates to t, which is never nil, so this clause never fails, provided the cond gets to it at all. For example:
+
+(setq a 5)
+(cond ((eq a 'hack) 'foo)
+      (t "default"))
+⇒ "default"
+This cond expression returns foo if the value of a is hack, and returns the string "default" otherwise.
+
+Any conditional construct can be expressed with cond or with if. Therefore, the choice between them is a matter of style. For example:
+
+(if a b c)
+≡
+(cond (a b) (t c))
+It can be convenient to bind variables in conjunction with using a conditional. It’s often the case that you compute a value, and then want to do something with that value if it’s non-nil. The straightforward way to do that is to just write, for instance:
+
+(let ((result1 (do-computation)))
+  (when result1
+    (let ((result2 (do-more result1)))
+      (when result2
+        (do-something result2)))))
+Since this is a very common pattern, Emacs provides a number of macros to make this easier and more readable. The above can be written the following way instead:
+
+(when-let ((result1 (do-computation))
+           (result2 (do-more result1)))
+  (do-something result2))
+There’s a number of variations on this theme, and they’re briefly described below.
+
+Macro: if-let spec then-form else-forms... ¶
+Evaluate each binding in spec in turn, like in let* (see Local Variables, stopping if a binding value is nil. If all are non-nil, return the value of then-form, otherwise the last form in else-forms.
+
+Macro: when-let spec then-forms... ¶
+Like if-let, but without else-forms.
+
+Macro: while-let spec then-forms... ¶
+Like when-let, but repeat until a binding in spec is nil. The return value is always nil.
+
+
+*** Constructs for Combining Conditions
+
+This section describes constructs that are often used together with if and cond to express complicated conditions. The constructs and and or can also be used individually as kinds of multiple conditional constructs.
+
+Function: not condition ¶
+This function tests for the falsehood of condition. It returns t if condition is nil, and nil otherwise. The function not is identical to null, and we recommend using the name null if you are testing for an empty list.
+
+Special Form: and conditions… ¶
+The and special form tests whether all the conditions are true. It works by evaluating the conditions one by one in the order written.
+
+If any of the conditions evaluates to nil, then the result of the and must be nil regardless of the remaining conditions; so and returns nil right away, ignoring the remaining conditions.
+
+If all the conditions turn out non-nil, then the value of the last of them becomes the value of the and form. Just (and), with no conditions, returns t, appropriate because all the conditions turned out non-nil. (Think about it; which one did not?)
+
+Here is an example. The first condition returns the integer 1, which is not nil. Similarly, the second condition returns the integer 2, which is not nil. The third condition is nil, so the remaining condition is never evaluated.
+
+(and (print 1) (print 2) nil (print 3))
+     -| 1
+     -| 2
+⇒ nil
+Here is a more realistic example of using and:
+
+(if (and (consp foo) (eq (car foo) 'x))
+    (message "foo is a list starting with x"))
+Note that (car foo) is not executed if (consp foo) returns nil, thus avoiding an error.
+
+and expressions can also be written using either if or cond. Here’s how:
+
+(and arg1 arg2 arg3)
+≡
+(if arg1 (if arg2 arg3))
+≡
+(cond (arg1 (cond (arg2 arg3))))
+Special Form: or conditions… ¶
+The or special form tests whether at least one of the conditions is true. It works by evaluating all the conditions one by one in the order written.
+
+If any of the conditions evaluates to a non-nil value, then the result of the or must be non-nil; so or returns right away, ignoring the remaining conditions. The value it returns is the non-nil value of the condition just evaluated.
+
+If all the conditions turn out nil, then the or expression returns nil. Just (or), with no conditions, returns nil, appropriate because all the conditions turned out nil. (Think about it; which one did not?)
+
+For example, this expression tests whether x is either nil or the integer zero:
+
+(or (eq x nil) (eq x 0))
+Like the and construct, or can be written in terms of cond. For example:
+
+(or arg1 arg2 arg3)
+≡
+(cond (arg1)
+      (arg2)
+      (arg3))
+You could almost write or in terms of if, but not quite:
+
+(if arg1 arg1
+  (if arg2 arg2
+    arg3))
+This is not completely equivalent because it can evaluate arg1 or arg2 twice. By contrast, (or arg1 arg2 arg3) never evaluates any argument more than once.
+
+Function: xor condition1 condition2 ¶
+This function returns the boolean exclusive-or of condition1 and condition2. That is, xor returns nil if either both arguments are nil, or both are non-nil. Otherwise, it returns the value of that argument which is non-nil.
+
+Note that in contrast to or, both arguments are always evaluated.
+
+
+*** Pattern-Matching Conditional
+
+Aside from the four basic conditional forms, Emacs Lisp also has a pattern-matching conditional form, the pcase macro, a hybrid of cond and cl-case (see Conditionals in Common Lisp Extensions) that overcomes their limitations and introduces the pattern matching programming style. The limitations that pcase overcomes are:
+
+The cond form chooses among alternatives by evaluating the predicate condition of each of its clauses (see Conditionals). The primary limitation is that variables let-bound in condition are not available to the clause’s body-forms.
+Another annoyance (more an inconvenience than a limitation) is that when a series of condition predicates implement equality tests, there is a lot of repeated code. (cl-case solves this inconvenience.)
+
+The cl-case macro chooses among alternatives by evaluating the equality of its first argument against a set of specific values.
+Its limitations are two-fold:
+
+The equality tests use eql.
+The values must be known and written in advance.
+These render cl-case unsuitable for strings or compound data structures (e.g., lists or vectors). (cond doesn’t have these limitations, but it has others, see above.)
+
+Conceptually, the pcase macro borrows the first-arg focus of cl-case and the clause-processing flow of cond, replacing condition with a generalization of the equality test which is a variant of pattern matching, and adding facilities so that you can concisely express a clause’s predicate, and arrange to share let-bindings between a clause’s predicate and body-forms.
+
+The concise expression of a predicate is known as a pattern. When the predicate, called on the value of the first arg, returns non-nil, we say that “the pattern matches the value” (or sometimes “the value matches the pattern”).
+
+**** The pcase macro
+
+For background, See Pattern-Matching Conditional.
+
+Macro: pcase expression &rest clauses ¶
+Each clause in clauses has the form: (pattern body-forms…).
+
+Evaluate expression to determine its value, expval. Find the first clause in clauses whose pattern matches expval and pass control to that clause’s body-forms.
+
+If there is a match, the value of pcase is the value of the last of body-forms in the successful clause. Otherwise, pcase evaluates to nil.
+
+Each pattern has to be a pcase pattern, which can use either one of the core patterns defined below, or one of the patterns defined via pcase-defmacro (see Extending pcase).
+
+The rest of this subsection describes different forms of core patterns, presents some examples, and concludes with important caveats on using the let-binding facility provided by some pattern forms. A core pattern can have the following forms:
+
+_ (underscore)
+Matches any expval. This is also known as don’t care or wildcard.
+
+'val
+Matches if expval equals val. The comparison is done as if by equal (see Equality Predicates).
+
+keyword
+integer
+string
+Matches if expval equals the literal object. This is a special case of 'val, above, possible because literal objects of these types are self-quoting.
+
+symbol
+Matches any expval, and additionally let-binds symbol to expval, such that this binding is available to body-forms (see Dynamic Binding).
+
+If symbol is part of a sequencing pattern seqpat (e.g., by using and, below), the binding is also available to the portion of seqpat following the appearance of symbol. This usage has some caveats, see caveats.
+
+Two symbols to avoid are t, which behaves like _ (above) and is deprecated, and nil, which signals an error. Likewise, it makes no sense to bind keyword symbols (see Variables that Never Change).
+
+`qpat
+A backquote-style pattern. See Backquote-Style Patterns, for the details.
+
+(cl-type type)
+Matches if expval is of type type, which is a type descriptor as accepted by cl-typep (see Type Predicates in Common Lisp Extensions). Examples:
+
+(cl-type integer)
+(cl-type (integer 0 10))
+(pred function)
+Matches if the predicate function returns non-nil when called on expval. The test can be negated with the syntax (pred (not function)). The predicate function can have one of the following forms:
+
+function name (a symbol)
+Call the named function with one argument, expval.
+
+Example: integerp
+
+lambda expression
+Call the anonymous function with one argument, expval (see Lambda Expressions).
+
+Example: (lambda (n) (= 42 n))
+
+function call with n args
+Call the function (the first element of the function call) with n arguments (the other elements) and an additional n+1-th argument that is expval.
+
+Example: (= 42)
+In this example, the function is =, n is one, and the actual function call becomes: (= 42 expval).
+
+(app function pattern)
+Matches if function called on expval returns a value that matches pattern. function can take one of the forms described for pred, above. Unlike pred, however, app tests the result against pattern, rather than against a boolean truth value.
+
+(guard boolean-expression)
+Matches if boolean-expression evaluates to non-nil.
+
+(let pattern expr)
+Evaluates expr to get exprval and matches if exprval matches pattern. (It is called let because pattern can bind symbols to values using symbol.)
+
+A sequencing pattern (also known as seqpat) is a pattern that processes its sub-pattern arguments in sequence. There are two for pcase: and and or. They behave in a similar manner to the special forms that share their name (see Constructs for Combining Conditions), but instead of processing values, they process sub-patterns.
+
+(and pattern1…)
+Attempts to match pattern1…, in order, until one of them fails to match. In that case, and likewise fails to match, and the rest of the sub-patterns are not tested. If all sub-patterns match, and matches.
+
+(or pattern1 pattern2…)
+Attempts to match pattern1, pattern2, …, in order, until one of them succeeds. In that case, or likewise matches, and the rest of the sub-patterns are not tested.
+
+To present a consistent environment (see Introduction to Evaluation) to body-forms (thus avoiding an evaluation error on match), the set of variables bound by the pattern is the union of the variables bound by each sub-pattern. If a variable is not bound by the sub-pattern that matched, then it is bound to nil.
+
+(rx rx-expr…)
+Matches strings against the regexp rx-expr…, using the rx regexp notation (see The rx Structured Regexp Notation), as if by string-match.
+
+In addition to the usual rx syntax, rx-expr… can contain the following constructs:
+
+(let ref rx-expr…)
+Bind the symbol ref to a submatch that matches rx-expr.... ref is bound in body-forms to the string of the submatch or nil, but can also be used in backref.
+
+(backref ref)
+Like the standard backref construct, but ref can here also be a name introduced by a previous (let ref …) construct.
+
+Example: Advantage Over cl-case
+Here’s an example that highlights some advantages pcase has over cl-case (see Conditionals in Common Lisp Extensions).
+
+(pcase (get-return-code x)
+  ;; string
+  ((and (pred stringp) msg)
+   (message "%s" msg))
+  ;; symbol
+  ('success       (message "Done!"))
+  ('would-block   (message "Sorry, can't do it now"))
+  ('read-only     (message "The schmilblick is read-only"))
+  ('access-denied (message "You do not have the needed rights"))
+  ;; default
+  (code           (message "Unknown return code %S" code)))
+With cl-case, you would need to explicitly declare a local variable code to hold the return value of get-return-code. Also cl-case is difficult to use with strings because it uses eql for comparison.
+
+Example: Using and
+A common idiom is to write a pattern starting with and, with one or more symbol sub-patterns providing bindings to the sub-patterns that follow (as well as to the body forms). For example, the following pattern matches single-digit integers.
+
+(and
+  (pred integerp)
+  n                     ; bind n to expval
+  (guard (<= -9 n 9)))
+First, pred matches if (integerp expval) evaluates to non-nil. Next, n is a symbol pattern that matches anything and binds n to expval. Lastly, guard matches if the boolean expression (<= -9 n 9) (note the reference to n) evaluates to non-nil. If all these sub-patterns match, and matches.
+
+Example: Reformulation with pcase
+Here is another example that shows how to reformulate a simple matching task from its traditional implementation (function grok/traditional) to one using pcase (function grok/pcase). The docstring for both these functions is: “If OBJ is a string of the form "key:NUMBER", return NUMBER (a string). Otherwise, return the list ("149" default).” First, the traditional implementation (see Regular Expressions):
+
+(defun grok/traditional (obj)
+  (if (and (stringp obj)
+           (string-match "^key:\\([[:digit:]]+\\)$" obj))
+      (match-string 1 obj)
+    (list "149" 'default)))
+
+(grok/traditional "key:0")   ⇒ "0"
+(grok/traditional "key:149") ⇒ "149"
+(grok/traditional 'monolith) ⇒ ("149" default)
+The reformulation demonstrates symbol binding as well as or, and, pred, app and let.
+
+(defun grok/pcase (obj)
+  (pcase obj
+    ((or                                     ; line 1
+      (and                                   ; line 2
+       (pred stringp)                        ; line 3
+       (pred (string-match                   ; line 4
+              "^key:\\([[:digit:]]+\\)$"))   ; line 5
+       (app (match-string 1)                 ; line 6
+            val))                            ; line 7
+      (let val (list "149" 'default)))       ; line 8
+     val)))                                  ; line 9
+
+(grok/pcase "key:0")   ⇒ "0"
+(grok/pcase "key:149") ⇒ "149"
+(grok/pcase 'monolith) ⇒ ("149" default)
+The bulk of grok/pcase is a single clause of a pcase form, the pattern on lines 1-8, the (single) body form on line 9. The pattern is or, which tries to match in turn its argument sub-patterns, first and (lines 2-7), then let (line 8), until one of them succeeds.
+
+As in the previous example (see Example 1), and begins with a pred sub-pattern to ensure the following sub-patterns work with an object of the correct type (string, in this case). If (stringp expval) returns nil, pred fails, and thus and fails, too.
+
+The next pred (lines 4-5) evaluates (string-match RX expval) and matches if the result is non-nil, which means that expval has the desired form: key:NUMBER. Again, failing this, pred fails and and, too.
+
+Lastly (in this series of and sub-patterns), app evaluates (match-string 1 expval) (line 6) to get a temporary value tmp (i.e., the “NUMBER” substring) and tries to match tmp against pattern val (line 7). Since that is a symbol pattern, it matches unconditionally and additionally binds val to tmp.
+
+Now that app has matched, all and sub-patterns have matched, and so and matches. Likewise, once and has matched, or matches and does not proceed to try sub-pattern let (line 8).
+
+Let’s consider the situation where obj is not a string, or it is a string but has the wrong form. In this case, one of the pred (lines 3-5) fails to match, thus and (line 2) fails to match, thus or (line 1) proceeds to try sub-pattern let (line 8).
+
+First, let evaluates (list "149" 'default) to get ("149" default), the exprval, and then tries to match exprval against pattern val. Since that is a symbol pattern, it matches unconditionally and additionally binds val to exprval. Now that let has matched, or matches.
+
+Note how both and and let sub-patterns finish in the same way: by trying (always successfully) to match against the symbol pattern val, in the process binding val. Thus, or always matches and control always passes to the body form (line 9). Because that is the last body form in a successfully matched pcase clause, it is the value of pcase and likewise the return value of grok/pcase (see What Is a Function?).
+
+Caveats for symbol in Sequencing Patterns
+The preceding examples all use sequencing patterns which include the symbol sub-pattern in some way. Here are some important details about that usage.
+
+When symbol occurs more than once in seqpat, the second and subsequent occurrences do not expand to re-binding, but instead expand to an equality test using eq.
+The following example features a pcase form with two clauses and two seqpat, A and B. Both A and B first check that expval is a pair (using pred), and then bind symbols to the car and cdr of expval (using one app each).
+
+For A, because symbol st is mentioned twice, the second mention becomes an equality test using eq. On the other hand, B uses two separate symbols, s1 and s2, both of which become independent bindings.
+
+(defun grok (object)
+  (pcase object
+    ((and (pred consp)        ; seqpat A
+          (app car st)        ; first mention: st
+          (app cdr st))       ; second mention: st
+     (list 'eq st))
+    ((and (pred consp)        ; seqpat B
+          (app car s1)        ; first mention: s1
+          (app cdr s2))       ; first mention: s2
+     (list 'not-eq s1 s2))))
+
+(let ((s "yow!"))
+  (grok (cons s s)))      ⇒ (eq "yow!")
+(grok (cons "yo!" "yo!")) ⇒ (not-eq "yo!" "yo!")
+(grok '(4 2))             ⇒ (not-eq 4 (2))
+Side-effecting code referencing symbol is undefined. Avoid. For example, here are two similar functions. Both use and, symbol and guard:
+(defun square-double-digit-p/CLEAN (integer)
+  (pcase (* integer integer)
+    ((and n (guard (< 9 n 100))) (list 'yes n))
+    (sorry (list 'no sorry))))
+
+(square-double-digit-p/CLEAN 9) ⇒ (yes 81)
+(square-double-digit-p/CLEAN 3) ⇒ (no 9)
+
+(defun square-double-digit-p/MAYBE (integer)
+  (pcase (* integer integer)
+    ((and n (guard (< 9 (incf n) 100))) (list 'yes n))
+    (sorry (list 'no sorry))))
+
+(square-double-digit-p/MAYBE 9) ⇒ (yes 81)
+(square-double-digit-p/MAYBE 3) ⇒ (yes 9)  ; WRONG!
+The difference is in boolean-expression in guard: CLEAN references n simply and directly, while MAYBE references n with a side-effect, in the expression (incf n). When integer is 3, here’s what happens:
+
+The first n binds it to expval, i.e., the result of evaluating (* 3 3), or 9.
+boolean-expression is evaluated:
+start:   (< 9 (incf n)        100)
+becomes: (< 9 (setq n (1+ n)) 100)
+becomes: (< 9 (setq n (1+ 9)) 100)
+becomes: (< 9 (setq n 10)     100)
+                                   ; side-effect here!
+becomes: (< 9       n         100) ; n now bound to 10
+becomes: (< 9      10         100)
+becomes: t
+Because the result of the evaluation is non-nil, guard matches, and matches, and control passes to that clause’s body forms.
+Aside from the mathematical incorrectness of asserting that 9 is a double-digit integer, there is another problem with MAYBE. The body form references n once more, yet we do not see the updated value—10—at all. What happened to it?
+
+To sum up, it’s best to avoid side-effecting references to symbol patterns entirely, not only in boolean-expression (in guard), but also in expr (in let) and function (in pred and app).
+
+On match, the clause’s body forms can reference the set of symbols the pattern let-binds. When seqpat is and, this set is the union of all the symbols each of its sub-patterns let-binds. This makes sense because, for and to match, all the sub-patterns must match.
+When seqpat is or, things are different: or matches at the first sub-pattern that matches; the rest of the sub-patterns are ignored. It makes no sense for each sub-pattern to let-bind a different set of symbols because the body forms have no way to distinguish which sub-pattern matched and choose among the different sets. For example, the following is invalid:
+
+(require 'cl-lib)
+(pcase (read-number "Enter an integer: ")
+  ((or (and (pred cl-evenp)
+            e-num)      ; bind e-num to expval
+       o-num)           ; bind o-num to expval
+   (list e-num o-num)))
+
+Enter an integer: 42
+error→ Symbol’s value as variable is void: o-num
+Enter an integer: 149
+error→ Symbol’s value as variable is void: e-num
+Evaluating body form (list e-num o-num) signals error. To distinguish between sub-patterns, you can use another symbol, identical in name in all sub-patterns but differing in value. Reworking the above example:
+
+(require 'cl-lib)
+(pcase (read-number "Enter an integer: ")
+  ((and num                                ; line 1
+        (or (and (pred cl-evenp)           ; line 2
+                 (let spin 'even))         ; line 3
+            (let spin 'odd)))              ; line 4
+   (list spin num)))                       ; line 5
+
+Enter an integer: 42
+⇒ (even 42)
+Enter an integer: 149
+⇒ (odd 149)
+Line 1 “factors out” the expval binding with and and symbol (in this case, num). On line 2, or begins in the same way as before, but instead of binding different symbols, uses let twice (lines 3-4) to bind the same symbol spin in both sub-patterns. The value of spin distinguishes the sub-patterns. The body form references both symbols (line 5).
+
+
+**** Extending pcase
+
+The pcase macro supports several kinds of patterns (see Pattern-Matching Conditional). You can add support for other kinds of patterns using the pcase-defmacro macro.
+
+Macro: pcase-defmacro name args [doc] &rest body ¶
+Define a new kind of pattern for pcase, to be invoked as (name actual-args). The pcase macro expands this into a function call that evaluates body, whose job it is to rewrite the invoked pattern into some other pattern, in an environment where args are bound to actual-args.
+
+Additionally, arrange to display doc along with the docstring of pcase. By convention, doc should use EXPVAL to stand for the result of evaluating expression (first arg to pcase).
+
+Typically, body rewrites the invoked pattern to use more basic patterns. Although all patterns eventually reduce to core patterns, body need not use core patterns straight away. The following example defines two patterns, named less-than and integer-less-than.
+
+(pcase-defmacro less-than (n)
+  "Matches if EXPVAL is a number less than N."
+  `(pred (> ,n)))
+
+(pcase-defmacro integer-less-than (n)
+  "Matches if EXPVAL is an integer less than N."
+  `(and (pred integerp)
+        (less-than ,n)))
+Note that the docstrings mention args (in this case, only one: n) in the usual way, and also mention EXPVAL by convention. The first rewrite (i.e., body for less-than) uses one core pattern: pred. The second uses two core patterns: and and pred, as well as the newly-defined pattern less-than. Both use a single backquote construct (see Backquote).
+
+
+**** Backquote-Style Patterns
+
+This subsection describes backquote-style patterns, a set of builtin patterns that eases structural matching. For background, see Pattern-Matching Conditional.
+
+Backquote-style patterns are a powerful set of pcase pattern extensions (created using pcase-defmacro) that make it easy to match expval against specifications of its structure.
+
+For example, to match expval that must be a list of two elements whose first element is a specific string and the second element is any value, you can write a core pattern:
+
+(and (pred listp)
+     ls
+     (guard (= 2 (length ls)))
+     (guard (string= "first" (car ls)))
+     (let second-elem (cadr ls)))
+or you can write the equivalent backquote-style pattern:
+
+`("first" ,second-elem)
+The backquote-style pattern is more concise, resembles the structure of expval, and avoids binding ls.
+
+A backquote-style pattern has the form `qpat where qpat can have the following forms:
+
+(qpat1 . qpat2)
+Matches if expval is a cons cell whose car matches qpat1 and whose cdr matches qpat2. This readily generalizes to lists as in (qpat1 qpat2 …).
+
+[qpat1 qpat2 … qpatm]
+Matches if expval is a vector of length m whose 0..(m-1)th elements match qpat1, qpat2 … qpatm, respectively.
+
+symbol
+keyword
+number
+string
+Matches if the corresponding element of expval is equal to the specified literal object.
+
+,pattern
+Matches if the corresponding element of expval matches pattern. Note that pattern is any kind that pcase supports. (In the example above, second-elem is a symbol core pattern; it therefore matches anything, and let-binds second-elem.)
+
+The corresponding element is the portion of expval that is in the same structural position as the structural position of qpat in the backquote-style pattern. (In the example above, the corresponding element of second-elem is the second element of expval.)
+
+Here is an example of using pcase to implement a simple interpreter for a little expression language (note that this requires lexical binding for the lambda expression in the fn clause to properly capture body and arg (see Lexical Binding):
+
+(defun evaluate (form env)
+  (pcase form
+    (`(add ,x ,y)       (+ (evaluate x env)
+                           (evaluate y env)))
+    (`(call ,fun ,arg)  (funcall (evaluate fun env)
+                                 (evaluate arg env)))
+    (`(fn ,arg ,body)   (lambda (val)
+                          (evaluate body (cons (cons arg val)
+                                               env))))
+    ((pred numberp)     form)
+    ((pred symbolp)     (cdr (assq form env)))
+    (_                  (error "Syntax error: %S" form))))
+The first three clauses use backquote-style patterns. `(add ,x ,y) is a pattern that checks that form is a three-element list starting with the literal symbol add, then extracts the second and third elements and binds them to symbols x and y, respectively. This is known as destructuring, see Destructuring with pcase Patterns. The clause body evaluates x and y and adds the results. Similarly, the call clause implements a function call, and the fn clause implements an anonymous function definition.
+
+The remaining clauses use core patterns. (pred numberp) matches if form is a number. On match, the body evaluates it. (pred symbolp) matches if form is a symbol. On match, the body looks up the symbol in env and returns its association. Finally, _ is the catch-all pattern that matches anything, so it’s suitable for reporting syntax errors.
+
+Here are some sample programs in this small language, including their evaluation results:
+
+(evaluate '(add 1 2) nil)                 ⇒ 3
+(evaluate '(add x y) '((x . 1) (y . 2)))  ⇒ 3
+(evaluate '(call (fn x (add 1 x)) 2) nil) ⇒ 3
+(evaluate '(sub 1 2) nil)                 ⇒ error
+
+**** Destructuring with pcase Patterns
+
+Pcase patterns not only express a condition on the form of the objects they can match, but they can also extract sub-fields of those objects. For example we can extract 2 elements from a list that is the value of the variable my-list with the following code:
+
+  (pcase my-list
+    (`(add ,x ,y)  (message "Contains %S and %S" x y)))
+This will not only extract x and y but will additionally test that my-list is a list containing exactly 3 elements and whose first element is the symbol add. If any of those tests fail, pcase will immediately return nil without calling message.
+
+Extraction of multiple values stored in an object is known as destructuring. Using pcase patterns allows to perform destructuring binding, which is similar to a local binding (see Local Variables), but gives values to multiple elements of a variable by extracting those values from an object of compatible structure.
+
+The macros described in this section use pcase patterns to perform destructuring binding. The condition of the object to be of compatible structure means that the object must match the pattern, because only then the object’s subfields can be extracted. For example:
+
+  (pcase-let ((`(add ,x ,y) my-list))
+    (message "Contains %S and %S" x y))
+does the same as the previous example, except that it directly tries to extract x and y from my-list without first verifying if my-list is a list which has the right number of elements and has add as its first element. The precise behavior when the object does not actually match the pattern is undefined, although the body will not be silently skipped: either an error is signaled or the body is run with some of the variables potentially bound to arbitrary values like nil.
+
+The pcase patterns that are useful for destructuring bindings are generally those described in Backquote-Style Patterns, since they express a specification of the structure of objects that will match.
+
+For an alternative facility for destructuring binding, see seq-let.
+
+Macro: pcase-let bindings body… ¶
+Perform destructuring binding of variables according to bindings, and then evaluate body.
+
+bindings is a list of bindings of the form (pattern exp), where exp is an expression to evaluate and pattern is a pcase pattern.
+
+All exps are evaluated first, after which they are matched against their respective pattern, introducing new variable bindings that can then be used inside body. The variable bindings are produced by destructuring binding of elements of pattern to the values of the corresponding elements of the evaluated exp.
+
+Here’s a trivial example:
+
+(pcase-let ((`(,major ,minor)
+	     (split-string "image/png" "/")))
+  minor)
+     ⇒ "png"
+Macro: pcase-let* bindings body… ¶
+Perform destructuring binding of variables according to bindings, and then evaluate body.
+
+bindings is a list of bindings of the form (pattern exp), where exp is an expression to evaluate and pattern is a pcase pattern. The variable bindings are produced by destructuring binding of elements of pattern to the values of the corresponding elements of the evaluated exp.
+
+Unlike pcase-let, but similarly to let*, each exp is matched against its corresponding pattern before processing the next element of bindings, so the variable bindings introduced in each one of the bindings are available in the exps of the bindings that follow it, additionally to being available in body.
+
+Macro: pcase-dolist (pattern list) body… ¶
+Execute body once for each element of list, on each iteration performing a destructuring binding of variables in pattern to the values of the corresponding subfields of the element of list. The bindings are performed as if by pcase-let. When pattern is a simple variable, this ends up being equivalent to dolist (see Iteration).
+
+Macro: pcase-setq pattern value… ¶
+Assign values to variables in a setq form, destructuring each value according to its respective pattern.
+
+Macro: pcase-lambda lambda-list &rest body ¶
+This is like lambda, but allows each argument to be a pattern. For instance, here’s a simple function that takes a cons cell as the argument:
+
+(setq fun
+      (pcase-lambda (`(,key . ,val))
+        (vector key (* val 10))))
+(funcall fun '(foo . 2))
+    ⇒ [foo 20]
+
+*** Iteration
+
+Iteration means executing part of a program repetitively. For example, you might want to repeat some computation once for each element of a list, or once for each integer from 0 to n. You can do this in Emacs Lisp with the special form while:
+
+Special Form: while condition forms… ¶
+while first evaluates condition. If the result is non-nil, it evaluates forms in textual order. Then it reevaluates condition, and if the result is non-nil, it evaluates forms again. This process repeats until condition evaluates to nil.
+
+There is no limit on the number of iterations that may occur. The loop will continue until either condition evaluates to nil or until an error or throw jumps out of it (see Nonlocal Exits).
+
+The value of a while form is always nil.
+
+(setq num 0)
+     ⇒ 0
+(while (< num 4)
+  (princ (format "Iteration %d." num))
+  (setq num (1+ num)))
+     -| Iteration 0.
+     -| Iteration 1.
+     -| Iteration 2.
+     -| Iteration 3.
+     ⇒ nil
+To write a repeat-until loop, which will execute something on each iteration and then do the end-test, put the body followed by the end-test in a progn as the first argument of while, as shown here:
+
+(while (progn
+         (forward-line 1)
+         (not (looking-at "^$"))))
+This moves forward one line and continues moving by lines until it reaches an empty line. It is peculiar in that the while has no body, just the end test (which also does the real work of moving point).
+
+The dolist and dotimes macros provide convenient ways to write two common kinds of loops.
+
+Macro: dolist (var list [result]) body… ¶
+This construct executes body once for each element of list, binding the variable var locally to hold the current element. Then it returns the value of evaluating result, or nil if result is omitted. For example, here is how you could use dolist to define the reverse function:
+
+(defun reverse (list)
+  (let (value)
+    (dolist (elt list value)
+      (setq value (cons elt value)))))
+Macro: dotimes (var count [result]) body… ¶
+This construct executes body once for each integer from 0 (inclusive) to count (exclusive), binding the variable var to the integer for the current iteration. Then it returns the value of evaluating result, or nil if result is omitted. Use of result is deprecated. Here is an example of using dotimes to do something 100 times:
+
+(dotimes (i 100)
+  (insert "I will not obey absurd orders\n"))
+
+*** Generators
+
+A generator is a function that produces a potentially-infinite stream of values. Each time the function produces a value, it suspends itself and waits for a caller to request the next value.
+
+Macro: iter-defun name args [doc] [declare] [interactive] body… ¶
+iter-defun defines a generator function. A generator function has the same signature as a normal function, but works differently. Instead of executing body when called, a generator function returns an iterator object. That iterator runs body to generate values, emitting a value and pausing where iter-yield or iter-yield-from appears. When body returns normally, iter-next signals iter-end-of-sequence with body’s result as its condition data.
+
+Any kind of Lisp code is valid inside body, but iter-yield and iter-yield-from cannot appear inside unwind-protect forms.
+
+Macro: iter-lambda args [doc] [interactive] body… ¶
+iter-lambda produces an unnamed generator function that works just like a generator function produced with iter-defun.
+
+Macro: iter-yield value ¶
+When it appears inside a generator function, iter-yield indicates that the current iterator should pause and return value from iter-next. iter-yield evaluates to the value parameter of next call to iter-next.
+
+Macro: iter-yield-from iterator ¶
+iter-yield-from yields all the values that iterator produces and evaluates to the value that iterator’s generator function returns normally. While it has control, iterator receives values sent to the iterator using iter-next.
+
+To use a generator function, first call it normally, producing a iterator object. An iterator is a specific instance of a generator. Then use iter-next to retrieve values from this iterator. When there are no more values to pull from an iterator, iter-next raises an iter-end-of-sequence condition with the iterator’s final value.
+
+It’s important to note that generator function bodies only execute inside calls to iter-next. A call to a function defined with iter-defun produces an iterator; you must drive this iterator with iter-next for anything interesting to happen. Each call to a generator function produces a different iterator, each with its own state.
+
+Function: iter-next iterator &optional value ¶
+Retrieve the next value from iterator. If there are no more values to be generated (because iterator’s generator function returned), iter-next signals the iter-end-of-sequence condition; the data value associated with this condition is the value with which iterator’s generator function returned.
+
+value is sent into the iterator and becomes the value to which iter-yield evaluates. value is ignored for the first iter-next call to a given iterator, since at the start of iterator’s generator function, the generator function is not evaluating any iter-yield form.
+
+Function: iter-close iterator ¶
+If iterator is suspended inside an unwind-protect’s bodyform and becomes unreachable, Emacs will eventually run unwind handlers after a garbage collection pass. (Note that iter-yield is illegal inside an unwind-protect’s unwindforms.) To ensure that these handlers are run before then, use iter-close.
+
+Some convenience functions are provided to make working with iterators easier:
+
+Macro: iter-do (var iterator) body … ¶
+Run body with var bound to each value that iterator produces.
+
+The Common Lisp loop facility also contains features for working with iterators. See Loop Facility in Common Lisp Extensions.
+
+The following piece of code demonstrates some important principles of working with iterators.
+
+(require 'generator)
+(iter-defun my-iter (x)
+  (iter-yield (1+ (iter-yield (1+ x))))
+   ;; Return normally
+  -1)
+
+(let* ((iter (my-iter 5))
+       (iter2 (my-iter 0)))
+  ;; Prints 6
+  (print (iter-next iter))
+  ;; Prints 9
+  (print (iter-next iter 8))
+  ;; Prints 1; iter and iter2 have distinct states
+  (print (iter-next iter2 nil))
+
+  ;; We expect the iter sequence to end now
+  (condition-case x
+      (iter-next iter)
+    (iter-end-of-sequence
+      ;; Prints -1, which my-iter returned normally
+      (print (cdr x)))))
+
+*** Nonlocal Exits
+
+A nonlocal exit is a transfer of control from one point in a program to another remote point. Nonlocal exits can occur in Emacs Lisp as a result of errors; you can also use them under explicit control. Nonlocal exits unbind all variable bindings made by the constructs being exited.
+
+**** Explicit Nonlocal Exits: catch and throw
+
+Most control constructs affect only the flow of control within the construct itself. The function throw is the exception to this rule of normal program execution: it performs a nonlocal exit on request. (There are other exceptions, but they are for error handling only.) throw is used inside a catch, and jumps back to that catch. For example:
+
+(defun foo-outer ()
+  (catch 'foo
+    (foo-inner)))
+
+(defun foo-inner ()
+  …
+  (if x
+      (throw 'foo t))
+  …)
+The throw form, if executed, transfers control straight back to the corresponding catch, which returns immediately. The code following the throw is not executed. The second argument of throw is used as the return value of the catch.
+
+The function throw finds the matching catch based on the first argument: it searches for a catch whose first argument is eq to the one specified in the throw. If there is more than one applicable catch, the innermost one takes precedence. Thus, in the above example, the throw specifies foo, and the catch in foo-outer specifies the same symbol, so that catch is the applicable one (assuming there is no other matching catch in between).
+
+Executing throw exits all Lisp constructs up to the matching catch, including function calls. When binding constructs such as let or function calls are exited in this way, the bindings are unbound, just as they are when these constructs exit normally (see Local Variables). Likewise, throw restores the buffer and position saved by save-excursion (see Excursions), and the narrowing status saved by save-restriction. It also runs any cleanups established with the unwind-protect special form when it exits that form (see Cleaning Up from Nonlocal Exits).
+
+The throw need not appear lexically within the catch that it jumps to. It can equally well be called from another function called within the catch. As long as the throw takes place chronologically after entry to the catch, and chronologically before exit from it, it has access to that catch. This is why throw can be used in commands such as exit-recursive-edit that throw back to the editor command loop (see Recursive Editing).
+
+Common Lisp note: Most other versions of Lisp, including Common Lisp, have several ways of transferring control nonsequentially: return, return-from, and go, for example. Emacs Lisp has only throw. The cl-lib library provides versions of some of these. See Blocks and Exits in Common Lisp Extensions.
+
+Special Form: catch tag body… ¶
+catch establishes a return point for the throw function. The return point is distinguished from other such return points by tag, which may be any Lisp object except nil. The argument tag is evaluated normally before the return point is established.
+
+With the return point in effect, catch evaluates the forms of the body in textual order. If the forms execute normally (without error or nonlocal exit) the value of the last body form is returned from the catch.
+
+If a throw is executed during the execution of body, specifying the same value tag, the catch form exits immediately; the value it returns is whatever was specified as the second argument of throw.
+
+Function: throw tag value ¶
+The purpose of throw is to return from a return point previously established with catch. The argument tag is used to choose among the various existing return points; it must be eq to the value specified in the catch. If multiple return points match tag, the innermost one is used.
+
+The argument value is used as the value to return from that catch.
+
+If no return point is in effect with tag tag, then a no-catch error is signaled with data (tag value).
+
+
+**** Examples of catch and throw
+
+One way to use catch and throw is to exit from a doubly nested loop. (In most languages, this would be done with a goto.) Here we compute (foo i j) for i and j varying from 0 to 9:
+
+(defun search-foo ()
+  (catch 'loop
+    (let ((i 0))
+      (while (< i 10)
+        (let ((j 0))
+          (while (< j 10)
+            (if (foo i j)
+                (throw 'loop (list i j)))
+            (setq j (1+ j))))
+        (setq i (1+ i))))))
+If foo ever returns non-nil, we stop immediately and return a list of i and j. If foo always returns nil, the catch returns normally, and the value is nil, since that is the result of the while.
+
+Here are two tricky examples, slightly different, showing two return points at once. First, two return points with the same tag, hack:
+
+(defun catch2 (tag)
+  (catch tag
+    (throw 'hack 'yes)))
+⇒ catch2
+
+(catch 'hack
+  (print (catch2 'hack))
+  'no)
+-| yes
+⇒ no
+Since both return points have tags that match the throw, it goes to the inner one, the one established in catch2. Therefore, catch2 returns normally with value yes, and this value is printed. Finally the second body form in the outer catch, which is 'no, is evaluated and returned from the outer catch.
+
+Now let’s change the argument given to catch2:
+
+(catch 'hack
+  (print (catch2 'quux))
+  'no)
+⇒ yes
+We still have two return points, but this time only the outer one has the tag hack; the inner one has the tag quux instead. Therefore, throw makes the outer catch return the value yes. The function print is never called, and the body-form 'no is never evaluated.
+
+
+**** Errors
+
+When Emacs Lisp attempts to evaluate a form that, for some reason, cannot be evaluated, it signals an error.
+
+When an error is signaled, Emacs’s default reaction is to print an error message and terminate execution of the current command. This is the right thing to do in most cases, such as if you type C-f at the end of the buffer.
+
+In complicated programs, simple termination may not be what you want. For example, the program may have made temporary changes in data structures, or created temporary buffers that should be deleted before the program is finished. In such cases, you would use unwind-protect to establish cleanup expressions to be evaluated in case of error. (See Cleaning Up from Nonlocal Exits.) Occasionally, you may wish the program to continue execution despite an error in a subroutine. In these cases, you would use condition-case to establish error handlers to recover control in case of error.
+
+For reporting problems without terminating the execution of the current command, consider issuing a warning instead. See Reporting Warnings.
+
+Resist the temptation to use error handling to transfer control from one part of the program to another; use catch and throw instead. See Explicit Nonlocal Exits: catch and throw.
+
+
+***** How to Signal an Error
+
+Signaling an error means beginning error processing. Error processing normally aborts all or part of the running program and returns to a point that is set up to handle the error (see How Emacs Processes Errors). Here we describe how to signal an error.
+
+Most errors are signaled automatically within Lisp primitives which you call for other purposes, such as if you try to take the CAR of an integer or move forward a character at the end of the buffer. You can also signal errors explicitly with the functions error and signal.
+
+Quitting, which happens when the user types C-g, is not considered an error, but it is handled almost like an error. See Quitting.
+
+Every error specifies an error message, one way or another. The message should state what is wrong (“File does not exist”), not how things ought to be (“File must exist”). The convention in Emacs Lisp is that error messages should start with a capital letter, but should not end with any sort of punctuation.
+
+Function: error format-string &rest args ¶
+This function signals an error with an error message constructed by applying format-message (see Formatting Strings) to format-string and args.
+
+These examples show typical uses of error:
+
+(error "That is an error -- try something else")
+     error→ That is an error -- try something else
+
+(error "Invalid name `%s'" "A%%B")
+     error→ Invalid name ‘A%%B’
+error works by calling signal with two arguments: the error symbol error, and a list containing the string returned by format-message.
+
+Typically grave accent and apostrophe in the format translate to matching curved quotes, e.g., "Missing `%s'" might result in "Missing ‘foo’". See Text Quoting Style, for how to influence or inhibit this translation.
+
+Warning: If you want to use your own string as an error message verbatim, don’t just write (error string). If string string contains ‘%’, ‘`’, or ‘'’ it may be reformatted, with undesirable results. Instead, use (error "%s" string).
+
+When noninteractive is non-nil (see Batch Mode), this function kills Emacs if the signaled error has no handler.
+
+Function: signal error-symbol data ¶
+This function signals an error named by error-symbol. The argument data is a list of additional Lisp objects relevant to the circumstances of the error.
+
+The argument error-symbol must be an error symbol—a symbol defined with define-error. This is how Emacs Lisp classifies different sorts of errors. See Error Symbols and Condition Names, for a description of error symbols, error conditions and condition names.
+
+If the error is not handled, the two arguments are used in printing the error message. Normally, this error message is provided by the error-message property of error-symbol. If data is non-nil, this is followed by a colon and a comma separated list of the unevaluated elements of data. For error, the error message is the CAR of data (that must be a string). Subcategories of file-error are handled specially.
+
+The number and significance of the objects in data depends on error-symbol. For example, with a wrong-type-argument error, there should be two objects in the list: a predicate that describes the type that was expected, and the object that failed to fit that type.
+
+Both error-symbol and data are available to any error handlers that handle the error: condition-case binds a local variable to a list of the form (error-symbol . data) (see Writing Code to Handle Errors).
+
+The function signal never returns. If the error error-symbol has no handler, and noninteractive is non-nil (see Batch Mode), this function eventually kills Emacs.
+
+(signal 'wrong-number-of-arguments '(x y))
+     error→ Wrong number of arguments: x, y
+
+(signal 'no-such-error '("My unknown error condition"))
+     error→ peculiar error: "My unknown error condition"
+Function: user-error format-string &rest args ¶
+This function behaves exactly like error, except that it uses the error symbol user-error rather than error. As the name suggests, this is intended to report errors on the part of the user, rather than errors in the code itself. For example, if you try to use the command Info-history-back (l) to move back beyond the start of your Info browsing history, Emacs signals a user-error. Such errors do not cause entry to the debugger, even when debug-on-error is non-nil. See Entering the Debugger on an Error.
+
+Common Lisp note: Emacs Lisp has nothing like the Common Lisp concept of continuable errors.
+
+
+***** How Emacs Processes Errors
+
+When an error is signaled, signal searches for an active handler for the error. A handler is a sequence of Lisp expressions designated to be executed if an error happens in part of the Lisp program. If the error has an applicable handler, the handler is executed, and control resumes following the handler. The handler executes in the environment of the condition-case that established it; all functions called within that condition-case have already been exited, and the handler cannot return to them.
+
+If there is no applicable handler for the error, it terminates the current command and returns control to the editor command loop. (The command loop has an implicit handler for all kinds of errors.) The command loop’s handler uses the error symbol and associated data to print an error message. You can use the variable command-error-function to control how this is done:
+
+Variable: command-error-function ¶
+This variable, if non-nil, specifies a function to use to handle errors that return control to the Emacs command loop. The function should take three arguments: data, a list of the same form that condition-case would bind to its variable; context, a string describing the situation in which the error occurred, or (more often) nil; and caller, the Lisp function which called the primitive that signaled the error.
+
+An error that has no explicit handler may call the Lisp debugger (see Invoking the Debugger). The debugger is enabled if the variable debug-on-error (see Entering the Debugger on an Error) is non-nil. Unlike error handlers, the debugger runs in the environment of the error, so that you can examine values of variables precisely as they were at the time of the error. In batch mode (see Batch Mode), the Emacs process then normally exits with a non-zero exit status.
+
+
+***** Writing Code to Handle Errors
+
+The usual effect of signaling an error is to terminate the command that is running and return immediately to the Emacs editor command loop. You can arrange to trap errors occurring in a part of your program by establishing an error handler, with the special form condition-case. A simple example looks like this:
+
+(condition-case nil
+    (delete-file filename)
+  (error nil))
+This deletes the file named filename, catching any error and returning nil if an error occurs. (You can use the macro ignore-errors for a simple case like this; see below.)
+
+The condition-case construct is often used to trap errors that are predictable, such as failure to open a file in a call to insert-file-contents. It is also used to trap errors that are totally unpredictable, such as when the program evaluates an expression read from the user.
+
+The second argument of condition-case is called the protected form. (In the example above, the protected form is a call to delete-file.) The error handlers go into effect when this form begins execution and are deactivated when this form returns. They remain in effect for all the intervening time. In particular, they are in effect during the execution of functions called by this form, in their subroutines, and so on. This is a good thing, since, strictly speaking, errors can be signaled only by Lisp primitives (including signal and error) called by the protected form, not by the protected form itself.
+
+The arguments after the protected form are handlers. Each handler lists one or more condition names (which are symbols) to specify which errors it will handle. The error symbol specified when an error is signaled also defines a list of condition names. A handler applies to an error if they have any condition names in common. In the example above, there is one handler, and it specifies one condition name, error, which covers all errors.
+
+The search for an applicable handler checks all the established handlers starting with the most recently established one. Thus, if two nested condition-case forms offer to handle the same error, the inner of the two gets to handle it.
+
+If an error is handled by some condition-case form, this ordinarily prevents the debugger from being run, even if debug-on-error says this error should invoke the debugger.
+
+If you want to be able to debug errors that are caught by a condition-case, set the variable debug-on-signal to a non-nil value. You can also specify that a particular handler should let the debugger run first, by writing debug among the conditions, like this:
+
+(condition-case nil
+    (delete-file filename)
+  ((debug error) nil))
+The effect of debug here is only to prevent condition-case from suppressing the call to the debugger. Any given error will invoke the debugger only if debug-on-error and the other usual filtering mechanisms say it should. See Entering the Debugger on an Error.
+
+Macro: condition-case-unless-debug var protected-form handlers… ¶
+The macro condition-case-unless-debug provides another way to handle debugging of such forms. It behaves exactly like condition-case, unless the variable debug-on-error is non-nil, in which case it does not handle any errors at all.
+
+Once Emacs decides that a certain handler handles the error, it returns control to that handler. To do so, Emacs unbinds all variable bindings made by binding constructs that are being exited, and executes the cleanups of all unwind-protect forms that are being exited. Once control arrives at the handler, the body of the handler executes normally.
+
+After execution of the handler body, execution returns from the condition-case form. Because the protected form is exited completely before execution of the handler, the handler cannot resume execution at the point of the error, nor can it examine variable bindings that were made within the protected form. All it can do is clean up and proceed.
+
+Error signaling and handling have some resemblance to throw and catch (see Explicit Nonlocal Exits: catch and throw), but they are entirely separate facilities. An error cannot be caught by a catch, and a throw cannot be handled by an error handler (though using throw when there is no suitable catch signals an error that can be handled).
+
+Special Form: condition-case var protected-form handlers… ¶
+This special form establishes the error handlers handlers around the execution of protected-form. If protected-form executes without error, the value it returns becomes the value of the condition-case form (in the absence of a success handler; see below). In this case, the condition-case has no effect. The condition-case form makes a difference when an error occurs during protected-form.
+
+Each of the handlers is a list of the form (conditions body…). Here conditions is an error condition name to be handled, or a list of condition names (which can include debug to allow the debugger to run before the handler). A condition name of t matches any condition. body is one or more Lisp expressions to be executed when this handler handles an error. Here are examples of handlers:
+
+(error nil)
+
+(arith-error (message "Division by zero"))
+
+((arith-error file-error)
+ (message
+  "Either division by zero or failure to open a file"))
+Each error that occurs has an error symbol that describes what kind of error it is, and which describes also a list of condition names (see Error Symbols and Condition Names). Emacs searches all the active condition-case forms for a handler that specifies one or more of these condition names; the innermost matching condition-case handles the error. Within this condition-case, the first applicable handler handles the error.
+
+After executing the body of the handler, the condition-case returns normally, using the value of the last form in the handler body as the overall value.
+
+The argument var is a variable. condition-case does not bind this variable when executing the protected-form, only when it handles an error. At that time, it binds var locally to an error description, which is a list giving the particulars of the error. The error description has the form (error-symbol . data). The handler can refer to this list to decide what to do. For example, if the error is for failure opening a file, the file name is the second element of data—the third element of the error description.
+
+If var is nil, that means no variable is bound. Then the error symbol and associated data are not available to the handler.
+
+As a special case, one of the handlers can be a list of the form (:success body…), where body is executed with var (if non-nil) bound to the return value of protected-form when that expression terminates without error.
+
+Sometimes it is necessary to re-throw a signal caught by condition-case, for some outer-level handler to catch. Here’s how to do that:
+
+  (signal (car err) (cdr err))
+where err is the error description variable, the first argument to condition-case whose error condition you want to re-throw. See Definition of signal.
+
+Function: error-message-string error-descriptor ¶
+This function returns the error message string for a given error descriptor. It is useful if you want to handle an error by printing the usual error message for that error. See Definition of signal.
+
+Here is an example of using condition-case to handle the error that results from dividing by zero. The handler displays the error message (but without a beep), then returns a very large number.
+
+(defun safe-divide (dividend divisor)
+  (condition-case err
+      ;; Protected form.
+      (/ dividend divisor)
+    ;; The handler.
+    (arith-error                        ; Condition.
+     ;; Display the usual message for this error.
+     (message "%s" (error-message-string err))
+     1000000)))
+⇒ safe-divide
+
+(safe-divide 5 0)
+     -| Arithmetic error: (arith-error)
+⇒ 1000000
+The handler specifies condition name arith-error so that it will handle only division-by-zero errors. Other kinds of errors will not be handled (by this condition-case). Thus:
+
+(safe-divide nil 3)
+     error→ Wrong type argument: number-or-marker-p, nil
+Here is a condition-case that catches all kinds of errors, including those from error:
+
+(setq baz 34)
+     ⇒ 34
+
+(condition-case err
+    (if (eq baz 35)
+        t
+      ;; This is a call to the function error.
+      (error "Rats!  The variable %s was %s, not 35" 'baz baz))
+  ;; This is the handler; it is not a form.
+  (error (princ (format "The error was: %s" err))
+         2))
+-| The error was: (error "Rats!  The variable baz was 34, not 35")
+⇒ 2
+Macro: ignore-errors body… ¶
+This construct executes body, ignoring any errors that occur during its execution. If the execution is without error, ignore-errors returns the value of the last form in body; otherwise, it returns nil.
+
+Here’s the example at the beginning of this subsection rewritten using ignore-errors:
+
+  (ignore-errors
+   (delete-file filename))
+Macro: ignore-error condition body… ¶
+This macro is like ignore-errors, but will only ignore the specific error condition specified.
+
+  (ignore-error end-of-file
+    (read ""))
+condition can also be a list of error conditions.
+
+Macro: with-demoted-errors format body… ¶
+This macro is like a milder version of ignore-errors. Rather than suppressing errors altogether, it converts them into messages. It uses the string format to format the message. format should contain a single ‘%’-sequence; e.g., "Error: %S". Use with-demoted-errors around code that is not expected to signal errors, but should be robust if one does occur. Note that this macro uses condition-case-unless-debug rather than condition-case.
+
+
+***** Error Symbols and Condition Names
+
+When you signal an error, you specify an error symbol to specify the kind of error you have in mind. Each error has one and only one error symbol to categorize it. This is the finest classification of errors defined by the Emacs Lisp language.
+
+These narrow classifications are grouped into a hierarchy of wider classes called error conditions, identified by condition names. The narrowest such classes belong to the error symbols themselves: each error symbol is also a condition name. There are also condition names for more extensive classes, up to the condition name error which takes in all kinds of errors (but not quit). Thus, each error has one or more condition names: error, the error symbol if that is distinct from error, and perhaps some intermediate classifications.
+
+Function: define-error name message &optional parent ¶
+In order for a symbol to be an error symbol, it must be defined with define-error which takes a parent condition (defaults to error). This parent defines the conditions that this kind of error belongs to. The transitive set of parents always includes the error symbol itself, and the symbol error. Because quitting is not considered an error, the set of parents of quit is just (quit).
+
+In addition to its parents, the error symbol has a message which is a string to be printed when that error is signaled but not handled. If that message is not valid, the error message ‘peculiar error’ is used. See Definition of signal.
+
+Internally, the set of parents is stored in the error-conditions property of the error symbol and the message is stored in the error-message property of the error symbol.
+
+Here is how we define a new error symbol, new-error:
+
+(define-error 'new-error "A new error" 'my-own-errors)
+This error has several condition names: new-error, the narrowest classification; my-own-errors, which we imagine is a wider classification; and all the conditions of my-own-errors which should include error, which is the widest of all.
+
+The error string should start with a capital letter but it should not end with a period. This is for consistency with the rest of Emacs.
+
+Naturally, Emacs will never signal new-error on its own; only an explicit call to signal (see Definition of signal) in your code can do this:
+
+(signal 'new-error '(x y))
+     error→ A new error: x, y
+This error can be handled through any of its condition names. This example handles new-error and any other errors in the class my-own-errors:
+
+(condition-case foo
+    (bar nil t)
+  (my-own-errors nil))
+The significant way that errors are classified is by their condition names—the names used to match errors with handlers. An error symbol serves only as a convenient way to specify the intended error message and list of condition names. It would be cumbersome to give signal a list of condition names rather than one error symbol.
+
+By contrast, using only error symbols without condition names would seriously decrease the power of condition-case. Condition names make it possible to categorize errors at various levels of generality when you write an error handler. Using error symbols alone would eliminate all but the narrowest level of classification.
+
+See Standard Errors, for a list of the main error symbols and their conditions.
+
+
+**** Cleaning Up from Nonlocal Exits
+
+The unwind-protect construct is essential whenever you temporarily put a data structure in an inconsistent state; it permits you to make the data consistent again in the event of an error or throw. (Another more specific cleanup construct that is used only for changes in buffer contents is the atomic change group; Atomic Change Groups.)
+
+Special Form: unwind-protect body-form cleanup-forms… ¶
+unwind-protect executes body-form with a guarantee that the cleanup-forms will be evaluated if control leaves body-form, no matter how that happens. body-form may complete normally, or execute a throw out of the unwind-protect, or cause an error; in all cases, the cleanup-forms will be evaluated.
+
+If body-form finishes normally, unwind-protect returns the value of body-form, after it evaluates the cleanup-forms. If body-form does not finish, unwind-protect does not return any value in the normal sense.
+
+Only body-form is protected by the unwind-protect. If any of the cleanup-forms themselves exits nonlocally (via a throw or an error), unwind-protect is not guaranteed to evaluate the rest of them. If the failure of one of the cleanup-forms has the potential to cause trouble, then protect it with another unwind-protect around that form.
+
+For example, here we make an invisible buffer for temporary use, and make sure to kill it before finishing:
+
+(let ((buffer (get-buffer-create " *temp*")))
+  (with-current-buffer buffer
+    (unwind-protect
+        body-form
+      (kill-buffer buffer))))
+You might think that we could just as well write (kill-buffer (current-buffer)) and dispense with the variable buffer. However, the way shown above is safer, if body-form happens to get an error after switching to a different buffer! (Alternatively, you could write a save-current-buffer around body-form, to ensure that the temporary buffer becomes current again in time to kill it.)
+
+Emacs includes a standard macro called with-temp-buffer which expands into more or less the code shown above (see Current Buffer). Several of the macros defined in this manual use unwind-protect in this way.
+
+Here is an actual example derived from an FTP package. It creates a process (see Processes) to try to establish a connection to a remote machine. As the function ftp-login is highly susceptible to numerous problems that the writer of the function cannot anticipate, it is protected with a form that guarantees deletion of the process in the event of failure. Otherwise, Emacs might fill up with useless subprocesses.
+
+(let ((win nil))
+  (unwind-protect
+      (progn
+        (setq process (ftp-setup-buffer host file))
+        (if (setq win (ftp-login process host user password))
+            (message "Logged in")
+          (error "Ftp login failed")))
+    (or win (and process (delete-process process)))))
+This example has a small bug: if the user types C-g to quit, and the quit happens immediately after the function ftp-setup-buffer returns but before the variable process is set, the process will not be killed. There is no easy way to fix this bug, but at least it is very unlikely.

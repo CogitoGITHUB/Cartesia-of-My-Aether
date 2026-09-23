@@ -1,0 +1,1811 @@
+#+title:      Elisp Programs and Loading
+
+* Elisp Programs and Loading :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       813ff75d-329c-4f18-8618-c86bdec20439
+:END:
+
+Macros enable you to define new control constructs and other language features. A macro is defined much like a function, but instead of telling how to compute a value, it tells how to compute another Lisp expression which will in turn compute the value. We call this expression the expansion of the macro.
+
+Macros can do this because they operate on the unevaluated expressions for the arguments, not on the argument values as functions do. They can therefore construct an expansion containing these argument expressions or parts of them.
+
+If you are using a macro to do something an ordinary function could do, just for the sake of speed, consider using an inline function instead. See Inline Functions.
+
+*** A Simple Example of a Macro
+
+Suppose we would like to define a Lisp construct to increment a variable value, much like the ++ operator in C. We would like to write (inc x) and have the effect of (setq x (1+ x)). Here’s a macro definition that does the job:
+
+(defmacro inc (var)
+   (list 'setq var (list '1+ var)))
+When this is called with (inc x), the argument var is the symbol x—not the value of x, as it would be in a function. The body of the macro uses this to construct the expansion, which is (setq x (1+ x)). Once the macro definition returns this expansion, Lisp proceeds to evaluate it, thus incrementing x.
+
+Function: macrop object ¶
+This predicate tests whether its argument is a macro, and returns t if so, nil otherwise.
+
+
+*** Expansion of a Macro Call
+
+A macro call looks just like a function call in that it is a list which starts with the name of the macro. The rest of the elements of the list are the arguments of the macro.
+
+Evaluation of the macro call begins like evaluation of a function call except for one crucial difference: the macro arguments are the actual expressions appearing in the macro call. They are not evaluated before they are given to the macro definition. By contrast, the arguments of a function are results of evaluating the elements of the function call list.
+
+Having obtained the arguments, Lisp invokes the macro definition just as a function is invoked. The argument variables of the macro are bound to the argument values from the macro call, or to a list of them in the case of a &rest argument. And the macro body executes and returns its value just as a function body does.
+
+The second crucial difference between macros and functions is that the value returned by the macro body is an alternate Lisp expression, also known as the expansion of the macro. The Lisp interpreter proceeds to evaluate the expansion as soon as it comes back from the macro.
+
+Since the expansion is evaluated in the normal manner, it may contain calls to other macros. It may even be a call to the same macro, though this is unusual.
+
+Note that Emacs tries to expand macros when loading an uncompiled Lisp file. This is not always possible, but if it is, it speeds up subsequent execution. See How Programs Do Loading.
+
+You can see the expansion of a given macro call by calling macroexpand.
+
+Function: macroexpand form &optional environment ¶
+This function expands form, if it is a macro call. If the result is another macro call, it is expanded in turn, until something which is not a macro call results. That is the value returned by macroexpand. If form is not a macro call to begin with, it is returned as given.
+
+Note that macroexpand does not look at the subexpressions of form (although some macro definitions may do so). Even if they are macro calls themselves, macroexpand does not expand them.
+
+The function macroexpand does not expand calls to inline functions. Normally there is no need for that, since a call to an inline function is no harder to understand than a call to an ordinary function.
+
+If environment is provided, it specifies an alist of macro definitions that shadow the currently defined macros. Byte compilation uses this feature.
+
+(defmacro inc (var)
+    (list 'setq var (list '1+ var)))
+
+(macroexpand '(inc r))
+     ⇒ (setq r (1+ r))
+
+(defmacro inc2 (var1 var2)
+    (list 'progn (list 'inc var1) (list 'inc var2)))
+
+(macroexpand '(inc2 r s))
+     ⇒ (progn (inc r) (inc s))  ; inc not expanded here.
+Function: macroexpand-all form &optional environment ¶
+macroexpand-all expands macros like macroexpand, but will look for and expand all macros in form, not just at the top-level. If no macros are expanded, the return value is eq to form.
+
+Repeating the example used for macroexpand above with macroexpand-all, we see that macroexpand-all does expand the embedded calls to inc:
+
+(macroexpand-all '(inc2 r s))
+     ⇒ (progn (setq r (1+ r)) (setq s (1+ s)))
+Function: macroexpand-1 form &optional environment ¶
+This function expands macros like macroexpand, but it only performs one step of the expansion: if the result is another macro call, macroexpand-1 will not expand it.
+
+
+*** Macros and Byte Compilation
+
+You might ask why we take the trouble to compute an expansion for a macro and then evaluate the expansion. Why not have the macro body produce the desired results directly? The reason has to do with compilation.
+
+When a macro call appears in a Lisp program being compiled, the Lisp compiler calls the macro definition just as the interpreter would, and receives an expansion. But instead of evaluating this expansion, it compiles the expansion as if it had appeared directly in the program. As a result, the compiled code produces the value and side effects intended for the macro, but executes at full compiled speed. This would not work if the macro body computed the value and side effects itself—they would be computed at compile time, which is not useful.
+
+In order for compilation of macro calls to work, the macros must already be defined in Lisp when the calls to them are compiled. The compiler has a special feature to help you do this: if a file being compiled contains a defmacro form, the macro is defined temporarily for the rest of the compilation of that file.
+
+Byte-compiling a file also executes any require calls at top-level in the file, so you can ensure that necessary macro definitions are available during compilation by requiring the files that define them (see Features). To avoid loading the macro definition files when someone runs the compiled program, write eval-when-compile around the require calls (see Evaluation During Compilation).
+
+
+*** Defining Macros
+
+A Lisp macro object is a list whose CAR is macro, and whose CDR is a function. Expansion of the macro works by applying the function (with apply) to the list of unevaluated arguments from the macro call.
+
+It is possible to use an anonymous Lisp macro just like an anonymous function, but this is never done, because it does not make sense to pass an anonymous macro to functionals such as mapcar. In practice, all Lisp macros have names, and they are almost always defined with the defmacro macro.
+
+Macro: defmacro name args [doc] [declare] body… ¶
+defmacro defines the symbol name (which should not be quoted) as a macro that looks like this:
+
+(macro lambda args . body)
+(Note that the CDR of this list is a lambda expression.) This macro object is stored in the function cell of name. The meaning of args is the same as in a function, and the keywords &rest and &optional may be used (see Features of Argument Lists). Neither name nor args should be quoted. The return value of defmacro is undefined.
+
+doc, if present, should be a string specifying the macro’s documentation string. declare, if present, should be a declare form specifying metadata for the macro (see The declare Form). Note that macros cannot have interactive declarations, since they cannot be called interactively.
+
+Macros often need to construct large list structures from a mixture of constants and nonconstant parts. To make this easier, use the ‘`’ syntax (see Backquote). For example:
+
+(defmacro t-becomes-nil (variable)
+  `(if (eq ,variable t)
+       (setq ,variable nil)))
+
+(t-becomes-nil foo)
+     ≡ (if (eq foo t) (setq foo nil))
+
+
+*** Common Problems Using Macros
+
+Macro expansion can have counterintuitive consequences. This section describes some important consequences that can lead to trouble, and rules to follow to avoid trouble.
+
+**** Wrong Time
+
+The most common problem in writing macros is doing some of the real work prematurely—while expanding the macro, rather than in the expansion itself. For instance, one real package had this macro definition:
+
+(defmacro my-set-buffer-multibyte (arg)
+  (if (fboundp 'set-buffer-multibyte)
+      (set-buffer-multibyte arg)))
+With this erroneous macro definition, the program worked fine when interpreted but failed when compiled. This macro definition called set-buffer-multibyte during compilation, which was wrong, and then did nothing when the compiled package was run. The definition that the programmer really wanted was this:
+
+(defmacro my-set-buffer-multibyte (arg)
+  (if (fboundp 'set-buffer-multibyte)
+      `(set-buffer-multibyte ,arg)))
+This macro expands, if appropriate, into a call to set-buffer-multibyte that will be executed when the compiled program is actually run.
+
+
+**** Evaluating Macro Arguments Repeatedly
+
+When defining a macro you must pay attention to the number of times the arguments will be evaluated when the expansion is executed. The following macro (used to facilitate iteration) illustrates the problem. This macro allows us to write a for-loop construct.
+
+(defmacro for (var from init to final do &rest body)
+  "Execute a simple \"for\" loop.
+For example, (for i from 1 to 10 do (print i))."
+  (list 'let (list (list var init))
+        (cons 'while
+              (cons (list '<= var final)
+                    (append body (list (list 'inc var)))))))
+
+(for i from 1 to 3 do
+   (setq square (* i i))
+   (princ (format "\n%d %d" i square)))
+→
+(let ((i 1))
+  (while (<= i 3)
+    (setq square (* i i))
+    (princ (format "\n%d %d" i square))
+    (inc i)))
+
+     -|1       1
+     -|2       4
+     -|3       9
+⇒ nil
+The arguments from, to, and do in this macro are syntactic sugar; they are entirely ignored. The idea is that you will write noise words (such as from, to, and do) in those positions in the macro call.
+
+Here’s an equivalent definition simplified through use of backquote:
+
+(defmacro for (var from init to final do &rest body)
+  "Execute a simple \"for\" loop.
+For example, (for i from 1 to 10 do (print i))."
+  `(let ((,var ,init))
+     (while (<= ,var ,final)
+       ,@body
+       (inc ,var))))
+Both forms of this definition (with backquote and without) suffer from the defect that final is evaluated on every iteration. If final is a constant, this is not a problem. If it is a more complex form, say (long-complex-calculation x), this can slow down the execution significantly. If final has side effects, executing it more than once is probably incorrect.
+
+A well-designed macro definition takes steps to avoid this problem by producing an expansion that evaluates the argument expressions exactly once unless repeated evaluation is part of the intended purpose of the macro. Here is a correct expansion for the for macro:
+
+(let ((i 1)
+      (max 3))
+  (while (<= i max)
+    (setq square (* i i))
+    (princ (format "%d      %d" i square))
+    (inc i)))
+Here is a macro definition that creates this expansion:
+
+(defmacro for (var from init to final do &rest body)
+  "Execute a simple for loop: (for i from 1 to 10 do (print i))."
+  `(let ((,var ,init)
+         (max ,final))
+     (while (<= ,var max)
+       ,@body
+       (inc ,var))))
+Unfortunately, this fix introduces another problem, described in the following section.
+
+
+**** Local Variables in Macro Expansions
+
+In the previous section, the definition of for was fixed as follows to make the expansion evaluate the macro arguments the proper number of times:
+
+(defmacro for (var from init to final do &rest body)
+  "Execute a simple for loop: (for i from 1 to 10 do (print i))."
+  `(let ((,var ,init)
+         (max ,final))
+     (while (<= ,var max)
+       ,@body
+       (inc ,var))))
+The new definition of for has a new problem: it introduces a local variable named max which the user does not expect. This causes trouble in examples such as the following:
+
+(let ((max 0))
+  (for x from 0 to 10 do
+    (let ((this (frob x)))
+      (if (< max this)
+          (setq max this)))))
+The references to max inside the body of the for, which are supposed to refer to the user’s binding of max, really access the binding made by for.
+
+The way to correct this is to use an uninterned symbol instead of max (see Creating and Interning Symbols). The uninterned symbol can be bound and referred to just like any other symbol, but since it is created by for, we know that it cannot already appear in the user’s program. Since it is not interned, there is no way the user can put it into the program later. It will never appear anywhere except where put by for. Here is a definition of for that works this way:
+
+(defmacro for (var from init to final do &rest body)
+  "Execute a simple for loop: (for i from 1 to 10 do (print i))."
+  (let ((tempvar (make-symbol "max")))
+    `(let ((,var ,init)
+           (,tempvar ,final))
+       (while (<= ,var ,tempvar)
+         ,@body
+         (inc ,var)))))
+This creates an uninterned symbol named max and puts it in the expansion instead of the usual interned symbol max that appears in expressions ordinarily.
+
+
+**** Evaluating Macro Arguments in Expansion
+
+Another problem can happen if the macro definition itself evaluates any of the macro argument expressions, such as by calling eval (see Eval). You have to take into account that macro expansion may take place long before the code is executed, when the context of the caller (where the macro expansion will be evaluated) is not yet accessible.
+
+Also, if your macro definition does not use lexical-binding, its formal arguments may hide the user’s variables of the same name. Inside the macro body, the macro argument binding is the most local binding of such variable, so any references inside the form being evaluated do refer to it. Here is an example:
+
+(defmacro foo (a)
+  (list 'setq (eval a) t))
+(setq x 'b)
+(foo x) → (setq b t)
+     ⇒ t                  ; and b has been set.
+;; but
+(setq a 'c)
+(foo a) → (setq a t)
+     ⇒ t                  ; but this set a, not c.
+
+It makes a difference whether the user’s variable is named a or x, because a conflicts with the macro argument variable a.
+
+Also, the expansion of (foo x) above will return something different or signal an error when the code is compiled, since in that case (foo x) is expanded during compilation, whereas the execution of (setq x 'b) will only take place later when the code is executed.
+
+To avoid these problems, don’t evaluate an argument expression while computing the macro expansion. Instead, substitute the expression into the macro expansion, so that its value will be computed as part of executing the expansion. This is how the other examples in this chapter work.
+
+
+**** How Many Times is the Macro Expanded?
+Occasionally problems result from the fact that a macro call is expanded each time it is evaluated in an interpreted function, but is expanded only once (during compilation) for a compiled function. If the macro definition has side effects, they will work differently depending on how many times the macro is expanded.
+
+Therefore, you should avoid side effects in computation of the macro expansion, unless you really know what you are doing.
+
+One special kind of side effect can’t be avoided: constructing Lisp objects. Almost all macro expansions include constructed lists; that is the whole point of most macros. This is usually safe; there is just one case where you must be careful: when the object you construct is part of a quoted constant in the macro expansion.
+
+If the macro is expanded just once, in compilation, then the object is constructed just once, during compilation. But in interpreted execution, the macro is expanded each time the macro call runs, and this means a new object is constructed each time.
+
+In most clean Lisp code, this difference won’t matter. It can matter only if you perform side-effects on the objects constructed by the macro definition. Thus, to avoid trouble, avoid side effects on objects constructed by macro definitions. Here is an example of how such side effects can get you into trouble:
+
+(defmacro empty-object ()
+  (list 'quote (cons nil nil)))
+
+(defun initialize (condition)
+  (let ((object (empty-object)))
+    (if condition
+        (setcar object condition))
+    object))
+If initialize is interpreted, a new list (nil) is constructed each time initialize is called. Thus, no side effect survives between calls. If initialize is compiled, then the macro empty-object is expanded during compilation, producing a single constant (nil) that is reused and altered each time initialize is called.
+
+One way to avoid pathological cases like this is to think of empty-object as a funny kind of constant, not as a memory allocation construct. You wouldn’t use setcar on a constant such as '(nil), so naturally you won’t use it on (empty-object) either.
+
+
+*** Indenting Macros
+
+Within a macro definition, you can use the declare form (see Defining Macros) to specify how TAB should indent calls to the macro. An indentation specification is written like this:
+
+(declare (indent indent-spec))
+This results in the lisp-indent-function property being set on the macro name.
+
+Here are the possibilities for indent-spec:
+
+nil
+This is the same as no property—use the standard indentation pattern.
+
+defun
+Handle this function like a ‘def’ construct: treat the second line as the start of a body.
+
+an integer, number
+The first number arguments of the function are distinguished arguments; the rest are considered the body of the expression. A line in the expression is indented according to whether the first argument on it is distinguished or not. If the argument is part of the body, the line is indented lisp-body-indent more columns than the open-parenthesis starting the containing expression. If the argument is distinguished and is either the first or second argument, it is indented twice that many extra columns. If the argument is distinguished and not the first or second argument, the line uses the standard pattern.
+
+a symbol, symbol
+symbol should be a function name; that function is called to calculate the indentation of a line within this expression. The function receives two arguments:
+
+pos
+The position at which the line being indented begins.
+
+state
+The value returned by parse-partial-sexp (a Lisp primitive for indentation and nesting computation) when it parses up to the beginning of this line.
+
+It should return either a number, which is the number of columns of indentation for that line, or a list whose car is such a number. The difference between returning a number and returning a list is that a number says that all following lines at the same nesting level should be indented just like this one; a list says that following lines might call for different indentations. This makes a difference when the indentation is being computed by C-M-q; if the value is a number, C-M-q need not recalculate indentation for the following lines until the end of the list.
+
+** Loading
+
+Loading a file of Lisp code means bringing its contents into the Lisp environment in the form of Lisp objects. Emacs finds and opens the file, reads the text, evaluates each form, and then closes the file. Such a file is also called a Lisp library.
+
+The load functions evaluate all the expressions in a file just as the eval-buffer function evaluates all the expressions in a buffer. The difference is that the load functions read and evaluate the text in the file as found on disk, not the text in an Emacs buffer.
+
+The loaded file must contain Lisp expressions, either as source code or as byte-compiled code. Each form in the file is called a top-level form. There is no special format for the forms in a loadable file; any form in a file may equally well be typed directly into a buffer and evaluated there. (Indeed, most code is tested this way.) Most often, the forms are function definitions and variable definitions.
+
+Emacs can also load compiled dynamic modules: shared libraries that provide additional functionality for use in Emacs Lisp programs, just like a package written in Emacs Lisp would. When a dynamic module is loaded, Emacs calls a specially-named initialization function which the module needs to implement, and which exposes the additional functions and variables to Emacs Lisp programs.
+
+For on-demand loading of external libraries which are known in advance to be required by certain Emacs primitives, see Dynamically Loaded Libraries.
+
+*** How Programs Do Loading
+
+Emacs Lisp has several interfaces for loading. For example, autoload creates a placeholder object for a function defined in a file; trying to call the autoloading function loads the file to get the function’s real definition (see Autoload). require loads a file if it isn’t already loaded (see Features). Ultimately, all these facilities call the load function to do the work.
+
+Function: load filename &optional missing-ok nomessage nosuffix must-suffix ¶
+This function finds and opens a file of Lisp code, evaluates all the forms in it, and closes the file.
+
+To find the file, load first looks for a file named filename.elc, that is, for a file whose name is filename with the extension ‘.elc’ appended. If such a file exists, and Emacs was compiled with native-compilation support (see Compilation of Lisp to Native Code), load attempts to find a corresponding ‘.eln’ file, and if found, loads it instead of filename.elc. Otherwise, it loads filename.elc (and starts a background native compilation to produce the missing ‘.eln’ file, followed by loading that file). If there is no filename.elc, then load looks for a file named filename.el. If that file exists, it is loaded. If Emacs was compiled with support for dynamic modules (see Emacs Dynamic Modules), load next looks for a file named filename.ext, where ext is a system-dependent file-name extension of shared libraries (‘.so’ on GNU and Unix systems). Finally, if neither of those names is found, load looks for a file named filename with nothing appended, and loads it if it exists. (The load function is not clever about looking at filename. In the perverse case of a file named foo.el.el, evaluation of (load "foo.el") will indeed find it.)
+
+If Auto Compression mode is enabled, as it is by default, then if load can not find a file, it searches for a compressed version of the file before trying other file names. It decompresses and loads it if it exists. It looks for compressed versions by appending each of the suffixes in jka-compr-load-suffixes to the file name. The value of this variable must be a list of strings. Its standard value is (".gz").
+
+If the optional argument nosuffix is non-nil, then load does not try the suffixes ‘.elc’ and ‘.el’. In this case, you must specify the precise file name you want, except that, if Auto Compression mode is enabled, load will still use jka-compr-load-suffixes to find compressed versions. By specifying the precise file name and using t for nosuffix, you can prevent file names like foo.el.el from being tried.
+
+If the optional argument must-suffix is non-nil, then load insists that the file name used must end in either ‘.el’ or ‘.elc’ (possibly extended with a compression suffix) or the shared-library extension, unless it contains an explicit directory name.
+
+If the option load-prefer-newer is non-nil, then when searching suffixes, load selects whichever version of a file (‘.elc’, ‘.el’, etc.) has been modified most recently. In this case, load doesn’t load the ‘.eln’ natively-compiled file even if it exists.
+
+If filename is a relative file name, such as foo or baz/foo.bar, load searches for the file using the variable load-path. It appends filename to each of the directories listed in load-path, and loads the first file it finds whose name matches. The current default directory is tried only if it is specified in load-path, where nil stands for the default directory. load tries all three possible suffixes in the first directory in load-path, then all three suffixes in the second directory, and so on. See Library Search.
+
+Whatever the name under which the file is eventually found, and the directory where Emacs found it, Emacs sets the value of the variable load-file-name to that file’s name.
+
+If you get a warning that foo.elc is older than foo.el, it means you should consider recompiling foo.el. See Byte Compilation.
+
+When loading a source file (not compiled), load performs character set translation just as Emacs would do when visiting the file. See Coding Systems.
+
+When loading an uncompiled file, Emacs tries to expand any macros that the file contains (see Macros). We refer to this as eager macro expansion. Doing this (rather than deferring the expansion until the relevant code runs) can significantly speed up the execution of uncompiled code. Sometimes, this macro expansion cannot be done, owing to a cyclic dependency. In the simplest example of this, the file you are loading refers to a macro defined in another file, and that file in turn requires the file you are loading. Emacs will issue an error about (‘Eager macro-expansion skipped due to cycle…’) giving details of the problem. You have to restructure your code so that this does not happen. Loading a compiled file does not cause macroexpansion, because this should already have happened during compilation. See Macros and Byte Compilation.
+
+Messages like ‘Loading foo...’ and ‘Loading foo...done’ appear in the echo area during loading unless nomessage is non-nil. If a natively-compiled ‘.eln’ file is loaded, the message says so.
+
+Any unhandled errors while loading a file terminate loading. If the load was done for the sake of autoload, any function definitions made during the loading are undone.
+
+If load can’t find the file to load, then normally it signals a file-error (with ‘Cannot open load file filename’). But if missing-ok is non-nil, then load just returns nil.
+
+You can use the variable load-read-function to specify a function for load to use instead of read for reading expressions. See below.
+
+load returns t if the file loads successfully.
+
+Command: load-file filename ¶
+This command loads the file filename. If filename is a relative file name, then the current default directory is assumed. This command does not use load-path, and does not append suffixes. However, it does look for compressed versions (if Auto Compression Mode is enabled). Use this command if you wish to specify precisely the file name to load.
+
+Command: load-library library ¶
+This command loads the library named library. It is equivalent to load, except for the way it reads its argument interactively. See Lisp Libraries in The GNU Emacs Manual.
+
+Variable: load-in-progress ¶
+This variable is non-nil if Emacs is in the process of loading a file, and it is nil otherwise.
+
+Variable: load-file-name ¶
+When Emacs is in the process of loading a file, this variable’s value is the name of that file, as Emacs found it during the search described earlier in this section.
+
+Variable: load-read-function ¶
+This variable specifies an alternate expression-reading function for load and eval-region to use instead of read. The function should accept one argument, just as read does.
+
+By default, this variable’s value is read. See Input Functions.
+
+Instead of using this variable, it is cleaner to use another, newer feature: to pass the function as the read-function argument to eval-region. See Eval.
+
+For information about how load is used in building Emacs, see Building Emacs.
+
+
+*** Load Suffixes
+
+We now describe some technical details about the exact suffixes that load tries.
+
+Variable: load-suffixes ¶
+This is a list of suffixes indicating (compiled or source) Emacs Lisp files. It should not include the empty string. load uses these suffixes in order when it appends Lisp suffixes to the specified file name. The standard value is (".elc" ".el") which produces the behavior described in the previous section.
+
+Variable: load-file-rep-suffixes ¶
+This is a list of suffixes that indicate representations of the same file. This list should normally start with the empty string. When load searches for a file it appends the suffixes in this list, in order, to the file name, before searching for another file.
+
+Enabling Auto Compression mode appends the suffixes in jka-compr-load-suffixes to this list and disabling Auto Compression mode removes them again. The standard value of load-file-rep-suffixes if Auto Compression mode is disabled is (""). Given that the standard value of jka-compr-load-suffixes is (".gz"), the standard value of load-file-rep-suffixes if Auto Compression mode is enabled is ("" ".gz").
+
+Function: get-load-suffixes ¶
+This function returns the list of all suffixes that load should try, in order, when its must-suffix argument is non-nil. This takes both load-suffixes and load-file-rep-suffixes into account. If load-suffixes, jka-compr-load-suffixes and load-file-rep-suffixes all have their standard values, this function returns (".elc" ".elc.gz" ".el" ".el.gz") if Auto Compression mode is enabled and (".elc" ".el") if Auto Compression mode is disabled.
+
+To summarize, load normally first tries the suffixes in the value of (get-load-suffixes) and then those in load-file-rep-suffixes. If nosuffix is non-nil, it skips the former group, and if must-suffix is non-nil, it skips the latter group.
+
+User Option: load-prefer-newer ¶
+If this option is non-nil, then rather than stopping at the first suffix that exists, load tests them all, and uses whichever file is the newest.
+
+
+*** Library Search
+
+When Emacs loads a Lisp library, it searches for the library in a list of directories specified by the variable load-path.
+
+Variable: load-path ¶
+The value of this variable is a list of directories to search when loading files with load. Each element is a string (which must be a directory) or nil (which stands for the current working directory).
+
+When Emacs starts up, it sets up the value of load-path in several steps. First, it looks for the directory containing its own Lisp files, using default locations set when Emacs was compiled. It saves this directory in lisp-directory. Normally, this is a directory where the *.elc files are installed, something like
+
+"/usr/local/share/emacs/version/lisp"
+where version is the Emacs version. (In this and the following examples, replace /usr/local with the prefix appropriate for your Emacs installation.) This directory and its subdirectories contain the standard Lisp files that come with Emacs. If Emacs cannot find its own Lisp files, it will not start correctly.
+
+If you run Emacs from the directory where it was built—that is, an executable that has not been installed yet—Emacs instead initializes lisp-directory using the lisp subdirectory of the directory containing the sources from which it was built.
+
+Emacs then initializes load-path with this lisp-directory. If you built Emacs in a separate directory from the sources, it also adds the lisp subdirectory of the build directory.
+
+All of these directories are stored in the above two variables as absolute file names.
+
+Unless you start Emacs with the --no-site-lisp option, it then adds two more site-lisp directories to the front of load-path. These are intended for locally installed Lisp files, and are normally of the form:
+
+"/usr/local/share/emacs/version/site-lisp"
+and
+
+"/usr/local/share/emacs/site-lisp"
+The first one is for locally installed files for the current Emacs version; the second is for locally installed files meant for use with any installed Emacs version. (If Emacs is running uninstalled, it also adds site-lisp subdirectories from the source and build directories, if they exist. However, normally the source and build directories do not contain site-lisp subdirectories.)
+
+If the environment variable EMACSLOADPATH is set, it modifies the above initialization procedure. Emacs initializes load-path based on the value of the environment variable.
+
+The syntax of EMACSLOADPATH is the same as used for PATH; directories are separated by ‘:’ (or ‘;’, on some operating systems). Here is an example of how to set EMACSLOADPATH variable (from a sh-style shell):
+
+export EMACSLOADPATH=/home/foo/.emacs.d/lisp:
+An empty element in the value of the environment variable, whether trailing (as in the above example, note the trailing ‘:’), leading, or embedded, is replaced by the default value of load-path as determined by the standard initialization procedure. If there are no such empty elements, then EMACSLOADPATH specifies the entire load-path. You must include either an empty element, or the explicit path to the directory containing the standard Lisp files, else Emacs will not function. (Another way to modify load-path is to use the -L command-line option when starting Emacs; see below.)
+
+For each directory in load-path, Emacs then checks to see if it contains a file subdirs.el, and if so, loads it. The subdirs.el file is created when Emacs is built/installed, and contains code that causes Emacs to add any subdirectories of those directories to load-path. Both immediate subdirectories and subdirectories multiple levels down are added. But it excludes subdirectories whose names do not start with a letter or digit, and subdirectories named RCS or CVS, and subdirectories containing a file named .nosearch.
+
+Next, Emacs adds any extra load directories that you specify using the -L command-line option (see Action Arguments in The GNU Emacs Manual). It also adds the directories where optional packages are installed, if any (see Packaging Basics).
+
+It is common to add code to one’s init file (see The Init File) to add one or more directories to load-path. For example:
+
+(push "~/.emacs.d/lisp" load-path)
+See push, for the description of push.
+
+Dumping Emacs uses a special value of load-path. If you use a site-load.el or site-init.el file to customize the dumped Emacs (see Building Emacs), any changes to load-path that these files make will be lost after dumping.
+
+Variable: lisp-directory ¶
+This variable holds a string naming the directory which holds Emacs’s own *.el and *.elc files. This is usually the place where those files are located in the Emacs installation tree, unless Emacs is run from its build directory in which case it points to the lisp subdirectory in the source directory from which Emacs was built.
+
+Command: locate-library library &optional nosuffix path interactive-call ¶
+This command finds the precise file name for library library. It searches for the library in the same way load does, and the argument nosuffix has the same meaning as in load: don’t add suffixes ‘.elc’ or ‘.el’ to the specified name library.
+
+If the path is non-nil, that list of directories is used instead of load-path.
+
+When locate-library is called from a program, it returns the file name as a string. When the user runs locate-library interactively, the argument interactive-call is t, and this tells locate-library to display the file name in the echo area.
+
+Command: list-load-path-shadows &optional stringp ¶
+This command shows a list of shadowed Emacs Lisp files. A shadowed file is one that will not normally be loaded, despite being in a directory on load-path, due to the existence of another similarly-named file in a directory earlier on load-path.
+
+For instance, suppose load-path is set to
+
+  ("/opt/emacs/site-lisp" "/usr/share/emacs/29.1/lisp")
+and that both these directories contain a file named foo.el. Then (require 'foo) never loads the file in the second directory. Such a situation might indicate a problem in the way Emacs was installed.
+
+When called from Lisp, this function prints a message listing the shadowed files, instead of displaying them in a buffer. If the optional argument stringp is non-nil, it instead returns the shadowed files as a string.
+
+If Emacs was compiled with support for native compilation (see Compilation of Lisp to Native Code), then when a ‘.elc’ byte-compiled file is found by searching load-path, Emacs will try to look for a corresponding ‘.eln’ file holding the corresponding natively-compiled code. The natively-compiled files are looked up in the directories listed by the native-comp-eln-load-path.
+
+Variable: native-comp-eln-load-path ¶
+This variable holds a list of directories where Emacs looks for natively-compiled ‘.eln’ files. File names in the list that are not absolute are interpreted as relative to invocation-directory (see Operating System Environment). The last directory in the list is the system directory, i.e. the directory with ‘.eln’ files installed by the Emacs build and installation procedure. In each of the directories in the list, Emacs looks for ‘.eln’ files in a subdirectory whose name is constructed from the Emacs version and an 8-character hash that depends on the current native-compilation ABI; the name of this subdirectory is stored in the variable comp-native-version-dir.
+
+
+*** Loading Non-ASCII Characters
+
+When Emacs Lisp programs contain string constants with non-ASCII characters, these can be represented within Emacs either as unibyte strings or as multibyte strings (see Text Representations). Which representation is used depends on how the file is read into Emacs. If it is read with decoding into multibyte representation, the text of the Lisp program will be multibyte text, and its string constants will be multibyte strings. If a file containing Latin-1 characters (for example) is read without decoding, the text of the program will be unibyte text, and its string constants will be unibyte strings. See Coding Systems.
+
+In most Emacs Lisp programs, the fact that non-ASCII strings are multibyte strings should not be noticeable, since inserting them in unibyte buffers converts them to unibyte automatically. However, if this does make a difference, you can force a particular Lisp file to be interpreted as unibyte by writing ‘coding: raw-text’ in a local variables section. With that designator, the file will unconditionally be interpreted as unibyte. This can matter when making key bindings to non-ASCII characters written as ?vliteral.
+
+
+*** Autoload
+
+The autoload facility lets you register the existence of a function or macro, but put off loading the file that defines it. The first call to the function automatically loads the proper library, in order to install the real definition and other associated code, then runs the real definition as if it had been loaded all along. Autoloading can also be triggered by looking up the documentation of the function or macro (see Documentation Basics), and completion of variable and function names (see Autoload by Prefix below).
+
+There are two ways to set up an autoloaded function: by calling autoload, and by writing a “magic” comment in the source before the real definition. autoload is the low-level primitive for autoloading; any Lisp program can call autoload at any time. Magic comments are the most convenient way to make a function autoload, for packages installed along with Emacs. These comments do nothing on their own, but they serve as a guide for the command loaddefs-generate, which constructs calls to autoload and arranges to execute them when Emacs is built.
+
+Function: autoload function filename &optional docstring interactive type ¶
+This function defines the function (or macro) named function so as to load automatically from filename. The string filename specifies the file to load to get the real definition of function.
+
+If filename does not contain either a directory name, or the suffix .el or .elc, this function insists on adding one of these suffixes, and it will not load from a file whose name is just filename with no added suffix. (The variable load-suffixes specifies the exact required suffixes.)
+
+The argument docstring is the documentation string for the function. Specifying the documentation string in the call to autoload makes it possible to look at the documentation without loading the function’s real definition. Normally, this should be identical to the documentation string in the function definition itself. If it isn’t, the function definition’s documentation string takes effect when it is loaded.
+
+If interactive is non-nil, that says function can be called interactively. This lets completion in M-x work without loading function’s real definition. The complete interactive specification is not given here; it’s not needed unless the user actually calls function, and when that happens, it’s time to load the real definition.
+
+If interactive is a list, it is interpreted as a list of modes this command is applicable for.
+
+You can autoload macros and keymaps as well as ordinary functions. Specify type as macro if function is really a macro. Specify type as keymap if function is really a keymap. Various parts of Emacs need to know this information without loading the real definition.
+
+An autoloaded keymap loads automatically during key lookup when a prefix key’s binding is the symbol function. Autoloading does not occur for other kinds of access to the keymap. In particular, it does not happen when a Lisp program gets the keymap from the value of a variable and calls keymap-set; not even if the variable name is the same symbol function.
+
+If function already has a non-void function definition that is not an autoload object, this function does nothing and returns nil. Otherwise, it constructs an autoload object (see Autoload Type), and stores it as the function definition for function. The autoload object has this form:
+
+(autoload filename docstring interactive type)
+For example,
+
+(symbol-function 'run-prolog)
+     ⇒ (autoload "prolog" 169681 t nil)
+In this case, "prolog" is the name of the file to load, 169681 refers to the documentation string in the emacs/etc/DOC file (see Documentation Basics), t means the function is interactive, and nil that it is not a macro or a keymap.
+
+Function: autoloadp object ¶
+This function returns non-nil if object is an autoload object. For example, to check if run-prolog is defined as an autoloaded function, evaluate
+
+(autoloadp (symbol-function 'run-prolog))
+The autoloaded file usually contains other definitions and may require or provide one or more features. If the file is not completely loaded (due to an error in the evaluation of its contents), any function definitions or provide calls that occurred during the load are undone. This is to ensure that the next attempt to call any function autoloading from this file will try again to load the file. If not for this, then some of the functions in the file might be defined by the aborted load, but fail to work properly for the lack of certain subroutines not loaded successfully because they come later in the file.
+
+If the autoloaded file fails to define the desired Lisp function or macro, then an error is signaled with data "Autoloading failed to define function function-name".
+
+A magic autoload comment (often called an autoload cookie) consists of ‘;;;###autoload’, on a line by itself, just before the real definition of the function in its autoloadable source file. The function loaddefs-generate writes a corresponding autoload call into loaddefs.el. (The string that serves as the autoload cookie and the name of the file generated by loaddefs-generate can be changed from the above defaults, see below.) Building Emacs loads loaddefs.el and thus calls autoload.
+
+The same magic comment can copy any kind of form into loaddefs.el. The form following the magic comment is copied verbatim, except if it is one of the forms which the autoload facility handles specially (e.g., by conversion into an autoload call). The forms which are not copied verbatim are the following:
+
+Definitions for function or function-like objects:
+defun and defmacro; also cl-defun and cl-defmacro (see Argument Lists in Common Lisp Extensions), and define-overloadable-function (see the commentary in mode-local.el).
+
+Definitions for major or minor modes:
+define-minor-mode, define-globalized-minor-mode, define-generic-mode, define-derived-mode, easy-mmode-define-minor-mode, easy-mmode-define-global-mode, define-compilation-mode, and define-global-minor-mode.
+
+Other definition types:
+defcustom, defgroup, deftheme, defclass (see EIEIO in EIEIO), and define-skeleton (see Autotyping in Autotyping).
+
+You can also use a magic comment to execute a form at build time without executing it when the file itself is loaded. To do this, write the form on the same line as the magic comment. Since it is in a comment, it does nothing when you load the source file; but loaddefs-generate copies it to loaddefs.el, where it is executed while building Emacs.
+
+The following example shows how doctor is prepared for autoloading with a magic comment:
+
+;;;###autoload
+(defun doctor ()
+  "Switch to *doctor* buffer and start giving psychotherapy."
+  (interactive)
+  (switch-to-buffer "*doctor*")
+  (doctor-mode))
+Here’s what that produces in loaddefs.el:
+
+(autoload 'doctor "doctor" "\
+Switch to *doctor* buffer and start giving psychotherapy.
+
+\(fn)" t nil)
+While the loaddefs.el isn’t for editing, we try to keep it somewhat readable for people. For instance, control characters in defvar values are escaped, and we insert a backslash and newline immediately following the double-quote of the doc string to keep the line length down. ‘(fn)’ in the usage part of the documentation string is replaced with the function’s name when the various help functions (see Help Functions) display it.
+
+If you write a function definition with an unusual macro that is not one of the known and recognized function definition methods, use of an ordinary magic autoload comment would copy the whole definition into loaddefs.el. That is not desirable. You can put the desired autoload call into loaddefs.el instead by writing this:
+
+;;;###autoload (autoload 'foo "myfile")
+(mydefunmacro foo
+  ...)
+You can use a non-default string as the autoload cookie and have the corresponding autoload calls written into a file whose name is different from the default loaddefs.el. Emacs provides two variables to control this:
+
+Variable: lisp-mode-autoload-regexp ¶
+The value of this constant is a regexp that matches autoload cookies. loaddefs-generate copies the Lisp form that follows the cookie into the autoload file it generates. This will match comments like ‘;;;###autoload’ and ‘;;;###calc-autoload’.
+
+Variable: generated-autoload-file ¶
+The value of this variable names an Emacs Lisp file where the autoload calls should go. The default value is loaddefs.el, but you can override that, e.g., in the local variables section of a .el file (see File Local Variables). The autoload file is assumed to contain a trailer starting with a formfeed character.
+
+The following function may be used to explicitly load the library specified by an autoload object:
+
+Function: autoload-do-load autoload &optional name macro-only ¶
+This function performs the loading specified by autoload, which should be an autoload object. The optional argument name, if non-nil, should be a symbol whose function value is autoload; in that case, the return value of this function is the symbol’s new function value. If the value of the optional argument macro-only is macro, this function avoids loading a function, only a macro.
+
+**** Autoload by Prefix
+
+During completion for the commands describe-variable and describe-function, Emacs will try to load files which may contain definitions matching the prefix being completed. The variable definition-prefixes holds a hashtable which maps a prefix to the corresponding list of files to load for it. Entries to this mapping are added by calls to register-definition-prefixes which are generated by loaddefs-generate (see Autoload). Files which don’t contain any definitions worth loading (test files, for example), should set autoload-compute-prefixes to nil as a file-local variable.
+
+
+**** When to Use Autoload
+
+Do not add an autoload comment unless it is really necessary. Autoloading code means it is always globally visible. Once an item is autoloaded, there is no compatible way to transition back to it not being autoloaded (after people become accustomed to being able to use it without an explicit load).
+
+The most common items to autoload are the interactive entry points to a library. For example, if python.el is a library defining a major-mode for editing Python code, autoload the definition of the python-mode function, so that people can simply use M-x python-mode to load the library.
+Variables usually don’t need to be autoloaded. An exception is if the variable on its own is generally useful without the whole defining library being loaded. (An example of this might be something like find-exec-terminator.)
+Don’t autoload a user option just so that a user can set it.
+Never add an autoload comment to silence a compiler warning in another file. In the file that produces the warning, use (defvar foo) to silence an undefined variable warning, and declare-function (see Telling the Compiler that a Function is Defined) to silence an undefined function warning; or require the relevant library; or use an explicit autoload statement.
+
+
+*** Repeated Loading
+
+You can load a given file more than once in an Emacs session. For example, after you have rewritten and reinstalled a function definition by editing it in a buffer, you may wish to return to the original version; you can do this by reloading the file it came from.
+
+When you load or reload files, bear in mind that the load and load-library functions automatically load a byte-compiled file rather than a non-compiled file of similar name. If you rewrite a file that you intend to save and reinstall, you need to byte-compile the new version; otherwise Emacs will load the older, byte-compiled file instead of your newer, non-compiled file! If that happens, the message displayed when loading the file includes, ‘(compiled; note, source is newer)’, to remind you to recompile it.
+
+When writing the forms in a Lisp library file, keep in mind that the file might be loaded more than once. For example, think about whether each variable should be reinitialized when you reload the library; defvar does not change the value if the variable is already initialized. (See Defining Global Variables.)
+
+The simplest way to add an element to an alist is like this:
+
+(push '(leif-mode " Leif") minor-mode-alist)
+But this would add multiple elements if the library is reloaded. To avoid the problem, use add-to-list (see Modifying List Variables):
+
+(add-to-list 'minor-mode-alist '(leif-mode " Leif"))
+Occasionally you will want to test explicitly whether a library has already been loaded. If the library uses provide to provide a named feature, you can use featurep earlier in the file to test whether the provide call has been executed before (see Features). Alternatively, you could use something like this:
+
+(defvar foo-was-loaded nil)
+
+(unless foo-was-loaded
+  execute-first-time-only
+  (setq foo-was-loaded t))
+
+*** Features
+
+provide and require are an alternative to autoload for loading files automatically. They work in terms of named features. Autoloading is triggered by calling a specific function, but a feature is loaded the first time another program asks for it by name.
+
+A feature name is a symbol that stands for a collection of functions, variables, etc. The file that defines them should provide the feature. Another program that uses them may ensure they are defined by requiring the feature. This loads the file of definitions if it hasn’t been loaded already.
+
+To require the presence of a feature, call require with the feature name as argument. require looks in the global variable features to see whether the desired feature has been provided already. If not, it loads the feature from the appropriate file. This file should call provide at the top level to add the feature to features; if it fails to do so, require signals an error.
+
+For example, in idlwave.el, the definition for idlwave-complete-filename includes the following code:
+
+(defun idlwave-complete-filename ()
+  "Use the comint stuff to complete a file name."
+   (require 'comint)
+   (let* ((comint-file-name-chars "~/A-Za-z0-9+@:_.$#%={}\\-")
+          (comint-completion-addsuffix nil)
+          ...)
+       (comint-dynamic-complete-filename)))
+The expression (require 'comint) loads the file comint.el if it has not yet been loaded, ensuring that comint-dynamic-complete-filename is defined. Features are normally named after the files that provide them, so that require need not be given the file name. (Note that it is important that the require statement be outside the body of the let. Loading a library while its variables are let-bound can have unintended consequences, namely the variables becoming unbound after the let exits.)
+
+The comint.el file contains the following top-level expression:
+
+(provide 'comint)
+This adds comint to the global features list, so that (require 'comint) will henceforth know that nothing needs to be done.
+
+When require is used at top level in a file, it takes effect when you byte-compile that file (see Byte Compilation) as well as when you load it. This is in case the required package contains macros that the byte compiler must know about. It also avoids byte compiler warnings for functions and variables defined in the file loaded with require.
+
+Although top-level calls to require are evaluated during byte compilation, provide calls are not. Therefore, you can ensure that a file of definitions is loaded before it is byte-compiled by including a provide followed by a require for the same feature, as in the following example.
+
+(provide 'my-feature)  ; Ignored by byte compiler,
+                       ;   evaluated by load.
+(require 'my-feature)  ; Evaluated by byte compiler.
+The compiler ignores the provide, then processes the require by loading the file in question. Loading the file does execute the provide call, so the subsequent require call does nothing when the file is loaded.
+
+Function: provide feature &optional subfeatures ¶
+This function announces that feature is now loaded, or being loaded, into the current Emacs session. This means that the facilities associated with feature are or will be available for other Lisp programs.
+
+The direct effect of calling provide is to add feature to the front of features if it is not already in that list and call any eval-after-load code waiting for it (see Hooks for Loading). The argument feature must be a symbol. provide returns feature.
+
+If provided, subfeatures should be a list of symbols indicating a set of specific subfeatures provided by this version of feature. You can test the presence of a subfeature using featurep. The idea of subfeatures is that you use them when a package (which is one feature) is complex enough to make it useful to give names to various parts or functionalities of the package, which might or might not be loaded, or might or might not be present in a given version. See Testing Availability of Network Features, for an example.
+
+features
+     ⇒ (bar bish)
+
+(provide 'foo)
+     ⇒ foo
+features
+     ⇒ (foo bar bish)
+When a file is loaded to satisfy an autoload, and it stops due to an error in the evaluation of its contents, any function definitions or provide calls that occurred during the load are undone. See Autoload.
+
+Function: require feature &optional filename noerror ¶
+This function checks whether feature is present in the current Emacs session (using (featurep feature); see below). The argument feature must be a symbol.
+
+If the feature is not present, then require loads filename with load. If filename is not supplied, then the name of the symbol feature is used as the base file name to load. However, in this case, require insists on finding feature with an added ‘.el’ or ‘.elc’ suffix (possibly extended with a compression suffix); a file whose name is just feature won’t be used. (The variable load-suffixes specifies the exact required Lisp suffixes.)
+
+If noerror is non-nil, that suppresses errors from actual loading of the file. In that case, require returns nil if loading the file fails. Normally, require returns feature.
+
+If loading the file succeeds but does not provide feature, require signals an error about the missing feature.
+
+Function: featurep feature &optional subfeature ¶
+This function returns t if feature has been provided in the current Emacs session (i.e., if feature is a member of features.) If subfeature is non-nil, then the function returns t only if that subfeature is provided as well (i.e., if subfeature is a member of the subfeature property of the feature symbol.)
+
+Variable: features ¶
+The value of this variable is a list of symbols that are the features loaded in the current Emacs session. Each symbol was put in this list with a call to provide. The order of the elements in the features list is not significant.
+
+The use-package macro provides a convenient way of loading a feature and configuring it for use. It provides a means to combine requiring a feature, like require does, with code to be run when the feature is actually loaded, similar to load-time hooks (see Hooks for Loading). The declarative syntax of use-package makes it exceptionally easy to use in user init files.
+
+Macro: use-package feature &rest args ¶
+This macro specifies how to load the named feature and how to configure and customize it for use. The arguments args are keyword-value pairs. Some of the important keywords and their values are:
+
+:init forms
+Specifies forms to execute before feature is loaded.
+
+:config forms
+Specifies forms to execute after loading feature.
+
+:defer condition
+If condition is non-nil, it specifies to defer loading feature until any of the autoloaded commands or variables of feature are first used. If condition is a number n, it specifies that feature should be loaded after n seconds of idle time.
+
+:commands commands…
+Specifies commands of feature to be autoloaded.
+
+:bind keybindings…
+Specifies the keybindings for features commands. Each binding has the form
+
+(key-sequence . command)
+or
+
+(:map keymap (key-sequence . command))
+where key-sequence is in the form accepted by the kbd macro (see Key Sequences).
+
+For more details about use-package, see use-package User Manual.
+
+
+*** Which File Defined a Certain Symbol
+
+Function: symbol-file symbol &optional type native-p ¶
+This function returns the name of the file that defined symbol. If type is nil, then any kind of definition is acceptable. If type is defun, defvar, or defface, that specifies function definition, variable definition, or face definition only.
+
+The value is normally an absolute file name. It can also be nil, if the definition is not associated with any file. If symbol specifies an autoloaded function, the value can be a relative file name without extension.
+
+If the optional third argument native-p is non-nil, and Emacs was built with native compilation support (see Compilation of Lisp to Native Code), this function will try to find the .eln file that defined symbol, instead of the .elc or .el file. If such a .eln file is found and is not outdated, the function will return its absolute file name; otherwise it will report the name of either the source or the byte-compiled file.
+
+The basis for symbol-file is the data in the variable load-history.
+
+Variable: load-history ¶
+The value of this variable is an alist that associates the names of loaded library files with the names of the functions and variables they defined, as well as the features they provided or required.
+
+Each element in this alist describes one loaded library (including libraries that are preloaded at startup). It is a list whose CAR is the absolute file name of the library (a string). The rest of the list elements have these forms:
+
+var
+The symbol var was defined as a variable.
+
+(defun . fun)
+The function fun was defined. (defun . fun), which represents defining fun as a function.
+
+(defface . face)
+The face face was defined.
+
+(require . feature)
+The feature feature was required.
+
+(provide . feature)
+The feature feature was provided.
+
+(cl-defmethod method specializers)
+The named method was defined by using cl-defmethod, with specializers as its specializers.
+
+(define-type . type)
+The type type was defined.
+
+The value of load-history may have one element whose CAR is nil. This element describes definitions made with eval-buffer on a buffer that is not visiting a file.
+
+The command eval-region updates load-history, but does so by adding the symbols defined to the element for the file being visited, rather than replacing that element. See Eval.
+
+In addition to load-history, every function keeps track of its own history in the symbol property function-history. The reason why functions are treated specially in this respect is that it is common for functions to be defined in two steps in two different files (typically, one of them is an autoload), so in order to be able to properly unload a file, we need to know more precisely what that file did to the function definition.
+
+The symbol property function-history holds a list of the form (file1 def2 file2 def3 ...), where file1 is the last file that changed the definition and def2 was the definition before file1, set by file2, etc. Logically this list should end with the name of the first file that defined this function, but to save space this last element is usually omitted.
+
+
+*** Unloading
+
+You can discard the functions and variables loaded by a library to reclaim memory for other Lisp objects. To do this, use the function unload-feature:
+
+Command: unload-feature feature &optional force ¶
+This command unloads the library that provided feature feature. It undefines all functions, macros, and variables defined in that library with defun, defalias, defsubst, defmacro, defconst, defvar, and defcustom. It then restores any autoloads formerly associated with those symbols. (Loading saves these in the function-history property of the symbol.)
+
+Before restoring the previous definitions, unload-feature runs remove-hook to remove functions defined by the library from certain hooks. These hooks include variables whose names end in ‘-hook’ (or the deprecated suffix ‘-hooks’), plus those listed in unload-feature-special-hooks, as well as auto-mode-alist. This is to prevent Emacs from ceasing to function because important hooks refer to functions that are no longer defined.
+
+Standard unloading activities also undo ELP profiling of functions in that library, unprovides any features provided by the library, and cancels timers held in variables defined by the library.
+
+If these measures are not sufficient to prevent malfunction, a library can define an explicit unloader named feature-unload-function. If that symbol is defined as a function, unload-feature calls it with no arguments before doing anything else. It can do whatever is appropriate to unload the library. If it returns nil, unload-feature proceeds to take the normal unload actions. Otherwise it considers the job to be done.
+
+Ordinarily, unload-feature refuses to unload a library on which other loaded libraries depend. (A library a depends on library b if a contains a require for b.) If the optional argument force is non-nil, dependencies are ignored and you can unload any library.
+
+The unload-feature function is written in Lisp; its actions are based on the variable load-history.
+
+Variable: unload-feature-special-hooks ¶
+This variable holds a list of hooks to be scanned before unloading a library, to remove functions defined in the library.
+
+
+*** Hooks for Loading
+
+You can ask for code to be executed each time Emacs loads a library, by using the variable after-load-functions:
+
+Variable: after-load-functions ¶
+This abnormal hook is run after loading a file. Each function in the hook is called with a single argument, the absolute filename of the file that was just loaded.
+
+If you want code to be executed when a particular library is loaded, use the macro with-eval-after-load:
+
+Macro: with-eval-after-load library body… ¶
+This macro arranges to evaluate body at the end of loading the file library, each time library is loaded. If library is already loaded, it evaluates body right away.
+
+You don’t need to give a directory or extension in the file name library. Normally, you just give a bare file name, like this:
+
+(with-eval-after-load "js" (keymap-set js-mode-map "C-c C-c" 'js-eval))
+To restrict which files can trigger the evaluation, include a directory or an extension or both in library. Only a file whose absolute true name (i.e., the name with all symbolic links chased out) matches all the given name components will match. In the following example, my_inst.elc or my_inst.elc.gz in some directory ..../foo/bar will trigger the evaluation, but not my_inst.el:
+
+(with-eval-after-load "foo/bar/my_inst.elc" …)
+library can also be a feature (i.e., a symbol), in which case body is evaluated at the end of any file where (provide library) is called.
+
+An error in body does not undo the load, but does prevent execution of the rest of body.
+
+Normally, well-designed Lisp programs should not use with-eval-after-load. If you need to examine and set the variables defined in another library (those meant for outside use), you can do it immediately—there is no need to wait until the library is loaded. If you need to call functions defined by that library, you should load the library, preferably with require (see Features).
+
+
+*** Emacs Dynamic Modules
+
+A dynamic Emacs module is a shared library that provides additional functionality for use in Emacs Lisp programs, just like a package written in Emacs Lisp would.
+
+Functions that load Emacs Lisp packages can also load dynamic modules. They recognize dynamic modules by looking at their file-name extension, a.k.a. “suffix”. This suffix is platform-dependent.
+
+Variable: module-file-suffix ¶
+This variable holds the system-dependent value of the file-name extension of the module files. Its value is .so on POSIX hosts, .dylib on macOS, and .dll on MS-Windows.
+
+On macOS, dynamic modules can also have the suffix .so in addition to .dylib.
+
+Every dynamic module should export a C-callable function named emacs_module_init, which Emacs will call as part of the call to load or require which loads the module. It should also export a symbol named plugin_is_GPL_compatible to indicate that its code is released under the GPL or compatible license; Emacs will signal an error if your program tries to load modules that don’t export such a symbol.
+
+If a module needs to call Emacs functions, it should do so through the API (Application Programming Interface) defined and documented in the header file emacs-module.h that is part of the Emacs distribution. See Writing Dynamically-Loaded Modules, for details of using that API when writing your own modules.
+
+Modules can create user-ptr Lisp objects that embed pointers to C struct’s defined by the module. This is useful for keeping around complex data structures created by a module, to be passed back to the module’s functions. User-ptr objects can also have associated finalizers – functions to be run when the object is GC’ed; this is useful for freeing any resources allocated for the underlying data structure, such as memory, open file descriptors, etc. See Conversion Between Lisp and Module Values.
+
+Function: user-ptrp object ¶
+This function returns t if its argument is a user-ptr object.
+
+Function: module-load file ¶
+Emacs calls this low-level primitive to load a module from the specified file and perform the necessary initialization of the module. This is the primitive which makes sure the module exports the plugin_is_GPL_compatible symbol, calls the module’s emacs_module_init function, and signals an error if that function returns an error indication, or if the user typed C-g during the initialization. If the initialization succeeds, module-load returns t. Note that file must already have the proper file-name extension, as this function doesn’t try looking for files with known extensions, unlike load.
+
+Unlike load, module-load doesn’t record the module in load-history, doesn’t print any messages, and doesn’t protect against recursive loads. Most users should therefore use load, load-file, load-library, or require instead of module-load.
+
+Loadable modules in Emacs are enabled by using the --with-modules option at configure time.
+
+** Byte Compilation
+
+Emacs Lisp has a compiler that translates functions written in Lisp into a special representation called byte-code that can be executed more efficiently. The compiler replaces Lisp function definitions with byte-code. When a byte-code function is called, its definition is evaluated by the byte-code interpreter.
+
+Because the byte-compiled code is evaluated by the byte-code interpreter, instead of being executed directly by the machine’s hardware (as true compiled code is), byte-code is completely transportable from machine to machine without recompilation. It is not, however, as fast as true compiled code.
+
+In general, any version of Emacs can run byte-compiled code produced by recent earlier versions of Emacs, but the reverse is not true.
+
+If you do not want a Lisp file to be compiled, ever, put a file-local variable binding for no-byte-compile into it, like this:
+
+;; -*-no-byte-compile: t; -*-
+
+*** Performance of Byte-Compiled Code
+
+A byte-compiled function is not as efficient as a primitive function written in C, but runs much faster than the version written in Lisp. Here is an example:
+
+(defun silly-loop (n)
+  "Return the time, in seconds, to run N iterations of a loop."
+  (let ((t1 (float-time)))
+    (while (> (setq n (1- n)) 0))
+    (- (float-time) t1)))
+⇒ silly-loop
+
+(silly-loop 50000000)
+⇒ 5.200886011123657
+
+(byte-compile 'silly-loop)
+⇒ [Compiled code not shown]
+
+(silly-loop 50000000)
+⇒ 0.6239290237426758
+In this example, the interpreted code required more than 5 seconds to run, whereas the byte-compiled code required less than 1 second. These results are representative, but actual results may vary.
+
+
+*** Byte-Compilation Functions
+
+You can byte-compile an individual function or macro definition with the byte-compile function. You can compile a whole file with byte-compile-file, or several files with byte-recompile-directory or batch-byte-compile.
+
+Sometimes, the byte compiler produces warning and/or error messages (see Compiler Errors, for details). These messages are normally recorded in a buffer called *Compile-Log*, which uses Compilation mode. See Compilation Mode in The GNU Emacs Manual. However, if the variable byte-compile-debug is non-nil, error messages will be signaled as Lisp errors instead (see Errors).
+
+Be careful when writing macro calls in files that you intend to byte-compile. Since macro calls are expanded when they are compiled, the macros need to be loaded into Emacs or the byte compiler will not do the right thing. The usual way to handle this is with require forms which specify the files containing the needed macro definitions (see Features). Normally, the byte compiler does not evaluate the code that it is compiling, but it handles require forms specially, by loading the specified libraries. To avoid loading the macro definition files when someone runs the compiled program, write eval-when-compile around the require calls (see Evaluation During Compilation). For more details, See Macros and Byte Compilation.
+
+Inline (defsubst) functions are less troublesome; if you compile a call to such a function before its definition is known, the call will still work right, it will just run slower.
+
+Function: byte-compile symbol ¶
+This function byte-compiles the function definition of symbol, replacing the previous definition with the compiled one. The function definition of symbol must be the actual code for the function; byte-compile does not handle function indirection. The return value is the byte-code function object which is the compiled definition of symbol (see Byte-Code Function Objects).
+
+(defun factorial (integer)
+  "Compute factorial of INTEGER."
+  (if (= 1 integer) 1
+    (* integer (factorial (1- integer)))))
+⇒ factorial
+
+(byte-compile 'factorial)
+⇒
+#[257
+  "\211\300U\203^H^@\300\207\211\301^BS!_\207"
+  [1 factorial] 4
+  "Compute factorial of INTEGER.\n\n(fn INTEGER)"]
+If symbol’s definition is a byte-code function object, byte-compile does nothing and returns nil. It does not compile the symbol’s definition again, since the original (non-compiled) code has already been replaced in the symbol’s function cell by the byte-compiled code.
+
+The argument to byte-compile can also be a lambda expression. In that case, the function returns the corresponding compiled code but does not store it anywhere.
+
+Command: compile-defun &optional arg ¶
+This command reads the defun containing point, compiles it, and evaluates the result. If you use this on a defun that is actually a function definition, the effect is to install a compiled version of that function.
+
+compile-defun normally displays the result of evaluation in the echo area, but if arg is non-nil, it inserts the result in the current buffer after the form it has compiled.
+
+Command: byte-compile-file filename ¶
+This function compiles a file of Lisp code named filename into a file of byte-code. The output file’s name is made by changing the ‘.el’ suffix into ‘.elc’; if filename does not end in ‘.el’, it adds ‘.elc’ to the end of filename.
+
+Compilation works by reading the input file one form at a time. If it is a definition of a function or macro, the compiled function or macro definition is written out. Other forms are batched together, then each batch is compiled, and written so that its compiled code will be executed when the file is read. All comments are discarded when the input file is read.
+
+This command returns t if there were no errors and nil otherwise. When called interactively, it prompts for the file name.
+
+$ ls -l push*
+-rw-r--r-- 1 lewis lewis 791 Oct  5 20:31 push.el
+
+(byte-compile-file "~/emacs/push.el")
+     ⇒ t
+
+$ ls -l push*
+-rw-r--r-- 1 lewis lewis 791 Oct  5 20:31 push.el
+-rw-rw-rw- 1 lewis lewis 638 Oct  8 20:25 push.elc
+Command: byte-recompile-directory directory &optional flag force follow-symlinks ¶
+This command recompiles every ‘.el’ file in directory (or its subdirectories) that needs recompilation. A file needs recompilation if a ‘.elc’ file exists but is older than the ‘.el’ file.
+
+When a ‘.el’ file has no corresponding ‘.elc’ file, flag says what to do. If it is nil, this command ignores these files. If flag is 0, it compiles them. If it is neither nil nor 0, it asks the user whether to compile each such file, and asks about each subdirectory as well.
+
+Interactively, byte-recompile-directory prompts for directory and flag is the prefix argument.
+
+If force is non-nil, this command recompiles every ‘.el’ file that has a ‘.elc’ file.
+
+This command will normally not compile ‘.el’ files that are symlinked. If the optional follow-symlink parameter is non-nil, symlinked ‘.el’ will also be compiled.
+
+The returned value is unpredictable.
+
+Function: batch-byte-compile &optional noforce ¶
+This function runs byte-compile-file on files specified on the command line. This function must be used only in a batch execution of Emacs, as it kills Emacs on completion. An error in one file does not prevent processing of subsequent files, but no output file will be generated for it, and the Emacs process will terminate with a nonzero status code.
+
+If noforce is non-nil, this function does not recompile files that have an up-to-date ‘.elc’ file.
+
+$ emacs -batch -f batch-byte-compile *.el
+
+
+*** Documentation Strings and Compilation
+
+When Emacs loads functions and variables from a byte-compiled file, it normally does not load their documentation strings into memory. Each documentation string is dynamically loaded from the byte-compiled file only when needed. This saves memory, and speeds up loading by skipping the processing of the documentation strings.
+
+This feature has a drawback: if you delete, move, or alter the compiled file (such as by compiling a new version), Emacs may no longer be able to access the documentation string of previously-loaded functions or variables. Such a problem normally only occurs if you build Emacs yourself, and happen to edit and/or recompile the Lisp source files. To solve it, just reload each file after recompilation.
+
+Dynamic loading of documentation strings from byte-compiled files is determined, at compile time, for each byte-compiled file. It can be disabled via the option byte-compile-dynamic-docstrings.
+
+User Option: byte-compile-dynamic-docstrings ¶
+If this is non-nil, the byte compiler generates compiled files that are set up for dynamic loading of documentation strings.
+
+To disable the dynamic loading feature for a specific file, set this option to nil in its header line (see Local Variables in Files in The GNU Emacs Manual), like this:
+
+-*-byte-compile-dynamic-docstrings: nil;-*-
+This is useful mainly if you expect to change the file, and you want Emacs sessions that have already loaded it to keep working when the file changes.
+
+Internally, the dynamic loading of documentation strings is accomplished by writing compiled files with a special Lisp reader construct, ‘#@count’. This construct skips the next count characters. It also uses the ‘#$’ construct, which stands for the name of this file, as a string. Do not use these constructs in Lisp source files; they are not designed to be clear to humans reading the file.
+
+
+*** Dynamic Loading of Individual Functions
+
+When you compile a file, you can optionally enable the dynamic function loading feature (also known as lazy loading). With dynamic function loading, loading the file doesn’t fully read the function definitions in the file. Instead, each function definition contains a place-holder which refers to the file. The first time each function is called, it reads the full definition from the file, to replace the place-holder.
+
+The advantage of dynamic function loading is that loading the file should become faster. This is a good thing for a file which contains many separate user-callable functions, if using one of them does not imply you will probably also use the rest. A specialized mode which provides many keyboard commands often has that usage pattern: a user may invoke the mode, but use only a few of the commands it provides.
+
+The dynamic loading feature has certain disadvantages:
+
+If you delete or move the compiled file after loading it, Emacs can no longer load the remaining function definitions not already loaded.
+If you alter the compiled file (such as by compiling a new version), then trying to load any function not already loaded will usually yield nonsense results.
+These problems will never happen in normal circumstances with installed Emacs files. But they are quite likely to happen with Lisp files that you are changing. The easiest way to prevent these problems is to reload the new compiled file immediately after each recompilation.
+
+Experience shows that using dynamic function loading provides benefits that are hardly measurable, so this feature is deprecated since Emacs 27.1.
+
+The byte compiler uses the dynamic function loading feature if the variable byte-compile-dynamic is non-nil at compilation time. Do not set this variable globally, since dynamic loading is desirable only for certain files. Instead, enable the feature for specific source files with file-local variable bindings. For example, you could do it by writing this text in the source file’s first line:
+
+-*-byte-compile-dynamic: t;-*-
+Variable: byte-compile-dynamic ¶
+If this is non-nil, the byte compiler generates compiled files that are set up for dynamic function loading.
+
+Function: fetch-bytecode function ¶
+If function is a byte-code function object, this immediately finishes loading the byte code of function from its byte-compiled file, if it is not fully loaded already. Otherwise, it does nothing. It always returns function.
+
+
+*** Evaluation During Compilation
+
+These features permit you to write code to be evaluated during compilation of a program.
+
+Macro: eval-and-compile body… ¶
+This form marks body to be evaluated both when you compile the containing code and when you run it (whether compiled or not).
+
+You can get a similar result by putting body in a separate file and referring to that file with require. That method is preferable when body is large. Effectively require is automatically eval-and-compile, the package is loaded both when compiling and executing.
+
+autoload is also effectively eval-and-compile too. It’s recognized when compiling, so uses of such a function don’t produce “not known to be defined” warnings.
+
+Most uses of eval-and-compile are fairly sophisticated.
+
+If a macro has a helper function to build its result, and that macro is used both locally and outside the package, then eval-and-compile should be used to get the helper both when compiling and then later when running.
+
+If functions are defined programmatically (with fset say), then eval-and-compile can be used to have that done at compile-time as well as run-time, so calls to those functions are checked (and warnings about “not known to be defined” suppressed).
+
+Macro: eval-when-compile body… ¶
+This form marks body to be evaluated at compile time but not when the compiled program is loaded. The result of evaluation by the compiler becomes a constant which appears in the compiled program. If you load the source file, rather than compiling it, body is evaluated normally.
+
+If you have a constant that needs some calculation to produce, eval-when-compile can do that at compile-time. For example,
+
+(defvar my-regexp
+  (eval-when-compile (regexp-opt '("aaa" "aba" "abb"))))
+If you’re using another package, but only need macros from it (the byte compiler will expand those), then eval-when-compile can be used to load it for compiling, but not executing. For example,
+
+(eval-when-compile
+  (require 'my-macro-package))
+The same sort of thing goes for macros and defsubst functions defined locally and only for use within the file. They are needed for compiling the file, but in most cases they are not needed for execution of the compiled file. For example,
+
+(eval-when-compile
+  (unless (fboundp 'some-new-thing)
+    (defmacro some-new-thing ()
+      (compatibility code))))
+This is often good for code that’s only a fallback for compatibility with other versions of Emacs.
+
+Common Lisp Note: At top level, eval-when-compile is analogous to the Common Lisp idiom (eval-when (compile eval) …). Elsewhere, the Common Lisp ‘#.’ reader macro (but not when interpreting) is closer to what eval-when-compile does.
+
+
+*** Compiler Errors
+
+Error and warning messages from byte compilation are printed in a buffer named *Compile-Log*. These messages include file names and line numbers identifying the location of the problem. The usual Emacs commands for operating on compiler output can be used on these messages.
+
+When an error is due to invalid syntax in the program, the byte compiler might get confused about the error’s exact location. One way to investigate is to switch to the buffer  *Compiler Input*. (This buffer name starts with a space, so it does not show up in the Buffer Menu.) This buffer contains the program being compiled, and point shows how far the byte compiler was able to read; the cause of the error might be nearby. See Debugging Invalid Lisp Syntax, for some tips for locating syntax errors.
+
+A common type of warning issued by the byte compiler is for functions and variables that were used but not defined. Such warnings report the line number for the end of the file, not the locations where the missing functions or variables were used; to find these, you must search the file manually.
+
+If you are sure that a warning message about a missing function or variable is unjustified, there are several ways to suppress it:
+
+You can suppress the warning for a specific call to a function func by conditionalizing it on an fboundp test, like this:
+(if (fboundp 'func) ...(func ...)...)
+The call to func must be in the then-form of the if, and func must appear quoted in the call to fboundp. (This feature operates for cond as well.)
+
+Likewise, you can suppress the warning for a specific use of a variable variable by conditionalizing it on a boundp test:
+(if (boundp 'variable) ...variable...)
+The reference to variable must be in the then-form of the if, and variable must appear quoted in the call to boundp.
+
+You can tell the compiler that a function is defined using declare-function. See Telling the Compiler that a Function is Defined.
+Likewise, you can tell the compiler that a variable is defined using defvar with no initial value. (Note that this marks the variable as special, i.e. dynamically bound, but only within the current lexical scope, or file if at top-level.) See Defining Global Variables.
+You can also suppress compiler warnings within a certain expression using the with-suppressed-warnings macro:
+
+Special Form: with-suppressed-warnings warnings body… ¶
+In execution, this is equivalent to (progn body...), but the compiler does not issue warnings for the specified conditions in body. warnings is an association list of warning symbols and function/variable symbols they apply to. For instance, if you wish to call an obsolete function called foo, but want to suppress the compilation warning, say:
+
+(with-suppressed-warnings ((obsolete foo))
+  (foo ...))
+For more coarse-grained suppression of compiler warnings, you can use the with-no-warnings construct:
+
+Special Form: with-no-warnings body… ¶
+In execution, this is equivalent to (progn body...), but the compiler does not issue warnings for anything that occurs inside body.
+
+We recommend that you use with-suppressed-warnings instead, but if you do use this construct, that you use it around the smallest possible piece of code to avoid missing possible warnings other than one you intend to suppress.
+
+Byte compiler warnings can be controlled more precisely by setting the variable byte-compile-warnings. See its documentation string for details.
+
+Sometimes you may wish the byte-compiler warnings to be reported using error. If so, set byte-compile-error-on-warn to a non-nil value.
+
+
+*** Byte-Code Function Objects
+
+Byte-compiled functions have a special data type: they are byte-code function objects. Whenever such an object appears as a function to be called, Emacs uses the byte-code interpreter to execute the byte-code.
+
+Internally, a byte-code function object is much like a vector; its elements can be accessed using aref. Its printed representation is like that for a vector, with an additional ‘#’ before the opening ‘[’. It must have at least four elements; there is no maximum number, but only the first six elements have any normal use. They are:
+
+argdesc
+The descriptor of the arguments. This can either be a list of arguments, as described in Features of Argument Lists, or an integer encoding the required number of arguments. In the latter case, the value of the descriptor specifies the minimum number of arguments in the bits zero to 6, and the maximum number of arguments in bits 8 to 14. If the argument list uses &rest, then bit 7 is set; otherwise it’s cleared.
+
+If argdesc is a list, the arguments will be dynamically bound before executing the byte code. If argdesc is an integer, the arguments will be instead pushed onto the stack of the byte-code interpreter, before executing the code.
+
+byte-code
+The string containing the byte-code instructions.
+
+constants
+The vector of Lisp objects referenced by the byte code. These include symbols used as function names and variable names.
+
+stacksize
+The maximum stack size this function needs.
+
+docstring
+The documentation string (if any); otherwise, nil. The value may be a number or a list, in case the documentation string is stored in a file. Use the function documentation to get the real documentation string (see Access to Documentation Strings).
+
+interactive
+The interactive spec (if any). This can be a string or a Lisp expression. It is nil for a function that isn’t interactive.
+
+Here’s an example of a byte-code function object, in printed representation. It is the definition of the command backward-sexp.
+
+#[256
+  "\211\204^G^@\300\262^A\301^A[!\207"
+  [1 forward-sexp]
+  3
+  1793299
+  "^p"]
+The primitive way to create a byte-code object is with make-byte-code:
+
+Function: make-byte-code &rest elements ¶
+This function constructs and returns a byte-code function object with elements as its elements.
+
+You should not try to come up with the elements for a byte-code function yourself, because if they are inconsistent, Emacs may crash when you call the function. Always leave it to the byte compiler to create these objects; it makes the elements consistent (we hope).
+
+
+*** Disassembled Byte-Code
+
+People do not write byte-code; that job is left to the byte compiler. But we provide a disassembler to satisfy a cat-like curiosity. The disassembler converts the byte-compiled code into human-readable form.
+
+The byte-code interpreter is implemented as a simple stack machine. It pushes values onto a stack of its own, then pops them off to use them in calculations whose results are themselves pushed back on the stack. When a byte-code function returns, it pops a value off the stack and returns it as the value of the function.
+
+In addition to the stack, byte-code functions can use, bind, and set ordinary Lisp variables, by transferring values between variables and the stack.
+
+Command: disassemble object &optional buffer-or-name ¶
+This command displays the disassembled code for object. In interactive use, or if buffer-or-name is nil or omitted, the output goes in a buffer named *Disassemble*. If buffer-or-name is non-nil, it must be a buffer or the name of an existing buffer. Then the output goes there, at point, and point is left before the output.
+
+The argument object can be a function name, a lambda expression (see Lambda Expressions), or a byte-code object (see Byte-Code Function Objects). If it is a lambda expression, disassemble compiles it and disassembles the resulting compiled code.
+
+Here are two examples of using the disassemble function. We have added explanatory comments to help you relate the byte-code to the Lisp source; these do not appear in the output of disassemble.
+
+(defun factorial (integer)
+  "Compute factorial of an integer."
+  (if (= 1 integer) 1
+    (* integer (factorial (1- integer)))))
+     ⇒ factorial
+
+(factorial 4)
+     ⇒ 24
+
+(disassemble 'factorial)
+     -| byte-code for factorial:
+ doc: Compute factorial of an integer.
+ args: (arg1)
+
+0   dup                   ; Get the value of integer and
+                          ;   push it onto the stack.
+1   constant 1            ; Push 1 onto stack.
+2   eqlsign               ; Pop top two values off stack, compare
+                          ;   them, and push result onto stack.
+3   goto-if-nil 1         ; Pop and test top of stack;
+                          ;   if nil, go to 1, else continue.
+6   constant 1            ; Push 1 onto top of stack.
+7   return                ; Return the top element of the stack.
+8:1 dup                   ; Push value of integer onto stack.
+9   constant factorial    ; Push factorial onto stack.
+10  stack-ref 2           ; Push value of integer onto stack.
+11  sub1                  ; Pop integer, decrement value,
+                          ;   push new value onto stack.
+12  call     1            ; Call function factorial using first
+                          ;   (i.e., top) stack element as argument;
+                          ;   push returned value onto stack.
+13  mult                  ; Pop top two values off stack, multiply
+                          ;   them, and push result onto stack.
+14  return                ; Return the top element of the stack.
+The silly-loop function is somewhat more complex:
+
+(defun silly-loop (n)
+  "Return time before and after N iterations of a loop."
+  (let ((t1 (current-time-string)))
+    (while (> (setq n (1- n))
+              0))
+    (list t1 (current-time-string))))
+     ⇒ silly-loop
+
+(disassemble 'silly-loop)
+     -| byte-code for silly-loop:
+ doc: Return time before and after N iterations of a loop.
+ args: (arg1)
+
+0   constant current-time-string  ; Push current-time-string
+                                  ;   onto top of stack.
+1   call     0            ; Call current-time-string with no
+                          ;   argument, push result onto stack as t1.
+2:1 stack-ref 1           ; Get value of the argument n
+                          ;   and push the value on the stack.
+3   sub1                  ; Subtract 1 from top of stack.
+4   dup                   ; Duplicate top of stack; i.e., copy the top
+                          ;   of the stack and push copy onto stack.
+5   stack-set 3           ; Pop the top of the stack,
+                          ;   and set n to the value.
+
+;; (In effect, the sequence dup stack-set copies the top of
+;; the stack into the value of n without popping it.)
+
+7   constant 0            ; Push 0 onto stack.
+8   gtr                   ; Pop top two values off stack,
+                          ;   test if n is greater than 0
+                          ;   and push result onto stack.
+9   goto-if-not-nil 1     ; Goto 1 if n > 0
+                          ;   (this continues the while loop)
+                          ;   else continue.
+12  dup                   ; Push value of t1 onto stack.
+13  constant current-time-string  ; Push current-time-string
+                                  ;   onto the top of the stack.
+14  call     0            ; Call current-time-string again.
+15  list2                 ; Pop top two elements off stack, create a
+                          ;   list of them, and push it onto stack.
+16  return                ; Return value of the top of stack.
+
+
+** Compilation of Lisp to Native Code
+
+In addition to the byte-compilation, described in the previous chapter, Emacs can also optionally compile Lisp function definitions into a true compiled code, known as native code. This feature uses the libgccjit library, which is part of the GCC distribution, and requires that Emacs be built with support for using that library. It also requires to have GCC and Binutils (the assembler and linker) available on your system for you to be able to native-compile Lisp code.
+
+To determine whether the current Emacs process can produce and load natively-compiled Lisp code, call native-comp-available-p (see Native-Compilation Functions).
+
+Unlike byte-compiled code, natively-compiled Lisp code is executed directly by the machine’s hardware, and therefore runs at full speed that the host CPU can provide. The resulting speedup generally depends on what the Lisp code does, but is usually 2.5 to 5 times faster than the corresponding byte-compiled code.
+
+Since native code is generally incompatible between different systems, the natively-compiled code is not transportable from one machine to another, it can only be used on the same machine where it was produced or on very similar ones (having the same CPU and run-time libraries). The transportability of natively-compiled code is the same as that of shared libraries (.so or .dll files).
+
+Libraries of natively-compiled code include crucial dependencies on Emacs Lisp primitives (see What Is a Function?) and their calling conventions, and thus Emacs usually won’t load natively-compiled code produced by earlier or later Emacs versions; native compilation of the same Lisp code by a different Emacs version will usually produce a natively-compiled library under a unique file name that only that version of Emacs will be able to load. However, the use of unique file names allows to have in the same directory several versions of the same Lisp library natively-compiled by several different versions of Emacs.
+
+A non-nil file-local variable binding of no-byte-compile (see Byte Compilation) also disables the native compilation of that file. In addition, a similar variable no-native-compile disables just the native compilation of the file. If both no-byte-compile and no-native-compile are specified, the former takes precedence.
+
+Sometimes there could be a need to prevent the native compilation from writing its results, the *.eln files, into a subdirectory of user-emacs-directory (see The Init File). You can do that by either changing the value of native-comp-eln-load-path (see Native-Compilation Variables) or by temporarily pointing the HOME environment variable to a non-existing directory. Note that the latter technique might still produce a small number of *.eln files if Emacs needs to generate trampolines, which are used if Lisp primitives are advised or redefined in your Lisp code that is being natively compiled. See trampolines. Alternatively, you can specify that the *.eln files are written to a non-default directory using the startup-redirect-eln-cache function; see Native-Compilation Functions.
+
+*** Native-Compilation Functions
+
+Native-Compilation is implemented as a side effect of byte-compilation (see Byte Compilation). Thus, compiling Lisp code natively always produces its byte code as well, and therefore all the rules and caveats of preparing Lisp code for byte compilation (see Byte-Compilation Functions) are valid for native-compilation as well.
+
+You can natively-compile either a single function or macro definition, or a whole file of Lisp code, with the native-compile function. Natively-compiling a file will produce the .eln file with native code.
+
+Native compilation might produce warning or error messages; these are normally recorded in the buffer called *Native-compile-Log*. In interactive sessions, it uses the special LIMPLE mode (native-comp-limple-mode), which sets up font-lock as appropriate for this log, and is otherwise the same as Fundamental mode. Logging of messages resulting from native-compilation can be controlled by the native-comp-verbose variable (see Native-Compilation Variables).
+
+When Emacs is run non-interactively, messages produced by native-compilation are reported by calling message (see Displaying Messages in the Echo Area), and are usually displayed on the standard error stream of the terminal from which Emacs was invoked.
+
+Function: native-compile function-or-file &optional output ¶
+This function compiles function-or-file into native code. The argument function-or-file can be a function symbol, a Lisp form, or a name (a string) of the file which contains the Emacs Lisp source code to compile. If the optional argument output is provided, it must be a string specifying the name of the file to write the compiled code into. Otherwise, if function-or-file is a function or a Lisp form, this function returns the compiled object, and if function-or-file is a file name, the function returns the full absolute name of the file it created for the compiled code. The output file is by default given the .eln extension.
+
+This function runs the final phase of the native compilation, which invokes GCC via libgccjit, in a separate subprocess, which invokes the same Emacs executable as the process that called this function.
+
+Function: batch-native-compile &optional for-tarball ¶
+This function runs native-compilation on files specified on the Emacs command line in batch mode. It must be used only in a batch execution of Emacs, as it kills Emacs upon completion of the compilation. If one or more of the files fail to compile, the Emacs process will attempt to compile all the other files, and will terminate with a non-zero status code. The optional argument for-tarball, if non-nil, tells the function to place the resulting .eln files in the last directory mentioned in native-comp-eln-load-path (see Library Search); this is meant to be used as part of building an Emacs source tarball for the first time, when the natively-compiled files, which are absent from the source tarball, should be generated in the build tree instead of the user’s cache directory.
+
+Native compilation can be run entirely asynchronously, in a subprocess of the main Emacs process. This leaves the main Emacs process free to use while the compilation runs in the background. This is the method used by Emacs to natively-compile any Lisp file or byte-compiled Lisp file that is loaded into Emacs, when no natively-compiled file for it is available. Note that because of this use of a subprocess, native compilation may produce warning and errors which byte-compilation does not, and Lisp code may thus need to be modified to work correctly. See native-comp-async-report-warnings-errors in see Native-Compilation Variables for more details.
+
+Function: native-compile-async files &optional recursively load selector ¶
+This function compiles the named files asynchronously. The argument files should be a single file name (a string) or a list of one or more file and/or directory names. If directories are present in the list, the optional argument recursively should be non-nil to cause the compilation to recurse into those directories. If load is non-nil, Emacs will load each file that it succeeded to compile. The optional argument selector allows control of which of files will be compiled; it can have one of the following values:
+
+nil or omitted
+Select all the files and directories in files.
+
+a regular expression string
+Select the files and directories whose names match the regexp.
+
+a function
+A predicate function, which will be called with each file and directory in files, and should return non-nil if the file or the directory should be selected for compilation.
+
+On systems with multiple CPU execution units, when files names more than one file, this function will normally start several compilation subprocesses in parallel, under the control of native-comp-async-jobs-number (see Native-Compilation Variables).
+
+Command: emacs-lisp-native-compile ¶
+This command compiles the file visited by the current buffer into native code, if the file was changed since the last time it was natively-compiled.
+
+Command: emacs-lisp-native-compile-and-load ¶
+This command compiles the file visited by the current buffer into native code, like emacs-lisp-native-compile, but it also loads the native code when the compilation finishes.
+
+The following function allows Lisp programs to test whether native-compilation is available at runtime.
+
+Function: native-comp-available-p ¶
+This function returns non-nil if the running Emacs process has the native-compilation support compiled into it. On systems that load libgccjit dynamically, it also makes sure that library is available and can be loaded. Lisp programs that need to know up front whether native-compilation is available should use this predicate.
+
+By default, asynchronous native compilation writes the *.eln files it produces to a subdirectory of the first writable directory specified by the native-comp-eln-load-path variable (see Native-Compilation Variables). You can change this by using the following function in your startup files:
+
+Function: startup-redirect-eln-cache cache-directory ¶
+This function arranges for the asynchronous native compilation to write the produced *.eln files to cache-directory, which must be a single directory, a string. It also destructively modifies native-comp-eln-load-path such that its first element is cache-directory. If cache-directory is not an absolute file name, it is interpreted relative to user-emacs-directory (see The Init File).
+
+
+*** Native-Compilation Variables
+
+This section documents the variables that control native-compilation.
+
+User Option: native-comp-speed ¶
+This variable specifies the optimization level for native compilation. Its value should be a number between −1 and 3. Values between 0 and 3 specify the optimization levels equivalent to the corresponding compiler -O0, -O1, etc. command-line options of the compiler. The value −1 means disable native-compilation: functions and files will be only byte-compiled; however, the *.eln files will still be produced, they will just contain the compiled code in bytecode form. (This can be achieved at function granularity by using the (declare (speed -1)) form, see The declare Form.) The default value is 2.
+
+User Option: native-comp-debug ¶
+This variable specifies the level of debugging information produced by native-compilation. Its value should be a number between zero and 3, with the following meaning:
+
+0
+No debugging output. This is the default.
+
+1
+Emit debugging symbols with the native code. This allows easier debugging of the native code with debuggers such as gdb.
+
+2
+Like 1, and in addition dump pseudo-C code.
+
+3
+Like 2, and in addition dump the GCC intermediate passes and libgccjit log file.
+
+User Option: native-comp-verbose ¶
+This variable controls the verbosity of native-compilation by suppressing some or all of the log messages emitted by it. If its value is zero, the default, all of the log messages are suppressed. Setting it to a value between 1 and 3 will allow logging of the messages whose level is above the value. The values have the following interpretations:
+
+0
+No logging. This is the default.
+
+1
+Log the final LIMPLE representation of the code.
+
+2
+Log the LAP, the final LIMPLE, and some additional pass info.
+
+3
+Maximum verbosity: log everything.
+
+User Option: native-comp-async-jobs-number ¶
+This variable determines the maximum number of native-compilation subprocesses that will be started simultaneously. It should be a non-negative number. The default value is zero, which means use half the number of the CPU execution units, or 1 if the CPU has only one execution unit.
+
+User Option: native-comp-async-report-warnings-errors ¶
+If this variable’s value is non-nil, warnings and errors from asynchronous native-compilation subprocesses are reported in the main Emacs session in a buffer named *Warnings*. The default value t means display the resulting buffer. To log warnings without popping up the *Warnings* buffer, set this variable to silent.
+
+A common cause for asynchronous native-compilation to produce warnings is compiling a file that is missing some require of a necessary feature. The feature may be loaded into the main emacs, but because native compilation always starts from a subprocess with a pristine environment, that may not be true for the subprocess.
+
+User Option: native-comp-async-query-on-exit ¶
+If this variable’s value is non-nil, Emacs will query upon exiting whether to exit and kill any asynchronous native-compilation subprocesses that are still running, thus preventing the corresponding .eln files from being written. If the value is nil, the default, Emacs will kill these subprocesses without querying.
+
+The variable native-comp-eln-load-path holds the list of directories where Emacs looks for the *.eln files (see Library Search); in that role it is the equivalent of load-path used to look for *.el and *.elc files. The directories in this list are also used for writing the *.eln files produced by asynchronous native-compilation; specifically, Emacs will write these files into the first writable directory in the list. Thus, you can control where native-compilation stores the results by changing the value of this variable.
+
+Variable: native-comp-jit-compilation ¶
+This variable, if non-nil, enables asynchronous (a.k.a. just-in-time, or JIT) native compilation of the *.elc files loaded by Emacs for which the corresponding *.eln files do not already exist. This JIT compilation uses separate Emacs sub-processes running in batch mode, according to the value of native-comp-async-jobs-number. When the JIT compilation of a Lisp file finishes successfully, the resulting .eln file is loaded and its code replaces the definition of functions provided by the .elc file.
+
+Setting the value of native-comp-jit-compilation to nil disables JIT native compilation. However, even when JIT native compilation is disabled, Emacs might still need to start asynchronous native compilation subprocesses to produce trampolines. To control this, use a separate variable, described below.
+
+Variable: native-comp-enable-subr-trampolines ¶
+This variable controls generation of trampolines. A trampoline is a small piece of native code required to allow calling Lisp primitives, which were advised or redefined, from Lisp code that was natively-compiled with native-comp-speed set to 2 or greater. Emacs stores the generated trampolines on separate *.eln files. By default, this variable’s value is t, which enables the generation of trampoline files; setting it to nil disables the generation of trampolines. Note that if a trampoline needed for advising or redefining a primitive is not available and cannot be generated, calls to that primitive from natively-compiled Lisp will ignore redefinitions and advices, and will behave as if the primitive was called directly from C. Therefore, we don’t recommend disabling the trampoline generation, unless you know that all the trampolines needed by your Lisp programs are already compiled and accessible to Emacs.
+
+The value of this variable can also be a string, in which case it specifies the name of a directory in which to store the generated trampoline *.eln files, overriding the directories in native-comp-eln-load-path. This is useful if you want the trampolines to be generated as needed, but don’t want to store them under the user’s HOME directory or in the other public directories where *.eln files are kept. However, unlike with directories in native-comp-eln-load-path, the trampolines will be stored in the directory given by the value of this variable, not in its version-specific subdirectory. If the name of this directory is not absolute, it is interpreted relative to invocation-directory (see Operating System Environment)
+
+If this variable is non-nil, and Emacs needs to produce a trampoline, but it cannot find any writable directory to store the trampoline, it will store it inside temporary-file-directory (see Generating Unique File Names).
+
+Trampolines produced when no writable directory is found to store them, or when this variable is a string, will only be available for the duration of the current Emacs session, because Emacs doesn’t look for trampolines in either of these places.
+
+** Reading and Printing Lisp Objects
+
+Printing and reading are the operations of converting Lisp objects to textual form and vice versa. They use the printed representations and read syntax described in Lisp Data Types.
+
+This chapter describes the Lisp functions for reading and printing. It also describes streams, which specify where to get the text (if reading) or where to put it (if printing).
+
+*** Introduction to Reading and Printing
+
+Reading a Lisp object means parsing a Lisp expression in textual form and producing a corresponding Lisp object. This is how Lisp programs get into Lisp from files of Lisp code. We call the text the read syntax of the object. For example, the text ‘(a . 5)’ is the read syntax for a cons cell whose CAR is a and whose CDR is the number 5.
+
+Printing a Lisp object means producing text that represents that object—converting the object to its printed representation (see Printed Representation and Read Syntax). Printing the cons cell described above produces the text ‘(a . 5)’.
+
+Reading and printing are more or less inverse operations: printing the object that results from reading a given piece of text often produces the same text, and reading the text that results from printing an object usually produces a similar-looking object. For example, printing the symbol foo produces the text ‘foo’, and reading that text returns the symbol foo. Printing a list whose elements are a and b produces the text ‘(a b)’, and reading that text produces a list (but not the same list) with elements a and b.
+
+However, these two operations are not precisely inverse to each other. There are three kinds of exceptions:
+
+Printing can produce text that cannot be read. For example, buffers, windows, frames, subprocesses and markers print as text that starts with ‘#’; if you try to read this text, you get an error. There is no way to read those data types.
+One object can have multiple textual representations. For example, ‘1’ and ‘01’ represent the same integer, and ‘(a b)’ and ‘(a . (b))’ represent the same list. Reading will accept any of the alternatives, but printing must choose one of them.
+Comments can appear at certain points in the middle of an object’s read sequence without affecting the result of reading it.
+
+
+*** Input Streams
+
+Most of the Lisp functions for reading text take an input stream as an argument. The input stream specifies where or how to get the characters of the text to be read. Here are the possible types of input stream:
+
+buffer ¶
+The input characters are read from buffer, starting with the character directly after point. Point advances as characters are read.
+
+marker ¶
+The input characters are read from the buffer that marker is in, starting with the character directly after the marker. The marker position advances as characters are read. The value of point in the buffer has no effect when the stream is a marker.
+
+string ¶
+The input characters are taken from string, starting at the first character in the string and using as many characters as required.
+
+function ¶
+The input characters are generated by function, which must support two kinds of calls:
+
+When it is called with no arguments, it should return the next character.
+When it is called with one argument (always a character), function should save the argument and arrange to return it on the next call. This is called unreading the character; it happens when the Lisp reader reads one character too many and wants to put it back where it came from. In this case, it makes no difference what value function returns.
+t ¶
+t used as a stream means that the input is read from the minibuffer. In fact, the minibuffer is invoked once and the text given by the user is made into a string that is then used as the input stream. If Emacs is running in batch mode (see Batch Mode), standard input is used instead of the minibuffer. For example,
+
+(message "%s" (read t))
+will in batch mode read a Lisp expression from standard input and print the result to standard output.
+
+nil ¶
+nil supplied as an input stream means to use the value of standard-input instead; that value is the default input stream, and must be a non-nil input stream.
+
+symbol
+A symbol as input stream is equivalent to the symbol’s function definition (if any).
+
+Here is an example of reading from a stream that is a buffer, showing where point is located before and after:
+
+---------- Buffer: foo ----------
+This∗ is the contents of foo.
+---------- Buffer: foo ----------
+
+(read (get-buffer "foo"))
+     ⇒ is
+(read (get-buffer "foo"))
+     ⇒ the
+
+---------- Buffer: foo ----------
+This is the∗ contents of foo.
+---------- Buffer: foo ----------
+Note that the first read skips a space. Reading skips any amount of whitespace preceding the significant text.
+
+Here is an example of reading from a stream that is a marker, initially positioned at the beginning of the buffer shown. The value read is the symbol This.
+
+
+---------- Buffer: foo ----------
+This is the contents of foo.
+---------- Buffer: foo ----------
+
+(setq m (set-marker (make-marker) 1 (get-buffer "foo")))
+     ⇒ #<marker at 1 in foo>
+(read m)
+     ⇒ This
+m
+     ⇒ #<marker at 5 in foo>   ;; Before the first space.
+Here we read from the contents of a string:
+
+(read "(When in) the course")
+     ⇒ (When in)
+The following example reads from the minibuffer. The prompt is: ‘Lisp expression: ’. (That is always the prompt used when you read from the stream t.) The user’s input is shown following the prompt.
+
+(read t)
+     ⇒ 23
+---------- Buffer: Minibuffer ----------
+Lisp expression: 23 RET
+---------- Buffer: Minibuffer ----------
+Finally, here is an example of a stream that is a function, named useless-stream. Before we use the stream, we initialize the variable useless-list to a list of characters. Then each call to the function useless-stream obtains the next character in the list or unreads a character by adding it to the front of the list.
+
+(setq useless-list (append "XY()" nil))
+     ⇒ (88 89 40 41)
+
+(defun useless-stream (&optional unread)
+  (if unread
+      (setq useless-list (cons unread useless-list))
+    (prog1 (car useless-list)
+           (setq useless-list (cdr useless-list)))))
+     ⇒ useless-stream
+Now we read using the stream thus constructed:
+
+(read 'useless-stream)
+     ⇒ XY
+
+useless-list
+     ⇒ (40 41)
+Note that the open and close parentheses remain in the list. The Lisp reader encountered the open parenthesis, decided that it ended the input, and unread it. Another attempt to read from the stream at this point would read ‘()’ and return nil.
+
+
+*** Input Functions
+
+This section describes the Lisp functions and variables that pertain to reading.
+
+In the functions below, stream stands for an input stream (see the previous section). If stream is nil or omitted, it defaults to the value of standard-input.
+
+An end-of-file error is signaled if reading encounters an unterminated list, vector, or string.
+
+Function: read &optional stream ¶
+This function reads one textual Lisp expression from stream, returning it as a Lisp object. This is the basic Lisp input function.
+
+Function: read-from-string string &optional start end ¶
+This function reads the first textual Lisp expression from the text in string. It returns a cons cell whose CAR is that expression, and whose CDR is an integer giving the position of the next remaining character in the string (i.e., the first one not read).
+
+If start is supplied, then reading begins at index start in the string (where the first character is at index 0). If you specify end, then reading is forced to stop just before that index, as if the rest of the string were not there.
+
+For example:
+
+(read-from-string "(setq x 55) (setq y 5)")
+     ⇒ ((setq x 55) . 11)
+(read-from-string "\"A short string\"")
+     ⇒ ("A short string" . 16)
+
+;; Read starting at the first character.
+(read-from-string "(list 112)" 0)
+     ⇒ ((list 112) . 10)
+;; Read starting at the second character.
+(read-from-string "(list 112)" 1)
+     ⇒ (list . 5)
+;; Read starting at the seventh character,
+;;   and stopping at the ninth.
+(read-from-string "(list 112)" 6 8)
+     ⇒ (11 . 8)
+Function: read-positioning-symbols &optional stream ¶
+This function reads one textual expression from stream, like read does, but additionally positions the read symbols to the positions in stream where they occurred. Only the symbol nil is not positioned, this for efficiency reasons. See Symbols with Position. This function is used by the byte compiler.
+
+Variable: standard-input ¶
+This variable holds the default input stream—the stream that read uses when the stream argument is nil. The default is t, meaning use the minibuffer.
+
+Variable: read-circle ¶
+If non-nil, this variable enables the reading of circular and shared structures. See Read Syntax for Circular Objects. Its default value is t.
+
+When reading or writing from the standard input/output streams of the Emacs process in batch mode, it is sometimes required to make sure any arbitrary binary data will be read/written verbatim, and/or that no translation of newlines to or from CR-LF pairs is performed. This issue does not exist on POSIX hosts, only on MS-Windows and MS-DOS. The following function allows you to control the I/O mode of any standard stream of the Emacs process.
+
+Function: set-binary-mode stream mode ¶
+Switch stream into binary or text I/O mode. If mode is non-nil, switch to binary mode, otherwise switch to text mode. The value of stream can be one of stdin, stdout, or stderr. This function flushes any pending output data of stream as a side effect, and returns the previous value of I/O mode for stream. On POSIX hosts, it always returns a non-nil value and does nothing except flushing pending output.
+
+Function: readablep object ¶
+This predicate says whether object has readable syntax, i.e., it can be written out and then read back by the Emacs Lisp reader. If it can’t, this function returns nil; if it can, this function returns a printed representation (via prin1, see Output Functions) of object.
+
+
+*** Output Streams
+
+An output stream specifies what to do with the characters produced by printing. Most print functions accept an output stream as an optional argument. Here are the possible types of output stream:
+
+buffer ¶
+The output characters are inserted into buffer at point. Point advances as characters are inserted.
+
+marker ¶
+The output characters are inserted into the buffer that marker points into, at the marker position. The marker position advances as characters are inserted. The value of point in the buffer has no effect on printing when the stream is a marker, and this kind of printing does not move point (except that if the marker points at or before the position of point, point advances with the surrounding text, as usual).
+
+function ¶
+The output characters are passed to function, which is responsible for storing them away. It is called with a single character as argument, as many times as there are characters to be output, and is responsible for storing the characters wherever you want to put them.
+
+t ¶
+The output characters are displayed in the echo area. If Emacs is running in batch mode (see Batch Mode), the output is written to the standard output descriptor instead.
+
+nil ¶
+nil specified as an output stream means to use the value of the standard-output variable instead; that value is the default output stream, and must not be nil.
+
+symbol
+A symbol as output stream is equivalent to the symbol’s function definition (if any).
+
+Many of the valid output streams are also valid as input streams. The difference between input and output streams is therefore more a matter of how you use a Lisp object, than of different types of object.
+
+Here is an example of a buffer used as an output stream. Point is initially located as shown immediately before the ‘h’ in ‘the’. At the end, point is located directly before that same ‘h’.
+
+---------- Buffer: foo ----------
+This is t∗he contents of foo.
+---------- Buffer: foo ----------
+
+(print "This is the output" (get-buffer "foo"))
+     ⇒ "This is the output"
+
+---------- Buffer: foo ----------
+This is t
+"This is the output"
+∗he contents of foo.
+---------- Buffer: foo ----------
+Now we show a use of a marker as an output stream. Initially, the marker is in buffer foo, between the ‘t’ and the ‘h’ in the word ‘the’. At the end, the marker has advanced over the inserted text so that it remains positioned before the same ‘h’. Note that the location of point, shown in the usual fashion, has no effect.
+
+---------- Buffer: foo ----------
+This is the ∗output
+---------- Buffer: foo ----------
+
+(setq m (copy-marker 10))
+     ⇒ #<marker at 10 in foo>
+
+(print "More output for foo." m)
+     ⇒ "More output for foo."
+
+---------- Buffer: foo ----------
+This is t
+"More output for foo."
+he ∗output
+---------- Buffer: foo ----------
+
+m
+     ⇒ #<marker at 34 in foo>
+The following example shows output to the echo area:
+
+(print "Echo Area output" t)
+     ⇒ "Echo Area output"
+---------- Echo Area ----------
+"Echo Area output"
+---------- Echo Area ----------
+Finally, we show the use of a function as an output stream. The function eat-output takes each character that it is given and conses it onto the front of the list last-output (see Building Cons Cells and Lists). At the end, the list contains all the characters output, but in reverse order.
+
+(setq last-output nil)
+     ⇒ nil
+
+(defun eat-output (c)
+  (setq last-output (cons c last-output)))
+     ⇒ eat-output
+
+(print "This is the output" #'eat-output)
+     ⇒ "This is the output"
+
+last-output
+     ⇒ (10 34 116 117 112 116 117 111 32 101 104
+    116 32 115 105 32 115 105 104 84 34 10)
+Now we can put the output in the proper order by reversing the list:
+
+(concat (nreverse last-output))
+     ⇒ "
+\"This is the output\"
+"
+Calling concat converts the list to a string so you can see its contents more clearly.
+
+Function: external-debugging-output character ¶
+This function can be useful as an output stream when debugging. It writes character to the standard error stream.
+
+For example
+
+(print "This is the output" #'external-debugging-output)
+-| This is the output
+⇒ "This is the output"
+
+
+*** Output Functions
+
+This section describes the Lisp functions for printing Lisp objects—converting objects into their printed representation.
+
+Some of the Emacs printing functions add quoting characters to the output when necessary so that it can be read properly. The quoting characters used are ‘"’ and ‘\’; they distinguish strings from symbols, and prevent punctuation characters in strings and symbols from being taken as delimiters when reading. See Printed Representation and Read Syntax, for full details. You specify quoting or no quoting by the choice of printing function.
+
+If the text is to be read back into Lisp, then you should print with quoting characters to avoid ambiguity. Likewise, if the purpose is to describe a Lisp object clearly for a Lisp programmer. However, if the purpose of the output is to look nice for humans, then it is usually better to print without quoting.
+
+Lisp objects can refer to themselves. Printing a self-referential object in the normal way would require an infinite amount of text, and the attempt could cause infinite recursion. Emacs detects such recursion and prints ‘#level’ instead of recursively printing an object already being printed. For example, here ‘#0’ indicates a recursive reference to the object at level 0 of the current print operation:
+
+(setq foo (list nil))
+     ⇒ (nil)
+(setcar foo foo)
+     ⇒ (#0)
+In the functions below, stream stands for an output stream. (See the previous section for a description of output streams. Also See external-debugging-output, a useful stream value for debugging.) If stream is nil or omitted, it defaults to the value of standard-output.
+
+Function: print object &optional stream ¶
+The print function is a convenient way of printing. It outputs the printed representation of object to stream, printing in addition one newline before object and another after it. Quoting characters are used. print returns object. For example:
+
+(progn (print 'The\ cat\ in)
+       (print "the hat")
+       (print " came back"))
+     -|
+     -| The\ cat\ in
+     -|
+     -| "the hat"
+     -|
+     -| " came back"
+     ⇒ " came back"
+Function: prin1 object &optional stream overrides ¶
+This function outputs the printed representation of object to stream. It does not print newlines to separate output as print does, but it does use quoting characters just like print. It returns object.
+
+(progn (prin1 'The\ cat\ in)
+       (prin1 "the hat")
+       (prin1 " came back"))
+     -| The\ cat\ in"the hat"" came back"
+     ⇒ " came back"
+If overrides is non-nil, it should either be t (which tells prin1 to use the defaults for all printer related variables), or a list of settings. See Overriding Output Variables, for details.
+
+Function: princ object &optional stream ¶
+This function outputs the printed representation of object to stream. It returns object.
+
+This function is intended to produce output that is readable by people, not by read, so it doesn’t insert quoting characters and doesn’t put double-quotes around the contents of strings. It does not add any spacing between calls.
+
+(progn
+  (princ 'The\ cat)
+  (princ " in the \"hat\""))
+     -| The cat in the "hat"
+     ⇒ " in the \"hat\""
+Function: terpri &optional stream ensure ¶
+This function outputs a newline to stream. The name stands for “terminate print”. If ensure is non-nil no newline is printed if stream is already at the beginning of a line. Note in this case stream can not be a function and an error is signaled if it is. This function returns t if a newline is printed.
+
+Function: write-char character &optional stream ¶
+This function outputs character to stream. It returns character.
+
+Function: flush-standard-output ¶
+If you have Emacs-based batch scripts that send output to the terminal, Emacs will automatically display the output whenever you write a newline characters to standard-output. This function allows you to flush to standard-output without sending a newline character first, which enables you to display incomplete lines.
+
+Function: prin1-to-string object &optional noescape overrides ¶
+This function returns a string containing the text that prin1 would have printed for the same argument.
+
+(prin1-to-string 'foo)
+     ⇒ "foo"
+(prin1-to-string (mark-marker))
+     ⇒ "#<marker at 2773 in strings.texi>"
+
+If overrides is non-nil, it should either be t
+(which tells prin1 to use the defaults for all printer related
+variables), or a list of settings.  See Overriding Output Variables, for details.
+If noescape is non-nil, that inhibits use of quoting characters in the output. (This argument is supported in Emacs versions 19 and later.)
+
+(prin1-to-string "foo")
+     ⇒ "\"foo\""
+(prin1-to-string "foo" t)
+     ⇒ "foo"
+See format, in Formatting Strings, for other ways to obtain the printed representation of a Lisp object as a string.
+
+Macro: with-output-to-string body… ¶
+This macro executes the body forms with standard-output set up to feed output into a string. Then it returns that string.
+
+For example, if the current buffer name is ‘foo’,
+
+(with-output-to-string
+  (princ "The buffer is ")
+  (princ (buffer-name)))
+returns "The buffer is foo".
+
+Function: pp object &optional stream ¶
+This function outputs object to stream, just like prin1, but does it in a prettier way. That is, it’ll indent and fill the object to make it more readable for humans.
+
+If you need to use binary I/O in batch mode, e.g., use the functions described in this section to write out arbitrary binary data or avoid conversion of newlines on non-POSIX hosts, see set-binary-mode.
+
+
+*** Variables Affecting Output
+
+Variable: standard-output ¶
+The value of this variable is the default output stream—the stream that print functions use when the stream argument is nil. The default is t, meaning display in the echo area.
+
+Variable: print-quoted ¶
+If this is non-nil, that means to print quoted forms using abbreviated reader syntax, e.g., (quote foo) prints as 'foo, and (function foo) as #'foo. The default is t.
+
+Variable: print-escape-newlines ¶
+If this variable is non-nil, then newline characters in strings are printed as ‘\n’ and formfeeds are printed as ‘\f’. Normally these characters are printed as actual newlines and formfeeds.
+
+This variable affects the print functions prin1 and print that print with quoting. It does not affect princ. Here is an example using prin1:
+
+(prin1 "a\nb")
+     -| "a
+     -| b"
+     ⇒ "a
+b"
+
+(let ((print-escape-newlines t))
+  (prin1 "a\nb"))
+     -| "a\nb"
+     ⇒ "a
+b"
+In the second expression, the local binding of print-escape-newlines is in effect during the call to prin1, but not during the printing of the result.
+
+Variable: print-escape-control-characters ¶
+If this variable is non-nil, control characters in strings are printed as backslash sequences by the print functions prin1 and print that print with quoting. If this variable and print-escape-newlines are both non-nil, the latter takes precedences for newlines and formfeeds.
+
+Variable: print-escape-nonascii ¶
+If this variable is non-nil, then unibyte non-ASCII characters in strings are unconditionally printed as backslash sequences by the print functions prin1 and print that print with quoting.
+
+Those functions also use backslash sequences for unibyte non-ASCII characters, regardless of the value of this variable, when the output stream is a multibyte buffer or a marker pointing into one.
+
+Variable: print-escape-multibyte ¶
+If this variable is non-nil, then multibyte non-ASCII characters in strings are unconditionally printed as backslash sequences by the print functions prin1 and print that print with quoting.
+
+Those functions also use backslash sequences for multibyte non-ASCII characters, regardless of the value of this variable, when the output stream is a unibyte buffer or a marker pointing into one.
+
+Variable: print-charset-text-property ¶
+This variable controls printing of ‘charset’ text property on printing a string. The value should be nil, t, or default.
+
+If the value is nil, charset text properties are never printed. If t, they are always printed.
+
+If the value is default, only print charset text properties if there is an “unexpected” charset property. For ascii characters, all charsets are considered “expected”. Otherwise, the expected charset property of a character is given by char-charset.
+
+Variable: print-length ¶
+The value of this variable is the maximum number of elements to print in any list, vector or bool-vector. If an object being printed has more than this many elements, it is abbreviated with an ellipsis.
+
+If the value is nil (the default), then there is no limit.
+
+(setq print-length 2)
+     ⇒ 2
+(print '(1 2 3 4 5))
+     -| (1 2 ...)
+     ⇒ (1 2 ...)
+Variable: print-level ¶
+The value of this variable is the maximum depth of nesting of parentheses and brackets when printed. Any list or vector at a depth exceeding this limit is abbreviated with an ellipsis. A value of nil (which is the default) means no limit.
+
+User Option: eval-expression-print-length ¶
+User Option: eval-expression-print-level ¶
+These are the values for print-length and print-level used by eval-expression, and thus, indirectly, by many interactive evaluation commands (see Evaluating Emacs Lisp Expressions in The GNU Emacs Manual).
+
+These variables are used for detecting and reporting circular and shared structure:
+
+Variable: print-circle ¶
+If non-nil, this variable enables detection of circular and shared structure in printing. See Read Syntax for Circular Objects.
+
+Variable: print-unreadable-function ¶
+By default, Emacs prints unreadable objects as ‘#<...>"’. For instance:
+
+(prin1-to-string (make-marker))
+     ⇒ "#<marker in no buffer>"
+If this variable is non-nil, it should be a function that will be called to handle printing of these objects. The function will be called with two arguments: the object and the noescape flag used by the printing functions (see Output Functions).
+
+The function should return either nil (print the object as usual), or a string (which will be printed), or any other object (don’t print the object). For instance:
+
+(let ((print-unreadable-function
+       (lambda (object escape) "hello")))
+  (prin1-to-string (make-marker)))
+     ⇒ "hello"
+Variable: print-gensym ¶
+If non-nil, this variable enables detection of uninterned symbols (see Creating and Interning Symbols) in printing. When this is enabled, uninterned symbols print with the prefix ‘#:’, which tells the Lisp reader to produce an uninterned symbol.
+
+Variable: print-continuous-numbering ¶
+If non-nil, that means number continuously across print calls. This affects the numbers printed for ‘#n=’ labels and ‘#m#’ references. Don’t set this variable with setq; you should only bind it temporarily to t with let. When you do that, you should also bind print-number-table to nil.
+
+Variable: print-number-table ¶
+This variable holds a vector used internally by printing to implement the print-circle feature. You should not use it except to bind it to nil when you bind print-continuous-numbering.
+
+Variable: float-output-format ¶
+This variable specifies how to print floating-point numbers. The default is nil, meaning use the shortest output that represents the number without losing information.
+
+To control output format more precisely, you can put a string in this variable. The string should hold a ‘%’-specification to be used in the C function sprintf. For further restrictions on what you can use, see the variable’s documentation string.
+
+Variable: print-integers-as-characters ¶
+When this variable is non-nil, integers that represent graphic base characters will be printed using Lisp character syntax (see Basic Char Syntax). Other numbers are printed the usual way. For example, the list (4 65 -1 10) would be printed as ‘(4 ?A -1 ?\n)’.
+
+More precisely, values printed in character syntax are those representing characters belonging to the Unicode general categories Letter, Number, Punctuation, Symbol and Private-use (see Character Properties), as well as the control characters having their own escape syntax such as newline.
+
+
+*** Overriding Output Variables
+
+The previous section (see Output Functions) lists the numerous variables that control how the Emacs Lisp printer formats data for outputs. These are generally available for users to change, but sometimes you want to output data in the default format, or override the user settings in some other way. For instance, if you’re storing Emacs Lisp data in a file, you don’t want that data to be shortened by a print-length setting.
+
+The prin1 and prin1-to-string functions therefore have an optional overrides argument. This argument can either be t (which means that all printing variables should be reset to the default values), or a list of settings for some of the variables. Each element in the list can be either t (which means “reset to defaults”, and will usually be the first element of the list), or a pair whose car is a symbol that stands for an output variable and whose cdr is the value for that variable.
+
+For instance, this prints using nothing but defaults:
+
+(prin1 object nil t)
+This prints object using the current printing settings, but overrides the value of print-length to be 5:
+
+(prin1 object nil '((length . 5)))
+And finally, this prints object using only default settings, but with print-length bound to 5:
+
+(prin1 object nil '(t (length . 5)))
+Below is a list of symbols that can be used, and which variables they map to:
+
+length
+This overrides print-length.
+
+level
+This overrides print-level.
+
+circle
+This overrides print-circle.
+
+quoted
+This overrides print-quoted.
+
+escape-newlines
+This overrides print-escape-newlines.
+
+escape-control-characters
+This overrides print-escape-control-characters.
+
+escape-nonascii
+This overrides print-escape-nonascii.
+
+escape-multibyte
+This overrides print-escape-multibyte.
+
+charset-text-property
+This overrides print-charset-text-property.
+
+unreadeable-function
+This overrides print-unreadable-function.
+
+gensym
+This overrides print-gensym.
+
+continuous-numbering
+This overrides print-continuous-numbering.
+
+number-table
+This overrides print-number-table.
+
+float-format
+This overrides float-output-format.
+
+integers-as-characters
+This overrides print-integers-as-characters.
+
+In the future, more overrides may be offered that do not map directly to a variable, but can only be used via this parameter.

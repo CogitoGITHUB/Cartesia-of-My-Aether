@@ -1,0 +1,575 @@
+#+title:      Elisp Miscellany
+
+* Elisp Miscellany :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       c0563a2d-0c88-4a05-a63d-c3facc4ba3bc
+:END:
+
+An abbreviation or abbrev is a string of characters that may be expanded to a longer string. The user can insert the abbrev string and find it replaced automatically with the expansion of the abbrev. This saves typing.
+
+The set of abbrevs currently in effect is recorded in an abbrev table. Each buffer has a local abbrev table, but normally all buffers in the same major mode share one abbrev table. There is also a global abbrev table. Normally both are used.
+
+An abbrev table is represented as an obarray. See Creating and Interning Symbols, for information about obarrays. Each abbreviation is represented by a symbol in the obarray. The symbol’s name is the abbreviation; its value is the expansion; its function definition is the hook function for performing the expansion (see Defining Abbrevs); and its property list cell contains various additional properties, including the use count and the number of times the abbreviation has been expanded (see Abbrev Properties).
+
+Certain abbrevs, called system abbrevs, are defined by a major mode instead of the user. A system abbrev is identified by its non-nil :system property (see Abbrev Properties). When abbrevs are saved to an abbrev file, system abbrevs are omitted. See Saving Abbrevs in Files.
+
+Because the symbols used for abbrevs are not interned in the usual obarray, they will never appear as the result of reading a Lisp expression; in fact, normally they are never used except by the code that handles abbrevs. Therefore, it is safe to use them in a nonstandard way.
+
+If the minor mode Abbrev mode is enabled, the buffer-local variable abbrev-mode is non-nil, and abbrevs are automatically expanded in the buffer. For the user-level commands for abbrevs, see Abbrev Mode in The GNU Emacs Manual.
+
+*** Abbrev Tables
+
+This section describes how to create and manipulate abbrev tables.
+
+Function: make-abbrev-table &optional props ¶
+This function creates and returns a new, empty abbrev table—an obarray containing no symbols. It is a vector filled with zeros. props is a property list that is applied to the new table (see Abbrev Table Properties).
+
+Function: abbrev-table-p object ¶
+This function returns a non-nil value if object is an abbrev table.
+
+Function: clear-abbrev-table abbrev-table ¶
+This function undefines all the abbrevs in abbrev-table, leaving it empty.
+
+Function: copy-abbrev-table abbrev-table ¶
+This function returns a copy of abbrev-table—a new abbrev table containing the same abbrev definitions. It does not copy any property lists; only the names, values, and functions.
+
+Function: define-abbrev-table tabname definitions &optional docstring &rest props ¶
+This function defines tabname (a symbol) as an abbrev table name, i.e., as a variable whose value is an abbrev table. It defines abbrevs in the table according to definitions, a list of elements of the form (abbrevname expansion [hook] [props...]). These elements are passed as arguments to define-abbrev.
+
+The optional string docstring is the documentation string of the variable tabname. The property list props is applied to the abbrev table (see Abbrev Table Properties).
+
+If this function is called more than once for the same tabname, subsequent calls add the definitions in definitions to tabname, rather than overwriting the entire original contents. (A subsequent call only overrides abbrevs explicitly redefined or undefined in definitions.)
+
+Variable: abbrev-table-name-list ¶
+This is a list of symbols whose values are abbrev tables. define-abbrev-table adds the new abbrev table name to this list.
+
+Function: insert-abbrev-table-description name &optional human ¶
+This function inserts before point a description of the abbrev table named name. The argument name is a symbol whose value is an abbrev table.
+
+If human is non-nil, the description is human-oriented. System abbrevs are listed and identified as such. Otherwise the description is a Lisp expression—a call to define-abbrev-table that would define name as it is currently defined, but without the system abbrevs. (The mode or package using name is supposed to add these to name separately.)
+
+
+*** Defining Abbrevs
+
+define-abbrev is the low-level basic function for defining an abbrev in an abbrev table.
+
+When a major mode defines a system abbrev, it should call define-abbrev and specify t for the :system property. Be aware that any saved non-system abbrevs are restored at startup, i.e., before some major modes are loaded. Therefore, major modes should not assume that their abbrev tables are empty when they are first loaded.
+
+Function: define-abbrev abbrev-table name expansion &optional hook &rest props ¶
+This function defines an abbrev named name, in abbrev-table, to expand to expansion and call hook, with properties props (see Abbrev Properties). The return value is name. The :system property in props is treated specially here: if it has the value force, then it will overwrite an existing definition even for a non-system abbrev of the same name.
+
+name should be a string. The argument expansion is normally the desired expansion (a string), or nil to undefine the abbrev. If it is anything but a string or nil, then the abbreviation expands solely by running hook.
+
+The argument hook is a function or nil. If hook is non-nil, then it is called with no arguments after the abbrev is replaced with expansion; point is located at the end of expansion when hook is called.
+
+If hook is a non-nil symbol whose no-self-insert property is non-nil, hook can explicitly control whether to insert the self-inserting input character that triggered the expansion. If hook returns non-nil in this case, that inhibits insertion of the character. By contrast, if hook returns nil, expand-abbrev (or abbrev-insert) also returns nil, as if expansion had not really occurred.
+
+Normally, define-abbrev sets the variable abbrevs-changed to t, if it actually changes the abbrev. This is so that some commands will offer to save the abbrevs. It does not do this for a system abbrev, since those aren’t saved anyway.
+
+User Option: only-global-abbrevs ¶
+If this variable is non-nil, it means that the user plans to use global abbrevs only. This tells the commands that define mode-specific abbrevs to define global ones instead. This variable does not alter the behavior of the functions in this section; it is examined by their callers.
+
+
+*** Saving Abbrevs in Files
+
+A file of saved abbrev definitions is actually a file of Lisp code. The abbrevs are saved in the form of a Lisp program to define the same abbrev tables with the same contents. Therefore, you can load the file with load (see How Programs Do Loading). However, the function quietly-read-abbrev-file is provided as a more convenient interface. Emacs automatically calls this function at startup.
+
+User-level facilities such as save-some-buffers can save abbrevs in a file automatically, under the control of variables described here.
+
+User Option: abbrev-file-name ¶
+This is the default file name for reading and saving abbrevs. By default, Emacs will look for ~/.emacs.d/abbrev_defs, and, if not found, for ~/.abbrev_defs; if neither file exists, Emacs will create ~/.emacs.d/abbrev_defs.
+
+Function: quietly-read-abbrev-file &optional filename ¶
+This function reads abbrev definitions from a file named filename, previously written with write-abbrev-file. If filename is omitted or nil, the file specified in abbrev-file-name is used.
+
+As the name implies, this function does not display any messages.
+
+User Option: save-abbrevs ¶
+A non-nil value for save-abbrevs means that Emacs should offer to save abbrevs (if any have changed) when files are saved. If the value is silently, Emacs saves the abbrevs without asking the user. abbrev-file-name specifies the file to save the abbrevs in. The default value is t.
+
+Variable: abbrevs-changed ¶
+This variable is set non-nil by defining or altering any abbrevs (except system abbrevs). This serves as a flag for various Emacs commands to offer to save your abbrevs.
+
+Command: write-abbrev-file &optional filename ¶
+Save all abbrev definitions (except system abbrevs), for all abbrev tables listed in abbrev-table-name-list, in the file filename, in the form of a Lisp program that when loaded will define the same abbrevs. Tables that do not have any abbrevs to save are omitted. If filename is nil or omitted, abbrev-file-name is used. This function returns nil.
+
+
+*** Looking Up and Expanding Abbreviations
+
+Abbrevs are usually expanded by certain interactive commands, including self-insert-command. This section describes the subroutines used in writing such commands, as well as the variables they use for communication.
+
+Function: abbrev-symbol abbrev &optional table ¶
+This function returns the symbol representing the abbrev named abbrev. It returns nil if that abbrev is not defined. The optional second argument table is the abbrev table in which to look it up. If table is nil, this function tries first the current buffer’s local abbrev table, and second the global abbrev table.
+
+Function: abbrev-expansion abbrev &optional table ¶
+This function returns the string that abbrev would expand into (as defined by the abbrev tables used for the current buffer). It returns nil if abbrev is not a valid abbrev. The optional argument table specifies the abbrev table to use, as in abbrev-symbol.
+
+Command: expand-abbrev ¶
+This command expands the abbrev before point, if any. If point does not follow an abbrev, this command does nothing. To do the expansion, it calls the function that is the value of the abbrev-expand-function variable, with no arguments, and returns whatever that function does.
+
+The default expansion function returns the abbrev symbol if it did expansion, and nil otherwise. If the abbrev symbol has a hook function that is a symbol whose no-self-insert property is non-nil, and if the hook function returns nil as its value, then the default expansion function returns nil, even though expansion did occur.
+
+Function: abbrev-insert abbrev &optional name start end ¶
+This function inserts the abbrev expansion of abbrev, replacing the text between start and end. If start is omitted, it defaults to point. name, if non-nil, should be the name by which this abbrev was found (a string); it is used to figure out whether to adjust the capitalization of the expansion. The function returns abbrev if the abbrev was successfully inserted, otherwise it returns nil.
+
+Command: abbrev-prefix-mark &optional arg ¶
+This command marks the current location of point as the beginning of an abbrev. The next call to expand-abbrev will use the text from here to point (where it is then) as the abbrev to expand, rather than using the previous word as usual.
+
+First, this command expands any abbrev before point, unless arg is non-nil. (Interactively, arg is the prefix argument.) Then it inserts a hyphen before point, to indicate the start of the next abbrev to be expanded. The actual expansion removes the hyphen.
+
+User Option: abbrev-all-caps ¶
+When this is set non-nil, an abbrev entered entirely in upper case is expanded using all upper case. Otherwise, an abbrev entered entirely in upper case is expanded by capitalizing each word of the expansion.
+
+Variable: abbrev-start-location ¶
+The value of this variable is a buffer position (an integer or a marker) for expand-abbrev to use as the start of the next abbrev to be expanded. The value can also be nil, which means to use the word before point instead. abbrev-start-location is set to nil each time expand-abbrev is called. This variable is also set by abbrev-prefix-mark.
+
+Variable: abbrev-start-location-buffer ¶
+The value of this variable is the buffer for which abbrev-start-location has been set. Trying to expand an abbrev in any other buffer clears abbrev-start-location. This variable is set by abbrev-prefix-mark.
+
+Variable: last-abbrev ¶
+This is the abbrev-symbol of the most recent abbrev expanded. This information is left by expand-abbrev for the sake of the unexpand-abbrev command (see Expanding Abbrevs in The GNU Emacs Manual).
+
+Variable: last-abbrev-location ¶
+This is the location of the most recent abbrev expanded. This contains information left by expand-abbrev for the sake of the unexpand-abbrev command.
+
+Variable: last-abbrev-text ¶
+This is the exact expansion text of the most recent abbrev expanded, after case conversion (if any). Its value is nil if the abbrev has already been unexpanded. This contains information left by expand-abbrev for the sake of the unexpand-abbrev command.
+
+Variable: abbrev-expand-function ¶
+The value of this variable is a function that expand-abbrev will call with no arguments to do the expansion. The function can do anything it wants before and after performing the expansion. It should return the abbrev symbol if expansion took place.
+
+The following sample code shows a simple use of abbrev-expand-function. It assumes that foo-mode is a mode for editing certain files in which lines that start with ‘#’ are comments. You want to use Text mode abbrevs for those lines. The regular local abbrev table, foo-mode-abbrev-table is appropriate for all other lines. See Standard Abbrev Tables, for the definitions of local-abbrev-table and text-mode-abbrev-table. See Advising Emacs Lisp Functions, for details of add-function.
+
+(defun foo-mode-abbrev-expand-function (expand)
+  (if (not (save-excursion (forward-line 0) (eq (char-after) ?#)))
+      ;; Performs normal expansion.
+      (funcall expand)
+    ;; We're inside a comment: use the text-mode abbrevs.
+    (let ((local-abbrev-table text-mode-abbrev-table))
+      (funcall expand))))
+
+(add-hook 'foo-mode-hook
+          (lambda ()
+            (add-function :around (local 'abbrev-expand-function)
+                          #'foo-mode-abbrev-expand-function)))
+
+*** Standard Abbrev Tables
+
+Here we list the variables that hold the abbrev tables for the preloaded major modes of Emacs.
+
+Variable: global-abbrev-table ¶
+This is the abbrev table for mode-independent abbrevs. The abbrevs defined in it apply to all buffers. Each buffer may also have a local abbrev table, whose abbrev definitions take precedence over those in the global table.
+
+Variable: local-abbrev-table ¶
+The value of this buffer-local variable is the (mode-specific) abbreviation table of the current buffer. It can also be a list of such tables.
+
+Variable: abbrev-minor-mode-table-alist ¶
+The value of this variable is a list of elements of the form (mode . abbrev-table) where mode is the name of a variable: if the variable is bound to a non-nil value, then the abbrev-table is active, otherwise it is ignored. abbrev-table can also be a list of abbrev tables.
+
+Variable: fundamental-mode-abbrev-table ¶
+This is the local abbrev table used in Fundamental mode; in other words, it is the local abbrev table in all buffers in Fundamental mode.
+
+Variable: text-mode-abbrev-table ¶
+This is the local abbrev table used in Text mode.
+
+Variable: lisp-mode-abbrev-table ¶
+This is the local abbrev table used in Lisp mode. It is the parent of the local abbrev table used in Emacs Lisp mode. See Abbrev Table Properties.
+
+
+*** Abbrev Properties
+
+Abbrevs have properties, some of which influence the way they work. You can provide them as arguments to define-abbrev, and manipulate them with the following functions:
+
+Function: abbrev-put abbrev prop val ¶
+Set the property prop of abbrev to value val.
+
+Function: abbrev-get abbrev prop ¶
+Return the property prop of abbrev, or nil if the abbrev has no such property.
+
+The following properties have special meanings:
+
+:count
+This property counts the number of times the abbrev has been expanded. If not explicitly set, it is initialized to 0 by define-abbrev.
+
+:system
+If non-nil, this property marks the abbrev as a system abbrev. Such abbrevs are not saved (see Saving Abbrevs in Files).
+
+:enable-function
+If non-nil, this property should be a function of no arguments which returns nil if the abbrev should not be used and t otherwise.
+
+:case-fixed
+If non-nil, this property indicates that the case of the abbrev’s name is significant and should only match a text with the same pattern of capitalization. It also disables the code that modifies the capitalization of the expansion.
+
+
+*** Abbrev Table Properties
+
+Like abbrevs, abbrev tables have properties, some of which influence the way they work. You can provide them as arguments to define-abbrev-table, and manipulate them with the functions:
+
+Function: abbrev-table-put table prop val ¶
+Set the property prop of abbrev table table to value val.
+
+Function: abbrev-table-get table prop ¶
+Return the property prop of abbrev table table, or nil if table has no such property.
+
+The following properties have special meaning:
+
+:enable-function
+This is like the :enable-function abbrev property except that it applies to all abbrevs in the table. It is used before even trying to find the abbrev before point, so it can dynamically modify the abbrev table.
+
+:case-fixed
+This is like the :case-fixed abbrev property except that it applies to all abbrevs in the table.
+
+:regexp
+If non-nil, this property is a regular expression that indicates how to extract the name of the abbrev before point, before looking it up in the table. When the regular expression matches before point, the abbrev name is expected to be in submatch 1. If this property is nil, the default is to use backward-word and forward-word to find the name. This property allows the use of abbrevs whose name contains characters of non-word syntax.
+
+:parents
+This property holds a list of tables from which to inherit other abbrevs.
+
+:abbrev-table-modiff
+This property holds a counter incremented each time a new abbrev is added to the table.
+
+** Threads
+
+Emacs Lisp provides a limited form of concurrency, called threads. All the threads in a given instance of Emacs share the same memory. Concurrency in Emacs Lisp is “mostly cooperative”, meaning that Emacs will only switch execution between threads at well-defined times. However, the Emacs thread support has been designed in a way to later allow more fine-grained concurrency, and correct programs should not rely on cooperative threading.
+
+Currently, thread switching will occur upon explicit request via thread-yield, when waiting for keyboard input or for process output from asynchronous processes (e.g., during accept-process-output), or during blocking operations relating to threads, such as mutex locking or thread-join.
+
+Emacs Lisp provides primitives to create and control threads, and also to create and control mutexes and condition variables, useful for thread synchronization.
+
+While global variables are shared among all Emacs Lisp threads, local variables are not—a dynamic let binding is local. Each thread also has its own current buffer (see The Current Buffer) and its own match data (see The Match Data).
+
+Note that let bindings are treated specially by the Emacs Lisp implementation. There is no way to duplicate this unwinding and rewinding behavior other than by using let. For example, a manual implementation of let written using unwind-protect cannot arrange for variable values to be thread-specific.
+
+In the case of lexical bindings (see Scoping Rules for Variable Bindings), a closure is an object like any other in Emacs Lisp, and bindings in a closure are shared by any threads invoking the closure.
+
+*** Basic Thread Functions
+
+Threads can be created and waited for. A thread cannot be exited directly, but the current thread can be exited implicitly, and other threads can be signaled.
+
+Function: make-thread function &optional name ¶
+Create a new thread of execution which invokes function. When function returns, the thread exits.
+
+The new thread is created with no local variable bindings in effect. The new thread’s current buffer is inherited from the current thread.
+
+name can be supplied to give a name to the thread. The name is used for debugging and informational purposes only; it has no meaning to Emacs. If name is provided, it must be a string.
+
+This function returns the new thread.
+
+Function: threadp object ¶
+This function returns t if object represents an Emacs thread, nil otherwise.
+
+Function: thread-join thread ¶
+Block until thread exits, or until the current thread is signaled. It returns the result of the thread function. If thread has already exited, this returns immediately.
+
+Function: thread-signal thread error-symbol data ¶
+Like signal (see How to Signal an Error), but the signal is delivered in the thread thread. If thread is the current thread, then this just calls signal immediately. Otherwise, thread will receive the signal as soon as it becomes current. If thread was blocked by a call to mutex-lock, condition-wait, or thread-join; thread-signal will unblock it.
+
+If thread is the main thread, the signal is not propagated there. Instead, it is shown as message in the main thread.
+
+Function: thread-yield ¶
+Yield execution to the next runnable thread.
+
+Function: thread-name thread ¶
+Return the name of thread, as specified to make-thread.
+
+Function: thread-live-p thread ¶
+Return t if thread is alive, or nil if it is not. A thread is alive as long as its function is still executing.
+
+Function: thread--blocker thread ¶
+Return the object that thread is waiting on. This function is primarily intended for debugging, and is given a “double hyphen” name to indicate that.
+
+If thread is blocked in thread-join, this returns the thread for which it is waiting.
+
+If thread is blocked in mutex-lock, this returns the mutex.
+
+If thread is blocked in condition-wait, this returns the condition variable.
+
+Otherwise, this returns nil.
+
+Function: current-thread ¶
+Return the current thread.
+
+Function: all-threads ¶
+Return a list of all the live thread objects. A new list is returned by each invocation.
+
+Variable: main-thread ¶
+This variable keeps the main thread Emacs is running, or nil if Emacs is compiled without thread support.
+
+When code run by a thread signals an error that is unhandled, the thread exits. Other threads can access the error form which caused the thread to exit using the following function.
+
+Function: thread-last-error &optional cleanup ¶
+This function returns the last error form recorded when a thread exited due to an error. Each thread that exits abnormally overwrites the form stored by the previous thread’s error with a new value, so only the last one can be accessed. If cleanup is non-nil, the stored form is reset to nil.
+
+
+*** Mutexes
+
+A mutex is an exclusive lock. At any moment, zero or one threads may own a mutex. If a thread attempts to acquire a mutex, and the mutex is already owned by some other thread, then the acquiring thread will block until the mutex becomes available.
+
+Emacs Lisp mutexes are of a type called recursive, which means that a thread can re-acquire a mutex it owns any number of times. A mutex keeps a count of how many times it has been acquired, and each acquisition of a mutex must be paired with a release. The last release by a thread of a mutex reverts it to the unowned state, potentially allowing another thread to acquire the mutex.
+
+Function: mutexp object ¶
+This function returns t if object represents an Emacs mutex, nil otherwise.
+
+Function: make-mutex &optional name ¶
+Create a new mutex and return it. If name is specified, it is a name given to the mutex. It must be a string. The name is for debugging purposes only; it has no meaning to Emacs.
+
+Function: mutex-name mutex ¶
+Return the name of mutex, as specified to make-mutex.
+
+Function: mutex-lock mutex ¶
+This will block until this thread acquires mutex, or until this thread is signaled using thread-signal. If mutex is already owned by this thread, this simply returns.
+
+Function: mutex-unlock mutex ¶
+Release mutex. If mutex is not owned by this thread, this will signal an error.
+
+Macro: with-mutex mutex body… ¶
+This macro is the simplest and safest way to evaluate forms while holding a mutex. It acquires mutex, invokes body, and then releases mutex. It returns the result of body.
+
+
+*** Condition Variables
+
+A condition variable is a way for a thread to block until some event occurs. A thread can wait on a condition variable, to be woken up when some other thread notifies the condition.
+
+A condition variable is associated with a mutex and, conceptually, with some condition. For proper operation, the mutex must be acquired, and then a waiting thread must loop, testing the condition and waiting on the condition variable. For example:
+
+(with-mutex mutex
+  (while (not global-variable)
+    (condition-wait cond-var)))
+The mutex ensures atomicity, and the loop is for robustness—there may be spurious notifications.
+
+Similarly, the mutex must be held before notifying the condition. The typical, and best, approach is to acquire the mutex, make the changes associated with this condition, and then notify it:
+
+(with-mutex mutex
+  (setq global-variable (some-computation))
+  (condition-notify cond-var))
+Function: make-condition-variable mutex &optional name ¶
+Make a new condition variable associated with mutex. If name is specified, it is a name given to the condition variable. It must be a string. The name is for debugging purposes only; it has no meaning to Emacs.
+
+Function: condition-variable-p object ¶
+This function returns t if object represents a condition variable, nil otherwise.
+
+Function: condition-wait cond ¶
+Wait for another thread to notify cond, a condition variable. This function will block until the condition is notified, or until a signal is delivered to this thread using thread-signal.
+
+It is an error to call condition-wait without holding the condition’s associated mutex.
+
+condition-wait releases the associated mutex while waiting. This allows other threads to acquire the mutex in order to notify the condition.
+
+Function: condition-notify cond &optional all ¶
+Notify cond. The mutex with cond must be held before calling this. Ordinarily a single waiting thread is woken by condition-notify; but if all is not nil, then all threads waiting on cond are notified.
+
+condition-notify releases the associated mutex while waiting. This allows other threads to acquire the mutex in order to wait on the condition.
+
+Function: condition-name cond ¶
+Return the name of cond, as passed to make-condition-variable.
+
+Function: condition-mutex cond ¶
+Return the mutex associated with cond. Note that the associated mutex cannot be changed.
+
+
+*** The Thread List
+
+The list-threads command lists all the currently alive threads. In the resulting buffer, each thread is identified either by the name passed to make-thread (see Basic Thread Functions), or by its unique internal identifier if it was not created with a name. The status of each thread at the time of the creation or last update of the buffer is shown, in addition to the object the thread was blocked on at the time, if it was blocked.
+
+Variable: thread-list-refresh-seconds ¶
+The *Threads* buffer will automatically update twice per second. You can make the refresh rate faster or slower by customizing this variable.
+
+Here are the commands available in the thread list buffer:
+
+b
+Show a backtrace of the thread at point. This will show where in its code the thread had yielded or was blocked at the moment you pressed b. Be aware that the backtrace is a snapshot; the thread could have meanwhile resumed execution, and be in a different state, or could have exited.
+
+You may use g in the thread’s backtrace buffer to get an updated backtrace, as backtrace buffers do not automatically update. See Backtraces, for a description of backtraces and the other commands which work on them.
+
+s
+Signal the thread at point. After s, type q to send a quit signal or e to send an error signal. Threads may implement handling of signals, but the default behavior is to exit on any signal. Therefore you should only use this command if you understand how to restart the target thread, because your Emacs session may behave incorrectly if necessary threads are killed.
+
+g
+Update the list of threads and their statuses.
+
+** Standard Hooks
+
+The following is a list of some hook variables that let you provide functions to be called from within Emacs on suitable occasions.
+
+Most of these variables have names ending with ‘-hook’. They are normal hooks, run by means of run-hooks. The value of such a hook is a list of functions; the functions are called with no arguments and their values are completely ignored. The recommended way to put a new function on such a hook is to call add-hook. See Hooks, for more information about using hooks.
+
+The variables whose names end in ‘-functions’ are usually abnormal hooks (some old code may also use the deprecated ‘-hooks’ suffix). Their values are lists of functions, but these functions are called in a special way: they are either passed arguments, or their return values are used in some way. The variables whose names end in ‘-function’ have single functions as their values.
+
+This is not an exhaustive list, it only covers the more general hooks. For example, every major mode defines a hook named ‘modename-mode-hook’. The major mode command runs this normal hook with run-mode-hooks as the very last thing it does. See Mode Hooks. Most minor modes have mode hooks too.
+
+A special feature allows you to specify expressions to evaluate if and when a file is loaded (see Hooks for Loading). That feature is not exactly a hook, but does a similar job.
+
+activate-mark-hook
+deactivate-mark-hook
+See The Mark.
+
+after-change-functions
+before-change-functions
+first-change-hook
+See Change Hooks.
+
+after-change-major-mode-hook
+change-major-mode-after-body-hook
+See Mode Hooks.
+
+after-init-hook
+before-init-hook
+emacs-startup-hook
+window-setup-hook
+See The Init File.
+
+after-insert-file-functions
+write-region-annotate-functions
+write-region-post-annotation-function
+See File Format Conversion.
+
+after-make-frame-functions
+before-make-frame-hook
+server-after-make-frame-hook
+See Creating Frames.
+
+after-save-hook
+before-save-hook
+write-contents-functions
+write-file-functions
+See Saving Buffers.
+
+after-setting-font-hook ¶
+Hook run after a frame’s font changes.
+
+auto-save-hook
+See Auto-Saving.
+
+before-hack-local-variables-hook
+hack-local-variables-hook
+See File Local Variables.
+
+buffer-access-fontify-functions
+See Lazy Computation of Text Properties.
+
+buffer-list-update-hook ¶
+Hook run when the buffer list changes (see The Buffer List).
+
+buffer-quit-function ¶
+Function to call to quit the current buffer.
+
+change-major-mode-hook
+See Creating and Deleting Buffer-Local Bindings.
+
+comint-password-function
+This abnormal hook permits a derived mode to supply a password for the underlying command interpreter without prompting the user.
+
+command-line-functions
+See Command-Line Arguments.
+
+delayed-warnings-hook ¶
+The command loop runs this soon after post-command-hook (q.v.).
+
+focus-in-hook ¶
+focus-out-hook
+See Input Focus.
+
+delete-frame-functions
+after-delete-frame-functions
+See Deleting Frames.
+
+delete-terminal-functions
+See Multiple Terminals.
+
+pop-up-frame-function
+split-window-preferred-function
+See Additional Options for Displaying Buffers.
+
+echo-area-clear-hook
+See Echo Area Customization.
+
+find-file-hook
+find-file-not-found-functions
+See Functions for Visiting Files.
+
+font-lock-extend-after-change-region-function
+See Region to Fontify after a Buffer Change.
+
+font-lock-extend-region-functions
+See Multiline Font Lock Constructs.
+
+font-lock-fontify-buffer-function
+font-lock-fontify-region-function
+font-lock-mark-block-function
+font-lock-unfontify-buffer-function
+font-lock-unfontify-region-function
+See Other Font Lock Variables.
+
+fontification-functions
+See Automatic Face Assignment.
+
+frame-auto-hide-function
+See Quitting Windows.
+
+quit-window-hook
+See Quitting Windows.
+
+kill-buffer-hook
+kill-buffer-query-functions
+See Killing Buffers.
+
+kill-emacs-hook
+kill-emacs-query-functions
+See Killing Emacs.
+
+menu-bar-update-hook
+See The Menu Bar.
+
+minibuffer-setup-hook
+minibuffer-exit-hook
+See Minibuffer Miscellany.
+
+mouse-leave-buffer-hook ¶
+Hook run when the user mouse-clicks in a window.
+
+mouse-position-function
+See Mouse Position.
+
+prefix-command-echo-keystrokes-functions ¶
+An abnormal hook run by prefix commands (such as C-u) which should return a string describing the current prefix state. For example, C-u produces ‘C-u-’ and ‘C-u 1 2 3-’. Each hook function is called with no arguments and should return a string describing the current prefix state, or nil if there’s no prefix state. See Prefix Command Arguments.
+
+prefix-command-preserve-state-hook ¶
+Hook run when a prefix command needs to preserve the prefix by passing the current prefix command state to the next command. For example, C-u needs to pass the state to the next command when the user types C-u - or follows C-u with a digit.
+
+pre-redisplay-functions
+Hook run in each window just before redisplaying it. See Forcing Redisplay.
+
+post-command-hook
+pre-command-hook
+See Command Loop Overview.
+
+post-gc-hook
+See Garbage Collection.
+
+post-self-insert-hook
+See Keymaps and Minor Modes.
+
+suspend-hook
+suspend-resume-hook
+suspend-tty-functions
+resume-tty-functions
+See Suspending Emacs.
+
+syntax-begin-function
+syntax-propertize-extend-region-functions
+syntax-propertize-function
+font-lock-syntactic-face-function
+See Syntactic Font Lock. See Syntax Properties.
+
+temp-buffer-setup-hook
+temp-buffer-show-function
+temp-buffer-show-hook
+See Temporary Displays.
+
+tty-setup-hook
+See Terminal-Specific Initialization.
+
+window-configuration-change-hook
+window-scroll-functions
+window-size-change-functions
+See Hooks for Window Scrolling and Changes.

@@ -1,0 +1,2437 @@
+#+title:      Elisp Lists and Symbols
+
+* Elisp Lists and Symbols :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       1256c181-f9c7-4ccd-b489-5f2bb2660d49
+:END:
+
+A list represents a sequence of zero or more elements (which may be any Lisp objects). The important difference between lists and vectors is that two or more lists can share part of their structure; in addition, you can insert or delete elements in a list without copying the whole list.
+
+*** Lists and Cons Cells
+
+Lists in Lisp are not a primitive data type; they are built up from cons cells (see Cons Cell and List Types). A cons cell is a data object that represents an ordered pair. That is, it has two slots, and each slot holds, or refers to, some Lisp object. One slot is known as the CAR, and the other is known as the CDR. (These names are traditional; see Cons Cell and List Types.) CDR is pronounced “could-er”.
+
+We say that “the CAR of this cons cell is” whatever object its CAR slot currently holds, and likewise for the CDR.
+
+A list is a series of cons cells chained together, so that each cell refers to the next one. There is one cons cell for each element of the list. By convention, the CARs of the cons cells hold the elements of the list, and the CDRs are used to chain the list (this asymmetry between CAR and CDR is entirely a matter of convention; at the level of cons cells, the CAR and CDR slots have similar properties). Hence, the CDR slot of each cons cell in a list refers to the following cons cell.
+
+Also by convention, the CDR of the last cons cell in a list is nil. We call such a nil-terminated structure a proper list4. In Emacs Lisp, the symbol nil is both a symbol and a list with no elements. For convenience, the symbol nil is considered to have nil as its CDR (and also as its CAR).
+
+Hence, the CDR of a proper list is always a proper list. The CDR of a nonempty proper list is a proper list containing all the elements except the first.
+
+If the CDR of a list’s last cons cell is some value other than nil, we call the structure a dotted list, since its printed representation would use dotted pair notation (see Dotted Pair Notation). There is one other possibility: some cons cell’s CDR could point to one of the previous cons cells in the list. We call that structure a circular list.
+
+For some purposes, it does not matter whether a list is proper, circular or dotted. If a program doesn’t look far enough down the list to see the CDR of the final cons cell, it won’t care. However, some functions that operate on lists demand proper lists and signal errors if given a dotted list. Most functions that try to find the end of a list enter infinite loops if given a circular list. You can use the function proper-list-p, described in the next section (see proper-list-p), to determine whether a list is a proper one.
+
+Because most cons cells are used as part of lists, we refer to any structure made out of cons cells as a list structure.
+
+Footnotes
+(4)
+It is sometimes also referred to as a true list, but we generally do not use this terminology in this manual.
+
+
+*** Predicates on Lists
+
+The following predicates test whether a Lisp object is an atom, whether it is a cons cell or is a list, or whether it is the distinguished object nil. (Many of these predicates can be defined in terms of the others, but they are used so often that it is worth having them.)
+
+Function: consp object ¶
+This function returns t if object is a cons cell, nil otherwise. nil is not a cons cell, although it is a list.
+
+Function: atom object ¶
+This function returns t if object is an atom, nil otherwise. All objects except cons cells are atoms. The symbol nil is an atom and is also a list; it is the only Lisp object that is both.
+
+(atom object) ≡ (not (consp object))
+Function: listp object ¶
+This function returns t if object is a cons cell or nil. Otherwise, it returns nil.
+
+(listp '(1))
+     ⇒ t
+(listp '())
+     ⇒ t
+Function: nlistp object ¶
+This function is the opposite of listp: it returns t if object is not a list. Otherwise, it returns nil.
+
+(listp object) ≡ (not (nlistp object))
+Function: null object ¶
+This function returns t if object is nil, and returns nil otherwise. This function is identical to not, but as a matter of clarity we use null when object is considered a list and not when it is considered a truth value (see not in Constructs for Combining Conditions).
+
+(null '(1))
+     ⇒ nil
+(null '())
+     ⇒ t
+Function: proper-list-p object ¶
+This function returns the length of object if it is a proper list, nil otherwise (see Lists and Cons Cells). In addition to satisfying listp, a proper list is neither circular nor dotted.
+
+(proper-list-p '(a b c))
+    ⇒ 3
+(proper-list-p '(a b . c))
+    ⇒ nil
+
+*** Accessing Elements of Lists
+
+Function: car cons-cell ¶
+This function returns the value referred to by the first slot of the cons cell cons-cell. In other words, it returns the CAR of cons-cell.
+
+As a special case, if cons-cell is nil, this function returns nil. Therefore, any list is a valid argument. An error is signaled if the argument is not a cons cell or nil.
+
+(car '(a b c))
+     ⇒ a
+(car '())
+     ⇒ nil
+Function: cdr cons-cell ¶
+This function returns the value referred to by the second slot of the cons cell cons-cell. In other words, it returns the CDR of cons-cell.
+
+As a special case, if cons-cell is nil, this function returns nil; therefore, any list is a valid argument. An error is signaled if the argument is not a cons cell or nil.
+
+(cdr '(a b c))
+     ⇒ (b c)
+(cdr '())
+     ⇒ nil
+Function: car-safe object ¶
+This function lets you take the CAR of a cons cell while avoiding errors for other data types. It returns the CAR of object if object is a cons cell, nil otherwise. This is in contrast to car, which signals an error if object is not a list.
+
+(car-safe object)
+≡
+(let ((x object))
+  (if (consp x)
+      (car x)
+    nil))
+Function: cdr-safe object ¶
+This function lets you take the CDR of a cons cell while avoiding errors for other data types. It returns the CDR of object if object is a cons cell, nil otherwise. This is in contrast to cdr, which signals an error if object is not a list.
+
+(cdr-safe object)
+≡
+(let ((x object))
+  (if (consp x)
+      (cdr x)
+    nil))
+Macro: pop listname ¶
+This macro provides a convenient way to examine the CAR of a list, and take it off the list, all at once. It operates on the list stored in listname. It removes the first element from the list, saves the CDR into listname, then returns the removed element.
+
+In the simplest case, listname is an unquoted symbol naming a list; in that case, this macro is equivalent to (prog1 (car listname) (setq listname (cdr listname))).
+
+x
+     ⇒ (a b c)
+(pop x)
+     ⇒ a
+x
+     ⇒ (b c)
+More generally, listname can be a generalized variable. In that case, this macro saves into listname using setf. See Generalized Variables.
+
+For the push macro, which adds an element to a list, See Modifying List Variables.
+
+Function: nth n list ¶
+This function returns the nth element of list. Elements are numbered starting with zero, so the CAR of list is element number zero. If the length of list is n or less, the value is nil.
+
+(nth 2 '(1 2 3 4))
+     ⇒ 3
+(nth 10 '(1 2 3 4))
+     ⇒ nil
+
+(nth n x) ≡ (car (nthcdr n x))
+The function elt is similar, but applies to any kind of sequence. For historical reasons, it takes its arguments in the opposite order. See Sequences.
+
+Function: nthcdr n list ¶
+This function returns the nth CDR of list. In other words, it skips past the first n links of list and returns what follows.
+
+If n is zero, nthcdr returns all of list. If the length of list is n or less, nthcdr returns nil.
+
+(nthcdr 1 '(1 2 3 4))
+     ⇒ (2 3 4)
+(nthcdr 10 '(1 2 3 4))
+     ⇒ nil
+(nthcdr 0 '(1 2 3 4))
+     ⇒ (1 2 3 4)
+Function: take n list ¶
+This function returns the n first elements of list. Essentially, it returns the part of list that nthcdr skips.
+
+take returns list if shorter than n elements; it returns nil if n is zero or negative.
+
+(take 3 '(a b c d))
+     ⇒ (a b c)
+(take 10 '(a b c d))
+     ⇒ (a b c d)
+(take 0 '(a b c d))
+     ⇒ nil
+Function: ntake n list ¶
+This is a version of take that works by destructively modifying the list structure of the argument. That makes it faster, but the original value of list may be lost.
+
+ntake returns list unmodified if shorter than n elements; it returns nil if n is zero or negative. Otherwise, it returns list truncated to its first n elements.
+
+This means that it is usually a good idea to use the return value and not just rely on the truncation effect unless n is known to be positive.
+
+Function: last list &optional n ¶
+This function returns the last link of list. The car of this link is the list’s last element. If list is null, nil is returned. If n is non-nil, the nth-to-last link is returned instead, or the whole of list if n is bigger than list’s length.
+
+Function: safe-length list ¶
+This function returns the length of list, with no risk of either an error or an infinite loop. It generally returns the number of distinct cons cells in the list. However, for circular lists, the value is just an upper bound; it is often too large.
+
+If list is not nil or a cons cell, safe-length returns 0.
+
+The most common way to compute the length of a list, when you are not worried that it may be circular, is with length. See Sequences.
+
+Function: caar cons-cell ¶
+This is the same as (car (car cons-cell)).
+
+Function: cadr cons-cell ¶
+This is the same as (car (cdr cons-cell)) or (nth 1 cons-cell).
+
+Function: cdar cons-cell ¶
+This is the same as (cdr (car cons-cell)).
+
+Function: cddr cons-cell ¶
+This is the same as (cdr (cdr cons-cell)) or (nthcdr 2 cons-cell).
+
+In addition to the above, 24 additional compositions of car and cdr are defined as cxxxr and cxxxxr, where each x is either a or d. cadr, caddr, and cadddr pick out the second, third or fourth elements of a list, respectively. cl-lib provides the same under the names cl-second, cl-third, and cl-fourth. See List Functions in Common Lisp Extensions.
+
+Function: butlast x &optional n ¶
+This function returns the list x with the last element, or the last n elements, removed. If n is greater than zero it makes a copy of the list so as not to damage the original list. In general, (append (butlast x n) (last x n)) will return a list equal to x.
+
+Function: nbutlast x &optional n ¶
+This is a version of butlast that works by destructively modifying the cdr of the appropriate element, rather than making a copy of the list.
+
+
+*** Building Cons Cells and Lists
+
+Many functions build lists, as lists reside at the very heart of Lisp. cons is the fundamental list-building function; however, it is interesting to note that list is used more times in the source code for Emacs than cons.
+
+Function: cons object1 object2 ¶
+This function is the most basic function for building new list structure. It creates a new cons cell, making object1 the CAR, and object2 the CDR. It then returns the new cons cell. The arguments object1 and object2 may be any Lisp objects, but most often object2 is a list.
+
+(cons 1 '(2))
+     ⇒ (1 2)
+(cons 1 '())
+     ⇒ (1)
+(cons 1 2)
+     ⇒ (1 . 2)
+cons is often used to add a single element to the front of a list. This is called consing the element onto the list. 5 For example:
+
+(setq list (cons newelt list))
+Note that there is no conflict between the variable named list used in this example and the function named list described below; any symbol can serve both purposes.
+
+Function: list &rest objects ¶
+This function creates a list with objects as its elements. The resulting list is always nil-terminated. If no objects are given, the empty list is returned.
+
+(list 1 2 3 4 5)
+     ⇒ (1 2 3 4 5)
+(list 1 2 '(3 4 5) 'foo)
+     ⇒ (1 2 (3 4 5) foo)
+(list)
+     ⇒ nil
+Function: make-list length object ¶
+This function creates a list of length elements, in which each element is object. Compare make-list with make-string (see Creating Strings).
+
+(make-list 3 'pigs)
+     ⇒ (pigs pigs pigs)
+(make-list 0 'pigs)
+     ⇒ nil
+(setq l (make-list 3 '(a b)))
+     ⇒ ((a b) (a b) (a b))
+(eq (car l) (cadr l))
+     ⇒ t
+Function: append &rest sequences ¶
+This function returns a list containing all the elements of sequences. The sequences may be lists, vectors, bool-vectors, or strings, but the last one should usually be a list. All arguments except the last one are copied, so none of the arguments is altered. (See nconc in Functions that Rearrange Lists, for a way to join lists with no copying.)
+
+More generally, the final argument to append may be any Lisp object. The final argument is not copied or converted; it becomes the CDR of the last cons cell in the new list. If the final argument is itself a list, then its elements become in effect elements of the result list. If the final element is not a list, the result is a dotted list since its final CDR is not nil as required in a proper list (see Lists and Cons Cells).
+
+Here is an example of using append:
+
+(setq trees '(pine oak))
+     ⇒ (pine oak)
+(setq more-trees (append '(maple birch) trees))
+     ⇒ (maple birch pine oak)
+
+trees
+     ⇒ (pine oak)
+more-trees
+     ⇒ (maple birch pine oak)
+(eq trees (cdr (cdr more-trees)))
+     ⇒ t
+You can see how append works by looking at a box diagram. The variable trees is set to the list (pine oak) and then the variable more-trees is set to the list (maple birch pine oak). However, the variable trees continues to refer to the original list:
+
+more-trees                trees
+|                           |
+|     --- ---      --- ---   -> --- ---      --- ---
+ --> |   |   |--> |   |   |--> |   |   |--> |   |   |--> nil
+      --- ---      --- ---      --- ---      --- ---
+       |            |            |            |
+       |            |            |            |
+        --> maple    -->birch     --> pine     --> oak
+An empty sequence contributes nothing to the value returned by append. As a consequence of this, a final nil argument forces a copy of the previous argument:
+
+trees
+     ⇒ (pine oak)
+(setq wood (append trees nil))
+     ⇒ (pine oak)
+wood
+     ⇒ (pine oak)
+(eq wood trees)
+     ⇒ nil
+This once was the usual way to copy a list, before the function copy-sequence was invented. See Sequences, Arrays, and Vectors.
+
+Here we show the use of vectors and strings as arguments to append:
+
+(append [a b] "cd" nil)
+     ⇒ (a b 99 100)
+With the help of apply (see Calling Functions), we can append all the lists in a list of lists:
+
+(apply 'append '((a b c) nil (x y z) nil))
+     ⇒ (a b c x y z)
+If no sequences are given, nil is returned:
+
+(append)
+     ⇒ nil
+Here are some examples where the final argument is not a list:
+
+(append '(x y) 'z)
+     ⇒ (x y . z)
+(append '(x y) [z])
+     ⇒ (x y . [z])
+The second example shows that when the final argument is a sequence but not a list, the sequence’s elements do not become elements of the resulting list. Instead, the sequence becomes the final CDR, like any other non-list final argument.
+
+Function: copy-tree tree &optional vecp ¶
+This function returns a copy of the tree tree. If tree is a cons cell, this makes a new cons cell with the same CAR and CDR, then recursively copies the CAR and CDR in the same way.
+
+Normally, when tree is anything other than a cons cell, copy-tree simply returns tree. However, if vecp is non-nil, it copies vectors too (and operates recursively on their elements).
+
+Function: flatten-tree tree ¶
+This function returns a “flattened” copy of tree, that is, a list containing all the non-nil terminal nodes, or leaves, of the tree of cons cells rooted at tree. Leaves in the returned list are in the same order as in tree.
+
+(flatten-tree '(1 (2 . 3) nil (4 5 (6)) 7))
+    ⇒(1 2 3 4 5 6 7)
+Function: ensure-list object ¶
+This function returns object as a list. If object is already a list, the function returns it; otherwise, the function returns a one-element list containing object.
+
+This is usually useful if you have a variable that may or may not be a list, and you can then say, for instance:
+
+(dolist (elem (ensure-list foo))
+  (princ elem))
+Function: number-sequence from &optional to separation ¶
+This function returns a list of numbers starting with from and incrementing by separation, and ending at or just before to. separation can be positive or negative and defaults to 1. If to is nil or numerically equal to from, the value is the one-element list (from). If to is less than from with a positive separation, or greater than from with a negative separation, the value is nil because those arguments specify an empty sequence.
+
+If separation is 0 and to is neither nil nor numerically equal to from, number-sequence signals an error, since those arguments specify an infinite sequence.
+
+All arguments are numbers. Floating-point arguments can be tricky, because floating-point arithmetic is inexact. For instance, depending on the machine, it may quite well happen that (number-sequence 0.4 0.6 0.2) returns the one element list (0.4), whereas (number-sequence 0.4 0.8 0.2) returns a list with three elements. The nth element of the list is computed by the exact formula (+ from (* n separation)). Thus, if one wants to make sure that to is included in the list, one can pass an expression of this exact type for to. Alternatively, one can replace to with a slightly larger value (or a slightly more negative value if separation is negative).
+
+Some examples:
+
+(number-sequence 4 9)
+     ⇒ (4 5 6 7 8 9)
+(number-sequence 9 4 -1)
+     ⇒ (9 8 7 6 5 4)
+(number-sequence 9 4 -2)
+     ⇒ (9 7 5)
+(number-sequence 8)
+     ⇒ (8)
+(number-sequence 8 5)
+     ⇒ nil
+(number-sequence 5 8 -1)
+     ⇒ nil
+(number-sequence 1.5 6 2)
+     ⇒ (1.5 3.5 5.5)
+Footnotes
+(5)
+There is no strictly equivalent way to add an element to the end of a list. You can use (append listname (list newelt)), which creates a whole new list by copying listname and adding newelt to its end. Or you can use (nconc listname (list newelt)), which modifies listname by following all the CDRs and then replacing the terminating nil. Compare this to adding an element to the beginning of a list with cons, which neither copies nor modifies the list.
+
+
+*** Modifying List Variables
+
+These functions, and one macro, provide convenient ways to modify a list which is stored in a variable.
+
+Macro: push element listname ¶
+This macro creates a new list whose CAR is element and whose CDR is the list specified by listname, and saves that list in listname. In the simplest case, listname is an unquoted symbol naming a list, and this macro is equivalent to (setq listname (cons element listname)).
+
+(setq l '(a b))
+     ⇒ (a b)
+(push 'c l)
+     ⇒ (c a b)
+l
+     ⇒ (c a b)
+More generally, listname can be a generalized variable. In that case, this macro does the equivalent of (setf listname (cons element listname)). See Generalized Variables.
+
+For the pop macro, which removes the first element from a list, See Accessing Elements of Lists.
+
+Two functions modify lists that are the values of variables.
+
+Function: add-to-list symbol element &optional append compare-fn ¶
+This function sets the variable symbol by consing element onto the old value, if element is not already a member of that value. It returns the resulting list, whether updated or not. The value of symbol had better be a list already before the call. add-to-list uses compare-fn to compare element against existing list members; if compare-fn is nil, it uses equal.
+
+Normally, if element is added, it is added to the front of symbol, but if the optional argument append is non-nil, it is added at the end.
+
+The argument symbol is not implicitly quoted; add-to-list is an ordinary function, like set and unlike setq. Quote the argument yourself if that is what you want.
+
+Do not use this function when symbol refers to a lexical variable.
+
+Here’s a scenario showing how to use add-to-list:
+
+(setq foo '(a b))
+     ⇒ (a b)
+
+(add-to-list 'foo 'c)     ;; Add c.
+     ⇒ (c a b)
+
+(add-to-list 'foo 'b)     ;; No effect.
+     ⇒ (c a b)
+
+foo                       ;; foo was changed.
+     ⇒ (c a b)
+An equivalent expression for (add-to-list 'var value) is this:
+
+(if (member value var)
+    var
+  (setq var (cons value var)))
+Function: add-to-ordered-list symbol element &optional order ¶
+This function sets the variable symbol by inserting element into the old value, which must be a list, at the position specified by order. If element is already a member of the list, its position in the list is adjusted according to order. Membership is tested using eq. This function returns the resulting list, whether updated or not.
+
+The order is typically a number (integer or float), and the elements of the list are sorted in non-decreasing numerical order.
+
+order may also be omitted or nil. Then the numeric order of element stays unchanged if it already has one; otherwise, element has no numeric order. Elements without a numeric list order are placed at the end of the list, in no particular order.
+
+Any other value for order removes the numeric order of element if it already has one; otherwise, it is equivalent to nil.
+
+The argument symbol is not implicitly quoted; add-to-ordered-list is an ordinary function, like set and unlike setq. Quote the argument yourself if necessary.
+
+The ordering information is stored in a hash table on symbol’s list-order property. symbol cannot refer to a lexical variable.
+
+Here’s a scenario showing how to use add-to-ordered-list:
+
+(setq foo '())
+     ⇒ nil
+
+(add-to-ordered-list 'foo 'a 1)     ;; Add a.
+     ⇒ (a)
+
+(add-to-ordered-list 'foo 'c 3)     ;; Add c.
+     ⇒ (a c)
+
+(add-to-ordered-list 'foo 'b 2)     ;; Add b.
+     ⇒ (a b c)
+
+(add-to-ordered-list 'foo 'b 4)     ;; Move b.
+     ⇒ (a c b)
+
+(add-to-ordered-list 'foo 'd)       ;; Append d.
+     ⇒ (a c b d)
+
+(add-to-ordered-list 'foo 'e)       ;; Add e.
+     ⇒ (a c b e d)
+
+foo                       ;; foo was changed.
+     ⇒ (a c b e d)
+
+
+*** Modifying Existing List Structure
+
+You can modify the CAR and CDR contents of a cons cell with the primitives setcar and setcdr. These are destructive operations because they change existing list structure. Destructive operations should be applied only to mutable lists, that is, lists constructed via cons, list or similar operations. Lists created by quoting are part of the program and should not be changed by destructive operations. See Mutability.
+
+Common Lisp note: Common Lisp uses functions rplaca and rplacd to alter list structure; they change structure the same way as setcar and setcdr, but the Common Lisp functions return the cons cell while setcar and setcdr return the new CAR or CDR.
+
+**** Altering List Elements with setcar
+
+Changing the CAR of a cons cell is done with setcar. When used on a list, setcar replaces one element of a list with a different element.
+
+Function: setcar cons object ¶
+This function stores object as the new CAR of cons, replacing its previous CAR. In other words, it changes the CAR slot of cons to refer to object. It returns the value object. For example:
+
+(setq x (list 1 2))
+     ⇒ (1 2)
+(setcar x 4)
+     ⇒ 4
+x
+     ⇒ (4 2)
+When a cons cell is part of the shared structure of several lists, storing a new CAR into the cons changes one element of each of these lists. Here is an example:
+
+;; Create two lists that are partly shared.
+(setq x1 (list 'a 'b 'c))
+     ⇒ (a b c)
+(setq x2 (cons 'z (cdr x1)))
+     ⇒ (z b c)
+
+;; Replace the CAR of a shared link.
+(setcar (cdr x1) 'foo)
+     ⇒ foo
+x1                           ; Both lists are changed.
+     ⇒ (a foo c)
+x2
+     ⇒ (z foo c)
+
+;; Replace the CAR of a link that is not shared.
+(setcar x1 'baz)
+     ⇒ baz
+x1                           ; Only one list is changed.
+     ⇒ (baz foo c)
+x2
+     ⇒ (z foo c)
+Here is a graphical depiction of the shared structure of the two lists in the variables x1 and x2, showing why replacing b changes them both:
+
+        --- ---        --- ---      --- ---
+x1---> |   |   |----> |   |   |--> |   |   |--> nil
+        --- ---        --- ---      --- ---
+         |        -->   |            |
+         |       |      |            |
+          --> a  |       --> b        --> c
+                 |
+       --- ---   |
+x2--> |   |   |--
+       --- ---
+        |
+        |
+         --> z
+Here is an alternative form of box diagram, showing the same relationship:
+
+x1:
+ --------------       --------------       --------------
+| car   | cdr  |     | car   | cdr  |     | car   | cdr  |
+|   a   |   o------->|   b   |   o------->|   c   |  nil |
+|       |      |  -->|       |      |     |       |      |
+ --------------  |    --------------       --------------
+                 |
+x2:              |
+ --------------  |
+| car   | cdr  | |
+|   z   |   o----
+|       |      |
+ --------------
+
+
+**** Altering the CDR of a List
+
+The lowest-level primitive for modifying a CDR is setcdr:
+
+Function: setcdr cons object ¶
+This function stores object as the new CDR of cons, replacing its previous CDR. In other words, it changes the CDR slot of cons to refer to object. It returns the value object.
+
+Here is an example of replacing the CDR of a list with a different list. All but the first element of the list are removed in favor of a different sequence of elements. The first element is unchanged, because it resides in the CAR of the list, and is not reached via the CDR.
+
+(setq x (list 1 2 3))
+     ⇒ (1 2 3)
+(setcdr x '(4))
+     ⇒ (4)
+x
+     ⇒ (1 4)
+You can delete elements from the middle of a list by altering the CDRs of the cons cells in the list. For example, here we delete the second element, b, from the list (a b c), by changing the CDR of the first cons cell:
+
+(setq x1 (list 'a 'b 'c))
+     ⇒ (a b c)
+(setcdr x1 (cdr (cdr x1)))
+     ⇒ (c)
+x1
+     ⇒ (a c)
+Here is the result in box notation:
+
+                   --------------------
+                  |                    |
+ --------------   |   --------------   |    --------------
+| car   | cdr  |  |  | car   | cdr  |   -->| car   | cdr  |
+|   a   |   o-----   |   b   |   o-------->|   c   |  nil |
+|       |      |     |       |      |      |       |      |
+ --------------       --------------        --------------
+The second cons cell, which previously held the element b, still exists and its CAR is still b, but it no longer forms part of this list.
+
+It is equally easy to insert a new element by changing CDRs:
+
+(setq x1 (list 'a 'b 'c))
+     ⇒ (a b c)
+(setcdr x1 (cons 'd (cdr x1)))
+     ⇒ (d b c)
+x1
+     ⇒ (a d b c)
+Here is this result in box notation:
+
+ --------------        -------------       -------------
+| car  | cdr   |      | car  | cdr  |     | car  | cdr  |
+|   a  |   o   |   -->|   b  |   o------->|   c  |  nil |
+|      |   |   |  |   |      |      |     |      |      |
+ --------- | --   |    -------------       -------------
+           |      |
+     -----         --------
+    |                      |
+    |    ---------------   |
+    |   | car   | cdr   |  |
+     -->|   d   |   o------
+        |       |       |
+         ---------------
+
+**** Functions that Rearrange Lists
+Here are some functions that rearrange lists destructively by modifying the CDRs of their component cons cells. These functions are destructive because they chew up the original lists passed to them as arguments, relinking their cons cells to form a new list that is the returned value.
+
+See delq, in Using Lists as Sets, for another function that modifies cons cells.
+
+Function: nconc &rest lists ¶
+This function returns a list containing all the elements of lists. Unlike append (see Building Cons Cells and Lists), the lists are not copied. Instead, the last CDR of each of the lists is changed to refer to the following list. The last of the lists is not altered. For example:
+
+(setq x (list 1 2 3))
+     ⇒ (1 2 3)
+(nconc x '(4 5))
+     ⇒ (1 2 3 4 5)
+x
+     ⇒ (1 2 3 4 5)
+Since the last argument of nconc is not itself modified, it is reasonable to use a constant list, such as '(4 5), as in the above example. For the same reason, the last argument need not be a list:
+
+(setq x (list 1 2 3))
+     ⇒ (1 2 3)
+(nconc x 'z)
+     ⇒ (1 2 3 . z)
+x
+     ⇒ (1 2 3 . z)
+However, the other arguments (all but the last) should be mutable lists.
+
+A common pitfall is to use a constant list as a non-last argument to nconc. If you do this, the resulting behavior is undefined (see Self-Evaluating Forms). It is possible that your program will change each time you run it! Here is what might happen (though this is not guaranteed to happen):
+
+(defun add-foo (x)            ; We want this function to add
+  (nconc '(foo) x))           ;   foo to the front of its arg.
+
+(symbol-function 'add-foo)
+     ⇒ (lambda (x) (nconc '(foo) x))
+
+(setq xx (add-foo '(1 2)))    ; It seems to work.
+     ⇒ (foo 1 2)
+(setq xy (add-foo '(3 4)))    ; What happened?
+     ⇒ (foo 1 2 3 4)
+(eq xx xy)
+     ⇒ t
+
+(symbol-function 'add-foo)
+     ⇒ (lambda (x) (nconc '(foo 1 2 3 4) x))
+
+
+*** Using Lists as Sets
+
+A list can represent an unordered mathematical set—simply consider a value an element of a set if it appears in the list, and ignore the order of the list. To form the union of two sets, use append (as long as you don’t mind having duplicate elements). You can remove equal duplicates using delete-dups or seq-uniq. Other useful functions for sets include memq and delq, and their equal versions, member and delete.
+
+Common Lisp note: Common Lisp has functions union (which avoids duplicate elements) and intersection for set operations. In Emacs Lisp, variants of these facilities are provided by the cl-lib library. See Lists as Sets in Common Lisp Extensions.
+
+Function: memq object list ¶
+This function tests to see whether object is a member of list. If it is, memq returns a list starting with the first occurrence of object. Otherwise, it returns nil. The letter ‘q’ in memq says that it uses eq to compare object against the elements of the list. For example:
+
+(memq 'b '(a b c b a))
+     ⇒ (b c b a)
+(memq '(2) '((1) (2)))    ; The two (2)s need not be eq.
+     ⇒ Unspecified; might be nil or ((2)).
+Function: delq object list ¶
+This function destructively removes all elements eq to object from list, and returns the resulting list. The letter ‘q’ in delq says that it uses eq to compare object against the elements of the list, like memq and remq.
+
+Typically, when you invoke delq, you should use the return value by assigning it to the variable which held the original list. The reason for this is explained below.
+
+The delq function deletes elements from the front of the list by simply advancing down the list, and returning a sublist that starts after those elements. For example:
+
+(delq 'a '(a b c)) ≡ (cdr '(a b c))
+When an element to be deleted appears in the middle of the list, removing it involves changing the CDRs (see Altering the CDR of a List).
+
+(setq sample-list (list 'a 'b 'c '(4)))
+     ⇒ (a b c (4))
+(delq 'a sample-list)
+     ⇒ (b c (4))
+sample-list
+     ⇒ (a b c (4))
+(delq 'c sample-list)
+     ⇒ (a b (4))
+sample-list
+     ⇒ (a b (4))
+Note that (delq 'c sample-list) modifies sample-list to splice out the third element, but (delq 'a sample-list) does not splice anything—it just returns a shorter list. Don’t assume that a variable which formerly held the argument list now has fewer elements, or that it still holds the original list! Instead, save the result of delq and use that. Most often we store the result back into the variable that held the original list:
+
+(setq flowers (delq 'rose flowers))
+In the following example, the (list 4) that delq attempts to match and the (4) in the sample-list are equal but not eq:
+
+(delq (list 4) sample-list)
+     ⇒ (a c (4))
+If you want to delete elements that are equal to a given value, use delete (see below).
+
+Function: remq object list ¶
+This function returns a copy of list, with all elements removed which are eq to object. The letter ‘q’ in remq says that it uses eq to compare object against the elements of list.
+
+(setq sample-list (list 'a 'b 'c 'a 'b 'c))
+     ⇒ (a b c a b c)
+(remq 'a sample-list)
+     ⇒ (b c b c)
+sample-list
+     ⇒ (a b c a b c)
+Function: memql object list ¶
+The function memql tests to see whether object is a member of list, comparing members with object using eql, so floating-point elements are compared by value. If object is a member, memql returns a list starting with its first occurrence in list. Otherwise, it returns nil.
+
+Compare this with memq:
+
+(memql 1.2 '(1.1 1.2 1.3))  ; 1.2 and 1.2 are eql.
+     ⇒ (1.2 1.3)
+(memq 1.2 '(1.1 1.2 1.3))  ; The two 1.2s need not be eq.
+     ⇒ Unspecified; might be nil or (1.2 1.3).
+The following three functions are like memq, delq and remq, but use equal rather than eq to compare elements. See Equality Predicates.
+
+Function: member object list ¶
+The function member tests to see whether object is a member of list, comparing members with object using equal. If object is a member, member returns a list starting with its first occurrence in list. Otherwise, it returns nil.
+
+Compare this with memq:
+
+(member '(2) '((1) (2)))  ; (2) and (2) are equal.
+     ⇒ ((2))
+(memq '(2) '((1) (2)))    ; The two (2)s need not be eq.
+     ⇒ Unspecified; might be nil or (2).
+;; Two strings with the same contents are equal.
+(member "foo" '("foo" "bar"))
+     ⇒ ("foo" "bar")
+Function: delete object sequence ¶
+This function removes all elements equal to object from sequence, and returns the resulting sequence.
+
+If sequence is a list, delete is to delq as member is to memq: it uses equal to compare elements with object, like member; when it finds an element that matches, it cuts the element out just as delq would. As with delq, you should typically use the return value by assigning it to the variable which held the original list.
+
+If sequence is a vector or string, delete returns a copy of sequence with all elements equal to object removed.
+
+For example:
+
+(setq l (list '(2) '(1) '(2)))
+(delete '(2) l)
+     ⇒ ((1))
+l
+     ⇒ ((2) (1))
+;; If you want to change l reliably,
+;; write (setq l (delete '(2) l)).
+(setq l (list '(2) '(1) '(2)))
+(delete '(1) l)
+     ⇒ ((2) (2))
+l
+     ⇒ ((2) (2))
+;; In this case, it makes no difference whether you set l,
+;; but you should do so for the sake of the other case.
+(delete '(2) [(2) (1) (2)])
+     ⇒ [(1)]
+Function: remove object sequence ¶
+This function is the non-destructive counterpart of delete. It returns a copy of sequence, a list, vector, or string, with elements equal to object removed. For example:
+
+(remove '(2) '((2) (1) (2)))
+     ⇒ ((1))
+(remove '(2) [(2) (1) (2)])
+     ⇒ [(1)]
+Common Lisp note: The functions member, delete and remove in GNU Emacs Lisp are derived from Maclisp, not Common Lisp. The Common Lisp versions do not use equal to compare elements.
+
+Function: member-ignore-case object list ¶
+This function is like member, except that object should be a string and that it ignores differences in letter-case and text representation: upper-case and lower-case letters are treated as equal, and unibyte strings are converted to multibyte prior to comparison.
+
+Function: delete-dups list ¶
+This function destructively removes all equal duplicates from list, stores the result in list and returns it. Of several equal occurrences of an element in list, delete-dups keeps the first one. See seq-uniq for non-destructive operation (see Sequences).
+
+See also the function add-to-list, in Modifying List Variables, for a way to add an element to a list stored in a variable and used as a set.
+
+
+*** Association Lists
+
+An association list, or alist for short, records a mapping from keys to values. It is a list of cons cells called associations: the CAR of each cons cell is the key, and the CDR is the associated value.6
+
+Here is an example of an alist. The key pine is associated with the value cones; the key oak is associated with acorns; and the key maple is associated with seeds.
+
+((pine . cones)
+ (oak . acorns)
+ (maple . seeds))
+Both the values and the keys in an alist may be any Lisp objects. For example, in the following alist, the symbol a is associated with the number 1, and the string "b" is associated with the list (2 3), which is the CDR of the alist element:
+
+((a . 1) ("b" 2 3))
+Sometimes it is better to design an alist to store the associated value in the CAR of the CDR of the element. Here is an example of such an alist:
+
+((rose red) (lily white) (buttercup yellow))
+Here we regard red as the value associated with rose. One advantage of this kind of alist is that you can store other related information—even a list of other items—in the CDR of the CDR. One disadvantage is that you cannot use rassq (see below) to find the element containing a given value. When neither of these considerations is important, the choice is a matter of taste, as long as you are consistent about it for any given alist.
+
+The same alist shown above could be regarded as having the associated value in the CDR of the element; the value associated with rose would be the list (red).
+
+Association lists are often used to record information that you might otherwise keep on a stack, since new associations may be added easily to the front of the list. When searching an association list for an association with a given key, the first one found is returned, if there is more than one.
+
+In Emacs Lisp, it is not an error if an element of an association list is not a cons cell. The alist search functions simply ignore such elements. Many other versions of Lisp signal errors in such cases.
+
+Note that property lists are similar to association lists in several respects. A property list behaves like an association list in which each key can occur only once. See Property Lists, for a comparison of property lists and association lists.
+
+Function: assoc key alist &optional testfn ¶
+This function returns the first association for key in alist, comparing key against the alist elements using testfn if it is a function, and equal otherwise (see Equality Predicates). If testfn is a function, it is called with two arguments: the CAR of an element from alist and key. The function returns nil if no association in alist has a CAR equal to key, as tested by testfn. For example:
+
+(setq trees '((pine . cones) (oak . acorns) (maple . seeds)))
+     ⇒ ((pine . cones) (oak . acorns) (maple . seeds))
+(assoc 'oak trees)
+     ⇒ (oak . acorns)
+(cdr (assoc 'oak trees))
+     ⇒ acorns
+(assoc 'birch trees)
+     ⇒ nil
+Here is another example, in which the keys and values are not symbols:
+
+(setq needles-per-cluster
+      '((2 "Austrian Pine" "Red Pine")
+        (3 "Pitch Pine")
+        (5 "White Pine")))
+
+(cdr (assoc 3 needles-per-cluster))
+     ⇒ ("Pitch Pine")
+(cdr (assoc 2 needles-per-cluster))
+     ⇒ ("Austrian Pine" "Red Pine")
+The function assoc-string is much like assoc except that it ignores certain differences between strings. See Comparison of Characters and Strings.
+
+Function: rassoc value alist ¶
+This function returns the first association with value value in alist. It returns nil if no association in alist has a CDR equal to value.
+
+rassoc is like assoc except that it compares the CDR of each alist association instead of the CAR. You can think of this as reverse assoc, finding the key for a given value.
+
+Function: assq key alist ¶
+This function is like assoc in that it returns the first association for key in alist, but it makes the comparison using eq. assq returns nil if no association in alist has a CAR eq to key. This function is used more often than assoc, since eq is faster than equal and most alists use symbols as keys. See Equality Predicates.
+
+(setq trees '((pine . cones) (oak . acorns) (maple . seeds)))
+     ⇒ ((pine . cones) (oak . acorns) (maple . seeds))
+(assq 'pine trees)
+     ⇒ (pine . cones)
+On the other hand, assq is not usually useful in alists where the keys may not be symbols:
+
+(setq leaves
+      '(("simple leaves" . oak)
+        ("compound leaves" . horsechestnut)))
+
+(assq "simple leaves" leaves)
+     ⇒ Unspecified; might be nil or ("simple leaves" . oak).
+(assoc "simple leaves" leaves)
+     ⇒ ("simple leaves" . oak)
+Function: alist-get key alist &optional default remove testfn ¶
+This function is similar to assq. It finds the first association (key . value) by comparing key with alist elements, and, if found, returns the value of that association. If no association is found, the function returns default. Comparison of key against alist elements uses the function specified by testfn, defaulting to eq.
+
+This is a generalized variable (see Generalized Variables) that can be used to change a value with setf. When using it to set a value, optional argument remove non-nil means to remove key’s association from alist if the new value is eql to default.
+
+Function: rassq value alist ¶
+This function returns the first association with value value in alist. It returns nil if no association in alist has a CDR eq to value.
+
+rassq is like assq except that it compares the CDR of each alist association instead of the CAR. You can think of this as reverse assq, finding the key for a given value.
+
+For example:
+
+(setq trees '((pine . cones) (oak . acorns) (maple . seeds)))
+
+(rassq 'acorns trees)
+     ⇒ (oak . acorns)
+(rassq 'spores trees)
+     ⇒ nil
+rassq cannot search for a value stored in the CAR of the CDR of an element:
+
+(setq colors '((rose red) (lily white) (buttercup yellow)))
+
+(rassq 'white colors)
+     ⇒ nil
+In this case, the CDR of the association (lily white) is not the symbol white, but rather the list (white). This becomes clearer if the association is written in dotted pair notation:
+
+(lily white) ≡ (lily . (white))
+Function: assoc-default key alist &optional test default ¶
+This function searches alist for a match for key. For each element of alist, it compares the element (if it is an atom) or the element’s CAR (if it is a cons) against key, by calling test with two arguments: the element or its CAR, and key. The arguments are passed in that order so that you can get useful results using string-match with an alist that contains regular expressions (see Regular Expression Searching). If test is omitted or nil, equal is used for comparison.
+
+If an alist element matches key by this criterion, then assoc-default returns a value based on this element. If the element is a cons, then the value is the element’s CDR. Otherwise, the return value is default.
+
+If no alist element matches key, assoc-default returns nil.
+
+Function: copy-alist alist ¶
+This function returns a two-level deep copy of alist: it creates a new copy of each association, so that you can alter the associations of the new alist without changing the old one.
+
+(setq needles-per-cluster
+      '((2 . ("Austrian Pine" "Red Pine"))
+        (3 . ("Pitch Pine"))
+        (5 . ("White Pine"))))
+⇒
+((2 "Austrian Pine" "Red Pine")
+ (3 "Pitch Pine")
+ (5 "White Pine"))
+
+(setq copy (copy-alist needles-per-cluster))
+⇒
+((2 "Austrian Pine" "Red Pine")
+ (3 "Pitch Pine")
+ (5 "White Pine"))
+
+(eq needles-per-cluster copy)
+     ⇒ nil
+(equal needles-per-cluster copy)
+     ⇒ t
+(eq (car needles-per-cluster) (car copy))
+     ⇒ nil
+(cdr (car (cdr needles-per-cluster)))
+     ⇒ ("Pitch Pine")
+(eq (cdr (car (cdr needles-per-cluster)))
+    (cdr (car (cdr copy))))
+     ⇒ t
+This example shows how copy-alist makes it possible to change the associations of one copy without affecting the other:
+
+(setcdr (assq 3 copy) '("Martian Vacuum Pine"))
+(cdr (assq 3 needles-per-cluster))
+     ⇒ ("Pitch Pine")
+Function: assq-delete-all key alist ¶
+This function deletes from alist all the elements whose CAR is eq to key, much as if you used delq to delete each such element one by one. It returns the shortened alist, and often modifies the original list structure of alist. For correct results, use the return value of assq-delete-all rather than looking at the saved value of alist.
+
+(setq alist (list '(foo 1) '(bar 2) '(foo 3) '(lose 4)))
+     ⇒ ((foo 1) (bar 2) (foo 3) (lose 4))
+(assq-delete-all 'foo alist)
+     ⇒ ((bar 2) (lose 4))
+alist
+     ⇒ ((foo 1) (bar 2) (lose 4))
+Function: assoc-delete-all key alist &optional test ¶
+This function is like assq-delete-all except that it accepts an optional argument test, a predicate function to compare the keys in alist. If omitted or nil, test defaults to equal. As assq-delete-all, this function often modifies the original list structure of alist.
+
+Function: rassq-delete-all value alist ¶
+This function deletes from alist all the elements whose CDR is eq to value. It returns the shortened alist, and often modifies the original list structure of alist. rassq-delete-all is like assq-delete-all except that it compares the CDR of each alist association instead of the CAR.
+
+Macro: let-alist alist body ¶
+Creates a binding for each symbol used as keys the association list alist, prefixed with dot. This can be useful when accessing several items in the same association list, and it’s best understood through a simple example:
+
+(setq colors '((rose . red) (lily . white) (buttercup . yellow)))
+(let-alist colors
+  (if (eq .rose 'red)
+      .lily))
+     ⇒ white
+The body is inspected at compilation time, and only the symbols that appear in body with a ‘.’ as the first character in the symbol name will be bound. Finding the keys is done with assq, and the cdr of the return value of this assq is assigned as the value for the binding.
+
+Nested association lists is supported:
+
+(setq colors '((rose . red) (lily (belladonna . yellow) (brindisi . pink))))
+(let-alist colors
+  (if (eq .rose 'red)
+      .lily.belladonna))
+     ⇒ yellow
+Nesting let-alist inside each other is allowed, but the code in the inner let-alist can’t access the variables bound by the outer let-alist.
+
+Footnotes
+(6)
+This usage of “key” is not related to the term “key sequence”; it means a value used to look up an item in a table. In this case, the table is the alist, and the alist associations are the items.
+
+
+*** Property Lists
+
+A property list (plist for short) is a list of paired elements. Each of the pairs associates a property name (usually a symbol) with a property or value. Here is an example of a property list:
+
+(pine cones numbers (1 2 3) color "blue")
+This property list associates pine with cones, numbers with (1 2 3), and color with "blue". The property names and values can be any Lisp objects, but the names are usually symbols (as they are in this example).
+
+Property lists are used in several contexts. For instance, the function put-text-property takes an argument which is a property list, specifying text properties and associated values which are to be applied to text in a string or buffer. See Text Properties.
+
+Another prominent use of property lists is for storing symbol properties. Every symbol possesses a list of properties, used to record miscellaneous information about the symbol; these properties are stored in the form of a property list. See Symbol Properties.
+
+Function: plistp object ¶
+This predicate function returns non-nil if object is a valid property list.
+
+**** Property Lists and Association Lists
+
+Association lists (see Association Lists) are very similar to property lists. In contrast to association lists, the order of the pairs in the property list is not significant, since the property names must be distinct.
+
+Property lists are better than association lists for attaching information to various Lisp function names or variables. If your program keeps all such information in one association list, it will typically need to search that entire list each time it checks for an association for a particular Lisp function name or variable, which could be slow. By contrast, if you keep the same information in the property lists of the function names or variables themselves, each search will scan only the length of one property list, which is usually short. This is why the documentation for a variable is recorded in a property named variable-documentation. The byte compiler likewise uses properties to record those functions needing special treatment.
+
+However, association lists have their own advantages. Depending on your application, it may be faster to add an association to the front of an association list than to update a property. All properties for a symbol are stored in the same property list, so there is a possibility of a conflict between different uses of a property name. (For this reason, it is a good idea to choose property names that are probably unique, such as by beginning the property name with the program’s usual name-prefix for variables and functions.) An association list may be used like a stack where associations are pushed on the front of the list and later discarded; this is not possible with a property list.
+
+
+**** Previous: Property Lists and Association Lists, Up: Property Lists   [Contents][Index]
+
+5.9.2 Property Lists Outside Symbols
+The following functions can be used to manipulate property lists. They all default to comparing property names using eq.
+
+Function: plist-get plist property &optional predicate ¶
+This returns the value of the property property stored in the property list plist. Comparisons are done with predicate, which defaults to eq. It accepts a malformed plist argument. If property is not found in the plist, it returns nil. For example,
+
+(plist-get '(foo 4) 'foo)
+     ⇒ 4
+(plist-get '(foo 4 bad) 'foo)
+     ⇒ 4
+(plist-get '(foo 4 bad) 'bad)
+     ⇒ nil
+(plist-get '(foo 4 bad) 'bar)
+     ⇒ nil
+Function: plist-put plist property value &optional predicate ¶
+This stores value as the value of the property property in the property list plist. Comparisons are done with predicate, which defaults to eq. It may modify plist destructively, or it may construct a new list structure without altering the old. The function returns the modified property list, so you can store that back in the place where you got plist. For example,
+
+(setq my-plist (list 'bar t 'foo 4))
+     ⇒ (bar t foo 4)
+(setq my-plist (plist-put my-plist 'foo 69))
+     ⇒ (bar t foo 69)
+(setq my-plist (plist-put my-plist 'quux '(a)))
+     ⇒ (bar t foo 69 quux (a))
+Function: lax-plist-get plist property ¶
+This obsolete function is like plist-get except that it compares properties using equal instead of eq.
+
+Function: lax-plist-put plist property value ¶
+This obsolete function is like plist-put except that it compares properties using equal instead of eq.
+
+Function: plist-member plist property &optional predicate ¶
+This returns non-nil if plist contains the given property. Comparisons are done with predicate, which defaults to eq. Unlike plist-get, this allows you to distinguish between a missing property and a property with the value nil. The value is actually the tail of plist whose car is property.
+
+** Sequences, Arrays, and Vectors
+
+The sequence type is the union of two other Lisp types: lists and arrays. In other words, any list is a sequence, and any array is a sequence. The common property that all sequences have is that each is an ordered collection of elements.
+
+An array is a fixed-length object with a slot for each of its elements. All the elements are accessible in constant time. The four types of arrays are strings, vectors, char-tables and bool-vectors.
+
+A list is a sequence of elements, but it is not a single primitive object; it is made of cons cells, one cell per element. Finding the nth element requires looking through n cons cells, so elements farther from the beginning of the list take longer to access. But it is possible to add elements to the list, or remove elements.
+
+The following diagram shows the relationship between these types:
+
+          _____________________________________________
+         |                                             |
+         |          Sequence                           |
+         |  ______   ________________________________  |
+         | |      | |                                | |
+         | | List | |             Array              | |
+         | |      | |    ________       ________     | |
+         | |______| |   |        |     |        |    | |
+         |          |   | Vector |     | String |    | |
+         |          |   |________|     |________|    | |
+         |          |  ____________   _____________  | |
+         |          | |            | |             | | |
+         |          | | Char-table | | Bool-vector | | |
+         |          | |____________| |_____________| | |
+         |          |________________________________| |
+         |_____________________________________________|
+
+*** Sequences
+
+This section describes functions that accept any kind of sequence.
+
+Function: sequencep object ¶
+This function returns t if object is a list, vector, string, bool-vector, or char-table, nil otherwise. See also seqp below.
+
+Function: length sequence ¶
+This function returns the number of elements in sequence. The function signals the wrong-type-argument error if the argument is not a sequence or is a dotted list; it signals the circular-list error if the argument is a circular list. For a char-table, the value returned is always one more than the maximum Emacs character code.
+
+See Definition of safe-length, for the related function safe-length.
+
+(length '(1 2 3))
+    ⇒ 3
+(length ())
+    ⇒ 0
+(length "foobar")
+    ⇒ 6
+(length [1 2 3])
+    ⇒ 3
+(length (make-bool-vector 5 nil))
+    ⇒ 5
+See also string-bytes, in Text Representations.
+
+If you need to compute the width of a string on display, you should use string-width (see Size of Displayed Text), not length, since length only counts the number of characters, but does not account for the display width of each character.
+
+Function: length< sequence length ¶
+Return non-nil if sequence is shorter than length. This may be more efficient than computing the length of sequence if sequence is a long list.
+
+Function: length> sequence length ¶
+Return non-nil if sequence is longer than length.
+
+Function: length= sequence length ¶
+Return non-nil if the length of sequence is equal to length.
+
+Function: elt sequence index ¶
+This function returns the element of sequence indexed by index. Legitimate values of index are integers ranging from 0 up to one less than the length of sequence. If sequence is a list, out-of-range values behave as for nth. See Definition of nth. Otherwise, out-of-range values trigger an args-out-of-range error.
+
+(elt [1 2 3 4] 2)
+     ⇒ 3
+(elt '(1 2 3 4) 2)
+     ⇒ 3
+;; We use string to show clearly which character elt returns.
+(string (elt "1234" 2))
+     ⇒ "3"
+(elt [1 2 3 4] 4)
+     error→ Args out of range: [1 2 3 4], 4
+(elt [1 2 3 4] -1)
+     error→ Args out of range: [1 2 3 4], -1
+This function generalizes aref (see Functions that Operate on Arrays) and nth (see Definition of nth).
+
+Function: copy-sequence seqr ¶
+This function returns a copy of seqr, which should be either a sequence or a record. The copy is the same type of object as the original, and it has the same elements in the same order. However, if seqr is empty, like a string or a vector of zero length, the value returned by this function might not be a copy, but an empty object of the same type and identical to seqr.
+
+Storing a new element into the copy does not affect the original seqr, and vice versa. However, the elements of the copy are not copies; they are identical (eq) to the elements of the original. Therefore, changes made within these elements, as found via the copy, are also visible in the original.
+
+If the argument is a string with text properties, the property list in the copy is itself a copy, not shared with the original’s property list. However, the actual values of the properties are shared. See Text Properties.
+
+This function does not work for dotted lists. Trying to copy a circular list may cause an infinite loop.
+
+See also append in Building Cons Cells and Lists, concat in Creating Strings, and vconcat in Functions for Vectors, for other ways to copy sequences.
+
+(setq bar (list 1 2))
+     ⇒ (1 2)
+(setq x (vector 'foo bar))
+     ⇒ [foo (1 2)]
+(setq y (copy-sequence x))
+     ⇒ [foo (1 2)]
+
+(eq x y)
+     ⇒ nil
+(equal x y)
+     ⇒ t
+(eq (elt x 1) (elt y 1))
+     ⇒ t
+
+;; Replacing an element of one sequence.
+(aset x 0 'quux)
+x ⇒ [quux (1 2)]
+y ⇒ [foo (1 2)]
+
+;; Modifying the inside of a shared element.
+(setcar (aref x 1) 69)
+x ⇒ [quux (69 2)]
+y ⇒ [foo (69 2)]
+Function: reverse sequence ¶
+This function creates a new sequence whose elements are the elements of sequence, but in reverse order. The original argument sequence is not altered. Note that char-tables cannot be reversed.
+
+(setq x '(1 2 3 4))
+     ⇒ (1 2 3 4)
+(reverse x)
+     ⇒ (4 3 2 1)
+x
+     ⇒ (1 2 3 4)
+(setq x [1 2 3 4])
+     ⇒ [1 2 3 4]
+(reverse x)
+     ⇒ [4 3 2 1]
+x
+     ⇒ [1 2 3 4]
+(setq x "xyzzy")
+     ⇒ "xyzzy"
+(reverse x)
+     ⇒ "yzzyx"
+x
+     ⇒ "xyzzy"
+Function: nreverse sequence ¶
+This function reverses the order of the elements of sequence. Unlike reverse the original sequence may be modified.
+
+For example:
+
+(setq x (list 'a 'b 'c))
+     ⇒ (a b c)
+x
+     ⇒ (a b c)
+(nreverse x)
+     ⇒ (c b a)
+;; The cons cell that was first is now last.
+x
+     ⇒ (a)
+To avoid confusion, we usually store the result of nreverse back in the same variable which held the original list:
+
+(setq x (nreverse x))
+Here is the nreverse of our favorite example, (a b c), presented graphically:
+
+Original list head:                       Reversed list:
+ -------------        -------------        ------------
+| car  | cdr  |      | car  | cdr  |      | car | cdr  |
+|   a  |  nil |<--   |   b  |   o  |<--   |   c |   o  |
+|      |      |   |  |      |   |  |   |  |     |   |  |
+ -------------    |   --------- | -    |   -------- | -
+                  |             |      |            |
+                   -------------        ------------
+For the vector, it is even simpler because you don’t need setq:
+
+(setq x (copy-sequence [1 2 3 4]))
+     ⇒ [1 2 3 4]
+(nreverse x)
+     ⇒ [4 3 2 1]
+x
+     ⇒ [4 3 2 1]
+Note that unlike reverse, this function doesn’t work with strings. Although you can alter string data by using aset, it is strongly encouraged to treat strings as immutable even when they are mutable. See Mutability.
+
+Function: sort sequence predicate ¶
+This function sorts sequence stably. Note that this function doesn’t work for all sequences; it may be used only for lists and vectors. If sequence is a list, it is modified destructively. This functions returns the sorted sequence and compares elements using predicate. A stable sort is one in which elements with equal sort keys maintain their relative order before and after the sort. Stability is important when successive sorts are used to order elements according to different criteria.
+
+The argument predicate must be a function that accepts two arguments. It is called with two elements of sequence. To get an increasing order sort, the predicate should return non-nil if the first element is “less” than the second, or nil if not.
+
+The comparison function predicate must give reliable results for any given pair of arguments, at least within a single call to sort. It must be antisymmetric; that is, if a is less than b, b must not be less than a. It must be transitive—that is, if a is less than b, and b is less than c, then a must be less than c. If you use a comparison function which does not meet these requirements, the result of sort is unpredictable.
+
+The destructive aspect of sort for lists is that it reuses the cons cells forming sequence by changing their contents, possibly rearranging them in a different order. This means that the value of the input list is undefined after sorting; only the list returned by sort has a well-defined value. Example:
+
+(setq nums (list 2 1 4 3 0))
+(sort nums #'<)
+     ⇒ (0 1 2 3 4)
+     ; nums is unpredictable at this point
+Most often we store the result back into the variable that held the original list:
+
+(setq nums (sort nums #'<))
+If you wish to make a sorted copy without destroying the original, copy it first and then sort:
+
+(setq nums (list 2 1 4 3 0))
+(sort (copy-sequence nums) #'<)
+     ⇒ (0 1 2 3 4)
+nums
+     ⇒ (2 1 4 3 0)
+For the better understanding of what stable sort is, consider the following vector example. After sorting, all items whose car is 8 are grouped at the beginning of vector, but their relative order is preserved. All items whose car is 9 are grouped at the end of vector, but their relative order is also preserved:
+
+(setq
+  vector
+  (vector '(8 . "xxx") '(9 . "aaa") '(8 . "bbb") '(9 . "zzz")
+          '(9 . "ppp") '(8 . "ttt") '(8 . "eee") '(9 . "fff")))
+     ⇒ [(8 . "xxx") (9 . "aaa") (8 . "bbb") (9 . "zzz")
+         (9 . "ppp") (8 . "ttt") (8 . "eee") (9 . "fff")]
+(sort vector (lambda (x y) (< (car x) (car y))))
+     ⇒ [(8 . "xxx") (8 . "bbb") (8 . "ttt") (8 . "eee")
+         (9 . "aaa") (9 . "zzz") (9 . "ppp") (9 . "fff")]
+See Sorting Text, for more functions that perform sorting. See documentation in Access to Documentation Strings, for a useful example of sort.
+
+The seq.el library provides the following additional sequence manipulation macros and functions, prefixed with seq-.
+
+All functions defined in this library are free of side-effects; i.e., they do not modify any sequence (list, vector, or string) that you pass as an argument. Unless otherwise stated, the result is a sequence of the same type as the input. For those functions that take a predicate, this should be a function of one argument.
+
+The seq.el library can be extended to work with additional types of sequential data-structures. For that purpose, all functions are defined using cl-defgeneric. See Generic Functions, for more details about using cl-defgeneric for adding extensions.
+
+Function: seq-elt sequence index ¶
+This function returns the element of sequence at the specified index, which is an integer whose valid value range is zero to one less than the length of sequence. For out-of-range values on built-in sequence types, seq-elt behaves like elt. For the details, see Definition of elt.
+
+(seq-elt [1 2 3 4] 2)
+⇒ 3
+seq-elt returns places settable using setf (see The setf Macro).
+
+(setq vec [1 2 3 4])
+(setf (seq-elt vec 2) 5)
+vec
+⇒ [1 2 5 4]
+Function: seq-length sequence ¶
+This function returns the number of elements in sequence. For built-in sequence types, seq-length behaves like length. See Definition of length.
+
+Function: seqp object ¶
+This function returns non-nil if object is a sequence (a list or array), or any additional type of sequence defined via seq.el generic functions. This is an extensible variant of sequencep.
+
+(seqp [1 2])
+⇒ t
+(seqp 2)
+⇒ nil
+Function: seq-drop sequence n ¶
+This function returns all but the first n (an integer) elements of sequence. If n is negative or zero, the result is sequence.
+
+(seq-drop [1 2 3 4 5 6] 3)
+⇒ [4 5 6]
+(seq-drop "hello world" -4)
+⇒ "hello world"
+Function: seq-take sequence n ¶
+This function returns the first n (an integer) elements of sequence. If n is negative or zero, the result is nil.
+
+(seq-take '(1 2 3 4) 3)
+⇒ (1 2 3)
+(seq-take [1 2 3 4] 0)
+⇒ []
+Function: seq-take-while predicate sequence ¶
+This function returns the members of sequence in order, stopping before the first one for which predicate returns nil.
+
+(seq-take-while (lambda (elt) (> elt 0)) '(1 2 3 -1 -2))
+⇒ (1 2 3)
+(seq-take-while (lambda (elt) (> elt 0)) [-1 4 6])
+⇒ []
+Function: seq-drop-while predicate sequence ¶
+This function returns the members of sequence in order, starting from the first one for which predicate returns nil.
+
+(seq-drop-while (lambda (elt) (> elt 0)) '(1 2 3 -1 -2))
+⇒ (-1 -2)
+(seq-drop-while (lambda (elt) (< elt 0)) [1 4 6])
+⇒ [1 4 6]
+Function: seq-split sequence length ¶
+This function returns a list consisting of sub-sequences of sequence of (at most) length length. (The final element may be shorter than length if the length of sequence isn’t a multiple of length.
+
+(seq-split [0 1 2 3 4] 2)
+⇒ ([0 1] [2 3] [4])
+Function: seq-do function sequence ¶
+This function applies function to each element of sequence in turn (presumably for side effects), and returns sequence.
+
+Function: seq-map function sequence ¶
+This function returns the result of applying function to each element of sequence. The returned value is a list.
+
+(seq-map #'1+ '(2 4 6))
+⇒ (3 5 7)
+(seq-map #'symbol-name [foo bar])
+⇒ ("foo" "bar")
+Function: seq-map-indexed function sequence ¶
+This function returns the result of applying function to each element of sequence and its index within seq. The returned value is a list.
+
+(seq-map-indexed (lambda (elt idx)
+                   (list idx elt))
+                 '(a b c))
+⇒ ((0 a) (1 b) (2 c))
+Function: seq-mapn function &rest sequences ¶
+This function returns the result of applying function to each element of sequences. The arity (see subr-arity) of function must match the number of sequences. Mapping stops at the end of the shortest sequence, and the returned value is a list.
+
+(seq-mapn #'+ '(2 4 6) '(20 40 60))
+⇒ (22 44 66)
+(seq-mapn #'concat '("moskito" "bite") ["bee" "sting"])
+⇒ ("moskitobee" "bitesting")
+Function: seq-filter predicate sequence ¶
+This function returns a list of all the elements in sequence for which predicate returns non-nil.
+
+(seq-filter (lambda (elt) (> elt 0)) [1 -1 3 -3 5])
+⇒ (1 3 5)
+(seq-filter (lambda (elt) (> elt 0)) '(-1 -3 -5))
+⇒ nil
+Function: seq-remove predicate sequence ¶
+This function returns a list of all the elements in sequence for which predicate returns nil.
+
+(seq-remove (lambda (elt) (> elt 0)) [1 -1 3 -3 5])
+⇒ (-1 -3)
+(seq-remove (lambda (elt) (< elt 0)) '(-1 -3 -5))
+⇒ nil
+Function: seq-remove-at-position sequence n ¶
+This function returns a copy of sequence where the element at (zero-based) index n got removed. The result is a sequence of the same type as sequence.
+
+(seq-remove-at-position [1 -1 3 -3 5] 0)
+⇒ [-1 3 -3 5]
+(seq-remove-at-position [1 -1 3 -3 5] 3)
+⇒ [1 -1 3 5]
+Function: seq-keep function sequence ¶
+This function returns a list of all non-nil results from calling function on the elements in sequence.
+
+(seq-keep #'cl-digit-char-p '(?6 ?a ?7))
+⇒ (6 7)
+Function: seq-reduce function sequence initial-value ¶
+This function returns the result of calling function with initial-value and the first element of sequence, then calling function with that result and the second element of sequence, then with that result and the third element of sequence, etc. function should be a function of two arguments.
+
+function is called with two arguments. initial-value (and then the accumulated value) is used as the first argument, and the elements in sequence are used for the second argument.
+
+If sequence is empty, this returns initial-value without calling function.
+
+(seq-reduce #'+ [1 2 3 4] 0)
+⇒ 10
+(seq-reduce #'+ '(1 2 3 4) 5)
+⇒ 15
+(seq-reduce #'+ '() 3)
+⇒ 3
+Function: seq-some predicate sequence ¶
+This function returns the first non-nil value returned by applying predicate to each element of sequence in turn.
+
+(seq-some #'numberp ["abc" 1 nil])
+⇒ t
+(seq-some #'numberp ["abc" "def"])
+⇒ nil
+(seq-some #'null ["abc" 1 nil])
+⇒ t
+(seq-some #'1+ [2 4 6])
+⇒ 3
+Function: seq-find predicate sequence &optional default ¶
+This function returns the first element in sequence for which predicate returns non-nil. If no element matches predicate, the function returns default.
+
+Note that this function has an ambiguity if the found element is identical to default, as in that case it cannot be known whether an element was found or not.
+
+(seq-find #'numberp ["abc" 1 nil])
+⇒ 1
+(seq-find #'numberp ["abc" "def"])
+⇒ nil
+Function: seq-every-p predicate sequence ¶
+This function returns non-nil if applying predicate to every element of sequence returns non-nil.
+
+(seq-every-p #'numberp [2 4 6])
+⇒ t
+(seq-every-p #'numberp [2 4 "6"])
+⇒ nil
+Function: seq-empty-p sequence ¶
+This function returns non-nil if sequence is empty.
+
+(seq-empty-p "not empty")
+⇒ nil
+(seq-empty-p "")
+⇒ t
+Function: seq-count predicate sequence ¶
+This function returns the number of elements in sequence for which predicate returns non-nil.
+
+(seq-count (lambda (elt) (> elt 0)) [-1 2 0 3 -2])
+⇒ 2
+Function: seq-sort function sequence ¶
+This function returns a copy of sequence that is sorted according to function, a function of two arguments that returns non-nil if the first argument should sort before the second.
+
+Function: seq-sort-by function predicate sequence ¶
+This function is similar to seq-sort, but the elements of sequence are transformed by applying function on them before being sorted. function is a function of one argument.
+
+(seq-sort-by #'seq-length #'> ["a" "ab" "abc"])
+⇒ ["abc" "ab" "a"]
+Function: seq-contains-p sequence elt &optional function ¶
+This function returns non-nil if at least one element in sequence is equal to elt. If the optional argument function is non-nil, it is a function of two arguments to use instead of the default equal.
+
+(seq-contains-p '(symbol1 symbol2) 'symbol1)
+⇒ t
+(seq-contains-p '(symbol1 symbol2) 'symbol3)
+⇒ nil
+Function: seq-set-equal-p sequence1 sequence2 &optional testfn ¶
+This function checks whether sequence1 and sequence2 contain the same elements, regardless of the order. If the optional argument testfn is non-nil, it is a function of two arguments to use instead of the default equal.
+
+(seq-set-equal-p '(a b c) '(c b a))
+⇒ t
+(seq-set-equal-p '(a b c) '(c b))
+⇒ nil
+(seq-set-equal-p '("a" "b" "c") '("c" "b" "a"))
+⇒ t
+(seq-set-equal-p '("a" "b" "c") '("c" "b" "a") #'eq)
+⇒ nil
+Function: seq-position sequence elt &optional function ¶
+This function returns the (zero-based) index of the first element in sequence that is equal to elt. If the optional argument function is non-nil, it is a function of two arguments to use instead of the default equal.
+
+(seq-position '(a b c) 'b)
+⇒ 1
+(seq-position '(a b c) 'd)
+⇒ nil
+Function: seq-positions sequence elt &optional testfn ¶
+This function returns a list of the (zero-based) indices of the elements in sequence for which testfn returns non-nil when passed the element and elt as arguments. testfn defaults to equal.
+
+(seq-positions '(a b c a d) 'a)
+⇒ (0 3)
+(seq-positions '(a b c a d) 'z)
+⇒ nil
+(seq-positions '(11 5 7 12 9 15) 10 #'>=)
+⇒ (0 3 5)
+Function: seq-uniq sequence &optional function ¶
+This function returns a list of the elements of sequence with duplicates removed. If the optional argument function is non-nil, it is a function of two arguments to use instead of the default equal.
+
+(seq-uniq '(1 2 2 1 3))
+⇒ (1 2 3)
+(seq-uniq '(1 2 2.0 1.0) #'=)
+⇒ (1 2)
+Function: seq-subseq sequence start &optional end ¶
+This function returns a subset of sequence from start to end, both integers (end defaults to the last element). If start or end is negative, it counts from the end of sequence.
+
+(seq-subseq '(1 2 3 4 5) 1)
+⇒ (2 3 4 5)
+(seq-subseq '[1 2 3 4 5] 1 3)
+⇒ [2 3]
+(seq-subseq '[1 2 3 4 5] -3 -1)
+⇒ [3 4]
+Function: seq-concatenate type &rest sequences ¶
+This function returns a sequence of type type made of the concatenation of sequences. type may be: vector, list or string.
+
+(seq-concatenate 'list '(1 2) '(3 4) [5 6])
+⇒ (1 2 3 4 5 6)
+(seq-concatenate 'string "Hello " "world")
+⇒ "Hello world"
+Function: seq-mapcat function sequence &optional type ¶
+This function returns the result of applying seq-concatenate to the result of applying function to each element of sequence. The result is a sequence of type type, or a list if type is nil.
+
+(seq-mapcat #'seq-reverse '((3 2 1) (6 5 4)))
+⇒ (1 2 3 4 5 6)
+Function: seq-partition sequence n ¶
+This function returns a list of the elements of sequence grouped into sub-sequences of length n. The last sequence may contain less elements than n. n must be an integer. If n is a negative integer or 0, the return value is nil.
+
+(seq-partition '(0 1 2 3 4 5 6 7) 3)
+⇒ ((0 1 2) (3 4 5) (6 7))
+Function: seq-union sequence1 sequence2 &optional function ¶
+This function returns a list of the elements that appear either in sequence1 or sequence2. The elements of the returned list are all unique, in the sense that no two elements there will compare equal. If the optional argument function is non-nil, it should be a function of two arguments to use to compare elements, instead of the default equal.
+
+(seq-union [1 2 3] [3 5])
+⇒ (1 2 3 5)
+Function: seq-intersection sequence1 sequence2 &optional function ¶
+This function returns a list of the elements that appear both in sequence1 and sequence2. If the optional argument function is non-nil, it is a function of two arguments to use to compare elements instead of the default equal.
+
+(seq-intersection [2 3 4 5] [1 3 5 6 7])
+⇒ (3 5)
+Function: seq-difference sequence1 sequence2 &optional function ¶
+This function returns a list of the elements that appear in sequence1 but not in sequence2. If the optional argument function is non-nil, it is a function of two arguments to use to compare elements instead of the default equal.
+
+(seq-difference '(2 3 4 5) [1 3 5 6 7])
+⇒ (2 4)
+Function: seq-group-by function sequence ¶
+This function separates the elements of sequence into an alist whose keys are the result of applying function to each element of sequence. Keys are compared using equal.
+
+(seq-group-by #'integerp '(1 2.1 3 2 3.2))
+⇒ ((t 1 3 2) (nil 2.1 3.2))
+(seq-group-by #'car '((a 1) (b 2) (a 3) (c 4)))
+⇒ ((b (b 2)) (a (a 1) (a 3)) (c (c 4)))
+Function: seq-into sequence type ¶
+This function converts the sequence sequence into a sequence of type type. type can be one of the following symbols: vector, string or list.
+
+(seq-into [1 2 3] 'list)
+⇒ (1 2 3)
+(seq-into nil 'vector)
+⇒ []
+(seq-into "hello" 'vector)
+⇒ [104 101 108 108 111]
+Function: seq-min sequence ¶
+This function returns the smallest element of sequence. The elements of sequence must be numbers or markers (see Markers).
+
+(seq-min [3 1 2])
+⇒ 1
+(seq-min "Hello")
+⇒ 72
+Function: seq-max sequence ¶
+This function returns the largest element of sequence. The elements of sequence must be numbers or markers.
+
+(seq-max [1 3 2])
+⇒ 3
+(seq-max "Hello")
+⇒ 111
+Macro: seq-doseq (var sequence) body… ¶
+This macro is like dolist (see dolist), except that sequence can be a list, vector or string. This is primarily useful for side-effects.
+
+Macro: seq-let var-sequence val-sequence body… ¶
+This macro binds the variables defined in var-sequence to the values that are the corresponding elements of val-sequence. This is known as destructuring binding. The elements of var-sequence can themselves include sequences, allowing for nested destructuring.
+
+The var-sequence sequence can also include the &rest marker followed by a variable name to be bound to the rest of val-sequence.
+
+(seq-let [first second] [1 2 3 4]
+  (list first second))
+⇒ (1 2)
+(seq-let (_ a _ b) '(1 2 3 4)
+  (list a b))
+⇒ (2 4)
+(seq-let [a [b [c]]] [1 [2 [3]]]
+  (list a b c))
+⇒ (1 2 3)
+(seq-let [a b &rest others] [1 2 3 4]
+  others)
+⇒ [3 4]
+The pcase patterns provide an alternative facility for destructuring binding, see Destructuring with pcase Patterns.
+
+Macro: seq-setq var-sequence val-sequence ¶
+This macro works similarly to seq-let, except that values are assigned to variables as if by setq instead of as in a let binding.
+
+(let ((a nil)
+      (b nil))
+  (seq-setq (_ a _ b) '(1 2 3 4))
+  (list a b))
+⇒ (2 4)
+Function: seq-random-elt sequence ¶
+This function returns an element of sequence taken at random.
+
+(seq-random-elt [1 2 3 4])
+⇒ 3
+(seq-random-elt [1 2 3 4])
+⇒ 2
+(seq-random-elt [1 2 3 4])
+⇒ 4
+(seq-random-elt [1 2 3 4])
+⇒ 2
+(seq-random-elt [1 2 3 4])
+⇒ 1
+If sequence is empty, this function signals an error.
+
+
+
+*** Arrays
+An array object has slots that hold a number of other Lisp objects, called the elements of the array. Any element of an array may be accessed in constant time. In contrast, the time to access an element of a list is proportional to the position of that element in the list.
+
+Emacs defines four types of array, all one-dimensional: strings (see String Type), vectors (see Vector Type), bool-vectors (see Bool-Vector Type), and char-tables (see Char-Table Type). Vectors and char-tables can hold elements of any type, but strings can only hold characters, and bool-vectors can only hold t and nil.
+
+All four kinds of array share these characteristics:
+
+The first element of an array has index zero, the second element has index 1, and so on. This is called zero-origin indexing. For example, an array of four elements has indices 0, 1, 2, and 3.
+The length of the array is fixed once you create it; you cannot change the length of an existing array.
+For purposes of evaluation, the array is a constant—i.e., it evaluates to itself.
+The elements of an array may be referenced or changed with the functions aref and aset, respectively (see Functions that Operate on Arrays).
+When you create an array, other than a char-table, you must specify its length. You cannot specify the length of a char-table, because that is determined by the range of character codes.
+
+In principle, if you want an array of text characters, you could use either a string or a vector. In practice, we always choose strings for such applications, for four reasons:
+
+They occupy one-fourth the space of a vector of the same elements.
+Strings are printed in a way that shows the contents more clearly as text.
+Strings can hold text properties. See Text Properties.
+Many of the specialized editing and I/O facilities of Emacs accept only strings. For example, you cannot insert a vector of characters into a buffer the way you can insert a string. See Strings and Characters.
+By contrast, for an array of keyboard input characters (such as a key sequence), a vector may be necessary, because many keyboard input characters are outside the range that will fit in a string. See Key Sequence Input.
+
+
+*** Functions that Operate on Arrays
+
+In this section, we describe the functions that accept all types of arrays.
+
+Function: arrayp object ¶
+This function returns t if object is an array (i.e., a vector, a string, a bool-vector or a char-table).
+
+(arrayp [a])
+     ⇒ t
+(arrayp "asdf")
+     ⇒ t
+(arrayp (syntax-table))    ;; A char-table.
+     ⇒ t
+Function: aref arr index ¶
+This function returns the indexth element of the array or record arr. The first element is at index zero.
+
+(setq primes [2 3 5 7 11 13])
+     ⇒ [2 3 5 7 11 13]
+(aref primes 4)
+     ⇒ 11
+(aref "abcdefg" 1)
+     ⇒ 98           ; ‘b’ is ASCII code 98.
+See also the function elt, in Sequences.
+
+Function: aset array index object ¶
+This function sets the indexth element of array to be object. It returns object.
+
+(setq w (vector 'foo 'bar 'baz))
+     ⇒ [foo bar baz]
+(aset w 0 'fu)
+     ⇒ fu
+w
+     ⇒ [fu bar baz]
+
+;; copy-sequence copies the string to be modified later.
+(setq x (copy-sequence "asdfasfd"))
+     ⇒ "asdfasfd"
+(aset x 3 ?Z)
+     ⇒ 90
+x
+     ⇒ "asdZasfd"
+The array should be mutable. See Mutability.
+
+If array is a string and object is not a character, a wrong-type-argument error results. The function converts a unibyte string to multibyte if necessary to insert a character.
+
+Function: fillarray array object ¶
+This function fills the array array with object, so that each element of array is object. It returns array.
+
+(setq a (copy-sequence [a b c d e f g]))
+     ⇒ [a b c d e f g]
+(fillarray a 0)
+     ⇒ [0 0 0 0 0 0 0]
+a
+     ⇒ [0 0 0 0 0 0 0]
+(setq s (copy-sequence "When in the course"))
+     ⇒ "When in the course"
+(fillarray s ?-)
+     ⇒ "------------------"
+If array is a string and object is not a character, a wrong-type-argument error results.
+
+The general sequence functions copy-sequence and length are often useful for objects known to be arrays. See Sequences.
+
+
+*** Vectors
+
+A vector is a general-purpose array whose elements can be any Lisp objects. (By contrast, the elements of a string can only be characters. See Strings and Characters.) Vectors are used in Emacs for many purposes: as key sequences (see Key Sequences), as symbol-lookup tables (see Creating and Interning Symbols), as part of the representation of a byte-compiled function (see Byte Compilation), and more.
+
+Like other arrays, vectors use zero-origin indexing: the first element has index 0.
+
+Vectors are printed with square brackets surrounding the elements. Thus, a vector whose elements are the symbols a, b and a is printed as [a b a]. You can write vectors in the same way in Lisp input.
+
+A vector, like a string or a number, is considered a constant for evaluation: the result of evaluating it is the same vector. This does not evaluate or even examine the elements of the vector. See Self-Evaluating Forms. Vectors written with square brackets should not be modified via aset or other destructive operations. See Mutability.
+
+Here are examples illustrating these principles:
+
+(setq avector [1 two '(three) "four" [five]])
+     ⇒ [1 two '(three) "four" [five]]
+(eval avector)
+     ⇒ [1 two '(three) "four" [five]]
+(eq avector (eval avector))
+     ⇒ t
+
+*** Functions for Vectors
+
+Here are some functions that relate to vectors:
+
+Function: vectorp object ¶
+This function returns t if object is a vector.
+
+(vectorp [a])
+     ⇒ t
+(vectorp "asdf")
+     ⇒ nil
+Function: vector &rest objects ¶
+This function creates and returns a vector whose elements are the arguments, objects.
+
+(vector 'foo 23 [bar baz] "rats")
+     ⇒ [foo 23 [bar baz] "rats"]
+(vector)
+     ⇒ []
+Function: make-vector length object ¶
+This function returns a new vector consisting of length elements, each initialized to object.
+
+(setq sleepy (make-vector 9 'Z))
+     ⇒ [Z Z Z Z Z Z Z Z Z]
+Function: vconcat &rest sequences ¶
+This function returns a new vector containing all the elements of sequences. The arguments sequences may be proper lists, vectors, strings or bool-vectors. If no sequences are given, the empty vector is returned.
+
+The value is either the empty vector, or is a newly constructed nonempty vector that is not eq to any existing vector.
+
+(setq a (vconcat '(A B C) '(D E F)))
+     ⇒ [A B C D E F]
+(eq a (vconcat a))
+     ⇒ nil
+(vconcat)
+     ⇒ []
+(vconcat [A B C] "aa" '(foo (6 7)))
+     ⇒ [A B C 97 97 foo (6 7)]
+The vconcat function also allows byte-code function objects as arguments. This is a special feature to make it easy to access the entire contents of a byte-code function object. See Byte-Code Function Objects.
+
+For other concatenation functions, see mapconcat in Mapping Functions, concat in Creating Strings, and append in Building Cons Cells and Lists.
+
+The append function also provides a way to convert a vector into a list with the same elements:
+
+(setq avector [1 two (quote (three)) "four" [five]])
+     ⇒ [1 two '(three) "four" [five]]
+(append avector nil)
+     ⇒ (1 two '(three) "four" [five])
+
+*** Char-Tables
+
+A char-table is much like a vector, except that it is indexed by character codes. Any valid character code, without modifiers, can be used as an index in a char-table. You can access a char-table’s elements with aref and aset, as with any array. In addition, a char-table can have extra slots to hold additional data not associated with particular character codes. Like vectors, char-tables are constants when evaluated, and can hold elements of any type.
+
+Each char-table has a subtype, a symbol, which serves two purposes:
+
+The subtype provides an easy way to tell what the char-table is for. For instance, display tables are char-tables with display-table as the subtype, and syntax tables are char-tables with syntax-table as the subtype. The subtype can be queried using the function char-table-subtype, described below.
+The subtype controls the number of extra slots in the char-table. This number is specified by the subtype’s char-table-extra-slots symbol property (see Symbol Properties), whose value should be an integer between 0 and 10. If the subtype has no such symbol property, the char-table has no extra slots.
+A char-table can have a parent, which is another char-table. If it does, then whenever the char-table specifies nil for a particular character c, it inherits the value specified in the parent. In other words, (aref char-table c) returns the value from the parent of char-table if char-table itself specifies nil.
+
+A char-table can also have a default value. If so, then (aref char-table c) returns the default value whenever the char-table does not specify any other non-nil value.
+
+Function: make-char-table subtype &optional init ¶
+Return a newly-created char-table, with subtype subtype (a symbol). Each element is initialized to init, which defaults to nil. You cannot alter the subtype of a char-table after the char-table is created.
+
+There is no argument to specify the length of the char-table, because all char-tables have room for any valid character code as an index.
+
+If subtype has the char-table-extra-slots symbol property, that specifies the number of extra slots in the char-table. This should be an integer between 0 and 10; otherwise, make-char-table raises an error. If subtype has no char-table-extra-slots symbol property (see Property Lists), the char-table has no extra slots.
+
+Function: char-table-p object ¶
+This function returns t if object is a char-table, and nil otherwise.
+
+Function: char-table-subtype char-table ¶
+This function returns the subtype symbol of char-table.
+
+There is no special function to access default values in a char-table. To do that, use char-table-range (see below).
+
+Function: char-table-parent char-table ¶
+This function returns the parent of char-table. The parent is always either nil or another char-table.
+
+Function: set-char-table-parent char-table new-parent ¶
+This function sets the parent of char-table to new-parent.
+
+Function: char-table-extra-slot char-table n ¶
+This function returns the contents of extra slot n (zero based) of char-table. The number of extra slots in a char-table is determined by its subtype.
+
+Function: set-char-table-extra-slot char-table n value ¶
+This function stores value in extra slot n (zero based) of char-table.
+
+A char-table can specify an element value for a single character code; it can also specify a value for an entire character set.
+
+Function: char-table-range char-table range ¶
+This returns the value specified in char-table for a range of characters range. Here are the possibilities for range:
+
+nil
+Refers to the default value.
+
+char
+Refers to the element for character char (supposing char is a valid character code).
+
+(from . to)
+A cons cell refers to all the characters in the inclusive range ‘[from..to]’. In this case, the function returns the value for the character specified by from.
+
+Function: set-char-table-range char-table range value ¶
+This function sets the value in char-table for a range of characters range. Here are the possibilities for range:
+
+nil
+Refers to the default value.
+
+t
+Refers to the whole range of character codes.
+
+char
+Refers to the element for character char (supposing char is a valid character code).
+
+(from . to)
+A cons cell refers to all the characters in the inclusive range ‘[from..to]’.
+
+Function: map-char-table function char-table ¶
+This function calls its argument function for each element of char-table that has a non-nil value. The call to function is with two arguments, a key and a value. The key is a possible range argument for char-table-range—either a valid character or a cons cell (from . to), specifying a range of characters that share the same value. The value is what (char-table-range char-table key) returns.
+
+Overall, the key-value pairs passed to function describe all the values stored in char-table.
+
+The return value is always nil; to make calls to map-char-table useful, function should have side effects. For example, here is how to examine the elements of the syntax table:
+
+(let (accumulator)
+   (map-char-table
+    (lambda (key value)
+      (setq accumulator
+            (cons (list
+                   (if (consp key)
+                       (list (car key) (cdr key))
+                     key)
+                   value)
+                  accumulator)))
+    (syntax-table))
+   accumulator)
+⇒
+(((2597602 4194303) (2)) ((2597523 2597601) (3))
+ ... (65379 (5 . 65378)) (65378 (4 . 65379)) (65377 (1))
+ ... (12 (0)) (11 (3)) (10 (12)) (9 (0)) ((0 8) (3)))
+
+*** Bool-vectors
+
+A bool-vector is much like a vector, except that it stores only the values t and nil. If you try to store any non-nil value into an element of the bool-vector, the effect is to store t there. As with all arrays, bool-vector indices start from 0, and the length cannot be changed once the bool-vector is created. Bool-vectors are constants when evaluated.
+
+Several functions work specifically with bool-vectors; aside from that, you manipulate them with same functions used for other kinds of arrays.
+
+Function: make-bool-vector length initial ¶
+Return a new bool-vector of length elements, each one initialized to initial.
+
+Function: bool-vector &rest objects ¶
+This function creates and returns a bool-vector whose elements are the arguments, objects.
+
+Function: bool-vector-p object ¶
+This returns t if object is a bool-vector, and nil otherwise.
+
+There are also some bool-vector set operation functions, described below:
+
+Function: bool-vector-exclusive-or a b &optional c ¶
+Return bitwise exclusive or of bool vectors a and b. If optional argument c is given, the result of this operation is stored into c. All arguments should be bool vectors of the same length.
+
+Function: bool-vector-union a b &optional c ¶
+Return bitwise or of bool vectors a and b. If optional argument c is given, the result of this operation is stored into c. All arguments should be bool vectors of the same length.
+
+Function: bool-vector-intersection a b &optional c ¶
+Return bitwise and of bool vectors a and b. If optional argument c is given, the result of this operation is stored into c. All arguments should be bool vectors of the same length.
+
+Function: bool-vector-set-difference a b &optional c ¶
+Return set difference of bool vectors a and b. If optional argument c is given, the result of this operation is stored into c. All arguments should be bool vectors of the same length.
+
+Function: bool-vector-not a &optional b ¶
+Return set complement of bool vector a. If optional argument b is given, the result of this operation is stored into b. All arguments should be bool vectors of the same length.
+
+Function: bool-vector-subsetp a b ¶
+Return t if every t value in a is also t in b, nil otherwise. All arguments should be bool vectors of the same length.
+
+Function: bool-vector-count-consecutive a b i ¶
+Return the number of consecutive elements in a equal b starting at i. a is a bool vector, b is t or nil, and i is an index into a.
+
+Function: bool-vector-count-population a ¶
+Return the number of elements that are t in bool vector a.
+
+The printed form represents up to 8 boolean values as a single character:
+
+(bool-vector t nil t nil)
+     ⇒ #&4"^E"
+(bool-vector)
+     ⇒ #&0""
+You can use vconcat to print a bool-vector like other vectors:
+
+(vconcat (bool-vector nil t nil t))
+     ⇒ [nil t nil t]
+Here is another example of creating, examining, and updating a bool-vector:
+
+(setq bv (make-bool-vector 5 t))
+     ⇒ #&5"^_"
+(aref bv 1)
+     ⇒ t
+(aset bv 3 nil)
+     ⇒ nil
+bv
+     ⇒ #&5"^W"
+These results make sense because the binary codes for control-_ and control-W are 11111 and 10111, respectively.
+
+
+*** Managing a Fixed-Size Ring of Objects
+
+A ring is a fixed-size data structure that supports insertion, deletion, rotation, and modulo-indexed reference and traversal. An efficient ring data structure is implemented by the ring package. It provides the functions listed in this section.
+
+Note that several rings in Emacs, like the kill ring and the mark ring, are actually implemented as simple lists, not using the ring package; thus the following functions won’t work on them.
+
+Function: make-ring size ¶
+This returns a new ring capable of holding size objects. size should be an integer.
+
+Function: ring-p object ¶
+This returns t if object is a ring, nil otherwise.
+
+Function: ring-size ring ¶
+This returns the maximum capacity of the ring.
+
+Function: ring-length ring ¶
+This returns the number of objects that ring currently contains. The value will never exceed that returned by ring-size.
+
+Function: ring-elements ring ¶
+This returns a list of the objects in ring, in order, newest first.
+
+Function: ring-copy ring ¶
+This returns a new ring which is a copy of ring. The new ring contains the same (eq) objects as ring.
+
+Function: ring-empty-p ring ¶
+This returns t if ring is empty, nil otherwise.
+
+The newest element in the ring always has index 0. Higher indices correspond to older elements. Indices are computed modulo the ring length. Index −1 corresponds to the oldest element, −2 to the next-oldest, and so forth.
+
+Function: ring-ref ring index ¶
+This returns the object in ring found at index index. index may be negative or greater than the ring length. If ring is empty, ring-ref signals an error.
+
+Function: ring-insert ring object ¶
+This inserts object into ring, making it the newest element, and returns object.
+
+If the ring is full, insertion removes the oldest element to make room for the new element.
+
+Function: ring-remove ring &optional index ¶
+Remove an object from ring, and return that object. The argument index specifies which item to remove; if it is nil, that means to remove the oldest item. If ring is empty, ring-remove signals an error.
+
+Function: ring-insert-at-beginning ring object ¶
+This inserts object into ring, treating it as the oldest element. The return value is not significant.
+
+If the ring is full, this function removes the newest element to make room for the inserted element.
+
+Function: ring-resize ring size ¶
+Set the size of ring to size. If the new size is smaller, then the oldest items in the ring are discarded.
+
+If you are careful not to exceed the ring size, you can use the ring as a first-in-first-out queue. For example:
+
+(let ((fifo (make-ring 5)))
+  (mapc (lambda (obj) (ring-insert fifo obj))
+        '(0 one "two"))
+  (list (ring-remove fifo) t
+        (ring-remove fifo) t
+        (ring-remove fifo)))
+     ⇒ (0 t one t "two")
+
+** Records
+
+The purpose of records is to allow programmers to create objects with new types that are not built into Emacs. They are used as the underlying representation of cl-defstruct and defclass instances.
+
+Internally, a record object is much like a vector; its slots can be accessed using aref and it can be copied using copy-sequence. However, the first slot is used to hold its type as returned by type-of. Also, in the current implementation records can have at most 4096 slots, whereas vectors can be much larger. Like arrays, records use zero-origin indexing: the first slot has index 0.
+
+The type slot should be a symbol or a type descriptor. If it’s a type descriptor, the symbol naming its type will be returned; Type Descriptors. Any other kind of object is returned as-is.
+
+The printed representation of records is ‘#s’ followed by a list specifying the contents. The first list element must be the record type. The following elements are the record slots.
+
+To avoid conflicts with other type names, Lisp programs that define new types of records should normally use the naming conventions of the package where these record types are introduced for the names of the types. Note that the names of the types which could possibly conflict might not be known at the time the package defining a record type is loaded; they could be loaded at some future point in time.
+
+A record is considered a constant for evaluation: the result of evaluating it is the same record. This does not evaluate or even examine the slots. See Self-Evaluating Forms.
+
+*** Record Functions
+
+Function: recordp object ¶
+This function returns t if object is a record.
+
+(recordp #s(a))
+     ⇒ t
+Function: record type &rest objects ¶
+This function creates and returns a record whose type is type and remaining slots are the rest of the arguments, objects.
+
+(record 'foo 23 [bar baz] "rats")
+     ⇒ #s(foo 23 [bar baz] "rats")
+Function: make-record type length object ¶
+This function returns a new record with type type and length more slots, each initialized to object.
+
+(setq sleepy (make-record 'foo 9 'Z))
+     ⇒ #s(foo Z Z Z Z Z Z Z Z Z)
+
+*** Backward Compatibility
+
+Code compiled with older versions of cl-defstruct that doesn’t use records may run into problems when used in a new Emacs. To alleviate this, Emacs detects when an old cl-defstruct is used, and enables a mode in which type-of handles old struct objects as if they were records.
+
+Function: cl-old-struct-compat-mode arg ¶
+If arg is positive, enable backward compatibility with old-style structs.
+
+
+** Hash Tables
+
+A hash table is a very fast kind of lookup table, somewhat like an alist (see Association Lists) in that it maps keys to corresponding values. It differs from an alist in these ways:
+
+Lookup in a hash table is extremely fast for large tables—in fact, the time required is essentially independent of how many elements are stored in the table. For smaller tables (a few tens of elements) alists may still be faster because hash tables have a more-or-less constant overhead.
+The correspondences in a hash table are in no particular order.
+There is no way to share structure between two hash tables, the way two alists can share a common tail.
+Emacs Lisp provides a general-purpose hash table data type, along with a series of functions for operating on them. Hash tables have a special printed representation, which consists of ‘#s’ followed by a list specifying the hash table properties and contents. See Creating Hash Tables. (Hash notation, the initial ‘#’ character used in the printed representations of objects with no read representation, has nothing to do with hash tables. See Printed Representation and Read Syntax.)
+
+Obarrays are also a kind of hash table, but they are a different type of object and are used only for recording interned symbols (see Creating and Interning Symbols).
+
+*** Creating Hash Tables
+
+The principal function for creating a hash table is make-hash-table.
+
+Function: make-hash-table &rest keyword-args ¶
+This function creates a new hash table according to the specified arguments. The arguments should consist of alternating keywords (particular symbols recognized specially) and values corresponding to them.
+
+Several keywords make sense in make-hash-table, but the only two that you really need to know about are :test and :weakness.
+
+:test test
+This specifies the method of key lookup for this hash table. The default is eql; eq and equal are other alternatives:
+
+eql
+Keys which are numbers are the same if they are equal, that is, if they are equal in value and either both are integers or both are floating point; otherwise, two distinct objects are never the same.
+
+eq
+Any two distinct Lisp objects are different as keys.
+
+equal
+Two Lisp objects are the same, as keys, if they are equal according to equal.
+
+You can use define-hash-table-test (see Defining Hash Comparisons) to define additional possibilities for test.
+
+:weakness weak
+The weakness of a hash table specifies whether the presence of a key or value in the hash table preserves it from garbage collection.
+
+The value, weak, must be one of nil, key, value, key-or-value, key-and-value, or t which is an alias for key-and-value. If weak is key then the hash table does not prevent its keys from being collected as garbage (if they are not referenced anywhere else); if a particular key does get collected, the corresponding association is removed from the hash table.
+
+If weak is value, then the hash table does not prevent values from being collected as garbage (if they are not referenced anywhere else); if a particular value does get collected, the corresponding association is removed from the hash table.
+
+If weak is key-and-value or t, both the key and the value must be live in order to preserve the association. Thus, the hash table does not protect either keys or values from garbage collection; if either one is collected as garbage, that removes the association.
+
+If weak is key-or-value, either the key or the value can preserve the association. Thus, associations are removed from the hash table when both their key and value would be collected as garbage (if not for references from weak hash tables).
+
+The default for weak is nil, so that all keys and values referenced in the hash table are preserved from garbage collection.
+
+:size size
+This specifies a hint for how many associations you plan to store in the hash table. If you know the approximate number, you can make things a little more efficient by specifying it this way. If you specify too small a size, the hash table will grow automatically when necessary, but doing that takes some extra time.
+
+The default size is 65.
+
+:rehash-size rehash-size
+When you add an association to a hash table and the table is full, it grows automatically. This value specifies how to make the hash table larger, at that time.
+
+If rehash-size is an integer, it should be positive, and the hash table grows by adding approximately that much to the nominal size. If rehash-size is floating point, it had better be greater than 1, and the hash table grows by multiplying the old size by approximately that number.
+
+The default value is 1.5.
+
+:rehash-threshold threshold
+This specifies the criterion for when the hash table is full (so it should be made larger). The value, threshold, should be a positive floating-point number, no greater than 1. The hash table is full whenever the actual number of entries exceeds the nominal size multiplied by an approximation to this value. The default for threshold is 0.8125.
+
+You can also create a hash table using the printed representation for hash tables. The Lisp reader can read this printed representation, provided each element in the specified hash table has a valid read syntax (see Printed Representation and Read Syntax). For instance, the following specifies a hash table containing the keys key1 and key2 (both symbols) associated with val1 (a symbol) and 300 (a number) respectively.
+
+#s(hash-table size 30 data (key1 val1 key2 300))
+Note, however, that when using this in Emacs Lisp code, it’s undefined whether this creates a new hash table or not. If you want to create a new hash table, you should always use make-hash-table (see Self-Evaluating Forms).
+
+The printed representation for a hash table consists of ‘#s’ followed by a list beginning with ‘hash-table’. The rest of the list should consist of zero or more property-value pairs specifying the hash table’s properties and initial contents. The properties and values are read literally. Valid property names are size, test, weakness, rehash-size, rehash-threshold, and data. The data property should be a list of key-value pairs for the initial contents; the other properties have the same meanings as the matching make-hash-table keywords (:size, :test, etc.), described above.
+
+Note that you cannot specify a hash table whose initial contents include objects that have no read syntax, such as buffers and frames. Such objects may be added to the hash table after it is created.
+
+
+*** Hash Table Access
+
+This section describes the functions for accessing and storing associations in a hash table. In general, any Lisp object can be used as a hash key, unless the comparison method imposes limits. Any Lisp object can also be used as the value.
+
+Function: gethash key table &optional default ¶
+This function looks up key in table, and returns its associated value—or default, if key has no association in table.
+
+Function: puthash key value table ¶
+This function enters an association for key in table, with value value. If key already has an association in table, value replaces the old associated value. This function always returns value.
+
+Function: remhash key table ¶
+This function removes the association for key from table, if there is one. If key has no association, remhash does nothing.
+
+Common Lisp note: In Common Lisp, remhash returns non-nil if it actually removed an association and nil otherwise. In Emacs Lisp, remhash always returns nil.
+
+Function: clrhash table ¶
+This function removes all the associations from hash table table, so that it becomes empty. This is also called clearing the hash table. clrhash returns the empty table.
+
+Function: maphash function table ¶
+This function calls function once for each of the associations in table. The function function should accept two arguments—a key listed in table, and its associated value. maphash returns nil.
+
+
+*** Defining Hash Comparisons
+
+You can define new methods of key lookup by means of define-hash-table-test. In order to use this feature, you need to understand how hash tables work, and what a hash code means.
+
+You can think of a hash table conceptually as a large array of many slots, each capable of holding one association. To look up a key, gethash first computes an integer, the hash code, from the key. It can reduce this integer modulo the length of the array, to produce an index in the array. Then it looks in that slot, and if necessary in other nearby slots, to see if it has found the key being sought.
+
+Thus, to define a new method of key lookup, you need to specify both a function to compute the hash code from a key, and a function to compare two keys directly. The two functions should be consistent with each other: that is, two keys’ hash codes should be the same if the keys compare as equal. Also, since the two functions can be called at any time (such as by the garbage collector), the functions should be free of side effects and should return quickly, and their behavior should depend on only on properties of the keys that do not change.
+
+Function: define-hash-table-test name test-fn hash-fn ¶
+This function defines a new hash table test, named name.
+
+After defining name in this way, you can use it as the test argument in make-hash-table. When you do that, the hash table will use test-fn to compare key values, and hash-fn to compute a hash code from a key value.
+
+The function test-fn should accept two arguments, two keys, and return non-nil if they are considered the same.
+
+The function hash-fn should accept one argument, a key, and return an integer that is the hash code of that key. For good results, the function should use the whole range of fixnums for hash codes, including negative fixnums.
+
+The specified functions are stored in the property list of name under the property hash-table-test; the property value’s form is (test-fn hash-fn).
+
+Function: sxhash-equal obj ¶
+This function returns a hash code for Lisp object obj. This is an integer that reflects the contents of obj and the other Lisp objects it points to.
+
+If two objects obj1 and obj2 are equal, then (sxhash-equal obj1) and (sxhash-equal obj2) are the same integer.
+
+If the two objects are not equal, the values returned by sxhash-equal are usually different, but not always. sxhash-equal is designed to be reasonably fast (since it’s used for indexing hash tables) so it won’t recurse deeply into nested structures. In addition; once in a rare while, by luck, you will encounter two distinct-looking simple objects that give the same result from sxhash-equal. So you can’t, in general, use sxhash-equal to check whether an object has changed.
+
+Common Lisp note: In Common Lisp a similar function is called sxhash. Emacs provides this name as a compatibility alias for sxhash-equal.
+
+Function: sxhash-eq obj ¶
+This function returns a hash code for Lisp object obj. Its result reflects identity of obj, but not its contents.
+
+If two objects obj1 and obj2 are eq, then (sxhash-eq obj1) and (sxhash-eq obj2) are the same integer.
+
+Function: sxhash-eql obj ¶
+This function returns a hash code for Lisp object obj suitable for eql comparison. I.e. it reflects identity of obj except for the case where the object is a bignum or a float number, in which case a hash code is generated for the value.
+
+If two objects obj1 and obj2 are eql, then (sxhash-eql obj1) and (sxhash-eql obj2) are the same integer.
+
+This example creates a hash table whose keys are strings that are compared case-insensitively.
+
+(defun string-hash-ignore-case (a)
+  (sxhash-equal (upcase a)))
+
+(define-hash-table-test 'ignore-case
+  'string-equal-ignore-case 'string-hash-ignore-case)
+
+(make-hash-table :test 'ignore-case)
+Here is how you could define a hash table test equivalent to the predefined test value equal. The keys can be any Lisp object, and equal-looking objects are considered the same key.
+
+(define-hash-table-test 'contents-hash 'equal 'sxhash-equal)
+
+(make-hash-table :test 'contents-hash)
+Lisp programs should not rely on hash codes being preserved between Emacs sessions, as the implementation of the hash functions uses some details of the object storage that can change between sessions and between different architectures.
+
+
+*** Other Hash Table Functions
+
+Here are some other functions for working with hash tables.
+
+Function: hash-table-p table ¶
+This returns non-nil if table is a hash table object.
+
+Function: copy-hash-table table ¶
+This function creates and returns a copy of table. Only the table itself is copied—the keys and values are shared.
+
+Function: hash-table-count table ¶
+This function returns the actual number of entries in table.
+
+Function: hash-table-test table ¶
+This returns the test value that was given when table was created, to specify how to hash and compare keys. See make-hash-table (see Creating Hash Tables).
+
+Function: hash-table-weakness table ¶
+This function returns the weak value that was specified for hash table table.
+
+Function: hash-table-rehash-size table ¶
+This returns the rehash size of table.
+
+Function: hash-table-rehash-threshold table ¶
+This returns the rehash threshold of table.
+
+Function: hash-table-size table ¶
+This returns the current nominal size of table.
+
+** Symbols
+
+A symbol is an object with a unique name. This chapter describes symbols, their components, their property lists, and how they are created and interned. Separate chapters describe the use of symbols as variables and as function names; see Variables, and Functions. For the precise read syntax for symbols, see Symbol Type.
+
+You can test whether an arbitrary Lisp object is a symbol with symbolp:
+
+Function: symbolp object ¶
+This function returns t if object is a symbol, nil otherwise.
+
+*** Symbol Components
+
+Each symbol has four components (or “cells”), each of which references another object:
+
+Print name ¶
+The symbol’s name.
+
+Value ¶
+The symbol’s current value as a variable.
+
+Function ¶
+The symbol’s function definition. It can also hold a symbol, a keymap, or a keyboard macro.
+
+Property list ¶
+The symbol’s property list.
+
+The print name cell always holds a string, and cannot be changed. Each of the other three cells can be set to any Lisp object.
+
+The print name cell holds the string that is the name of a symbol. Since symbols are represented textually by their names, it is important not to have two symbols with the same name. The Lisp reader ensures this: every time it reads a symbol, it looks for an existing symbol with the specified name before it creates a new one. To get a symbol’s name, use the function symbol-name (see Creating and Interning Symbols). However, although each symbol has only one unique print name, it is nevertheless possible to refer to that same symbol via different alias names called “shorthands” (see Shorthands).
+
+The value cell holds a symbol’s value as a variable, which is what you get if the symbol itself is evaluated as a Lisp expression. See Variables, for details about how values are set and retrieved, including complications such as local bindings and scoping rules. Most symbols can have any Lisp object as a value, but certain special symbols have values that cannot be changed; these include nil and t, and any symbol whose name starts with ‘:’ (those are called keywords). See Variables that Never Change.
+
+The function cell holds a symbol’s function definition. Often, we refer to “the function foo” when we really mean the function stored in the function cell of foo; we make the distinction explicit only when necessary. Typically, the function cell is used to hold a function (see Functions) or a macro (see Macros). However, it can also be used to hold a symbol (see Symbol Function Indirection), keyboard macro (see Keyboard Macros), keymap (see Keymaps), or autoload object (see Autoloading). To get the contents of a symbol’s function cell, use the function symbol-function (see Accessing Function Cell Contents).
+
+The property list cell normally should hold a correctly formatted property list. To get a symbol’s property list, use the function symbol-plist. See Symbol Properties.
+
+The function cell or the value cell may be void, which means that the cell does not reference any object. (This is not the same thing as holding the symbol void, nor the same as holding the symbol nil.) Examining a function or value cell that is void results in an error, such as ‘Symbol's value as variable is void’.
+
+Because each symbol has separate value and function cells, variables names and function names do not conflict. For example, the symbol buffer-file-name has a value (the name of the file being visited in the current buffer) as well as a function definition (a primitive function that returns the name of the file):
+
+buffer-file-name
+     ⇒ "/gnu/elisp/symbols.texi"
+(symbol-function 'buffer-file-name)
+     ⇒ #<subr buffer-file-name>
+
+*** Defining Symbols
+
+A definition is a special kind of Lisp expression that announces your intention to use a symbol in a particular way. It typically specifies a value or meaning for the symbol for one kind of use, plus documentation for its meaning when used in this way. Thus, when you define a symbol as a variable, you can supply an initial value for the variable, plus documentation for the variable.
+
+defvar and defconst are special forms that define a symbol as a global variable—a variable that can be accessed at any point in a Lisp program. See Variables, for details about variables. To define a customizable variable, use the defcustom macro, which also calls defvar as a subroutine (see Customization Settings).
+
+In principle, you can assign a variable value to any symbol with setq, whether or not it has first been defined as a variable. However, you ought to write a variable definition for each global variable that you want to use; otherwise, your Lisp program may not act correctly if it is evaluated with lexical scoping enabled (see Scoping Rules for Variable Bindings).
+
+defun defines a symbol as a function, creating a lambda expression and storing it in the function cell of the symbol. This lambda expression thus becomes the function definition of the symbol. (The term “function definition”, meaning the contents of the function cell, is derived from the idea that defun gives the symbol its definition as a function.) defsubst and defalias are two other ways of defining a function. See Functions.
+
+defmacro defines a symbol as a macro. It creates a macro object and stores it in the function cell of the symbol. Note that a given symbol can be a macro or a function, but not both at once, because both macro and function definitions are kept in the function cell, and that cell can hold only one Lisp object at any given time. See Macros.
+
+As previously noted, Emacs Lisp allows the same symbol to be defined both as a variable (e.g., with defvar) and as a function or macro (e.g., with defun). Such definitions do not conflict.
+
+These definitions also act as guides for programming tools. For example, the C-h f and C-h v commands create help buffers containing links to the relevant variable, function, or macro definitions. See Name Help in The GNU Emacs Manual.
+
+
+*** Creating and Interning Symbols
+
+To understand how symbols are created in GNU Emacs Lisp, you must know how Lisp reads them. Lisp must ensure that it finds the same symbol every time it reads the same sequence of characters in the same context. Failure to do so would cause complete confusion.
+
+When the Lisp reader encounters a name that references a symbol in the source code, it reads all the characters of that name. Then it looks up that name in a table called an obarray to find the symbol that the programmer meant. The technique used in this lookup is called “hashing”, an efficient method of looking something up by converting a sequence of characters to a number, known as a “hash code”. For example, instead of searching a telephone book cover to cover when looking up Jan Jones, you start with the J’s and go from there. That is a simple version of hashing. Each element of the obarray is a bucket which holds all the symbols with a given hash code; to look for a given name, it is sufficient to look through all the symbols in the bucket for that name’s hash code. (The same idea is used for general Emacs hash tables, but they are a different data type; see Hash Tables.)
+
+When looking up names, the Lisp reader also considers “shorthands”. If the programmer supplied them, this allows the reader to find a symbol even if its name isn’t present in its full form in the source code. Of course, the reader needs to be aware of some pre-established context about such shorthands, much as one needs context to be to able to refer uniquely to Jan Jones by just the name “Jan”: it’s probably fine when amongst the Joneses, or when Jan has been mentioned recently, but very ambiguous in any other situation. See Shorthands.
+
+If a symbol with the desired name is found, the reader uses that symbol. If the obarray does not contain a symbol with that name, the reader makes a new symbol and adds it to the obarray. Finding or adding a symbol with a certain name is called interning it, and the symbol is then called an interned symbol.
+
+Interning ensures that each obarray has just one symbol with any particular name. Other like-named symbols may exist, but not in the same obarray. Thus, the reader gets the same symbols for the same names, as long as you keep reading with the same obarray.
+
+Interning usually happens automatically in the reader, but sometimes other programs may want to do it. For example, after the M-x command obtains the command name as a string using the minibuffer, it then interns the string, to get the interned symbol with that name. As another example, a hypothetical telephone book program could intern the name of each looked up person’s name as a symbol, even if the obarray did not contain it, so that it could attach information to that new symbol, such as the last time someone looked it up.
+
+No obarray contains all symbols; in fact, some symbols are not in any obarray. They are called uninterned symbols. An uninterned symbol has the same four cells as other symbols; however, the only way to gain access to it is by finding it in some other object or as the value of a variable. Uninterned symbols are sometimes useful in generating Lisp code, see below.
+
+In Emacs Lisp, an obarray is actually a vector. Each element of the vector is a bucket; its value is either an interned symbol whose name hashes to that bucket, or 0 if the bucket is empty. Each interned symbol has an internal link (invisible to the user) to the next symbol in the bucket. Because these links are invisible, there is no way to find all the symbols in an obarray except using mapatoms (below). The order of symbols in a bucket is not significant.
+
+In an empty obarray, every element is 0, so you can create an obarray with (make-vector length 0). This is the only valid way to create an obarray. Prime numbers as lengths tend to result in good hashing; lengths one less than a power of two are also good.
+
+Do not try to put symbols in an obarray yourself. This does not work—only intern can enter a symbol in an obarray properly.
+
+Common Lisp note: Unlike Common Lisp, Emacs Lisp does not provide for interning the same name in several different “packages”, thus creating multiple symbols with the same name but different packages. Emacs Lisp provides a different namespacing system called “shorthands” (see Shorthands).
+
+Most of the functions below take a name and sometimes an obarray as arguments. A wrong-type-argument error is signaled if the name is not a string, or if the obarray is not a vector.
+
+Function: symbol-name symbol ¶
+This function returns the string that is symbol’s name. For example:
+
+(symbol-name 'foo)
+     ⇒ "foo"
+Warning: Never alter the string returned by that function. Doing that might make Emacs dysfunctional, and might even crash Emacs.
+
+Creating an uninterned symbol is useful in generating Lisp code, because an uninterned symbol used as a variable in the code you generate cannot clash with any variables used in other Lisp programs.
+
+Function: make-symbol name ¶
+This function returns a newly-allocated, uninterned symbol whose name is name (which must be a string). Its value and function definition are void, and its property list is nil. In the example below, the value of sym is not eq to foo because it is a distinct uninterned symbol whose name is also ‘foo’.
+
+(setq sym (make-symbol "foo"))
+     ⇒ foo
+(eq sym 'foo)
+     ⇒ nil
+Function: gensym &optional prefix ¶
+This function returns a symbol using make-symbol, whose name is made by appending gensym-counter to prefix and incrementing that counter, guaranteeing that no two calls to this function will generate a symbol with the same name. The prefix defaults to "g".
+
+To avoid problems when accidentally interning printed representation of generated code (see Printed Representation and Read Syntax), it is recommended to use gensym instead of make-symbol.
+
+Function: intern name &optional obarray ¶
+This function returns the interned symbol whose name is name. If there is no such symbol in the obarray obarray, intern creates a new one, adds it to the obarray, and returns it. If obarray is omitted, the value of the global variable obarray is used.
+
+(setq sym (intern "foo"))
+     ⇒ foo
+(eq sym 'foo)
+     ⇒ t
+
+(setq sym1 (intern "foo" other-obarray))
+     ⇒ foo
+(eq sym1 'foo)
+     ⇒ nil
+Common Lisp note: In Common Lisp, you can intern an existing symbol in an obarray. In Emacs Lisp, you cannot do this, because the argument to intern must be a string, not a symbol.
+
+Function: intern-soft name &optional obarray ¶
+This function returns the symbol in obarray whose name is name, or nil if obarray has no symbol with that name. Therefore, you can use intern-soft to test whether a symbol with a given name is already interned. If obarray is omitted, the value of the global variable obarray is used.
+
+The argument name may also be a symbol; in that case, the function returns name if name is interned in the specified obarray, and otherwise nil.
+
+(intern-soft "frazzle")        ; No such symbol exists.
+     ⇒ nil
+(make-symbol "frazzle")        ; Create an uninterned one.
+     ⇒ frazzle
+(intern-soft "frazzle")        ; That one cannot be found.
+     ⇒ nil
+(setq sym (intern "frazzle"))  ; Create an interned one.
+     ⇒ frazzle
+(intern-soft "frazzle")        ; That one can be found!
+     ⇒ frazzle
+(eq sym 'frazzle)              ; And it is the same one.
+     ⇒ t
+Variable: obarray ¶
+This variable is the standard obarray for use by intern and read.
+
+Function: mapatoms function &optional obarray ¶
+This function calls function once with each symbol in the obarray obarray. Then it returns nil. If obarray is omitted, it defaults to the value of obarray, the standard obarray for ordinary symbols.
+
+(setq count 0)
+     ⇒ 0
+(defun count-syms (s)
+  (setq count (1+ count)))
+     ⇒ count-syms
+(mapatoms 'count-syms)
+     ⇒ nil
+count
+     ⇒ 1871
+See documentation in Access to Documentation Strings, for another example using mapatoms.
+
+Function: unintern symbol obarray ¶
+This function deletes symbol from the obarray obarray. If symbol is not actually in the obarray, unintern does nothing. If obarray is nil, the current obarray is used.
+
+If you provide a string instead of a symbol as symbol, it stands for a symbol name. Then unintern deletes the symbol (if any) in the obarray which has that name. If there is no such symbol, unintern does nothing.
+
+If unintern does delete a symbol, it returns t. Otherwise it returns nil.
+
+
+*** Symbol Properties
+
+A symbol may possess any number of symbol properties, which can be used to record miscellaneous information about the symbol. For example, when a symbol has a risky-local-variable property with a non-nil value, that means the variable which the symbol names is a risky file-local variable (see File Local Variables).
+
+Each symbol’s properties and property values are stored in the symbol’s property list cell (see Symbol Components), in the form of a property list (see Property Lists).
+
+**** Accessing Symbol Properties
+
+The following functions can be used to access symbol properties.
+
+Function: get symbol property ¶
+This function returns the value of the property named property in symbol’s property list. If there is no such property, it returns nil. Thus, there is no distinction between a value of nil and the absence of the property.
+
+The name property is compared with the existing property names using eq, so any object is a legitimate property.
+
+See put for an example.
+
+Function: put symbol property value ¶
+This function puts value onto symbol’s property list under the property name property, replacing any previous property value. The put function returns value.
+
+(put 'fly 'verb 'transitive)
+     ⇒'transitive
+(put 'fly 'noun '(a buzzing little bug))
+     ⇒ (a buzzing little bug)
+(get 'fly 'verb)
+     ⇒ transitive
+(symbol-plist 'fly)
+     ⇒ (verb transitive noun (a buzzing little bug))
+Function: symbol-plist symbol ¶
+This function returns the property list of symbol.
+
+Function: setplist symbol plist ¶
+This function sets symbol’s property list to plist. Normally, plist should be a well-formed property list, but this is not enforced. The return value is plist.
+
+(setplist 'foo '(a 1 b (2 3) c nil))
+     ⇒ (a 1 b (2 3) c nil)
+(symbol-plist 'foo)
+     ⇒ (a 1 b (2 3) c nil)
+For symbols in special obarrays, which are not used for ordinary purposes, it may make sense to use the property list cell in a nonstandard fashion; in fact, the abbrev mechanism does so (see Abbrevs and Abbrev Expansion).
+
+You could define put in terms of setplist and plist-put, as follows:
+
+(defun put (symbol prop value)
+  (setplist symbol
+            (plist-put (symbol-plist symbol) prop value)))
+Function: function-get symbol property &optional autoload ¶
+This function is identical to get, except that if symbol is the name of a function alias, it looks in the property list of the symbol naming the actual function. See Defining Functions. If the optional argument autoload is non-nil, and symbol is auto-loaded, this function will try to autoload it, since autoloading might set property of symbol. If autoload is the symbol macro, only try autoloading if symbol is an auto-loaded macro.
+
+Function: function-put function property value ¶
+This function sets property of function to value. function should be a symbol. This function is preferred to calling put for setting properties of a function, because it will allow us some day to implement remapping of old properties to new ones.
+
+
+**** Standard Symbol Properties
+
+Here, we list the symbol properties which are used for special purposes in Emacs. In the following table, whenever we say “the named function”, that means the function whose name is the relevant symbol; similarly for “the named variable” etc.
+
+:advertised-binding
+This property value specifies the preferred key binding, when showing documentation, for the named function. See Substituting Key Bindings in Documentation.
+
+char-table-extra-slots
+The value, if non-nil, specifies the number of extra slots in the named char-table type. See Char-Tables.
+
+customized-face
+face-defface-spec
+saved-face
+theme-face
+These properties are used to record a face’s standard, saved, customized, and themed face specs. Do not set them directly; they are managed by defface and related functions. See Defining Faces.
+
+customized-value
+saved-value
+standard-value
+theme-value
+These properties are used to record a customizable variable’s standard value, saved value, customized-but-unsaved value, and themed values. Do not set them directly; they are managed by defcustom and related functions. See Defining Customization Variables.
+
+definition-name
+This property is used to find the definition of a symbol in the source code, when it might be hard to find the definition by textual search of the source file. For example, a define-derived-mode (see Defining Derived Modes) might define a mode-specific function or a variable implicitly; or your Lisp program might generate a run-time call to defun to define a function (see Defining Functions). In these and similar cases, the definition-name property of the symbol should be another symbol whose definition can be found by textual search and whose code defines the original symbol. In the example with define-derived-mode, the value of this property of the functions and variables it defines should be the mode symbol. The Emacs Help commands such as C-h f (see Help in The GNU Emacs Manual) use this property to show the definition of a symbol via a button in the *Help* buffer where the symbol’s documentation is shown.
+
+disabled
+If the value is non-nil, the named function is disabled as a command. See Disabling Commands.
+
+face-documentation
+The value stores the documentation string of the named face. This is set automatically by defface. See Defining Faces.
+
+history-length
+The value, if non-nil, specifies the maximum minibuffer history length for the named history list variable. See Minibuffer History.
+
+interactive-form
+The value is an interactive form for the named function. Normally, you should not set this directly; use the interactive special form instead. See Interactive Call.
+
+menu-enable
+The value is an expression for determining whether the named menu item should be enabled in menus. See Simple Menu Items.
+
+mode-class
+If the value is special, the named major mode is special. See Major Mode Conventions.
+
+permanent-local
+If the value is non-nil, the named variable is a buffer-local variable whose value should not be reset when changing major modes. See Creating and Deleting Buffer-Local Bindings.
+
+permanent-local-hook
+If the value is non-nil, the named function should not be deleted from the local value of a hook variable when changing major modes. See Setting Hooks.
+
+pure ¶
+If the value is non-nil, the named function is considered to be pure (see What Is a Function?). Calls with constant arguments can be evaluated at compile time. This may shift run time errors to compile time. Not to be confused with pure storage (see Pure Storage).
+
+risky-local-variable
+If the value is non-nil, the named variable is considered risky as a file-local variable. See File Local Variables.
+
+safe-function
+If the value is non-nil, the named function is considered generally safe for evaluation. See Determining whether a Function is Safe to Call.
+
+safe-local-eval-function
+If the value is non-nil, the named function is safe to call in file-local evaluation forms. See File Local Variables.
+
+safe-local-variable
+The value specifies a function for determining safe file-local values for the named variable. See File Local Variables. Since this value is consulted when loading files, the function should be efficient and should ideally not lead to loading any libraries to determine the safeness (e.g., it should not be an autoloaded function).
+
+side-effect-free ¶
+A non-nil value indicates that the named function is free of side effects (see What Is a Function?), so the byte compiler may ignore a call whose value is unused. If the property’s value is error-free, the byte compiler may even delete such unused calls. In addition to byte compiler optimizations, this property is also used for determining function safety (see Determining whether a Function is Safe to Call).
+
+undo-inhibit-region
+If non-nil, the named function prevents the undo operation from being restricted to the active region, if undo is invoked immediately after the function. See Undo.
+
+variable-documentation
+If non-nil, this specifies the named variable’s documentation string. This is set automatically by defvar and related functions. See Defining Faces.
+
+
+*** Shorthands
+
+The symbol shorthands, sometimes known as “renamed symbols”, are symbolic forms found in Lisp source. They’re just like regular symbolic forms, except that when the Lisp reader encounters them, it produces symbols which have a different and usually longer print name (see Symbol Components).
+
+It is useful to think of shorthands as abbreviating the full names of intended symbols. Despite this, do not confuse shorthands with the Abbrev system (see Abbrevs and Abbrev Expansion).
+
+Shorthands make Emacs Lisp’s namespacing etiquette easier to work with. Since all symbols are stored in a single obarray (see Creating and Interning Symbols), programmers commonly prefix each symbol name with the name of the library where it originates. For example, the functions text-property-search-forward and text-property-search-backward both belong to the text-property-search.el library (see Loading). By properly prefixing symbol names, one effectively prevents clashes between similarly named symbols which belong to different libraries and thus do different things. However, this practice commonly originates very long symbols names, which are inconvenient to type and read after a while. Shorthands solve these issues in a clean way.
+
+Variable: read-symbol-shorthands ¶
+This variable’s value is an alist whose elements have the form (shorthand-prefix . longhand-prefix). Each element instructs the Lisp reader to read every symbol form which starts with shorthand-prefix as if it started with longhand-prefix instead.
+
+This variable may only be set in file-local variables (see Local Variables in Files in The GNU Emacs Manual).
+
+Here’s an example of shorthands usage in a hypothetical string manipulating library some-nice-string-utils.el.
+
+(defun some-nice-string-utils-split (separator s &optional omit-nulls)
+  "A match-data saving variant of `split-string'."
+  (save-match-data (split-string s separator omit-nulls)))
+
+(defun some-nice-string-utils-lines (s)
+  "Split string S at newline characters into a list of strings."
+  (some-nice-string-utils-split "\\(\r\n\\|[\n\r]\\)" s))
+As can be seen, it’s quite tedious to read or develop this code since the symbol names to type are so long. We can use shorthands to alleviate that.
+
+(defun snu-split (separator s &optional omit-nulls)
+  "A match-data saving variation on `split-string'."
+  (save-match-data (split-string s separator omit-nulls)))
+
+(defun snu-lines (s)
+  "Split string S into a list of strings on newline characters."
+  (snu-split "\\(\r\n\\|[\n\r]\\)" s))
+
+;; Local Variables:
+;; read-symbol-shorthands: (("snu-" . "some-nice-string-utils-"))
+;; End:
+Even though the two excerpts look different, they are quite identical after the Lisp reader processes them. Both will lead to the very same symbols being interned (see Creating and Interning Symbols). Thus loading or byte-compiling any of the two files has equivalent results. The shorthands snu-split and snu-lines used in the second version are not interned in the obarray. This is easily seen by moving point to the location where the shorthands are used and waiting for ElDoc (see Local Variables in Files in The GNU Emacs Manual) to hint at the true full name of the symbol under point in the echo area.
+
+Since read-symbol-shorthands is a file-local variable, it is possible that multiple libraries depending on some-nice-string-utils-lines.el refer to the same symbols under different shorthands, or not using shorthands at all. In the next example, the my-tricks.el library refers to the symbol some-nice-string-utils-lines using the sns- prefix instead of snu-.
+
+(defun t-reverse-lines (s) (string-join (reverse (sns-lines s)) "\n")
+
+;; Local Variables:
+;; read-symbol-shorthands: (("t-" . "my-tricks-")
+;;                          ("sns-" . "some-nice-string-utils-"))
+;; End:
+
+
+**** Exceptions
+There are two exceptions to rules governing Shorthand transformations:
+
+Symbol forms comprised entirely of characters in the Emacs Lisp symbol constituent class (see Table of Syntax Classes) are not transformed. For example, it’s possible to use - or /= as shorthand prefixes, but that won’t shadow the arithmetic functions of those names.
+Symbol forms whose names start with ‘#_’ are not transformed.
+
+
+*** Symbols with Position
+
+A symbol with position is a symbol, the bare symbol, together with an unsigned integer called the position. These objects are intended for use by the byte compiler, which records in them the position of each symbol occurrence and uses those positions in warning and error messages.
+
+The printed representation of a symbol with position uses the hash notation outlined in Printed Representation and Read Syntax. It looks like ‘#<symbol foo at 12345>’. It has no read syntax. You can cause just the bare symbol to be printed by binding the variable print-symbols-bare to non-nil around the print operation. The byte compiler does this before writing its output to the compiled Lisp file.
+
+For most purposes, when the flag variable symbols-with-pos-enabled is non-nil, symbols with positions behave just as bare symbols do. For example, ‘(eq #<symbol foo at 12345> foo)’ has a value t when that variable is set (but nil when it isn’t set). Most of the time in Emacs this variable is nil, but the byte compiler binds it to t when it runs.
+
+Typically, symbols with position are created by the byte compiler calling the reader function read-positioning-symbols (see Input Functions). One can also be created with the function position-symbol.
+
+Variable: symbols-with-pos-enabled ¶
+When this variable is non-nil, symbols with position behave like the contained bare symbol. Emacs runs a little more slowly in this case.
+
+Variable: print-symbols-bare ¶
+When bound to non-nil, the Lisp printer prints only the bare symbol of a symbol with position, ignoring the position.
+
+Function: symbol-with-pos-p symbol. ¶
+This function returns t if symbol is a symbol with position, nil otherwise.
+
+Function: bare-symbol symbol ¶
+This function returns the bare symbol contained in symbol, or symbol itself if it is already a bare symbol. For any other type of object, it signals an error.
+
+Function: symbol-with-pos-pos symbol ¶
+This function returns the position, a number, from a symbol with position. For any other type of object, it signals an error.
+
+Function: position-symbol sym pos ¶
+Make a new symbol with position. sym is either a bare symbol or a symbol with position, and supplies the symbol part of the new object. pos is either an integer which becomes the number part of the new object, or a symbol with position whose position is used. Emacs signals an error if either argument is invalid.
