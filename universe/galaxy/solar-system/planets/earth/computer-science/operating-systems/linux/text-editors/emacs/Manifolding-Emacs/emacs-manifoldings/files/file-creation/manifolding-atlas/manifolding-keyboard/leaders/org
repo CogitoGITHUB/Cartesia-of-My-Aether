@@ -2,7 +2,7 @@
 
 SPC o: Org tree (org/agenda/tasks/clock/edit/capture/atlas).
 
-** SPC o — Org :EMACS_MECHANISM:
+* SPC o — Org :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       c3ed0c51-eb22-41b6-b703-a654deef392f
 :MM_PARENT: none
