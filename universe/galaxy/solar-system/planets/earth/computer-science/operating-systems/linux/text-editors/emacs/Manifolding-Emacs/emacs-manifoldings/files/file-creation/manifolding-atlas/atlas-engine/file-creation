@@ -100,11 +100,22 @@ Move the headings, save, and the vault follows the new order.
             #'my/manifolding-atlas--drawer-order-after-save nil t))
 (add-hook 'find-file-hook
           (lambda ()
-            (when (and buffer-file-name
-                       (string= (expand-file-name buffer-file-name)
-                                (expand-file-name
-                                 (my/manifolding-atlas-drawer-order-file))))
-              (my/manifolding-atlas--install-drawer-order-save-hook))))
+            ;; Vault files only, and never throw: a nil order file, a
+            ;; failed scan, or an unresolvable root simply skips.  (An
+            ;; unguarded `expand-file-name' on nil once threw out of
+            ;; every find-file in the session, including dashboard's
+            ;; bookmark load and nested latexenc opens of straight
+            ;; test files.)
+            (let ((root (ignore-errors (my/manifolding-atlas-root-dir))))
+              (when (and buffer-file-name root
+                         (file-in-directory-p buffer-file-name root))
+                (let ((order-file
+                       (ignore-errors
+                        (my/manifolding-atlas-drawer-order-file))))
+                  (when (and order-file
+                             (string= (expand-file-name buffer-file-name)
+                                      (expand-file-name order-file)))
+                    (my/manifolding-atlas--install-drawer-order-save-hook)))))))
 #+end_src
 
 ** Boot reconcile
