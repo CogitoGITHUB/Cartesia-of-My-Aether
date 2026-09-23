@@ -145,6 +145,10 @@ Edits back to front per file.  Returns files changed."
 
 ** Commands
 #+begin_src emacs-lisp
+(defvar my/atlas-tag-renamed-functions nil
+  "Hook run with (OLD NEW-or-empty) after a tag rename or delete.
+Consumed by the tag-hierarchy module to keep extends in sync.")
+
 (defun my/atlas-tag-rename (old new)
   "Rename tag OLD to NEW vault-wide with preview and confirmation."
   (interactive
@@ -157,6 +161,7 @@ Edits back to front per file.  Returns files changed."
       (my/atlas-tag-preview occ new)
       (when (yes-or-no-p (format "Apply %d change(s)? " (length occ)))
         (my/atlas-tag-apply occ new)
+        (run-hook-with-args 'my/atlas-tag-renamed-functions old new)
         (message "renamed '%s' to '%s'" old new)))))
 
 (defun my/atlas-tag-delete (tag)
@@ -170,6 +175,7 @@ Edits back to front per file.  Returns files changed."
       (my/atlas-tag-preview occ "")
       (when (yes-or-no-p (format "Delete %d occurrence(s)? " (length occ)))
         (my/atlas-tag-apply occ "")
+        (run-hook-with-args 'my/atlas-tag-renamed-functions tag "")
         (message "deleted '%s'" tag)))))
 
 (defun my/atlas-tag-orphans ()
