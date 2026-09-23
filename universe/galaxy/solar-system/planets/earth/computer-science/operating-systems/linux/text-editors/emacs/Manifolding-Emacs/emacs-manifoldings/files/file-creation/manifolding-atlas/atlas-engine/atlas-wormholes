@@ -886,8 +886,10 @@ does not support all the elements.
       (let ((atlas-wormholes-add-all-on-activate nil))
         (atlas-wormholes-mode +1)))
     (let* ((keyword-plist (atlas-wormholes-keyword-string-to-plist))
+           (link-path (plist-get keyword-plist :link))
            (link (atlas-wormholes-wrap-path-to-link
-                  (plist-get keyword-plist :link)))
+                  (or link-path
+                      (user-error "atlas-wormholes: #+wormhole here has no link"))))
            ;; Note 2025-01-03 Retrospectively, PAYLOAD feels redundant now that
            ;; `atlas-wormholes-add' is being refactored. For
            ;; backword-compatibility, I am keeping PAYLOAD.
@@ -1348,13 +1350,14 @@ off (removed)."
 #+begin_src emacs-lisp
 (defun atlas-wormholes-keyword-value-link (string)
   "It is a utility function used converting a keyword STRING to plist.
-It is meant to be used by
-`atlas-wormholes-get-string-to-plist'.  It needs to be set in
-`atlas-wormholes-keyword-value-functions'."
+It needs to be set in
+`atlas-wormholes-get-string-to-plist'.  A missing link returns nil
+with a message instead of throwing: this runs during file opens and
+automated scans, where a throw breaks the open."
   (if (string-match "\\(\\[\\[.+?\\]\\]\\)" string)
       (list :link (org-strip-quotes (match-string 0 string)))
-    ;; link mandatory
-    (user-error "Error.  Link in #+wormhole is mandatory at %d" (point))
+    (message "atlas-wormholes: #+wormhole without link at %d (ignored)"
+             (point))
     nil))
 
 
