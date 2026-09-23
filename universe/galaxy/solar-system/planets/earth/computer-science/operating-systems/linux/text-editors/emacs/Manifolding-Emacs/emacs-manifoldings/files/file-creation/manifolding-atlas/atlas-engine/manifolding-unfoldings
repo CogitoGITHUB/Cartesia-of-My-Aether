@@ -46,128 +46,16 @@ Three unfolding types: ~'closed~ (shared, deduped), ~'scoped~ (per-entity), ~nil
 
 ** Tolerant Drawer Access
 
-*** Drawer region locator
-Finds the property drawer of the heading at point without org's own
-strict parsing — vault notes carry raw wormhole lines in drawers.
+Canonical implementations live in =core-helpers= (drawer region, drawer
+read/write/delete, key-from-label, insert point, org-entry fallbacks
+plus their advice installs). This file keeps only the unfolding-vocab
+key conversion it owns.
 #+begin_src emacs-lisp
-(defun my/manifolding-atlas--drawer-region ()
-  (save-excursion
-    (when (condition-case nil (org-back-to-heading t) (error nil))
-      (let* ((beg (line-beginning-position))
-             (hend (save-excursion
-                     (goto-char beg)
-                     (forward-line 1)
-                     (if (re-search-forward "^\\*+[ \t]" (point-max) t)
-                         (line-beginning-position)
-                       (point-max)))))
-        (goto-char beg)
-        (when (re-search-forward "^:PROPERTIES:[ \t]*$" hend t)
-          (let ((a (line-beginning-position 2)))
-            (when (re-search-forward "^:END:[ \t]*$" hend t)
-              (cons a (line-beginning-position)))))))))
-#+end_src
-
-*** Drawer read
-#+begin_src emacs-lisp
-(defun my/manifolding-atlas--drawer-get (key)
-  (save-excursion
-    (when-let ((r (my/manifolding-atlas--drawer-region)))
-      (goto-char (car r))
-      (or (when (re-search-forward
-                 (format "^:%s:[[:blank:]]+\\(.*\\)$" (regexp-quote key))
-                 (cdr r) t)
-            (match-string-no-properties 1))
-          (progn
-            (goto-char (car r))
-            (when (re-search-forward
-                   "^#\\+wormhole: \\[\\[id:\\([^]]+\\)\\]\\[\\([^]]*\\)\\]\\]"
-                   (cdr r) t)
-              (let ((label (match-string-no-properties 2)))
-                (when (string-equal key (my/manifolding-atlas--key-from-label label))
-                  (format "[[id:%s][%s]]"
-                          (match-string-no-properties 1) label)))))))))
-#+end_src
-
-*** Drawer write
-#+begin_src emacs-lisp
-(defun my/manifolding-atlas--drawer-put (key value)
-  (save-excursion
-    (let ((r (my/manifolding-atlas--drawer-region)))
-      (if r
-          (progn
-            (goto-char (car r))
-            (if (re-search-forward
-                 (format "^:%s:[[:blank:]]*\\(.*\\)$" (regexp-quote key))
-                 (cdr r) t)
-                (progn (beginning-of-line)
-                       (delete-region (line-beginning-position)
-                                      (line-end-position))
-                       (insert (format ":%s: %s" key value)))
-              (goto-char (cdr r))
-              (beginning-of-line)
-              (insert (format ":%s: %s\n" key value))))
-        (org-back-to-heading t)
-        (end-of-line)
-        (forward-line 1)
-        (unless (bolp) (insert "\n"))
-        (insert (format ":PROPERTIES:\n:%s: %s\n:END:\n" key value))))))
-#+end_src
-
-*** Drawer delete and key conversions
-#+begin_src emacs-lisp
-(defun my/manifolding-atlas--drawer-delete (key)
-  (save-excursion
-    (when-let ((r (my/manifolding-atlas--drawer-region)))
-      (goto-char (car r))
-      (when (re-search-forward
-             (format "^:%s:[[:blank:]]*\\(.*\\)$" (regexp-quote key))
-             (cdr r) t)
-        (beginning-of-line)
-        (delete-region (line-beginning-position)
-                       (1+ (line-end-position)))))))
-
 (defun my/manifolding-atlas--property-key-from-type (property-type)
   (upcase (string-replace "-" "_"
                           (if (symbolp property-type)
                               (symbol-name property-type)
                             property-type))))
-
-(defun my/manifolding-atlas--key-from-label (label)
-  (when (string-match "^\\([A-Z][A-Z ]*\\): " label)
-    (upcase (string-replace " " "_" (match-string-no-properties 1 label)))))
-
-(defun my/manifolding-atlas--drawer-insert-point ()
-  (when-let ((r (my/manifolding-atlas--drawer-region)))
-    (cdr r)))
-#+end_src
-
-*** org-entry fallbacks
-Drawer storage stays transparent: org-entry-get/put fall through to
-the tolerant primitives when the standard paths find nothing.
-#+begin_src emacs-lisp
-(defun my/manifolding-atlas--org-entry-get-fallback (orig-fn pom property &optional inherit literal-nil)
-  (or (funcall orig-fn pom property inherit literal-nil)
-      (when (and property
-                 (or (null pom)
-                     (and (integerp pom)
-                          (<= (point-min) pom) (<= pom (point-max)))))
-        (save-excursion
-          (when (integerp pom) (goto-char pom))
-          (my/manifolding-atlas--drawer-get
-           (if (symbolp property) (symbol-name property) property))))))
-
-(defun my/manifolding-atlas--org-entry-put-fallback (orig-fn pom property value)
-  (if (and (or (null pom)
-               (and (integerp pom)
-                    (<= (point-min) pom) (<= pom (point-max))))
-           (my/manifolding-atlas--drawer-region))
-      (my/manifolding-atlas--drawer-put
-       (if (symbolp property) (symbol-name property) property)
-       value)
-    (funcall orig-fn pom property value)))
-
-(advice-add 'org-entry-get :around #'my/manifolding-atlas--org-entry-get-fallback)
-(advice-add 'org-entry-put :around #'my/manifolding-atlas--org-entry-put-fallback)
 #+end_src
 
 ** Ensure Unfolding Note (closed vocab)
