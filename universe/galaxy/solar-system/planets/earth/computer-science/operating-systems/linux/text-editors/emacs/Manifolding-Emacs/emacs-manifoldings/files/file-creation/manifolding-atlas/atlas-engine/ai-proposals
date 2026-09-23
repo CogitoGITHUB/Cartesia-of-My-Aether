@@ -1,0 +1,69 @@
+#+title:      AI Proposals
+
+* AI Proposals :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       e48f8756-8956-4776-aa39-412cf8c307a1
+:END:
+
+Opt-in drawer-value proposals from an AI provider.  Candidates are
+disposable (never persisted); a plan buffer offers accept/skip per
+item; accept writes through the standard drawer primitive.  Provider
+is a single configurable shell command, default unset (dormant).
+Documented together with semantic similarity in the root integration
+file.  Nothing here runs at load.
+
+** Propose and apply
+#+begin_src emacs-lisp
+(require 'cl-lib)
+
+(defcustom my/atlas-ai-command nil
+  "Shell command receiving prompt on stdin, printing one VALUE per line.
+Nil means dormant.  Example: a local LLM CLI in non-interactive mode."
+  :type '(choice (const nil) string) :group 'manifolding-atlas)
+
+(defun my/atlas-ai-complete (prompt)
+  "Candidate values from the provider for PROMPT, or nil."
+  (when my/atlas-ai-command
+    (condition-case nil
+        (let ((outbuf (generate-new-buffer " *atlas-ai*")))
+          (unwind-protect
+              (with-temp-buffer
+                (insert prompt)
+                (when (zerop (call-process-region (point-min) (point-max)
+                                                  shell-file-name nil outbuf nil
+                                                  shell-command-switch
+                                                  my/atlas-ai-command))
+                  (with-current-buffer outbuf
+                    (split-string (buffer-string) "\n" t))))
+            (when (buffer-live-p outbuf) (kill-buffer outbuf))))
+      (error nil))))
+
+(defun my/atlas-ai-propose (kinds)
+  "Propose drawer values for KINDS (list of key strings) at point.
+Shows a plan buffer; accept writes the value, skip drops it."
+  (interactive
+   (list (split-string (read-string "Propose keys (space-separated): ") " " t)))
+  (let ((buf (get-buffer-create "*Atlas AI Proposals*")))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert "AI proposals (accept writes drawer, skip drops):\n\n")
+        (dolist (key kinds)
+          (let ((cands (my/atlas-ai-complete
+                        (format "Suggest a value for note property %s (one per line):" key))))
+            (insert (format "%s:\n" key))
+            (if (null cands)
+                (insert "  (no candidates: provider dormant or failed)\n")
+              (dolist (val cands)
+                (let ((k key) (v val))
+                  (insert-text-button (format "  [accept] %s" v)
+                    'action (lambda (_)
+                              (when (fboundp 'my/manifolding-atlas--drawer-put)
+                                (save-excursion
+                                  (ignore-errors (org-back-to-heading t))
+                                  (my/manifolding-atlas--drawer-put k v)))
+                              (message "applied %s" k)))
+                  (insert "\n"))))))))
+    (special-mode)
+    (display-buffer buf)))
+#+end_src
