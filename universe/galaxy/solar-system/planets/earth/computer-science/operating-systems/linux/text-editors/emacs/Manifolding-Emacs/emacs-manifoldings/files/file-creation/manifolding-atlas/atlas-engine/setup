@@ -50,11 +50,19 @@
 
 (defun my/cartesia-root-dir ()
   "Return the Cartesia vault root, discovered by structure.
-No name literal: upward universe/+.git/ search from here, else a
-home-children scan. Cached after first hit."
+Prefers the loader's own vault root (correct by construction: derived
+from the Foundation file's location, never from call context), then
+falls back to upward search and home-children scan.  Cached after
+first hit.  The loader preference matters: a context-derived first
+call from a foreign cwd (e.g. ~/.config/emacs, whose own .git matches
+the upward search) once poisoned this cache for the whole session."
   (or my/cartesia-root
       (setq my/cartesia-root
-            (or (my/cartesia--from-here)
+            (or (and (boundp 'manifolding-emacs-vault-root)
+                     manifolding-emacs-vault-root
+                     (file-directory-p manifolding-emacs-vault-root)
+                     manifolding-emacs-vault-root)
+                (my/cartesia--from-here)
                 (my/cartesia--from-home)
                 (error "Cartesia root not found")))))
 
