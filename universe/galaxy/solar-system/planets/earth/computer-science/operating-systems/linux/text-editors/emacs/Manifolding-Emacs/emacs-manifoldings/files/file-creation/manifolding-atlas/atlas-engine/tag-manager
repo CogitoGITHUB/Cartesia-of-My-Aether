@@ -40,6 +40,66 @@ SOURCES is a subset of (note inline)."
 
 ** Rewrite engine
 #+begin_src emacs-lisp
+(defun my/atlas-tag-config-files ()
+  "Existing saved-queries and automations files (for rename rewrites)."
+  (delq nil
+        (list (let ((f (expand-file-name ".local/cache/atlas-queries.el"
+                                         (expand-file-name "~"))))
+                (when (file-exists-p f) f))
+              (let ((f (expand-file-name ".local/cache/atlas-automations.el"
+                                         (expand-file-name "~"))))
+                (when (file-exists-p f) f)))))
+
+(defun my/atlas-tag-config-occurrences (old)
+  "Whole-word hits for OLD in config files, as occurrence shapes."
+  (let ((out nil)
+        (re (concat "\\<" (regexp-quote old) "\\>")))
+    (dolist (f (my/atlas-tag-config-files))
+      (with-temp-buffer
+        (insert-file-contents f)
+        (goto-char (point-min))
+        (let ((ln 0))
+          (while (not (eobp))
+            (setq ln (1+ ln))
+            (let ((line (buffer-substring-no-properties
+                         (line-beginning-position) (line-end-position))))
+              (when (string-match-p re line)
+                (push (list f ln line
+                            (lambda (new)
+                              (replace-regexp-in-string re new line t t)))
+                      out)))
+            (forward-line 1)))))
+    (nreverse out)))
+
+(defvar my/atlas-tag-manager--home
+  (let ((f (or load-file-name buffer-file-name)))
+    ;; This file lives in atlas-engine/; blueprints/ and workflows/ are
+    ;; siblings of it.  Derived from our own location, never hardcoded.
+    (when f
+      (file-name-directory
+       (directory-file-name (file-name-directory f)))))
+  "Atlas tree root holding blueprints/ and workflows/.")
+
+(defun my/atlas-tag-vocab-hits (old)
+  "Curated-vocabulary files mentioning OLD: REPORT ONLY, never edited.
+Blueprint specs and routine/protocol vocabularies own their words."
+  (let ((out nil)
+        (re (concat "\\<" (regexp-quote old) "\\>")))
+    (dolist (d (delq nil
+                     (list (and my/atlas-tag-manager--home
+                                (expand-file-name "blueprints"
+                                                  my/atlas-tag-manager--home))
+                           (and my/atlas-tag-manager--home
+                                (expand-file-name "workflows"
+                                                  my/atlas-tag-manager--home)))))
+      (dolist (f (ignore-errors (directory-files-recursively d "" t)))
+        (when (and (file-regular-p f)
+                   (ignore-errors
+                     (with-temp-buffer
+                       (insert-file-contents f nil 0 65536)
+                       (re-search-forward re nil t))))
+          (push f out))))
+    (nreverse out)))
 (defun my/atlas-tag--rewrite-run (line old new)
   "Replace tag OLD with NEW inside a headline tag run; tidy on delete."
   (let ((out (replace-regexp-in-string
@@ -129,8 +189,19 @@ Edits back to front per file.  Returns files changed."
        by-file)
       changed)))
 
-(defun my/atlas-tag-preview (occurrences new)
-  "Show OCCURRENCES with replacement NEW in a preview buffer."
+(defun my/atlas-tag-all-occurrences (old)
+  "Vault plus config-file occurrences for OLD, one list."
+  (append (my/atlas-tag-occurrences old)
+          (my/atlas-tag-config-occurrences old)))
+
+(defun my/atlas-tag-vocab-notes (old)
+  "Report lines for curated files mentioning OLD (not edited)."
+  (mapcar (lambda (f) (format "curated (edit by hand): %s" f))
+          (my/atlas-tag-vocab-hits old)))
+
+(defun my/atlas-tag-preview (occurrences new &optional notes)
+  "Show OCCURRENCES with replacement NEW in a preview buffer.
+NOTES are extra report lines (curated files, never edited)."
   (let ((buf (get-buffer-create "*Atlas Tag Preview*")))
     (with-current-buffer buf
       (let ((inhibit-read-only t))
@@ -139,7 +210,10 @@ Edits back to front per file.  Returns files changed."
         (dolist (o occurrences)
           (insert (format "%s:%d\n- %s\n+ %s\n\n"
                           (nth 0 o) (nth 1 o) (nth 2 o)
-                          (funcall (nth 3 o) new))))))
+                          (funcall (nth 3 o) new))))
+        (when notes
+          (insert "--- report only ---\n")
+          (dolist (n notes) (insert n "\n")))))
     (display-buffer buf)))
 #+end_src
 
@@ -155,10 +229,11 @@ Consumed by the tag-hierarchy module to keep extends in sync.")
    (let ((old (completing-read "Rename tag: "
                                (mapcar #'car (my/atlas-tags-census)))))
      (list old (read-string (format "Rename '%s' to: " old)))))
-  (let ((occ (my/atlas-tag-occurrences old)))
+  (let ((occ (my/atlas-tag-all-occurrences old))
+        (notes (my/atlas-tag-vocab-notes old)))
     (if (null occ)
         (message "no occurrences of '%s'" old)
-      (my/atlas-tag-preview occ new)
+      (my/atlas-tag-preview occ new notes)
       (when (yes-or-no-p (format "Apply %d change(s)? " (length occ)))
         (my/atlas-tag-apply occ new)
         (run-hook-with-args 'my/atlas-tag-renamed-functions old new)
@@ -169,10 +244,11 @@ Consumed by the tag-hierarchy module to keep extends in sync.")
   (interactive
    (list (completing-read "Delete tag: "
                           (mapcar #'car (my/atlas-tags-census)))))
-  (let ((occ (my/atlas-tag-occurrences tag)))
+  (let ((occ (my/atlas-tag-all-occurrences tag))
+        (notes (my/atlas-tag-vocab-notes tag)))
     (if (null occ)
         (message "no occurrences of '%s'" tag)
-      (my/atlas-tag-preview occ "")
+      (my/atlas-tag-preview occ "" notes)
       (when (yes-or-no-p (format "Delete %d occurrence(s)? " (length occ)))
         (my/atlas-tag-apply occ "")
         (run-hook-with-args 'my/atlas-tag-renamed-functions tag "")
