@@ -607,18 +607,28 @@ review prompts."
 
 (defun manifolding-atlas-db-prune-missing ()
   "Remove DB rows whose file no longer exists on disk.
-Safe to call anytime; only deletes rows, never touches files."
+Safe to call anytime; only deletes rows, never touches files.
+Rows with malformed (non-string) paths are skipped and counted, never
+acted on: some extractors historically wrote relative paths."
   (interactive)
   (let* ((db (ignore-errors (manifolding-atlas-db)))
          (rows (and db (ignore-errors (emacsql db [:select [id path] :from notes]))))
-         (removed 0))
+         (removed 0)
+         (skipped 0))
     (dolist (row rows)
       (let ((id (car row)) (path (cadr row)))
-        (unless (file-exists-p path)
-          (emacsql db [:delete :from notes :where (= id $s1)] id)
-          (setq removed (1+ removed)))))
-    (when (called-interactively-p 'any)
-      (message "manifolding-atlas: pruned %d stale note(s)" removed))
+        (cond
+         ((not (stringp path))
+          (setq skipped (1+ skipped)))
+         ((file-exists-p path) nil)
+         (t (condition-case nil
+                (progn
+                  (emacsql db [:delete :from notes :where (= id $s1)] id)
+                  (setq removed (1+ removed)))
+              (error (setq skipped (1+ skipped))))))))
+    (when (or (called-interactively-p 'any) (> skipped 0))
+      (message "manifolding-atlas: pruned %d stale note(s), skipped %d malformed row(s)"
+               removed skipped))
     removed))
 
 (add-hook 'emacs-startup-hook #'manifolding-atlas-db-prune-missing)
