@@ -111,11 +111,12 @@ Uses the manager's preview machinery for the rewrite."
    (let ((all (mapcar #'car (my/atlas-tags-census))))
      (list (completing-read "Merge from: " all)
            (completing-read "Merge into: " all))))
-  (let ((occ (and (fboundp 'my/atlas-tag-occurrences)
-                  (my/atlas-tag-occurrences from))))
+  (let ((occ (and (fboundp 'my/atlas-tag-all-occurrences)
+                  (my/atlas-tag-all-occurrences from))))
     (if (null occ)
         (message "no occurrences of '%s'" from)
-      (and (fboundp 'my/atlas-tag-preview) (my/atlas-tag-preview occ to))
+      (and (fboundp 'my/atlas-tag-preview) (my/atlas-tag-preview occ to
+        (and (fboundp 'my/atlas-tag-vocab-notes) (my/atlas-tag-vocab-notes from))))
       (when (yes-or-no-p (format "Merge %d occurrence(s) of '%s' into '%s'? "
                                  (length occ) from to))
         (my/atlas-tag-apply occ to)
