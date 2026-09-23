@@ -250,8 +250,17 @@ Returns 1 if a note was indexed, 0 otherwise. Handles deletion when file missing
                          (nreverse alist)))))
             (tags (with-temp-buffer
                     (insert-file-contents path)
-                    (when (re-search-forward "^\\*+[ \t]+.*:\\([^:\n]+\\):[ \t]*$" nil t)
-                      (split-string (match-string 1) ":" t)))))
+                    (let (tags)
+                      (when (re-search-forward "^\\*+[ \t]+.*:\\([^:\n]+\\):[ \t]*$" nil t)
+                        (setq tags (split-string (match-string 1) ":" t)))
+                      ;; Inline #tokens join headline tags (same token rule
+                      ;; as the hashtag sidecar, so both agree exactly).
+                      (goto-char (point-min))
+                      (while (re-search-forward "\\(^\\|[ \t\n]\\)#\\([A-Za-z0-9_@/-]+\\)" nil t)
+                        (let ((tag (match-string-no-properties 2)))
+                          (unless (member tag tags)
+                            (push tag tags))))
+                      (nreverse tags)))))
         ;; upsert notes row
         (ignore-errors (emacsql (manifolding-atlas-db) [:delete :from notes :where (= id $s1)] id))
         (emacsql (manifolding-atlas-db)
