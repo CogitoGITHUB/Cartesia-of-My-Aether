@@ -2971,7 +2971,7 @@ missing-field computation see in-buffer content while authoring."
                     (let* ((key (plist-get field :key))
                            (vals (manifolding-atlas-buffer-meta-get-list key 'string 'heading)))
                       (when vals (cons key vals))))
-                  (manifolding-atlas-blueprint-fields (manifolding-atlas-blueprint--resolve schema)))))))
+                  (manifolding-atlas-blueprint-effective-fields (manifolding-atlas-blueprint--resolve schema)))))))
 
 
 #+end_src
@@ -3151,7 +3151,7 @@ This is the headless building block UIs use to offer one-key fixes for a
 `manifolding-atlas-blueprint-validate' violation."
   (let* ((schema (manifolding-atlas-blueprint--resolve (manifolding-atlas-violation-schema violation)))
          (field (cl-find (manifolding-atlas-violation-field violation)
-                         (manifolding-atlas-blueprint-fields schema)
+                         (manifolding-atlas-blueprint-effective-fields schema)
                          :key (lambda (f) (plist-get f :key))
                          :test #'equal))
          (note (manifolding-atlas--schema-buffer-note schema))
@@ -4212,12 +4212,14 @@ Matches exact, upcased, or downcased KEY."
               (string-trim (buffer-string)))))))))
 #+end_src
 
+#+begin_src emacs-lisp
 ;; Drawer-order override (was a top-level form at the top of the file;
 ;; moved down: it calls `my/manifolding-atlas-blueprint-key-files',
 ;; defined in the registry block above).
 (let ((order (my/manifolding-atlas-drawer-order-from-file)))
   (when order
     (setq my/manifolding-atlas-drawer-key-order (copy-sequence order))))
+#+end_src
 
 ** Batch registration
 Idempotent: strips previously registered declarative specs first, so
