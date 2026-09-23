@@ -1,0 +1,110 @@
+#+title:      Semantic Similarity
+
+* Semantic Similarity :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       a80f12ce-1d89-4148-9480-c7a2b79c4420
+:END:
+
+Opt-in similar-note hints via embeddings.  Off by default, dormant
+without an endpoint, hints only (never links, never writes).  Index
+is a disposable sidecar: delete it and rebuild.  Termux note:
+on-device embedding needs a running compatible service or a remote
+endpoint; the default localhost endpoint assumes you provide one.
+Nothing here runs at load.
+
+** Index
+#+begin_src emacs-lisp
+(require 'cl-lib)
+(require 'json)
+(require 'seq)
+
+(defcustom my/atlas-semantic-enabled nil
+  "Non-nil enables semantic similarity hints."
+  :type 'boolean :group 'manifolding-atlas)
+
+(defcustom my/atlas-semantic-endpoint "http://localhost:11434"
+  "Embedding service base URL (Ollama-compatible /api/embed)."
+  :type 'string :group 'manifolding-atlas)
+
+(defcustom my/atlas-semantic-model "bge-m3"
+  "Embedding model name."
+  :type 'string :group 'manifolding-atlas)
+
+(defvar my/atlas-semantic-index-file
+  (expand-file-name ".local/cache/atlas-semantic-index.el" (expand-file-name "~"))
+  "Persisted ID -> vector sidecar (disposable).")
+
+(defvar my/atlas-semantic-index (make-hash-table :test 'equal)
+  "Note ID -> embedding vector (list of floats).")
+
+(defun my/atlas-semantic-text (note)
+  "Embeddable text for NOTE: title plus body head."
+  (let* ((title (or (ignore-errors (manifolding-atlas-note-title note)) ""))
+         (path (ignore-errors (manifolding-atlas-note-path note)))
+         (body (when (and path (file-exists-p path))
+                 (with-temp-buffer
+                   (insert-file-contents path nil 0 1500)
+                   (buffer-string)))))
+    (concat title "\n" (or body ""))))
+
+(defun my/atlas-semantic-embed (text)
+  "Embedding vector for TEXT via endpoint, or nil on any failure."
+  (condition-case nil
+      (with-temp-buffer
+        (let ((curl-args (list "-s" "--max-time" "30" "-X" "POST"
+                               (concat my/atlas-semantic-endpoint "/api/embed")
+                               "-d" (json-encode
+                                     (list :model my/atlas-semantic-model
+                                           :input text)))))
+          (when (zerop (apply #'call-process "curl" nil t nil curl-args))
+            (goto-char (point-min))
+            (let ((resp (json-read)))
+              (append (cdr (assoc 'embedding resp)) nil)))))
+    (error nil)))
+
+(defun my/atlas-semantic-cosine (a b)
+  "Cosine similarity of float lists A and B."
+  (let ((dot 0.0) (na 0.0) (nb 0.0))
+    (cl-loop for x in a for y in b
+             do (setq dot (+ dot (* x y))
+                      na (+ na (* x x))
+                      nb (+ nb (* y y))))
+    (if (or (zerop na) (zerop nb)) 0.0
+      (/ dot (* (sqrt na) (sqrt nb))))))
+
+(defun my/atlas-semantic-rebuild ()
+  "Embed all notes into the sidecar index.  Slow; run rarely."
+  (interactive)
+  (clrhash my/atlas-semantic-index)
+  (let ((n 0))
+    (dolist (note (ignore-errors (manifolding-atlas-db-query)))
+      (let ((id (ignore-errors (manifolding-atlas-note-id note))))
+        (when id
+          (let ((vec (my/atlas-semantic-embed
+                      (my/atlas-semantic-text note))))
+            (when vec
+              (puthash id vec my/atlas-semantic-index)
+              (setq n (1+ n))))
+          (when (zerop (% n 10)) (message "semantic: %d embedded" n)))))
+    (condition-case nil
+        (let ((tmp (concat my/atlas-semantic-index-file ".tmp"))
+              (pairs nil) (print-length nil) (print-level nil))
+          (make-directory (file-name-directory my/atlas-semantic-index-file) t)
+          (maphash (lambda (k v) (push (cons k v) pairs)) my/atlas-semantic-index)
+          (with-temp-file tmp (prin1 pairs (current-buffer)))
+          (rename-file tmp my/atlas-semantic-index-file t))
+      (error nil))
+    (message "semantic: rebuilt %d vectors" n)))
+
+(defun my/atlas-semantic-similar (note &optional top)
+  "Titles most similar to NOTE (uses index; embeds NOTE live)."
+  (let ((vec (my/atlas-semantic-embed (my/atlas-semantic-text note)))
+        (scored nil))
+    (when vec
+      (maphash (lambda (id v)
+                 (push (cons (my/atlas-semantic-cosine vec v) id)
+                       scored))
+               my/atlas-semantic-index)
+      (setq scored (sort scored (lambda (a b) (> (car a) (car b)))))
+      (mapcar #'cdr (seq-take scored (or top 5))))))
+#+end_src
