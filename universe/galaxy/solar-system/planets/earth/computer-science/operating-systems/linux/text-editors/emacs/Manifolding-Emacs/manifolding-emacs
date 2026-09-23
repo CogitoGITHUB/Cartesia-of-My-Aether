@@ -172,10 +172,14 @@ manifolding-emacs never defines profiles, it only tells straight which
 one is active while a given file's packages register."
   :type '(choice (const nil) symbol) :group 'manifolding-emacs)
 
-(defcustom manifolding-emacs-idle-sweep-enabled t
+(defcustom manifolding-emacs-idle-sweep-enabled nil
   "If non-nil, force-require every known package a few seconds after
 boot finishes, so a deferred-load error surfaces immediately instead
-of whenever you happen to trigger that package."
+of whenever you happen to trigger that package.
+Off by default for boot speed: the sweep requires every package at
+once, which pegs the CPU right when the editor should become usable.
+Run `manifolding-emacs-doctor-sweep-now' manually when you want the
+same check."
   :type 'boolean :group 'manifolding-emacs)
 
 (defcustom manifolding-emacs-idle-sweep-delay 8
@@ -762,30 +766,47 @@ Pure readers over Org buffers/files — nothing here mutates state.
 
 ** Org parse — file-level properties
 #+begin_src emacs-lisp
+(defvar manifolding-emacs--props-cache (make-hash-table :test 'equal)
+  "FILE truename -> (SIG PROPS). Same stat-invalidation as the units cache.")
+
 (defun manifolding-emacs-file-properties (file)
-  "Return the #+KEY: value file-level properties of FILE."
-  (with-temp-buffer
-    (insert-file-contents file)
-    (let (org-mode-hook) (org-mode))
-    (let (properties)
-      (goto-char (point-min))
-      (while (re-search-forward
-              "^\\(?:;;[ \t]*\\)?#\\+\\([A-Za-z0-9_]+\\):[ \t]*\\(.*\\)$"
-              nil t)
-        (push (cons (intern (downcase (match-string 1)))
-                    (match-string 2))
-              properties))
-       properties)))
+  "Return the #+KEY: value file-level properties of FILE.
+Stat-cached, then hash-verified on-disk index: at most one full
+regex read per changed file per session, shared by
+`manifolding-emacs-file-remote', `-profile', and `-lexical-binding'."
+  (when (file-exists-p file)
+    (let* ((key (file-truename file))
+           (sig (manifolding-emacs--file-sig file))
+           (hit (gethash key manifolding-emacs--props-cache)))
+      (cond
+       ((and hit sig (equal (car hit) sig)) (cadr hit))
+       (t (let ((entry (manifolding-emacs--index-lookup file)))
+            (if entry
+                (progn (manifolding-emacs--index-apply file entry)
+                       (cadr (gethash key manifolding-emacs--props-cache)))
+              (manifolding-emacs--index-forget file)
+              (let ((properties
+                     ;; No Org init here: this scan is pure `re-search-forward'
+                     ;; regex over #+KEY lines.  Starting Org mode per file was
+                     ;; the single most expensive part of boot discovery.
+                     (with-temp-buffer
+                       (insert-file-contents file)
+                       (let (props)
+                   (goto-char (point-min))
+                   (while (re-search-forward
+                           "^\\(?:;;[ \t]*\\)?#\\+\\([A-Za-z0-9_]+\\):[ \t]*\\(.*\\)$"
+                           nil t)
+                     (push (cons (intern (downcase (match-string 1)))
+                                 (match-string 2))
+                           props))
+                   props))))
+          (puthash key (list sig properties) manifolding-emacs--props-cache)
+          properties))))))))
 
 (defun manifolding-emacs-file-remote (file)
   (when-let* ((remote (alist-get 'remote
                                  (manifolding-emacs-file-properties file))))
     (read remote)))
-
-(defun manifolding-emacs-file-lexical-binding (file)
-  (not (equal (alist-get 'lexical_binding
-                         (manifolding-emacs-file-properties file) "t")
-               "nil")))
 
 (defun manifolding-emacs-file-profile (file)
   "Return FILE's #+PROFILE: as a symbol, or `manifolding-emacs-default-profile'."
@@ -806,66 +827,275 @@ Pure readers over Org buffers/files — nothing here mutates state.
            (cl-pushnew name names))))
       (nreverse names))))
 
-(defun manifolding-emacs-file-first-headline (file)
-  "Return (LINE TAGS ID PARENT ORDER) of FILE's first headline, or nil.
-TAGS is the raw trailing colon group; ID/PARENT/ORDER from the drawer
-after it (nil when absent). Headline search skips src blocks."
-  (with-temp-buffer
-    (insert-file-contents file)
-    (goto-char (point-min))
-    (let (insrc found)
-      (while (and (not found) (not (eobp)))
-        (let ((line (buffer-substring-no-properties
-                     (line-beginning-position) (line-end-position))))
-          (cond
-           ((string-match-p "^[ \t]*#\\+begin_" line) (setq insrc t))
-           ((string-match-p "^[ \t]*#\\+end_" line) (setq insrc nil))
-           ((and (not insrc) (string-match "^\\*+ \\(.*\\)$" line))
-            (let* ((text (match-string 1 line))
-                   (tags (and (string-match "\\s-+\\(:[[:alnum:]_@]+\\(?::[[:alnum:]_@]+\\)*:\\)\\s-*$" text)
-                              (match-string 1 text))))
-              (setq found (list line tags))))))
-        (forward-line 1))
-      (when found
-        (let ((tags (nth 1 found)) id parent order)
-          (save-excursion
-            (goto-char (point-min))
-            (when (re-search-forward "^\\*+ " nil t)
-              (forward-line 1)
-              (when (looking-at-p "^[ \t]*:PROPERTIES:[ \t]*$")
-                (forward-line 1)
-                (while (and (not (eobp))
-                            (not (looking-at-p "^[ \t]*:END:[ \t]*$")))
-                  (cond
-                   ((looking-at "^[ \t]*:ID:[ \t]*\\(\\S-+\\)")
-                    (setq id (match-string 1)))
-                   ((looking-at "^[ \t]*:MM_PARENT:[ \t]*\\(\\S-+\\)")
-                    (setq parent (match-string 1)))
-                   ((looking-at "^[ \t]*:MM_ORDER:[ \t]*\\(\\S-+\\)")
-                    (setq order (match-string 1))))
-                  (forward-line 1)))))
-          (list (nth 0 found) tags id parent
-                (and order (string-match-p "^-?[0-9.]+$" order)
-                     (string-to-number order))))))))
+(defun manifolding-emacs--scan-file-tagged-units (file)
+  "Raw scan: list of load units in FILE, one plist per :EMACS_MECHANISM: level-1.
+Callers must use `manifolding-emacs-file-tagged-units' (stat-cached),
+never this directly — a full line scan per call is the old slow path.
+Each unit: (:file :title :tags :id :parent :order :start-line :end-line).
+:start-line is absolute (1-based); :end-line nil means EOF. The first
+unit starts at line 1 so preamble blocks attach to it. Only level-1
+headlines bound units; deeper headings are content. Untagged level-1s
+absorb into the preceding unit, never skipped."
+  (when (file-exists-p file)
+    (with-temp-buffer
+      (insert-file-contents file)
+      (goto-char (point-min))
+      (let (heads insrc)
+        (while (not (eobp))
+          (let ((line (buffer-substring-no-properties
+                       (line-beginning-position) (line-end-position)))
+                (lnum (line-number-at-pos)))
+            (cond
+             ((string-match-p "^[ \t]*#\\+begin_" line) (setq insrc t))
+             ((string-match-p "^[ \t]*#\\+end_" line) (setq insrc nil))
+             ((and (not insrc) (string-match "^\\* \\(.*\\)$" line))
+              (let* ((text (match-string 1 line))
+                     (tags (and (string-match "\\s-+\\(:[[:alnum:]_@]+\\(?::[[:alnum:]_@]+\\)*:\\)\\s-*$" text)
+                                (match-string 1 text)))
+                     (names (and tags (split-string (string-trim tags ":" ":") ":" t))))
+                (push (list :line lnum :text text
+                            :tagged (and (member "EMACS_MECHANISM" names) t))
+                      heads)))))
+          (forward-line 1))
+        (setq heads (nreverse heads))
+        (let (units current)
+          (dolist (h heads)
+            (when (plist-get h :tagged)
+              (let ((lnum (plist-get h :line)))
+                (when current
+                  (plist-put current :end-line (1- lnum))
+                  (setq current nil))
+                (setq current
+                      (list :file file
+                            :start-line (if units lnum 1)
+                            :end-line nil :title nil :tags nil
+                            :id nil :parent nil :order nil))
+                (plist-put current :title
+                           (string-trim
+                            (replace-regexp-in-string
+                             "\\s-+:[[:alnum:]_@]+\\(?::[[:alnum:]_@]+\\)*:\\s-*$"
+                             "" (plist-get h :text))))
+                (save-excursion
+                  (goto-char (point-min))
+                  (forward-line (1- lnum))
+                  (forward-line 1)
+                  (when (looking-at-p "^[ \t]*:PROPERTIES:[ \t]*$")
+                    (forward-line 1)
+                    (while (and (not (eobp))
+                                (not (looking-at-p "^[ \t]*:END:[ \t]*$")))
+                      (cond
+                       ((looking-at "^[ \t]*:ID:[ \t]*\\(\\S-+\\)")
+                        (plist-put current :id (match-string 1)))
+                       ((looking-at "^[ \t]*:MM_PARENT:[ \t]*\\(\\S-+\\)")
+                        (plist-put current :parent (match-string 1)))
+                       ((looking-at "^[ \t]*:MM_ORDER:[ \t]*\\(\\S-+\\)")
+                        (let ((v (match-string 1)))
+                          (plist-put current :order
+                                     (and (string-match-p "^-?[0-9.]+$" v)
+                                          (string-to-number v))))))
+                      (forward-line 1))))
+                (push current units))))
+          (nreverse units))))))
+
+(defvar manifolding-emacs--units-cache (make-hash-table :test 'equal)
+  "FILE truename -> (SIG UNITS). Stat-validated memo so discovery,
+ordering, and compilation share one line scan per unchanged file.")
+
+(defun manifolding-emacs--file-sig (file)
+  "Stat signature (MTIME SIZE) of FILE, or nil when stat fails."
+  (let ((a (file-attributes file)))
+    (and a (list (nth 5 a) (nth 7 a)))))
+
+(defun manifolding-emacs-file-tagged-units (file)
+  "Stat-cached wrapper around `manifolding-emacs--scan-file-tagged-units'.
+ Consults the session memo, then the hash-verified on-disk index (which
+ also fills the props/title memos), and re-scans only on a full miss."
+  (when (file-exists-p file)
+    (let* ((key (file-truename file))
+           (sig (manifolding-emacs--file-sig file))
+           (hit (gethash key manifolding-emacs--units-cache)))
+      (cond
+       ((and hit sig (equal (car hit) sig)) (cadr hit))
+       (t (let ((entry (manifolding-emacs--index-lookup file)))
+            (if entry
+                (manifolding-emacs--index-apply file entry)
+              (manifolding-emacs--index-forget file)
+              (let ((units (manifolding-emacs--scan-file-tagged-units file)))
+                (puthash key (list sig units)
+                         manifolding-emacs--units-cache)
+                units))))))))
 
 (defun manifolding-emacs-file-loadable-p (file)
-  "Non-nil when FILE's first headline carries :EMACS_MECHANISM:.
+  "Non-nil when FILE has any :EMACS_MECHANISM: level-1.
 No tag = not loaded, by design."
-  (when-let* ((parsed (manifolding-emacs-file-first-headline file))
-              (tags (nth 1 parsed)))
-    (let ((names (split-string (string-trim tags ":" ":") ":" t)))
-      (member "EMACS_MECHANISM" names))))
+  (and (manifolding-emacs-file-tagged-units file) t))
+
+(defvar manifolding-emacs--title-cache (make-hash-table :test 'equal)
+  "FILE truename -> (SIG TITLE). Splash calls titles per progress tick.")
 
 (defun manifolding-emacs-file-title (file)
-  "FILE's own #+title:, falling back to its basename. Display only."
-  (or (when (file-exists-p file)
-        (with-temp-buffer
-          (insert-file-contents file nil 0 4096)
-          (goto-char (point-min))
-          (when (re-search-forward "^#\\+title:[ \t]*\\(.+\\)$" nil t)
-            (string-trim (match-string 1)))))
-      (file-name-nondirectory file)))
+  "FILE's own #+title:, falling back to its basename. Display only.
+Stat-cached, then hash-verified on-disk index: at most one 4K read per
+changed file per session."
+  (if (not (file-exists-p file))
+      (file-name-nondirectory file)
+    (let* ((key (file-truename file))
+           (sig (manifolding-emacs--file-sig file))
+           (hit (gethash key manifolding-emacs--title-cache)))
+      (cond
+       ((and hit sig (equal (car hit) sig)) (cadr hit))
+       (t (let ((entry (manifolding-emacs--index-lookup file)))
+            (if entry
+                (progn (manifolding-emacs--index-apply file entry)
+                       ;; Untagged files have no stored title: fall back to
+                       ;; basename (never nil — the splash propertizes this).
+                       (or (cadr (gethash key manifolding-emacs--title-cache))
+                           (file-name-nondirectory file)))
+              (manifolding-emacs--index-forget file)
+              (let ((title
+                     (or (with-temp-buffer
+                           (insert-file-contents file nil 0 4096)
+                           (goto-char (point-min))
+                           (when (re-search-forward "^#\\+title:[ \t]*\\(.+\\)$" nil t)
+                             (string-trim (match-string 1))))
+                         (file-name-nondirectory file))))
+                (puthash key (list sig title) manifolding-emacs--title-cache)
+                title))))))))
+#+end_src
 
+** Discovery index — on-disk, hash-verified
+Warm boots must not re-parse 300 files to learn nothing changed.  The
+index lives under ~/.config/emacs/.local/cache (never the
+vault): truename -> (:mtime :size :hash :units :props :title).
+Lookup verifies by stat first (no I/O), then one literal read + hash.
+Any miss, corruption, salt bump, or explicit sync falls back to a full
+scan for that file — the index is a pure accelerator, never load-bearing.
+#+begin_src emacs-lisp
+(defvar manifolding-emacs--discovery-index (make-hash-table :test 'equal)
+  "TRUENAME -> (:mtime M :size S :hash H :units U :props P :title T).
+Warm-boot accelerator: verified entries skip all per-file parsing.")
+
+(defvar manifolding-emacs--discovery-dirty nil
+  "Non-nil when the index gained entries this session and needs saving.")
+
+(defvar manifolding-emacs--discovery-loaded nil
+  "Non-nil once the on-disk index has been read this session.")
+
+(defvar manifolding-emacs--index-verified nil
+  "Truenames hash-verified this session.  `manifolding-emacs--index-ensure'
+skips members: their entries are current by construction.")
+
+(defun manifolding-emacs-discovery-index-file ()
+  "On-disk discovery index.  Under ~/.config/emacs, never the vault."
+  (expand-file-name "discovery-index.el"
+                    (expand-file-name ".local/cache/" user-emacs-directory)))
+
+(defun manifolding-emacs--index-load ()
+  "Read the on-disk index once per session.  Never throws: a missing or
+stale (salt-mismatched) index just means one full-scan boot."
+  (unless manifolding-emacs--discovery-loaded
+    (setq manifolding-emacs--discovery-loaded t)
+    (condition-case nil
+        (let ((data (manifolding-emacs--cache-read
+                     (manifolding-emacs-discovery-index-file))))
+          (when (and (listp data)
+                     (equal (plist-get data :version)
+                            manifolding-emacs-cache-salt))
+            (dolist (pair (plist-get data :files))
+              (when (and (consp pair) (stringp (car pair)))
+                (puthash (car pair) (cdr pair)
+                         manifolding-emacs--discovery-index)))))
+      (error nil))))
+
+(defun manifolding-emacs--index-save ()
+  "Persist the index when dirty.  Never throws."
+  (when manifolding-emacs--discovery-dirty
+    (setq manifolding-emacs--discovery-dirty nil)
+    (condition-case nil
+        (let (pairs)
+          (maphash (lambda (k v)
+                     ;; Prune entries for deleted files on every save.
+                     ;; Also purge WIP entries: forbidden territory is never
+                     ;; indexed, even if an older boot recorded it.
+                     (when (and (file-exists-p k)
+                                (not (string-match-p "/WIP-DONT-TOUCH/" k)))
+                       (push (cons k v) pairs)))
+                   manifolding-emacs--discovery-index)
+          ;; One previous generation kept: if this write ever corrupts,
+          ;; the last-known-good index is one rename away.
+          (let ((idx (manifolding-emacs-discovery-index-file)))
+            (when (file-exists-p idx)
+              (copy-file idx (concat idx ".prev") t))
+            (manifolding-emacs--cache-write
+             idx (list :version manifolding-emacs-cache-salt :files pairs))))
+      (error nil))))
+
+(defun manifolding-emacs--index-lookup (file)
+  "Hash-verified index entry for FILE, or nil.
+Stat match first (no I/O), then one literal read + hash to verify, as
+agreed: stat is the fast path, hash is the trust.  Hits are marked
+session-verified; misses read nothing."
+  (manifolding-emacs--index-load)
+  (when (file-exists-p file)
+    (let ((entry (gethash (file-truename file)
+                          manifolding-emacs--discovery-index)))
+      (when entry
+        (let ((sig (manifolding-emacs--file-sig file)))
+          (when (and sig
+                     (equal (plist-get entry :mtime) (nth 0 sig))
+                     (equal (plist-get entry :size) (nth 1 sig))
+                     (equal (plist-get entry :hash)
+                            (manifolding-emacs--cache-content-hash file)))
+            (push (file-truename file) manifolding-emacs--index-verified)
+            entry))))))
+
+(defun manifolding-emacs--index-apply (file entry)
+  "Fill all three session memos from verified ENTRY.  Returns the units
+(nil for untagged files — a real answer, not a miss)."
+  (let* ((key (file-truename file))
+         (sig (manifolding-emacs--file-sig file))
+         (units (plist-get entry :units))
+         (props (plist-get entry :props))
+         (title (plist-get entry :title)))
+    (puthash key (list sig units) manifolding-emacs--units-cache)
+    (when props
+      (puthash key (list sig props) manifolding-emacs--props-cache))
+    (when title
+      (puthash key (list sig title) manifolding-emacs--title-cache))
+    units))
+
+(defun manifolding-emacs--index-forget (file)
+  "Drop FILE's session-verified mark (post-edit path).  Never throws."
+  (let ((key (ignore-errors (file-truename file))))
+    (when key
+      (setq manifolding-emacs--index-verified
+            (delete key manifolding-emacs--index-verified)))))
+
+(defun manifolding-emacs--index-ensure (file)
+  "Refresh FILE's index entry from session memos, scanning on miss.
+Skips session-verified files.  Untagged files get a nil-units entry so
+later boots skip re-scanning them too.  Never throws."
+  (condition-case nil
+      (when (and (file-exists-p file)
+                 (not (member (file-truename file)
+                              manifolding-emacs--index-verified)))
+        (let* ((units (manifolding-emacs-file-tagged-units file))
+               (props (and units (manifolding-emacs-file-properties file)))
+               (title (and units (manifolding-emacs-file-title file)))
+               (sig (manifolding-emacs--file-sig file))
+               (h (manifolding-emacs--cache-content-hash file)))
+          (when (and sig h)
+            (puthash (file-truename file)
+                     (list :mtime (nth 0 sig) :size (nth 1 sig)
+                           :hash h :units units :props props :title title)
+                     manifolding-emacs--discovery-index)
+            (push (file-truename file) manifolding-emacs--index-verified)
+            (setq manifolding-emacs--discovery-dirty t))))
+    (error nil)))
+#+end_src
+
+** Discovery order — topology
+#+begin_src emacs-lisp
 (defun manifolding-emacs--state< (a b)
   "Order two file states: numeric :MM_ORDER: first, path second."
   (let ((oa (or (plist-get a :order) 1e18))
@@ -879,85 +1109,152 @@ No tag = not loaded, by design."
        (not (string= (downcase par) "none"))
        (not (assoc par by-id))))
 
-(defun manifolding-emacs-get-files (extension directory)
-  "Discover files, keep only tagged ones, order by in-file mm state.
-Chained files (with :MM_PARENT:/:MM_ORDER:) load parents-first via a
-cycle-guarded walk; chainless files (no mm keys) append after, by name.
-Cycles and dangling parents fall back to root with a message."
+(defun manifolding-emacs--unit-key (u)
+  "Unique walk key for unit U: its id, else file+start."
+  (or (plist-get u :id)
+      (list (plist-get u :file) (plist-get u :start-line))))
+
+(defun manifolding-emacs--collect-units (files)
+  "Order tagged heading units across FILES: chained parents-first via a
+cycle-guarded walk (siblings by :MM_ORDER:), chainless units appended
+after by file and position.  Returns ordered unit plists."
+  (let* ((states (mapcan (lambda (f)
+                           (mapcar (lambda (u)
+                                     (plist-put (copy-sequence u)
+                                                :file f))
+                                   (manifolding-emacs-file-tagged-units f)))
+                         files))
+         (chained (seq-filter (lambda (s) (or (plist-get s :parent)
+                                              (plist-get s :order)))
+                              states))
+         (free (sort (seq-remove (lambda (s) (or (plist-get s :parent)
+                                                 (plist-get s :order)))
+                                 states)
+                     (lambda (a b)
+                       (or (string< (plist-get a :file) (plist-get b :file))
+                           (and (string= (plist-get a :file) (plist-get b :file))
+                                (< (plist-get a :start-line)
+                                   (plist-get b :start-line)))))))
+         (by-id nil)
+         (children (make-hash-table :test #'equal))
+         (roots nil)
+         (dangling 0)
+         (ordered nil)
+         (visiting nil)
+         (done (make-hash-table :test #'equal))
+         (cycles 0))
+    (dolist (s chained)
+      (when-let* ((id (plist-get s :id)))
+        (if (assoc id by-id)
+            (message "manifolding-emacs: duplicate unit id %s (%s) — keeping first"
+                     id (plist-get s :file))
+          (push (cons id s) by-id))))
+    (setq by-id (nreverse by-id))
+    (dolist (s chained)
+      (let ((par (plist-get s :parent)))
+        (if (and par (not (string-empty-p par))
+                 (not (string= (downcase par) "none"))
+                 (assoc par by-id))
+            (push s (gethash par children))
+          (progn
+            (when (manifolding-emacs--parent-dangling-p par by-id)
+              (setq dangling (1+ dangling)))
+            (push s roots)))))
+    (setq roots (sort roots #'manifolding-emacs--state<))
+    (maphash (lambda (k v) (puthash k (sort v #'manifolding-emacs--state<) children)) children)
+    (cl-labels ((walk (s)
+                  (let ((k (manifolding-emacs--unit-key s)))
+                    (cond
+                     ((gethash k done) nil)
+                     ((member k visiting) (setq cycles (1+ cycles)) nil)
+                     (t (push k visiting)
+                        (push s ordered)
+                        (puthash k t done)
+                        (dolist (c (gethash (plist-get s :id) children))
+                          (walk c))
+                        (setq visiting (delq k visiting)))))))
+      (dolist (r roots) (walk r)))
+    (setq ordered (nreverse ordered))
+    (dolist (s free)
+      (setq ordered (nconc ordered (list s))))
+    (when (> cycles 0)
+      (message "manifolding-emacs: %d parent cycle(s) broken (kept as roots)"
+               cycles))
+    (when (> dangling 0)
+      (message "manifolding-emacs: %d unit(s) with dangling parent loaded as roots"
+               dangling))
+    (when (> (length free) 0)
+      (message "manifolding-emacs: %d chainless unit(s) appended after chain"
+               (length free)))
+    ordered))
+
+(defun manifolding-emacs--units-files (units)
+  "Unique files of ordered UNITS, in order."
+  (let (out seen)
+    (dolist (u units)
+      (let ((f (plist-get u :file)))
+        (unless (member f seen)
+          (push f seen)
+          (push f out))))
+    (nreverse out)))
+
+(defun manifolding-emacs--ordered-units (extension directory &optional progress-fn)
+  "Single discovery pass: (ORDERED-UNITS . ORDERED-FILES) under DIRECTORY.
+Runs the walk, tag filter, and `--collect-units' exactly once; both
+`manifolding-emacs-get-files' and `manifolding-emacs-compile-directory'
+share this so the topology is never computed twice per boot.
+If PROGRESS-FN is given, call it with (CURRENT TOTAL FILE) per file
+during the tag-filter and index passes, so the splash shows what is
+being read while discovery runs (phase `:reading').
+Only extensionless files are ever considered: any basename containing
+a dot (.org, .nu, .el, …) is discarded before reading, so non-mechanism
+files are never read, loaded, or compiled — by any caller."
   (if (file-directory-p directory)
       (let* ((all (seq-remove (lambda (f) (or (string-match-p "/\\.git/" f)
-                                              (string-match-p "/admin/" f)))
+                                              (string-match-p "/admin/" f)
+                                              ;; WIP is forbidden territory:
+                                              ;; never walk it, never read it.
+                                              (string-match-p "/WIP-DONT-TOUCH/" f)
+                                              ;; The walk MATCH cannot express
+                                              ;; "extensionless" (substring
+                                              ;; semantics match trailing
+                                              ;; "org" in ".org").  Enforce
+                                              ;; it on the basename instead.
+                                              (string-match-p
+                                               "\\." (file-name-nondirectory f))))
                               (directory-files-recursively directory extension)))
-             (tagged (seq-filter #'manifolding-emacs-file-loadable-p all))
-             (skipped (- (length all) (length tagged)))
-             (states (mapcar (lambda (f)
-                               (let ((p (manifolding-emacs-file-first-headline f)))
-                                 (list :file f :id (nth 2 p)
-                                       :parent (nth 3 p)
-                                       :order (nth 4 p))))
-                             tagged))
-             (chained (seq-filter (lambda (s) (or (plist-get s :parent)
-                                                  (plist-get s :order)))
-                                  states))
-             (free (sort (seq-remove (lambda (s) (or (plist-get s :parent)
-                                                     (plist-get s :order)))
-                                     states)
-                         (lambda (a b) (string< (plist-get a :file)
-                                                (plist-get b :file)))))
-             (by-id (delq nil (mapcar (lambda (s)
-                                        (and (plist-get s :id)
-                                             (cons (plist-get s :id) s)))
-                                      chained)))
-             (children (make-hash-table :test #'equal))
-             (roots nil)
-             (dangling 0)
-             (ordered nil)
-             (visiting nil)
-             (done (make-hash-table :test #'equal))
-             (cycles 0))
-        (dolist (s chained)
-          (let ((par (plist-get s :parent)))
-            (if (and par (not (string-empty-p par))
-                     (not (string= (downcase par) "none"))
-                     (assoc par by-id))
-                (push s (gethash par children))
-              (progn
-                (when (manifolding-emacs--parent-dangling-p par by-id)
-                  (setq dangling (1+ dangling)))
-                (push s roots)))))
-        (setq roots (sort roots #'manifolding-emacs--state<))
-        (maphash (lambda (k v) (puthash k (sort v #'manifolding-emacs--state<) children)) children)
-        (cl-labels ((walk (s)
-                      (let ((f (plist-get s :file)))
-                        (cond
-                         ((gethash f done) nil)
-                         ((member f visiting) (setq cycles (1+ cycles)) nil)
-                         (t (push f visiting)
-                            (push f ordered)
-                            (puthash f t done)
-                            (dolist (c (gethash (plist-get s :id) children))
-                              (walk c))
-                            (setq visiting (delq f visiting)))))))
-          (dolist (r roots) (walk r)))
-        (setq ordered (nreverse ordered))
-        (dolist (s free)
-          (setq ordered (nconc ordered (list (plist-get s :file)))))
-        (when (> cycles 0)
-          (message "manifolding-emacs: %d parent cycle(s) broken (kept as roots)"
-                   cycles))
-        (when (> dangling 0)
-          (message "manifolding-emacs: %d file(s) with dangling parent loaded as roots"
-                   dangling))
-        (when (> (length free) 0)
-          (message "manifolding-emacs: %d chainless file(s) appended after chain"
-                   (length free)))
-        (when (> skipped 0)
-          (message "manifolding-emacs: skipping %d untagged file(s) (no :EMACS_MECHANISM:)"
-                   skipped))
-        ordered)
-    (progn (message "manifolding-emacs: directory does not exist: %s"
-                    directory)
-           nil)))
+             (total (length all))
+             (n 0)
+             (tagged nil))
+        (dolist (f all)
+          (setq n (1+ n))
+          (when progress-fn (funcall progress-fn n total f))
+          (when (manifolding-emacs-file-loadable-p f) (push f tagged)))
+        (setq tagged (nreverse tagged))
+        (let ((skipped (- total (length tagged)))
+              (units (manifolding-emacs--collect-units tagged)))
+          (when (> skipped 0)
+            (message "manifolding-emacs: skipping %d untagged file(s) (no :EMACS_MECHANISM:)"
+                     skipped))
+          ;; Refresh the on-disk index (verified files skip, changed files
+          ;; rescan) and persist it: the next boot verifies by hash instead
+          ;; of re-parsing.
+          (setq n 0)
+          (dolist (f all)
+            (setq n (1+ n))
+            (when progress-fn (funcall progress-fn n total f))
+            (manifolding-emacs--index-ensure f))
+          (manifolding-emacs--index-save)
+          (cons units (manifolding-emacs--units-files units))))
+    (message "manifolding-emacs: directory does not exist: %s"
+             directory)
+    nil))
+
+(defun manifolding-emacs-get-files (extension directory)
+  "Discover files with tagged headings, ordered by unit topology.
+Order comes from `manifolding-emacs--collect-units'; this returns the
+unique files in that order.  Untagged files never load."
+  (cdr (manifolding-emacs--ordered-units extension directory)))
 #+end_src
 
 ** Package builder — keyword resolution
@@ -1175,10 +1472,20 @@ correctly and drastically reduces interpreter stack depth
 legacy dynamic-binding behavior."
   :type 'boolean)
 
-(defun manifolding-emacs-concatenate-source-blocks (file)
+(defun manifolding-emacs--line-in-unit-p (line unit)
+  "Non-nil when absolute LINE falls inside UNIT range (START . END-or-nil).
+Nil UNIT means the whole file."
+  (or (null unit)
+      (and (>= line (car unit))
+           (or (null (cdr unit)) (<= line (cdr unit))))))
+
+(defun manifolding-emacs-concatenate-source-blocks (file &optional unit)
   "Populate `manifolding-emacs-packages' from FILE.  Return the list of
 loose (non-package) top-level statements as validated, trimmed
-strings, in file order."
+strings, in file order.
+UNIT is an optional (START-LINE . END-LINE-or-nil) cons restricting
+all three passes to one tagged heading's subtree; absolute line
+numbers in errors stay correct because nothing is narrowed."
   (with-temp-buffer
     (insert-file-contents file)
     (let (org-mode-hook) (org-mode))
@@ -1190,16 +1497,20 @@ strings, in file order."
          (let ((package-name (manifolding-emacs-find-package)))
            (dolist (key keywords)
              (when-let* ((body (manifolding-emacs-find-property-string key)))
-               (when (or (not (eq key :straight))
-                         (manifolding-emacs-validate-straight-recipe
-                          body package-name file (line-number-at-pos)))
+               (when (and (manifolding-emacs--line-in-unit-p
+                           (line-number-at-pos) unit)
+                          (or (not (eq key :straight))
+                              (manifolding-emacs-validate-straight-recipe
+                               body package-name file (line-number-at-pos))))
                  (manifolding-emacs-put-package-parameter
                   package-name key
                   `((:body ,body :line ,(line-number-at-pos))))))))))
       ;; Pass 2: fold a :DEPENDS: property into the :straight recipe
       (org-map-entries
        (lambda ()
-         (when-let* ((package-name (manifolding-emacs-find-package))
+         (when (manifolding-emacs--line-in-unit-p
+                (line-number-at-pos) unit)
+           (when-let* ((package-name (manifolding-emacs-find-package))
                      (depends-body (manifolding-emacs-find-property-string :depends))
                      (straight-entry (plist-get
                                       (plist-get manifolding-emacs-packages
@@ -1216,12 +1527,12 @@ strings, in file order."
                                (append recipe (list :depends depends)))
                              :line ,(plist-get (car straight-entry)
                                                :line))))))
-             (error
-              (manifolding-emacs-record-error
-               :level 'package :file file :package package-name
-               :keyword :depends :line (line-number-at-pos)
-               :message (format "failed to parse :DEPENDS: %s"
-                                (error-message-string err))))))))
+              (error
+               (manifolding-emacs-record-error
+                :level 'package :file file :package package-name
+                :keyword :depends :line (line-number-at-pos)
+                :message (format "failed to parse :DEPENDS: %s"
+                                 (error-message-string err)))))))))
       ;; Pass 3: emacs-lisp source blocks -> package keyword body, or a
       ;; loose top-level statement
       (org-babel-map-src-blocks nil
@@ -1235,8 +1546,9 @@ strings, in file order."
                          (cdr (assq :tangle
                                     (org-babel-parse-header-arguments
                                      params))))))
-          (when (and (string= language "emacs-lisp")
-                     (not (equal tangle "no")))
+           (when (and (string= language "emacs-lisp")
+                      (not (equal tangle "no"))
+                      (manifolding-emacs--line-in-unit-p line unit))
             (if-let* ((package
                        (manifolding-emacs-get-use-package-package keywords)))
                 (let* ((package-name (car package))
@@ -1292,7 +1604,7 @@ failing code so you never have to guess."
 
 ** Compiler — cache salt, dir, key
 #+begin_src emacs-lisp
-(defconst manifolding-emacs-cache-salt "3"
+(defconst manifolding-emacs-cache-salt "4"
   "Bump to invalidate every cached module after loader changes.")
 
 (defun manifolding-emacs-cache-dir ()
@@ -1327,25 +1639,32 @@ failing code so you never have to guess."
   (make-directory (file-name-directory path) t)
   ;; print-length/print-level MUST be nil here: a bound value would
   ;; truncate the serialized parts and silently corrupt the entry.
+  ;; Atomic tmp+rename: a killed boot never leaves a half-written cache
+  ;; (readers validate and fall back to rescan on any corruption).
   (let ((print-length nil)
-        (print-level nil))
-    (with-temp-file path
+        (print-level nil)
+        (tmp (concat path ".tmp")))
+    (with-temp-file tmp
       (insert ";; manifolding-emacs module cache\n"
-              (prin1-to-string data)))))
+              (prin1-to-string data)))
+    (rename-file tmp path t)))
 #+end_src
 
 ** Compiler — parts extraction & evaluation
 #+begin_src emacs-lisp
-(defun manifolding-emacs--extract-parts (file)
+(defun manifolding-emacs--extract-parts (file &optional unit)
   "Return (PARTS . PROFILE) mirroring compile-file's eval units.
 PARTS is an ordered list of (:kind part|package [:name N] :body S):
-all loose forms in document order, followed by package bodies."
+all loose forms in document order, followed by package bodies.
+UNIT is an optional (START-LINE . END-LINE-or-nil) cons from
+`manifolding-emacs-file-tagged-units'; nil means the whole file."
   (let* ((manifolding-emacs-packages nil)
          (profile (manifolding-emacs-file-profile file))
          (straight-current-profile
           (or profile (and (boundp 'straight-current-profile)
                            straight-current-profile)))
-         (loose-forms (manifolding-emacs-concatenate-source-blocks file))
+         (loose-forms (manifolding-emacs-concatenate-source-blocks
+                       file unit))
          (parts (mapcar (lambda (s) (list :kind 'part :body s))
                         loose-forms))
          (package-parts nil))
@@ -1430,78 +1749,172 @@ something broke during extraction."
                (plist-get p :body)
                (stringp (plist-get p :body))
                (> (length (plist-get p :body)) 0)))
-        (plist-get data :parts))))
+         (plist-get data :parts))))
 
-(defun manifolding-emacs-compile-file-cached (file &optional _force)
-  "Compile FILE fresh. Always re-extracts and re-evaluates.
-Returns FILE."
-  (unless (file-exists-p file)
-    (error "File to compile does not exist: %s" file))
-  (pcase-let* ((`(,parts . ,profile)
-                (manifolding-emacs--extract-parts file)))
-    (manifolding-emacs--eval-parts file parts profile)
-    file))
+(defun manifolding-emacs--cache-id (file start-line)
+  "Stable cache id for FILE's unit starting at START-LINE.
+Includes the salt, package method, truename, and unit start, so loader
+changes, method switches, renames, and unit-boundary moves all miss."
+  (secure-hash 'sha256
+               (concat manifolding-emacs-cache-salt "\0"
+                       (symbol-name manifolding-emacs-package-method) "\0"
+                       (file-truename file) "\0"
+                       (format "%s" (or start-line 1)))))
+
+(defun manifolding-emacs--cache-content-hash (file)
+  "SHA256 of FILE's literal contents, or nil when unreadable."
+  (condition-case nil
+      (with-temp-buffer
+        (insert-file-contents-literally file)
+        (secure-hash 'sha256 (buffer-string)))
+    (error nil)))
+
+(defun manifolding-emacs--cache-lookup (file start-line)
+  "Return (PARTS . PROFILE) from cache, or nil on any miss/staleness.
+Fast path trusts mtime+size (no hashing for unchanged files); changed
+stats fall back to a content-hash check so timestamp-only touches still
+hit; anything else re-extracts.  Never throws."
+  (when (file-exists-p file)
+    (condition-case nil
+        (let ((data (manifolding-emacs--cache-read
+                     (manifolding-emacs-cache-path
+                      (manifolding-emacs--cache-id file start-line)))))
+          (when (and (manifolding-emacs--cache-validate data)
+                     (equal (plist-get data :method)
+                            manifolding-emacs-package-method))
+            (let ((sig (manifolding-emacs--file-sig file)))
+              (cond
+               ((and sig
+                     (equal (plist-get data :mtime) (nth 0 sig))
+                     (equal (plist-get data :size) (nth 1 sig)))
+                (cons (plist-get data :parts) (plist-get data :profile)))
+               ((let ((h (manifolding-emacs--cache-content-hash file)))
+                  (and h (equal h (plist-get data :content-hash))))
+                ;; Timestamp-only change: refresh stored stat, replay parts.
+                (manifolding-emacs--cache-write
+                 (manifolding-emacs-cache-path
+                  (manifolding-emacs--cache-id file start-line))
+                 (plist-put (plist-put (copy-sequence data)
+                                       :mtime (nth 0 sig))
+                            :size (nth 1 sig)))
+                (cons (plist-get data :parts) (plist-get data :profile)))
+               (t nil)))))
+      (error nil))))
+
+(defun manifolding-emacs--cache-store (file start-line parts profile)
+  "Persist PARTS/PROFILE for FILE's unit.  Never throws: a cache failure
+must never break a boot."
+  (condition-case nil
+      (let ((sig (manifolding-emacs--file-sig file))
+            (h (manifolding-emacs--cache-content-hash file)))
+        (when (and sig h parts)
+          (manifolding-emacs--cache-write
+           (manifolding-emacs-cache-path
+            (manifolding-emacs--cache-id file start-line))
+           (list :version manifolding-emacs-cache-salt
+                 :method manifolding-emacs-package-method
+                 :mtime (nth 0 sig) :size (nth 1 sig)
+                 :content-hash h :profile profile :parts parts))))
+    (error nil)))
+
+(defun manifolding-emacs--compile-unit-parts (file unit &optional force)
+  "Return (PARTS . PROFILE) for UNIT in FILE, via cache unless FORCE.
+On a miss, extract fresh and refresh the cache entry — so an explicit
+`manifolding-emacs-compile-file' touch warms the next boot, and the
+next boot replays unchanged files without re-parsing or re-hashing."
+  (let ((start (plist-get unit :start-line)))
+    (or (and (not force) (manifolding-emacs--cache-lookup file start))
+        (pcase-let ((`(,parts . ,profile)
+                     (manifolding-emacs--extract-parts
+                      file (cons start (plist-get unit :end-line)))))
+          (manifolding-emacs--cache-store file start parts profile)
+          (cons parts profile)))))
 
 (defun manifolding-emacs-compile-file (file)
-  "Compile FILE. Returns FILE.
-Always bypasses the cache: this entry point means \"the user just
-touched this file\"."
+  "Compile FILE, one tagged heading unit at a time.  Returns FILE.
+Bypasses the cache for reading (this entry point means \"the user just
+touched this file\") but refreshes the cache entry, warming the next
+boot."
   (unless (file-exists-p file)
     (error "File to compile does not exist: %s" file))
   (message "manifolding-emacs: compiling %s"
            (manifolding-emacs-file-title file))
-  (pcase-let* ((`(,parts . ,profile)
-                (manifolding-emacs--extract-parts file)))
-    (manifolding-emacs--eval-parts file parts profile)
+  (let ((units (manifolding-emacs-file-tagged-units file)))
+    (unless units
+      (error "No tagged unit in %s" file))
+    (dolist (u units)
+      (pcase-let* ((`(,parts . ,profile)
+                    (manifolding-emacs--compile-unit-parts file u t)))
+        (manifolding-emacs--eval-parts file parts profile)))
     file))
 
 (defun manifolding-emacs-recompile-package (file package-name)
-  "Re-extract FILE and (re-)eval only PACKAGE-NAME, leaving every other
-package in FILE untouched.  Used by the doctor."
+  "Re-extract the unit holding PACKAGE-NAME in FILE and (re-)eval only
+it, leaving every other unit untouched.  Used by the doctor."
   (interactive)
-  (let ((manifolding-emacs-packages nil))
-    (manifolding-emacs-concatenate-source-blocks file)
-    (if-let* ((package-string
-               (manifolding-emacs-build-package file package-name)))
-        (progn
+  (catch 'done
+    (dolist (u (manifolding-emacs-file-tagged-units file))
+      (let ((manifolding-emacs-packages nil))
+        (manifolding-emacs-concatenate-source-blocks
+         file (cons (plist-get u :start-line) (plist-get u :end-line)))
+        (when-let* ((package-string
+                     (manifolding-emacs-build-package file package-name)))
           (manifolding-emacs--eval-package-string package-name
                                                   package-string file)
           (message "manifolding-emacs: retried %s -> %s" package-name
                    (plist-get (manifolding-emacs-package-status
                                package-name)
-                              :status)))
-      (user-error "No such package `%s' in %s" package-name file))))
+                              :status))
+          (throw 'done t))))
+    (user-error "No such package `%s' in %s" package-name file)))
 #+end_src
 
 ** Compiler — directory loop & summary
 #+begin_src emacs-lisp
 (defun manifolding-emacs-compile-directory (&optional progress-fn force)
-  "Compile every Org file under the active Org directory.
-Unchanged files replay from the content-hash cache; FORCE bypasses it.
-If PROGRESS-FN is given, call it with (CURRENT TOTAL FILE) before
-compiling each file — used to drive a splash screen without this file
-knowing anything about UI."
-  (let* ((files (manifolding-emacs-get-files
-                 "[^./]+$" (manifolding-emacs-get-org-directory)))
-         (compiled '()) (current 0) (total (length files))
+  "Compile every tagged heading unit under the active Org directory.
+Units from all files order parents-first via `manifolding-emacs--collect-units'.
+If PROGRESS-FN is given, call it with (CURRENT TOTAL FILE) per unit —
+used to drive a splash screen without this file knowing anything
+about UI.  PROGRESS-FN also fires per file during discovery (phase
+`:reading'), so the splash names each file while it is read.
+Unchanged units replay from the content-hash cache
+(mtime/size fast path, content-hash fallback); FORCE re-extracts and
+re-evaluates everything.  Returns the files that compiled, in
+completion order."
+  (setq manifolding-emacs--boot-phase :reading)
+  (let* ((discovered (manifolding-emacs--ordered-units
+                      "[^./]+$" (manifolding-emacs-get-org-directory)
+                      progress-fn))
+         (units (car discovered))
+         (compiled '()) (pulled '())
+         (current 0) (total (length units))
          (paren-errors 0) (void-errors 0))
-    (dolist (file files)
-      (setq current (1+ current))
-      (when progress-fn (funcall progress-fn current total file))
-      (when-let* ((remote-plist (manifolding-emacs-file-remote file)))
-        (manifolding-emacs-pull-remote-file remote-plist))
-      (condition-case err
-          (when-let* ((output
-                       (manifolding-emacs-compile-file-cached file force)))
-            (push output compiled))
-        (error
-         (let ((msg (error-message-string err)))
-           (when (string-match-p "End of file\\|Unbalanced\\|parsing" msg)
-             (setq paren-errors (1+ paren-errors)))
-           (when (string-match-p "VOID" msg)
-             (setq void-errors (1+ void-errors)))
-           (manifolding-emacs-record-error
-            :level 'file :file file :message msg)))))
+    ;; Discovery is done: the unit loop below is compilation.
+    (setq manifolding-emacs--boot-phase :compiling)
+    (dolist (u units)
+      (let ((file (plist-get u :file)))
+        (setq current (1+ current))
+        (when progress-fn (funcall progress-fn current total file))
+        (unless (member file pulled)
+          (push file pulled)
+          (when-let* ((remote-plist (manifolding-emacs-file-remote file)))
+            (manifolding-emacs-pull-remote-file remote-plist)))
+        (condition-case err
+            (pcase-let* ((`(,parts . ,profile)
+                          (manifolding-emacs--compile-unit-parts
+                           file u force)))
+              (manifolding-emacs--eval-parts file parts profile)
+              (unless (member file compiled)
+                (push file compiled)))
+          (error
+           (let ((msg (error-message-string err)))
+             (when (string-match-p "End of file\\|Unbalanced\\|parsing" msg)
+               (setq paren-errors (1+ paren-errors)))
+             (when (string-match-p "VOID" msg)
+               (setq void-errors (1+ void-errors)))
+             (manifolding-emacs-record-error
+              :level 'file :file file :message msg))))))
     (cond
      ((> paren-errors 0)
       (message "manifolding-emacs: %d paren error(s) — see the error entries above for exact positions"
@@ -1736,20 +2149,23 @@ Atomic upstream renderers — kept whole.
 (defun manifolding-emacs-splash--render-progress (buf current total file)
   (let* ((errors (manifolding-emacs-errors-list))
          (warnings (manifolding-emacs-warnings-list))
-         (label (pcase manifolding-emacs--boot-phase
-                  (:compiling "Compiling") (:loading "Loading")
-                  (_ "Processing")))
+          (label (pcase manifolding-emacs--boot-phase
+                   (:compiling "Compiling") (:loading "Loading")
+                   (:reading "Reading")
+                   (_ "Processing")))
          (bar (manifolding-emacs-splash--bar current total))
          (eta (manifolding-emacs-splash--eta-line current total))
          (head (concat "MANIFOLDING-EMACS\n\n"
                        (propertize eta 'face 'bold) "\n\n"
                        bar "\n\n"
-                        (if file
-                            (concat
-                             (format "%s: " label)
-                             (propertize (manifolding-emacs-file-title file)
-                                         'face 'bold))
-                          "")
+                         (if file
+                             (concat
+                              (format "%s: " label)
+                              ;; Belt and suspenders: a nil title must never
+                              ;; throw inside the progress renderer.
+                              (propertize (or (manifolding-emacs-file-title file) "?")
+                                          'face 'bold))
+                           "")
                        "\n"
                        (format "%s%d errors · %d warnings\n"
                                (if (alist-get :fatal
@@ -1845,29 +2261,27 @@ Non-clean boots stay in *Manifolding-Emacs* with the full report."
 #+end_src
 
 ** Splash — module todos & vault git info
-Note: --modules-dir const points at the new home.
 #+begin_src emacs-lisp
 (defvar manifolding-emacs-splash--todos-expanded nil
   "When non-nil, the dashboard lists every module TODO instead of a few.")
 
-(defconst manifolding-emacs-splash--modules-dir
-  (or manifolding-emacs-vault-root user-emacs-directory))
-
 (defun manifolding-emacs-splash--module-todos ()
-  "Return list of (FILE-BASE . TITLE) TODO headings from extensionless modules."
+  "Return list of (FILE-BASE . TITLE) TODO headings from mechanism files.
+Driven by the discovery index: only files with tagged units are read,
+so non-mechanism files are never touched."
   (condition-case nil
-      (let ((results nil)
-            (files (directory-files
-                    manifolding-emacs-splash--modules-dir
-                    t "[^./]+$")))
-        (dolist (f files)
-          (let ((base (manifolding-emacs-file-title f)))
-            (with-temp-buffer
-              (insert-file-contents f)
-              (goto-char (point-min))
-              (while (re-search-forward
-                      "^\\*+[ \t]+TODO[ \t]+\\(.*?\\)[ \t]*$" nil t)
-                (push (cons base (match-string 1)) results)))))
+      (let (results)
+        (manifolding-emacs--index-load)
+        (maphash (lambda (f entry)
+                   (when (and (plist-get entry :units) (file-exists-p f))
+                     (let ((base (manifolding-emacs-file-title f)))
+                       (with-temp-buffer
+                         (insert-file-contents f)
+                         (goto-char (point-min))
+                         (while (re-search-forward
+                                 "^\\*+[ \t]+TODO[ \t]+\\(.*?\\)[ \t]*$" nil t)
+                           (push (cons base (match-string 1)) results))))))
+                 manifolding-emacs--discovery-index)
         (nreverse results))
     (error nil)))
 
