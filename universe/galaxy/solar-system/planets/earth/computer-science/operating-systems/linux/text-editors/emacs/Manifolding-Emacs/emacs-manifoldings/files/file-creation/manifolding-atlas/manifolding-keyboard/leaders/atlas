@@ -63,5 +63,7 @@ SPC v: Manifolding Atlas menu.
   (("D" my/manifolding-atlas-emacs-mechanism-local-create "new mechanism" :exit t)
    ("L" my/manifolding-atlas-emacs-mechanism-module-create "new module" :exit t)
    ("Q" my/manifolding-atlas-emacs-mechanism-agent-create "new agent" :exit t)
-   ("U" my/manifolding-atlas-emacs-mechanism-auto-run "auto-convert" :exit t)))
+   ("U" my/manifolding-atlas-emacs-mechanism-auto-run "auto-convert" :exit t))
+  "Tools"
+  (("T" my/atlas-tools-hydra/body "tools" :exit t)))
 #+end_src

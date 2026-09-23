@@ -1,0 +1,34 @@
+#+title: Manifolding Keyboard — Tools Leader
+
+SPC v T: new Atlas tools (retrieve, tags, mentions, agent, health).
+
+* Tools :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       39195371-7051-4dcd-8a83-84ff89905828
+:END:
+#+begin_src emacs-lisp
+(my/defhydra-state my/atlas-tools-hydra nil "Atlas Tools" (my/manifolding-atlas-hydra/body "atlas")
+  "Retrieve"
+  (("s" my/atlas-stream "stream" :exit t)
+   ("d" my/atlas-discovery "discover" :exit t)
+   ("n" my/atlas-node-view "node" :exit t)
+   ("q" my/atlas-query-run-saved "run query" :exit t)
+   ("Q" my/atlas-query-save "save query" :exit t))
+  "Tags"
+  (("t" my/atlas-tag-manager "manager" :exit t)
+   ("r" my/atlas-tag-rename "rename" :exit t)
+   ("m" my/atlas-tag-merge "merge" :exit t)
+   ("o" my/atlas-tag-clean-orphans "orphans" :exit t)
+   ("h" my/atlas-insert-hashtag "hashtag" :exit t)
+   ("H" my/atlas-mention-hints-mode "hints" :exit t))
+  "Mentions"
+  (("M" my/atlas-mentions-review "review" :exit t))
+  "Agent and AI"
+  (("A" my/atlas-agent-status "agent status" :exit t)
+   ("S" my/atlas-semantic-rebuild "semantic rebuild" :exit t)
+   ("P" my/atlas-ai-propose "propose" :exit t)
+   ("p" my/atlas-promote "promote" :exit t))
+  "Health"
+  (("D" atlas-data-doctor "data doctor" :exit t)
+   ("V" my/atlas-verify-persistence "verify" :exit t)))
+#+end_src
