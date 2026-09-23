@@ -54,6 +54,23 @@ stale.  Runs before the package system.
   (when (fboundp 'scroll-bar-mode) (scroll-bar-mode -1)))
 #+end_src
 
+** GC & Handlers During Boot
+Straight, Org parsing, and hundreds of module evals allocate heavily.
+Raise the GC threshold during init, drop expensive file-name handlers,
+restore both when init settles.
+#+begin_src emacs-lisp
+(setq gc-cons-threshold (* 64 1024 1024)
+      gc-cons-percentage 0.6)
+(defvar my/saved-file-name-handler-alist file-name-handler-alist)
+(setq file-name-handler-alist nil)
+(add-hook 'after-init-hook
+          (lambda ()
+            (setq file-name-handler-alist my/saved-file-name-handler-alist
+                  gc-cons-threshold (* 16 1024 1024)
+                  gc-cons-percentage 0.1))
+          t)
+#+end_src
+
 ** Pure-Red Palette From First Paint
 Kills the unstyled white flash before init runs.
 #+begin_src emacs-lisp
@@ -185,6 +202,49 @@ seed ~init.el~.  Everything the boot needs before modules run.
 
 (defun my/init-note (fmt &rest args)
   (let ((message-log-max nil)) (apply #'message fmt args)))
+
+;; Boot phase measurement: near-zero overhead timestamp marks.
+;; Report lands in *Messages* and ~/.config/emacs/boot-times.log
+;; via after-init-hook.  See boot-speed plan Phase A1.
+(defvar my/boot-t0 (current-time)
+  "Boot start time for phase measurement.")
+(defvar my/boot-marks nil
+  "Alist of LABEL . SECONDS-SINCE-BOOT, pushed by `my/boot-mark'.")
+(defun my/boot-mark (label)
+  "Record LABEL with seconds elapsed since `my/boot-t0'."
+  (push (cons label (float-time (time-subtract (current-time) my/boot-t0)))
+        my/boot-marks))
+(defun my/boot-report ()
+  "Write phase timings to *Messages* and boot-times.log, plus GC
+seconds and the 10 slowest units (measured, never guessed)."
+  (let ((marks (nreverse my/boot-marks)) (prev 0.0) (lines nil))
+    (dolist (m marks)
+      (push (format "%8.2fs (+%6.2fs) %s" (cdr m) (- (cdr m) prev) (car m))
+            lines)
+      (setq prev (cdr m)))
+    (let ((text (mapconcat #'identity (nreverse lines) "\n")))
+      (when (and (boundp 'gc-elapsed) my/boot-gc-t0)
+        (setq text (concat text (format "\nGC: %.1fs of boot in garbage collection"
+                                        (- gc-elapsed my/boot-gc-t0)))))
+      (let ((slow (ignore-errors
+                    (with-temp-buffer
+                      (insert-file-contents
+                       (locate-user-emacs-file "unit-times.log"))
+                      (goto-char (point-min))
+                      (forward-line 1)
+                      (buffer-substring-no-properties
+                       (point)
+                       (save-excursion
+                         (forward-line 10) (point)))))))
+        (when (and (stringp slow) (not (string-empty-p (string-trim slow))))
+          (setq text (concat text "\nSlowest units:\n" slow))))
+      (message "BOOT-TIMES:\n%s" text)
+      (write-region (concat text "\n") nil
+                    (locate-user-emacs-file "boot-times.log") nil 'quiet))))
+(add-hook 'after-init-hook #'my/boot-report t)
+(defvar my/boot-gc-t0 (and (boundp 'gc-elapsed) gc-elapsed)
+  "GC seconds at boot start, for the boot report.")
+(my/boot-mark "foundation-start")
 #+end_src
 
 ** Straight.el Bootstrap
@@ -201,6 +261,7 @@ straight-use-package call.
   (when (file-exists-p bootstrap-file)
     (load bootstrap-file nil 'nomessage)))
 ;; (my/init-note "[init] straight ready")
+(my/boot-mark "straight-ready")
 #+end_src
 
 ** Straight build dirs → load-path
@@ -290,6 +351,7 @@ Must be here — manifolding-emacs-boot generates leaf forms.
 (eval-and-compile
   (leaf-keywords-init))
 ;; (my/init-note "[init] core ready")
+(my/boot-mark "core-ready")
 #+end_src
 
 ** Literate loader
@@ -319,13 +381,17 @@ live in the vault.
     (error "[init] literate loader missing: %s" file))
   (let ((el (locate-user-emacs-file "manifolding-emacs.el")))
     ;; (my/init-note "[init] tangling loader…")
-    (with-demoted-errors "[init] tangle failed: %s"
-      (org-babel-tangle-file file))
+    ;; Guarded like the Foundation tangle: with explicit sync allowed,
+    ;; re-tangling an up-to-date loader every boot is pure waste.
+    (when (or (not (file-exists-p el)) (file-newer-than-file-p file el))
+      (with-demoted-errors "[init] tangle failed: %s"
+        (org-babel-tangle-file file)))
     ;; (my/init-note "[init] loading literate loader…")
     (load el nil t)))
 
 (add-to-list 'load-path (expand-file-name "lisp/" user-emacs-directory))
 (my/load-literate-loader)
+(my/boot-mark "loader-loaded")
 
 ;; (my/init-note "[init] loader ready — booting modules…")
 
@@ -344,7 +410,9 @@ live in the vault.
       manifolding-emacs-output-directory
       (expand-file-name "manifolding-emacs" user-emacs-directory))
 (setq inhibit-startup-screen t)
+(my/boot-mark "boot-start")
 (manifolding-emacs-boot)
+(my/boot-mark "boot-end")
 
 (global-auto-revert-mode 1)
 (setq auto-revert-verbose nil
