@@ -1880,9 +1880,12 @@ about UI.  PROGRESS-FN also fires per file during discovery (phase
 `:reading'), so the splash names each file while it is read.
 Unchanged units replay from the content-hash cache
 (mtime/size fast path, content-hash fallback); FORCE re-extracts and
-re-evaluates everything.  Returns the files that compiled, in
+re-evaluates everything.  Per-unit durations land in
+`manifolding-emacs--unit-times' and `unit-times.log', so slow units
+are measured, never guessed.  Returns the files that compiled, in
 completion order."
   (setq manifolding-emacs--boot-phase :reading)
+  (setq manifolding-emacs--unit-times nil)
   (let* ((discovered (manifolding-emacs--ordered-units
                       "[^./]+$" (manifolding-emacs-get-org-directory)
                       progress-fn))
@@ -1893,7 +1896,8 @@ completion order."
     ;; Discovery is done: the unit loop below is compilation.
     (setq manifolding-emacs--boot-phase :compiling)
     (dolist (u units)
-      (let ((file (plist-get u :file)))
+      (let ((file (plist-get u :file))
+            (t0 (float-time)))
         (setq current (1+ current))
         (when progress-fn (funcall progress-fn current total file))
         (unless (member file pulled)
@@ -1913,8 +1917,11 @@ completion order."
                (setq paren-errors (1+ paren-errors)))
              (when (string-match-p "VOID" msg)
                (setq void-errors (1+ void-errors)))
-             (manifolding-emacs-record-error
-              :level 'file :file file :message msg))))))
+              (manifolding-emacs-record-error
+               :level 'file :file file :message msg))))
+        (push (list (- (float-time) t0) file)
+              manifolding-emacs--unit-times)))
+    (manifolding-emacs--write-unit-times)
     (cond
      ((> paren-errors 0)
       (message "manifolding-emacs: %d paren error(s) — see the error entries above for exact positions"
@@ -2024,6 +2031,31 @@ Pure renderer: reads the error/warnings lists, never mutates them.
 (defvar manifolding-emacs--last-boot-seconds nil
   "Duration of the most recent boot, set by the clean-finish handoff
 and displayed by the dashboard's Manifold status widget.")
+
+(defvar manifolding-emacs--unit-times nil
+  "Per-unit durations this boot: ((SECONDS FILE) ...), most recent first.
+Written to unit-times.log by `manifolding-emacs--write-unit-times'.")
+
+(defun manifolding-emacs--unit-times-file ()
+  "Where per-unit durations land.  Under ~/.config/emacs, never the vault."
+  (locate-user-emacs-file "unit-times.log"))
+
+(defun manifolding-emacs--write-unit-times ()
+  "Persist per-unit durations, slowest first, with a total line.
+Overwrites the previous boot's log (latest only).  Never throws:
+timing must never break a boot."
+  (condition-case nil
+      (let ((rows (sort (copy-sequence manifolding-emacs--unit-times)
+                        (lambda (a b) (> (car a) (car b)))))
+            (total 0.0))
+        (dolist (r manifolding-emacs--unit-times)
+          (setq total (+ total (car r))))
+        (with-temp-file (manifolding-emacs--unit-times-file)
+          (insert (format ";; unit-times %.1fs total, %d units, %s\n"
+                          total (length rows) (current-time-string)))
+          (dolist (r rows)
+            (insert (format "%8.2f %s\n" (car r) (cadr r))))))
+    (error nil)))
 
 (defun manifolding-emacs-show-splash ()
   (let ((buf (get-buffer-create "*Manifolding-Emacs*")))
@@ -2215,9 +2247,11 @@ Atomic upstream renderers — kept whole.
                      (length (manifolding-emacs-errors-list)))
           (plist-put manifolding-emacs-splash--state :last-w
                      (length (manifolding-emacs-warnings-list)))
-          (manifolding-emacs-splash--render-progress buf current total file)
-          (with-current-buffer buf
-            (redisplay)))))))
+           (manifolding-emacs-splash--render-progress buf current total file)
+           (with-current-buffer buf
+             ;; Forced: a busy main thread must still paint, or the
+             ;; splash looks frozen during long units.
+             (redisplay t)))))))
 #+end_src
 
 ** Splash — counts
