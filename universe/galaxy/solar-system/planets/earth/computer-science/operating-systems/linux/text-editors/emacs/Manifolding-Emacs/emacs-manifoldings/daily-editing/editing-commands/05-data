@@ -1,0 +1,454 @@
+#+title:      Data Formats and Hooks
+
+* Data Formats and Hooks :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       e2952193-522d-4e1a-b2b6-b9cf4ba31610
+:END:
+
+Emacs can be compiled with built-in support for accessing SQLite databases. This section describes the facilities available for accessing SQLite databases from Lisp programs.
+
+Function: sqlite-available-p ¶
+The function returns non-nil if built-in SQLite support is available in this Emacs session.
+
+When SQLite support is available, the following functions can be used.
+
+Function: sqlite-open &optional file ¶
+This function opens file as an SQLite database file. If file doesn’t exist, a new database will be created and stored in that file. If file is omitted or nil, a new in-memory database is created instead.
+
+The return value is a database object that can be used as the argument to most of the subsequent functions described below.
+
+Function: sqlitep object ¶
+This predicate returns non-nil if object is an SQLite database object. The database object returned by the sqlite-open function satisfies this predicate.
+
+Function: sqlite-close db ¶
+Close the database db. It’s usually not necessary to call this function explicitly—the database will automatically be closed if Emacs shuts down or the database object is garbage collected.
+
+Function: sqlite-execute db statement &optional values ¶
+Execute the SQL statement. For instance:
+
+(sqlite-execute db "insert into foo values ('bar', 2)")
+If the optional values parameter is present, it should be either a list or a vector of values to bind while executing the statement. For instance:
+
+(sqlite-execute db "insert into foo values (?, ?)" '("bar" 2))
+This has exactly the same effect as the previous example, but is more efficient and safer (because it doesn’t involve any string parsing or interpolation).
+
+sqlite-execute usually returns the number of affected rows. For instance, an ‘insert’ statement will typically return ‘1’, whereas an ‘update’ statement may return zero or a higher number. However, when using SQL statements like ‘insert into … returning …’ and the like, the values specified by ‘returning …’ will be returned instead.
+
+Strings in SQLite are, by default, stored as utf-8, and selecting a text column will decode the string using that charset. Selecting a blob column will return the raw data without any decoding (i.e., it will return a unibyte string containing the bytes as stored in the database). Inserting binary data into blob columns, however, requires some care, as sqlite-execute will, by default, interpret all strings as utf-8.
+
+So if you have, for instance, GIF data in a unibyte string called gif, you have to mark it specially to let sqlite-execute know this:
+
+(put-text-property 0 1 'coding-system 'binary gif)
+(sqlite-execute db "insert into foo values (?, ?)" (list gif 2))
+Function: sqlite-select db query &optional values return-type ¶
+Select some data from db and return them. For instance:
+
+(sqlite-select db "select * from foo where key = 2")
+  ⇒ (("bar" 2))
+As with the sqlite-execute, you can optionally pass in a list or a vector of values that will be bound before executing the select:
+
+(sqlite-select db "select * from foo where key = ?" [2])
+  ⇒ (("bar" 2))
+This is usually more efficient and safer than the method used by the previous example.
+
+By default, this function returns a list of matching rows, where each row is a list of column values. If return-type is full, the names of the columns (as a list of strings) will be returned as the first element in the return value.
+
+If return-type is set, this function will return a statement object instead. This object can be examined by using the sqlite-next, sqlite-columns and sqlite-more-p functions. If the result set is small, it’s often more convenient to just return the data directly, but if the result set is large (or if you won’t be using all the data from the set), using the set method will allocate a lot less memory, and is therefore more memory-efficient.
+
+Function: sqlite-next statement ¶
+This function returns the next row in the result set statement, typically an object returned by sqlite-select.
+
+(sqlite-next stmt)
+    ⇒ ("bar" 2)
+Function: sqlite-columns statement ¶
+This function returns the column names of the result set statement, typically an object returned by sqlite-select.
+
+(sqlite-columns stmt)
+    ⇒ ("name" "issue")
+Function: sqlite-more-p statement ¶
+This predicate says whether there is more data to be fetched from the result set statement, typically an object returned by sqlite-select.
+
+Function: sqlite-finalize statement ¶
+If statement is not going to be used any more, calling this function will free the resources used by statement. This is usually not necessary—when the statement object is garbage-collected, Emacs will automatically free its resources.
+
+Function: sqlite-transaction db ¶
+Start a transaction in db. When in a transaction, other readers of the database won’t access the results until the transaction has been committed by sqlite-commit.
+
+Function: sqlite-commit db ¶
+End a transaction in db and write the data out to its file.
+
+Function: sqlite-rollback db ¶
+End a transaction in db and discard any changes that have been made by the transaction.
+
+Macro: with-sqlite-transaction db body… ¶
+Like progn (see Sequencing), but executes body with a transaction held, and commits the transaction at the end if body completes normally. If body signals an error, or committing the transaction fails, the changes in db performed by body are rolled back. The macro returns the value of body if it completes normally and commit succeeds.
+
+Function: sqlite-pragma db pragma ¶
+Execute pragma in db. A pragma is usually a command that affects the database overall, instead of any particular table. For instance, to make SQLite automatically garbage collect data that’s no longer needed, you can say:
+
+(sqlite-pragma db "auto_vacuum = FULL")
+This function returns non-nil on success and nil if the pragma failed. Many pragmas can only be issued when the database is brand new and empty.
+
+Function: sqlite-load-extension db module ¶
+Load the named extension module into the database db. Extensions are usually shared-library files; on GNU and Unix systems, they have the .so file-name extension.
+
+Function: sqlite-version ¶
+Return a string denoting the version of the SQLite library in use.
+
+If you wish to list the contents of an SQLite file, you can use the sqlite-mode-open-file command. This will pop to a buffer using sqlite-mode, which allows you to examine (and alter) the contents of an SQLite database.
+
+
+*** Parsing HTML and XML
+
+Emacs can be compiled with built-in libxml2 support.
+
+Function: libxml-available-p ¶
+This function returns non-nil if built-in libxml2 support is available in this Emacs session.
+
+When libxml2 support is available, the following functions can be used to parse HTML or XML text into Lisp object trees.
+
+Function: libxml-parse-html-region &optional start end base-url discard-comments ¶
+This function parses the text between start and end as HTML, and returns a list representing the HTML parse tree. It attempts to handle real-world HTML by robustly coping with syntax mistakes.
+
+If start or end are nil, they default to the values from point-min and point-max, respectively.
+
+The optional argument base-url, if non-nil, should be used for warnings and errors reported by the libxml2 library, but Emacs currently calls the library with errors and warnings disabled, so this argument is not used.
+
+If the optional argument discard-comments is non-nil, any top-level comment is discarded. (This argument is obsolete and will be removed in future Emacs versions. To remove comments, use the xml-remove-comments utility function on the data before you call the parsing function.)
+
+In the parse tree, each HTML node is represented by a list in which the first element is a symbol representing the node name, the second element is an alist of node attributes, and the remaining elements are the subnodes.
+
+The following example demonstrates this. Given this (malformed) HTML document:
+
+<html><head></head><body width=101><div class=thing>Foo<div>Yes
+A call to libxml-parse-html-region returns this DOM (document object model):
+
+(html nil
+ (head nil)
+ (body ((width . "101"))
+  (div ((class . "thing"))
+   "Foo"
+   (div nil
+    "Yes"))))
+Function: shr-insert-document dom ¶
+This function renders the parsed HTML in dom into the current buffer. The argument dom should be a list as generated by libxml-parse-html-region. This function is, e.g., used by EWW in The Emacs Web Wowser Manual.
+
+Function: libxml-parse-xml-region &optional start end base-url discard-comments ¶
+This function is the same as libxml-parse-html-region, except that it parses the text as XML rather than HTML (so it is stricter about syntax).
+
+**** Document Object Model
+
+The DOM returned by libxml-parse-html-region (and the other XML parsing functions) is a tree structure where each node has a node name (called a tag), and optional key/value attribute list, and then a list of child nodes. The child nodes are either strings or DOM objects.
+
+(body ((width . "101"))
+ (div ((class . "thing"))
+  "Foo"
+  (div nil
+   "Yes")))
+Function: dom-node tag &optional attributes &rest children ¶
+This function creates a DOM node of type tag. If given, attributes should be a key/value pair list. If given, children should be DOM nodes.
+
+The following functions can be used to work with this structure. Each function takes a DOM node, or a list of nodes. In the latter case, only the first node in the list is used.
+
+Simple accessors:
+
+dom-tag node
+Return the tag (also called “node name”) of the node.
+
+dom-attr node attribute
+Return the value of attribute in the node. A common usage would be:
+
+(dom-attr img 'href)
+=> "https://fsf.org/logo.png"
+dom-children node
+Return all the children of the node.
+
+dom-non-text-children node
+Return all the non-string children of the node.
+
+dom-attributes node
+Return the key/value pair list of attributes of the node.
+
+dom-text node
+Return all the textual elements of the node as a concatenated string.
+
+dom-texts node
+Return all the textual elements of the node, as well as the textual elements of all the children of the node, recursively, as a concatenated string. This function also takes an optional separator to be inserted between the textual elements.
+
+dom-parent dom node
+Return the parent of node in dom.
+
+dom-remove dom node
+Remove node from dom.
+
+The following are functions for altering the DOM.
+
+dom-set-attribute node attribute value
+Set the attribute of the node to value.
+
+dom-remove-attribute node attribute
+Remove attribute from node.
+
+dom-append-child node child
+Append child as the last child of node.
+
+dom-add-child-before node child before
+Add child to node’s child list before the before node. If before is nil, make child the first child.
+
+dom-set-attributes node attributes
+Replace all the attributes of the node with a new key/value list.
+
+The following are functions for searching for elements in the DOM. They all return lists of matching nodes.
+
+dom-by-tag dom tag
+Return all nodes in dom that are of type tag. A typical use would be:
+
+(dom-by-tag dom 'td)
+=> '((td ...) (td ...) (td ...))
+dom-by-class dom match
+Return all nodes in dom that have class names that match match, which is a regular expression.
+
+dom-by-style dom style
+Return all nodes in dom that have styles that match match, which is a regular expression.
+
+dom-by-id dom style
+Return all nodes in dom that have IDs that match match, which is a regular expression.
+
+dom-search dom predicate
+Return all nodes in dom where predicate returns a non-nil value. predicate is called with the node to be tested as its parameter.
+
+dom-strings dom
+Return all strings in dom.
+
+Utility functions:
+
+dom-pp dom &optional remove-empty
+Pretty-print dom at point. If remove-empty, don’t print textual nodes that just contain white-space.
+
+dom-print dom &optional pretty xml
+Print dom at point. If xml is non-nil, print as XML; otherwise, print as HTML. If pretty is non-nil, indent the HTML/XML logically.
+
+
+*** Parsing and generating JSON values
+
+When Emacs is compiled with JSON (JavaScript Object Notation) support, it provides several functions to convert between Lisp objects and JSON values. Any JSON value can be converted to a Lisp object, but not vice versa. Specifically:
+
+JSON uses three keywords: true, null, false. true is represented by the symbol t. By default, the remaining two are represented, respectively, by the symbols :null and :false.
+JSON only has floating-point numbers. They can represent both Lisp integers and Lisp floating-point numbers.
+JSON strings are always Unicode strings encoded in UTF-8. Lisp strings can contain non-Unicode characters.
+JSON has only one sequence type, the array. JSON arrays are represented using Lisp vectors.
+JSON has only one map type, the object. JSON objects are represented using Lisp hashtables, alists or plists. When an alist or plist contains several elements with the same key, Emacs uses only the first element for serialization, in accordance with the behavior of assq.
+Note that nil, being both a valid alist and a valid plist, represents {}, the empty JSON object; not null, false, or an empty array, all of which are different JSON values.
+
+Function: json-available-p ¶
+This predicate returns non-nil if Emacs has been built with JSON support, and the library is available on the current system.
+
+If some Lisp object can’t be represented in JSON, the serialization functions will signal an error of type wrong-type-argument. The parsing functions can also signal the following errors:
+
+json-unavailable
+Signaled when the parsing library isn’t available.
+
+json-end-of-file
+Signaled when encountering a premature end of the input text.
+
+json-trailing-content
+Signaled when encountering unexpected input after the first JSON object parsed.
+
+json-parse-error
+Signaled when encountering invalid JSON syntax.
+
+Top-level values and the subobjects within these top-level values can be serialized to JSON. Likewise, the parsing functions will return any of the possible types described above.
+
+Function: json-serialize object &rest args ¶
+This function returns a new Lisp string which contains the JSON representation of object. The argument args is a list of keyword/argument pairs. The following keywords are accepted:
+
+:null-object
+The value decides which Lisp object to use to represent the JSON keyword null. It defaults to the symbol :null.
+
+:false-object
+The value decides which Lisp object to use to represent the JSON keyword false. It defaults to the symbol :false.
+
+Function: json-insert object &rest args ¶
+This function inserts the JSON representation of object into the current buffer before point. The argument args are interpreted as in json-parse-string.
+
+Function: json-parse-string string &rest args ¶
+This function parses the JSON value in string, which must be a Lisp string. If string doesn’t contain a valid JSON object, this function signals the json-parse-error error.
+
+The argument args is a list of keyword/argument pairs. The following keywords are accepted:
+
+:object-type
+The value decides which Lisp object to use for representing the key-value mappings of a JSON object. It can be either hash-table, the default, to make hashtables with strings as keys; alist to use alists with symbols as keys; or plist to use plists with keyword symbols as keys.
+
+:array-type
+The value decides which Lisp object to use for representing a JSON array. It can be either array, the default, to use Lisp arrays; or list to use lists.
+
+:null-object
+The value decides which Lisp object to use to represent the JSON keyword null. It defaults to the symbol :null.
+
+:false-object
+The value decides which Lisp object to use to represent the JSON keyword false. It defaults to the symbol :false.
+
+Function: json-parse-buffer &rest args ¶
+This function reads the next JSON value from the current buffer, starting at point. It moves point to the position immediately after the value if contains a valid JSON object; otherwise it signals the json-parse-error error and doesn’t move point. The arguments args are interpreted as in json-parse-string.
+
+
+*** JSONRPC communication
+
+The jsonrpc library implements the JSONRPC specification, version 2.0, as it is described in https://www.jsonrpc.org/. As the name suggests, JSONRPC is a generic Remote Procedure Call protocol designed around JSON objects, which you can convert to and from Lisp objects (see Parsing and generating JSON values).
+
+**** Overview
+
+Quoting from the spec, JSONRPC "is transport agnostic in that the concepts can be used within the same process, over sockets, over http, or in many various message passing environments."
+
+To model this agnosticism, the jsonrpc library uses objects of a jsonrpc-connection class, which represent a connection to a remote JSON endpoint (for details on Emacs’s object system, see EIEIO in EIEIO). In modern object-oriented parlance, this class is “abstract”, i.e. the actual class of a useful connection object is always a subclass of jsonrpc-connection. Nevertheless, we can define two distinct APIs around the jsonrpc-connection class:
+
+A user interface for building JSONRPC applications
+In this scenario, the JSONRPC application selects a concrete subclass of jsonrpc-connection, and proceeds to create objects of that subclass using make-instance. To initiate a contact to the remote endpoint, the JSONRPC application passes this object to the functions jsonrpc-notify, jsonrpc-request, and/or jsonrpc-async-request. For handling remotely initiated contacts, which generally come in asynchronously, the instantiation should include :request-dispatcher and :notification-dispatcher initargs, which are both functions of 3 arguments: the connection object; a symbol naming the JSONRPC method invoked remotely; and a JSONRPC params object.
+
+The function passed as :request-dispatcher is responsible for handling the remote endpoint’s requests, which expect a reply from the local endpoint (in this case, the program you’re building). Inside that function, you may either return locally (a normal return) or non-locally (an error return). A local return value must be a Lisp object that can be serialized as JSON (see Parsing and generating JSON values). This determines a success response, and the object is forwarded to the server as the JSONRPC result object. A non-local return, achieved by calling the function jsonrpc-error, causes an error response to be sent to the server. The details of the accompanying JSONRPC error are filled out with whatever was passed to jsonrpc-error. A non-local return triggered by an unexpected error of any other type also causes an error response to be sent (unless you have set debug-on-error, in which case this calls the Lisp debugger, see Entering the Debugger on an Error).
+
+A inheritance interface for building JSONRPC transport implementations
+In this scenario, jsonrpc-connection is subclassed to implement a different underlying transport strategy (for details on how to subclass, see (eieio)Inheritance.). Users of the application-building interface can then instantiate objects of this concrete class (using the make-instance function) and connect to JSONRPC endpoints using that strategy.
+
+This API has mandatory and optional parts.
+
+To allow its users to initiate JSONRPC contacts (notifications or requests) or reply to endpoint requests, the subclass must have an implementation of the jsonrpc-connection-send method.
+
+Likewise, for handling the three types of remote contacts (requests, notifications, and responses to local requests), the transport implementation must arrange for the function jsonrpc-connection-receive to be called after noticing a new JSONRPC message on the wire (whatever that "wire" may be).
+
+Finally, and optionally, the jsonrpc-connection subclass should implement the jsonrpc-shutdown and jsonrpc-running-p methods if these concepts apply to the transport. If they do, then any system resources (e.g. processes, timers, etc.) used to listen for messages on the wire should be released in jsonrpc-shutdown, i.e. they should only be needed while jsonrpc-running-p is non-nil.
+
+
+**** Process-based JSONRPC connections
+
+For convenience, the jsonrpc library comes with a built-in jsonrpc-process-connection transport implementation that can talk to local subprocesses (using the standard input and standard output); or TCP hosts (using sockets); or any other remote endpoint that Emacs’s process object can represent (see Processes).
+
+Using this transport, the JSONRPC messages are encoded on the wire as plain text and prefaced by some basic HTTP-style enveloping headers, such as “Content-Length”.
+
+For an example of an application using this transport scheme on top of JSONRPC, see the Language Server Protocol.
+
+Along with the mandatory :request-dispatcher and :notification-dispatcher initargs, users of the jsonrpc-process-connection class should pass the following initargs as keyword-value pairs to make-instance:
+
+:process
+Value must be a live process object or a function of no arguments producing one such object. If passed a process object, the object is expected to contain a pre-established connection; otherwise, the function is called immediately after the object is made.
+
+:on-shutdown
+Value must be a function of a single argument, the jsonrpc-process-connection object. The function is called after the underlying process object has been deleted (either deliberately by jsonrpc-shutdown, or unexpectedly, because of some external cause).
+
+
+**** JSONRPC JSON object format
+
+JSONRPC JSON objects are exchanged as Lisp plists (see Property Lists): JSON-compatible plists are handed to the dispatcher functions and, likewise, JSON-compatible plists should be given to jsonrpc-notify, jsonrpc-request, and jsonrpc-async-request.
+
+To facilitate handling plists, this library makes liberal use of cl-lib library (see cl-lib in Common Lisp Extensions for GNU Emacs Lisp) and suggests (but doesn’t force) its clients to do the same. A macro jsonrpc-lambda can be used to create a lambda for destructuring a JSON-object like in this example:
+
+(jsonrpc-async-request
+ myproc :frobnicate `(:foo "trix")
+ :success-fn (jsonrpc-lambda (&key bar baz &allow-other-keys)
+               (message "Server replied back with %s and %s!"
+                        bar baz))
+ :error-fn (jsonrpc-lambda (&key code message _data)
+             (message "Sadly, server reports %s: %s"
+                      code message)))
+
+**** Deferred JSONRPC requests
+
+In many RPC situations, synchronization between the two communicating endpoints is a matter of correctly designing the RPC application: when synchronization is needed, requests (which are blocking) should be used; when it isn’t, notifications should suffice. However, when Emacs acts as one of these endpoints, asynchronous events (e.g. timer- or process-related) may be triggered while there is still uncertainty about the state of the remote endpoint. Furthermore, acting on these events may only sometimes demand synchronization, depending on the event’s specific nature.
+
+The :deferred keyword argument to jsonrpc-request and jsonrpc-async-request is designed to let the caller indicate that the specific request needs synchronization and its actual issuance may be delayed to the future, until some condition is satisfied. Specifying :deferred for a request doesn’t mean it will be delayed, only that it can be. If the request isn’t sent immediately, jsonrpc will make renewed efforts to send it at certain key times during communication, such as when receiving or sending other messages to the endpoint.
+
+Before any attempt to send the request, the application-specific conditions are checked. Since the jsonrpc library can’t know what these conditions are, the program can use the jsonrpc-connection-ready-p generic function (see Generic Functions) to specify them. The default method for this function returns t, but you can add overriding methods that return nil in some situations, based on the arguments passed to it, which are the jsonrpc-connection object (see Overview) and whichever value you passed as the :deferred keyword argument.
+
+
+*** Atomic Change Groups
+
+In database terminology, an atomic change is an indivisible change—it can succeed entirely or it can fail entirely, but it cannot partly succeed. A Lisp program can make a series of changes to one or several buffers as an atomic change group, meaning that either the entire series of changes will be installed in their buffers or, in case of an error, none of them will be.
+
+To do this for one buffer, the one already current, simply write a call to atomic-change-group around the code that makes the changes, like this:
+
+(atomic-change-group
+  (insert foo)
+  (delete-region x y))
+If an error (or other nonlocal exit) occurs inside the body of atomic-change-group, it unmakes all the changes in that buffer that were during the execution of the body. This kind of change group has no effect on any other buffers—any such changes remain.
+
+If you need something more sophisticated, such as to make changes in various buffers constitute one atomic group, you must directly call lower-level functions that atomic-change-group uses.
+
+Function: prepare-change-group &optional buffer ¶
+This function sets up a change group for buffer buffer, which defaults to the current buffer. It returns a handle that represents the change group. You must use this handle to activate the change group and subsequently to finish it.
+
+To use the change group, you must activate it. You must do this before making any changes in the text of buffer.
+
+Function: activate-change-group handle ¶
+This function activates the change group that handle designates.
+
+After you activate the change group, any changes you make in that buffer become part of it. Once you have made all the desired changes in the buffer, you must finish the change group. There are two ways to do this: you can either accept (and finalize) all the changes, or cancel them all.
+
+Function: accept-change-group handle ¶
+This function accepts all the changes in the change group specified by handle, making them final.
+
+Function: cancel-change-group handle ¶
+This function cancels and undoes all the changes in the change group specified by handle.
+
+You can cause some or all of the changes in a change group to be considered as a single unit for the purposes of the undo commands (see Undo) by using undo-amalgamate-change-group.
+
+Function: undo-amalgamate-change-group ¶
+Amalgamate all the changes made in the change-group since the state identified by handle. This function removes all undo boundaries between undo records of changes since the state described by handle. Usually, handle is the handle returned by prepare-change-group, in which case all the changes since the beginning of the change-group are amalgamated into a single undo unit.
+
+Your code should use unwind-protect to make sure the group is always finished. The call to activate-change-group should be inside the unwind-protect, in case the user types C-g just after it runs. (This is one reason why prepare-change-group and activate-change-group are separate functions, because normally you would call prepare-change-group before the start of that unwind-protect.) Once you finish the group, don’t use the handle again—in particular, don’t try to finish the same group twice.
+
+To make a multibuffer change group, call prepare-change-group once for each buffer you want to cover, then use nconc to combine the returned values, like this:
+
+(nconc (prepare-change-group buffer-1)
+       (prepare-change-group buffer-2))
+You can then activate the multibuffer change group with a single call to activate-change-group, and finish it with a single call to accept-change-group or cancel-change-group.
+
+Nested use of several change groups for the same buffer works as you would expect. Non-nested use of change groups for the same buffer will get Emacs confused, so don’t let it happen; the first change group you start for any given buffer should be the last one finished.
+
+
+*** Change Hooks
+
+These hook variables let you arrange to take notice of changes in buffers (or in a particular buffer, if you make them buffer-local). See also Properties with Special Meanings, for how to detect changes to specific parts of the text.
+
+The functions you use in these hooks should save and restore the match data if they do anything that uses regular expressions; otherwise, they will interfere in bizarre ways with the editing operations that call them.
+
+Variable: before-change-functions ¶
+This variable holds a list of functions to call when Emacs is about to modify a buffer. Each function gets two arguments, the beginning and end of the region that is about to change, represented as integers. The buffer that is about to change is always the current buffer when the function is called.
+
+Variable: after-change-functions ¶
+This variable holds a list of functions to call after Emacs modifies a buffer. Each function receives three arguments: the beginning and end of the region just changed, and the length of the text that existed before the change. All three arguments are integers. The buffer that has been changed is always the current buffer when the function is called.
+
+The length of the old text is the difference between the buffer positions before and after that text as it was before the change. As for the changed text, its length is simply the difference between the first two arguments.
+
+Output of messages into the *Messages* buffer does not call these functions, and neither do certain internal buffer changes, such as changes in buffers created by Emacs internally for certain jobs, that should not be visible to Lisp programs.
+
+The vast majority of buffer changing primitives will call before-change-functions and after-change-functions in balanced pairs, once for each change, where the arguments to these hooks exactly delimit the change being made. Yet, hook functions should not rely on this always being the case, because some complex primitives call before-change-functions once before making changes, and then call after-change-functions zero or more times, depending on how many individual changes the primitive is making. When that happens, the arguments to before-change-functions will enclose a region in which the individual changes are made, but won’t necessarily be the minimal such region, and the arguments to each successive call of after-change-functions will then delimit the part of text being changed exactly. In general, we advise using either the before- or the after-change hook, but not both.
+
+Macro: combine-after-change-calls body… ¶
+The macro executes body normally, but arranges to call the after-change functions just once for a series of several changes—if that seems safe.
+
+If a program makes several text changes in the same area of the buffer, using the macro combine-after-change-calls around that part of the program can make it run considerably faster when after-change hooks are in use. When the after-change hooks are ultimately called, the arguments specify a portion of the buffer including all of the changes made within the combine-after-change-calls body.
+
+Warning: You must not alter the values of after-change-functions within the body of a combine-after-change-calls form.
+
+Warning: If the changes you combine occur in widely scattered parts of the buffer, this will still work, but it is not advisable, because it may lead to inefficient behavior for some change hook functions.
+
+Macro: combine-change-calls beg end body… ¶
+This executes body normally, except any buffer changes it makes do not trigger the calls to before-change-functions and after-change-functions. Instead there is a single call of each of these hooks for the region enclosed by beg and end, the parameters supplied to after-change-functions reflecting the changes made to the size of the region by body.
+
+The result of this macro is the result returned by body.
+
+This macro is useful when a function makes a possibly large number of repetitive changes to the buffer, and the change hooks would otherwise take a long time to run, were they to be run for each individual buffer modification. Emacs itself uses this macro, for example, in the commands comment-region and uncomment-region.
+
+Warning: You must not alter the values of before-change-functions or after-change-function within body.
+
+Warning: You must not make any buffer changes outside of the region specified by beg and end.
+
+Variable: first-change-hook ¶
+This variable is a normal hook that is run whenever a buffer is changed that was previously in the unmodified state.
+
+Variable: inhibit-modification-hooks ¶
+If this variable is non-nil, all of the change hooks are disabled; none of them run. This affects all the hook variables described above in this section, as well as the hooks attached to certain special text properties (see Properties with Special Meanings) and overlay properties (see Overlay Properties).
+
+Also, this variable is bound to non-nil while running those same hook variables, so that by default modifying the buffer from a modification hook does not cause other modification hooks to be run. If you do want modification hooks to be run in a particular piece of code that is itself run from a modification hook, then rebind locally inhibit-modification-hooks to nil. However, doing this may cause recursive calls to the modification hooks, so be sure to prepare for that (for example, by binding some variable which tells your hook to do nothing).
+
+We recommend that you only bind this variable for modifications that do not result in lasting changes to buffer text contents (for example face changes or temporary modifications). If you need to delay change hooks during a series of changes (typically for performance reasons), use combine-change-calls or combine-after-change-calls instead.
