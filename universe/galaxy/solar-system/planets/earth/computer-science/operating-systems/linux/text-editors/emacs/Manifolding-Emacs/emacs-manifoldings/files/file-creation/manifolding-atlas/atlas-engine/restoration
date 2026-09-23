@@ -931,12 +931,16 @@ Lives in admin/ next to sibling Atlas state — never in module dirs."
           (sort (delete-dups keys) #'string<))))))
 
 (defun my/manifolding-atlas-links--known-keys-write (keys)
-  "Persist KEYS (sorted, one per line) as the last-known record."
-  (let ((p (my/manifolding-atlas-links--known-keys-path)))
+  "Persist KEYS (sorted, one per line) as the last-known record.
+Atomic tmp+rename: a killed Emacs never leaves a half-written record."
+  (let ((p (my/manifolding-atlas-links--known-keys-path))
+        (tmp nil))
     (make-directory (file-name-directory p) t)
-    (with-temp-file p
+    (setq tmp (concat p ".tmp"))
+    (with-temp-file tmp
       (dolist (k (sort (copy-sequence keys) #'string<))
-        (insert k "\n")))))
+        (insert k "\n")))
+    (rename-file tmp p t)))
 
 (defun my/manifolding-atlas-links--scan-current-keys ()
   "Sorted prompt KEY strings from tag-discovered files. File truth only —
