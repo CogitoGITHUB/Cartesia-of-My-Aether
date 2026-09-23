@@ -55,9 +55,6 @@ Returns nil when unreadable or empty."
                 (push k keys))))
           (cl-delete-duplicates (nreverse keys) :test #'string=))))))
 
-(let ((order (my/manifolding-atlas-drawer-order-from-file)))
-  (when order
-    (setq my/manifolding-atlas-drawer-key-order (copy-sequence order))))
 #+end_src
 
 * Atlas Config Menu
@@ -3437,9 +3434,22 @@ buffer for body editing."
          (raw    (read-string "Description (blank = title): "))
          (link   (manifolding-atlas-utils-link-make-string
                   note (unless (string-empty-p raw) raw))))
-    (insert link)
-    (when my/manifolding-atlas--new-note
-      (my/manifolding-atlas--open-capture-for-note note))))
+     (insert link)
+     (when my/manifolding-atlas--new-note
+       (my/manifolding-atlas--open-capture-for-note note))))
+
+(defun manifolding-atlas-insert ()
+  "Insert an id: link at point to a note selected with `manifolding-atlas-find'.
+Thin wrapper: -find resolves/selects the target, then
+`my/manifolding-atlas-insert-link' performs the insertion."
+  (interactive)
+  (let ((origin (current-buffer))
+        (pos (point-marker)))
+    (manifolding-atlas-find)
+    (when (buffer-live-p origin)
+      (pop-to-buffer origin)
+      (goto-char pos))
+    (my/manifolding-atlas-insert-link)))
 #+end_src
 
 ** my/manifolding-atlas-rename-link
@@ -4055,6 +4065,8 @@ for backward compatibility. A :PROPERTIES:...:END: drawer holding the
 
 ** Schema file discovery
 ** my/manifolding-atlas-org-prompt--schema-files ()
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-org-prompt--schema-files ()
   "Candidate files: every vault file holding a :BLUEPRINT: KEY heading."
   (mapcar #'cdr (my/manifolding-atlas-blueprint-key-files)))
 #+end_src
@@ -4188,6 +4200,13 @@ Matches exact, upcased, or downcased KEY."
                     (delete-region beg (point)))))
               (string-trim (buffer-string)))))))))
 #+end_src
+
+;; Drawer-order override (was a top-level form at the top of the file;
+;; moved down: it calls `my/manifolding-atlas-blueprint-key-files',
+;; defined in the registry block above).
+(let ((order (my/manifolding-atlas-drawer-order-from-file)))
+  (when order
+    (setq my/manifolding-atlas-drawer-key-order (copy-sequence order))))
 
 ** Batch registration
 Idempotent: strips previously registered declarative specs first, so
@@ -5410,6 +5429,40 @@ Why: Implementation of ~my/manifolding-atlas-org-prompt--run-post-apply~.
       (error
        (message "atlas prompt post-apply: %s"
                 (error-message-string err))))))
+
+(defun my/manifolding-atlas--heading-stamp-planning (prop val note)
+  "Set PROP planning line (SCHEDULED/DEADLINE) to VAL on NOTE's heading.
+Plain planning-line edit (same house pattern as the routines advance
+writer): no org-schedule call, no hooks — org only displays the date."
+  (let ((id (manifolding-atlas-note-id note)))
+    (unless (and (stringp id) (not (string-empty-p id)))
+      (error "post-apply: note has no id"))
+    (let ((m (org-id-find id 'marker)))
+      (unless (and m (marker-buffer m))
+        (error "post-apply: id %s not found" id))
+      (with-current-buffer (marker-buffer m)
+        (save-excursion
+          (goto-char m)
+          (org-back-to-heading t)
+          (let ((end (save-excursion (org-end-of-subtree t t))))
+            (forward-line 1)
+            (if (re-search-forward (format "^%s:" prop) end t)
+                (progn (beginning-of-line)
+                       (delete-region (line-beginning-position)
+                                      (line-end-position))
+                       (insert (format "%s: %s" prop val)))
+              (org-back-to-heading t)
+              (end-of-line)
+              (insert (format "\n%s: %s" prop val))))
+          (save-buffer))))))
+
+(defun my/manifolding-atlas--heading-schedule-apply (val note)
+  "Post-apply: stamp SCHEDULED VAL on NOTE's heading."
+  (my/manifolding-atlas--heading-stamp-planning "SCHEDULED" val note))
+
+(defun my/manifolding-atlas--heading-deadline-apply (val note)
+  "Post-apply: stamp DEADLINE VAL on NOTE's heading."
+  (my/manifolding-atlas--heading-stamp-planning "DEADLINE" val note))
 #+end_src
 ** Session apply
 Runs the fragment's post-apply hooks with errors reported per hook.
