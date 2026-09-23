@@ -30,10 +30,8 @@ SPC v: Manifolding Atlas menu.
    ("m" my/manifolding-atlas-protocols-mark-as-step "mark step" :exit t)
    ("i" my/manifolding-atlas-find-protocols "find protocols" :exit t))
   "Vocab"
-  (("w" my/manifolding-atlas-dictionary-menu "dictionary" :exit t))
-  ;; Contacts plugin is scaffold-only (no menu yet) — hide until implemented
-  ;; (("C" my/manifolding-atlas-contacts-menu "contacts" :exit t))
-  "Mastering"
+   (("w" my/manifolding-atlas-dictionary-menu "dictionary" :exit t))
+   "Mastering"
   (("g" my/manifolding-atlas-mastering-review "review due" :exit t)
    ("G" my/manifolding-atlas-mastering-review-overdue "review overdue" :exit t)
    ("M" my/manifolding-atlas-mastering-mark-review "mark reviewed" :exit t)
