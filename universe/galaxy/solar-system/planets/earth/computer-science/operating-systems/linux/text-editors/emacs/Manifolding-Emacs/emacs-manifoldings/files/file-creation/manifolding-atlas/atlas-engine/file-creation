@@ -6035,25 +6035,35 @@ reconcile for the whole session. Retry every 5s, bounded (~5 min)."
 (when my/manifolding-atlas--reconcile-boot-timer
   (cancel-timer my/manifolding-atlas--reconcile-boot-timer))
 (setq my/manifolding-atlas--reconcile-boot-attempts 0)
+(defun my/manifolding-atlas--boot-register-and-reconcile ()
+  "Register prompts, reconcile, prune orphans.  Runs once post-compile."
+  (condition-case err
+      (let ((n (my/manifolding-atlas-org-prompt--register-all)))
+        (message "org-prompts: registered %d declarative prompts, %d templates"
+                 n (length my/manifolding-atlas-template-registry))
+        (my/manifolding-atlas--reconcile-boot-maybe)
+        ;; Orphan rows die here, synchronously, same boot pass —
+        ;; no timers: files already settled, engine loaded.
+        (when (fboundp 'my/manifolding-atlas-db--prune-orphans)
+          (my/manifolding-atlas-db--prune-orphans))
+        (when (= n 0)
+          (lwarn 'manifolding-atlas-org-prompts
+                 :warning "registered 0 declarative prompts")))
+    (error (lwarn 'manifolding-atlas-org-prompts :error
+                  "registration failed: %s" err))))
 (setq my/manifolding-atlas-org-prompt--boot-timer
-      (run-with-timer
-       0.05 nil
-       (lambda ()
-           (condition-case err
-              (let ((n (my/manifolding-atlas-org-prompt--register-all)))
-                (message "org-prompts: registered %d declarative prompts, %d templates"
-                         n (length my/manifolding-atlas-template-registry))
-                (my/manifolding-atlas--reconcile-boot-maybe)
-                ;; Orphan rows die here, synchronously, same boot pass —
-                ;; no timers: files already settled, engine loaded.
-                (when (fboundp 'my/manifolding-atlas-db--prune-orphans)
-                  (my/manifolding-atlas-db--prune-orphans))
-                (when (= n 0)
-                 (lwarn 'manifolding-atlas-org-prompts
-                        :warning "registered 0 declarative prompts")))
-           (error (lwarn 'manifolding-atlas-org-prompts :error
-                         "registration failed: %s" err))))))
-(message "reconcile scheduled (fires 0.05s after boot, no idle gate)")
+      ;; During a fresh boot a 0.05s timer fires MID-COMPILE, when most
+      ;; units the registration needs are not loaded yet.  After compile
+      ;; (after-init), run at once; on reload (units loaded), keep 0.05s.
+      (if (and (boundp 'manifolding-emacs--booting)
+               manifolding-emacs--booting)
+          (progn (add-hook 'after-init-hook
+                           #'my/manifolding-atlas--boot-register-and-reconcile)
+                 nil)
+        (run-with-timer
+         0.05 nil
+         #'my/manifolding-atlas--boot-register-and-reconcile)))
+(message "reconcile scheduled (after compile on fresh boot, 0.05s on reload)")
 #+end_src
 
 ** Prompt Infrastructure
