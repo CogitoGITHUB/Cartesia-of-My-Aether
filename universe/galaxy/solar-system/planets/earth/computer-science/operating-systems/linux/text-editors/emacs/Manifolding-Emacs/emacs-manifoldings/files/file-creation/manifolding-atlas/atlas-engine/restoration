@@ -304,7 +304,8 @@ for legacy shared unfoldings (no UNFOLDING_PARENT), falls back to full vault sca
         (dolist (f files)
           (let ((exp (expand-file-name f)))
             (when (and (not (string-equal exp deleted-exp))
-                       (not (file-in-directory-p exp unfoldings-dir)))
+                       (not (file-in-directory-p exp unfoldings-dir))
+                       (not (string-match-p "/WIP/" exp)))
               (when (my/manifolding-atlas-links--unfolding-id-in-file-p unfolding-id exp)
                 (setq orphaned nil)))))
         orphaned))))
@@ -960,9 +961,11 @@ ignores the specs registry so load order cannot skew the diff."
 Computed once per reconcile and shared, so N gone keys cost one scan."
   (let* ((root (my/manifolding-atlas-root-dir))
          (gitdir (expand-file-name ".git" root))
-         (admindir (expand-file-name "admin/" root)))
+         (admindir (expand-file-name "admin/" root))
+         (wipdir (expand-file-name "WIP/" root)))
     (cl-remove-if (lambda (f) (or (file-in-directory-p f gitdir)
-                                  (file-in-directory-p f admindir)))
+                                  (file-in-directory-p f admindir)
+                                  (file-in-directory-p f wipdir)))
                   (append (directory-files-recursively root "\\.org\\'")
                           (directory-files-recursively root "[^./]+\\'")))))
 

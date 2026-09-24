@@ -15,7 +15,7 @@
     (let ((root (my/manifolding-atlas-root-dir)) out)
       (dolist (f (directory-files-recursively root "[^./]+$"))
         (unless (or (string-match-p "/\\.git/" f)
-                    (string-match-p "/WIP-DONT-TOUCH/" f))
+                    (string-match-p "/WIP/" f))
           (when (my/manifolding-atlas-emacs-mechanism--needs-convert-p f)
             (push f out))))
       (nreverse out))))

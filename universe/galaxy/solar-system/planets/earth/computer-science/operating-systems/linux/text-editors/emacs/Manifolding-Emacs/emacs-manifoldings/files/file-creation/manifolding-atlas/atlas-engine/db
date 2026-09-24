@@ -345,7 +345,8 @@ is applied, so callers never see stale/deleted entries."
         (dolist (file (or files (directory-files-recursively root "^[^.]" t)))
           (when (and (file-regular-p file)
                      (not (string-match-p "/\\.git/" file))
-                     (not (string-match-p "/admin/" file)))
+                     (not (string-match-p "/admin/" file))
+                     (not (string-match-p "/WIP/" file)))
             (let ((id (ignore-errors
                         (with-temp-buffer
                           (insert-file-contents file)

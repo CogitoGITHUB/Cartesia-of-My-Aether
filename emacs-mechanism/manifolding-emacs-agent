@@ -16,7 +16,7 @@
 - Vault root self-discovers via .git/ marker. HOME is
   /data/data/com.termux/files/home (never /root). Real user files use
   real paths: no symlinks, no env vars for locations.
-- WIP-DONT-TOUCH/ is forbidden: never read it for content, never write
+- WIP/ is forbidden: never read it for content, never write
   it, never reference it in code. Only exceptions in scope are .git/
   (skipped) and admin/ (live DB + admin notes, skipped by loader).
 

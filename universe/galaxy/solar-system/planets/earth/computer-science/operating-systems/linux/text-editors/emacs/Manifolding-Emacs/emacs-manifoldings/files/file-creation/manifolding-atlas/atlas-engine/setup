@@ -73,7 +73,8 @@ Single function everything asks. Self-locating: renames never break it."
 
 (setq org-agenda-files
       (cl-remove-if
-       (lambda (f) (string-match-p (regexp-quote "/.git/") f))
+       (lambda (f) (or (string-match-p (regexp-quote "/.git/") f)
+                       (string-match-p "/WIP/" f)))
        (directory-files-recursively (my/manifolding-atlas-root-dir) "[^./]+$")))
 
 (add-to-list 'auto-mode-alist

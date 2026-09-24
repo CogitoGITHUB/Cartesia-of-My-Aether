@@ -518,6 +518,7 @@ queries (by-tag, custom) are hydra launchers, not sources.")
      (lambda (f)
        (and (file-regular-p f)
             (not (string-match-p "/\\.git/" f))
+            (not (string-match-p "/WIP/" f))
             (not (string-match-p "/admin/\\.cache/" f))))
      (directory-files-recursively root ".*" nil))))
 

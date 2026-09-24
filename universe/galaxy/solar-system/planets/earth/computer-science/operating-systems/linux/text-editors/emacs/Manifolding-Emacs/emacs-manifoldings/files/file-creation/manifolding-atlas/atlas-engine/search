@@ -259,7 +259,7 @@ Return the location marker."
 
 #+begin_src emacs-lisp
 (defvar atlas-search-todo--skip-dirs
-  '(".git" ".cache" "admin")
+  '(".git" ".cache" "admin" "WIP")
   "Directories under the notes directory to skip when scanning.")
 
 

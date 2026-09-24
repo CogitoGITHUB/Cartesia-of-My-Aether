@@ -3275,16 +3275,17 @@ indexed by the manifolding-atlas DB extractor."
         (root (my/manifolding-atlas-root-dir)))
     (dolist (file (nconc (directory-files-recursively root "\\.org\\'")
                          (directory-files-recursively root "/[^./]+\\'")))
-      (with-temp-buffer
-        (insert-file-contents file)
-        (goto-char (point-min))
-        (when (re-search-forward
-               (format "#\\+wormhole:.*\\[\\[id:%s\\]\\[" (regexp-quote target-id))
-               nil t)
-          (org-mode)
-          (let ((id (org-entry-get (point-min) "ID")))
-            (when id
-              (push id results))))))
+      (unless (string-match-p "/WIP/" file)
+        (with-temp-buffer
+          (insert-file-contents file)
+          (goto-char (point-min))
+          (when (re-search-forward
+                 (format "#\\+wormhole:.*\\[\\[id:%s\\]\\[" (regexp-quote target-id))
+                 nil t)
+            (org-mode)
+            (let ((id (org-entry-get (point-min) "ID")))
+              (when id
+                (push id results)))))))
     (delete-dups results)))
 
 #+end_src

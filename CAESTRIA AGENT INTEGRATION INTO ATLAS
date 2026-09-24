@@ -52,7 +52,7 @@ say so instead of throwing.
 * Boundaries (what agents must not do)
 
 - Never edit generated artifacts (early-init, foundation-init, the
-  tangled loader) or anything under admin/ and WIP-DONT-TOUCH/.
+  tangled loader) or anything under admin/ and WIP/.
 - Never rename drawers, tags, or schema keys outside the tag
   manager's preview machinery.
 - Never invent storage: new persisted state goes in cache-grade
