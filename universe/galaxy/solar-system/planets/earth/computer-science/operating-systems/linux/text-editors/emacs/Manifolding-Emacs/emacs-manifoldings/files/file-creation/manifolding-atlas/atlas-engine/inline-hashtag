@@ -83,14 +83,16 @@ PATH is the slash path typed, or nil for a bare tag.")
 #+begin_src emacs-lisp
 (defun my/atlas-scan-hashtags-buffer ()
   "Return (TAG . FILES) alist for #tags in the current buffer."
-  (let ((file (buffer-file-name)) (found nil))
+  (let ((file (buffer-file-name))
+        (found nil))
     (when file
       (save-excursion
         (goto-char (point-min))
         (while (re-search-forward "\\(^\\|[ \t\n]\\)#\\([A-Za-z0-9_@/-]+\\)" nil t)
           (let ((tag (match-string-no-properties 2)))
-            (unless (assoc tag found) (push (list tag) found))
-            (cl-pushnew file (cdr (assoc tag found)) :test #'string=)))))))
+            (unless (assoc tag found)
+              (push (list tag) found))
+            (cl-pushnew file (cdr (assoc tag found)) :test #'string=)))))
     found))
 
 (defun my/atlas-hashtags-save ()
