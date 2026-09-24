@@ -172,6 +172,7 @@ the historical backlinks section the header always promised.
                     (dolist (b bl) (insert b "\n"))
                   (insert "none\n")))))
           (my/atlas-sidebar-insert-outline note)
+          (my/atlas-sidebar-insert-digest note)
           (insert "\n[q] close  [g] refresh\n"))))))
 #+end_src
 
@@ -248,28 +249,21 @@ huge buffers.  Nothing here runs at load.
               (insert "\n"))))))))
 #+end_src
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+** Due digest
+Condensed rollup calling the agenda-day machinery (never duplicated):
+counts plus the next few items.  Full detail lives in `agenda-day`.
+#+begin_src emacs-lisp
+(defun my/atlas-sidebar-insert-digest (_note)
+  "Render the due digest section, when agenda-day is loaded."
+  (when (and (fboundp 'my/manifolding-atlas-agenda--due-entries)
+             (fboundp 'my/manifolding-atlas-agenda--due-protocols))
+    (let ((entries (ignore-errors (my/manifolding-atlas-agenda--due-entries)))
+          (protos (ignore-errors (my/manifolding-atlas-agenda--due-protocols))))
+      (insert "-- Due --\n")
+      (insert (format "routines due: %d \u00b7 protocols due: %d\n"
+                      (length entries) (length protos)))
+      (dolist (e (seq-take entries 3))
+        (insert (format "  - %s\n" (nth 1 e))))
+      (dolist (x (seq-take protos 3))
+        (insert (format "  - %s\n" (nth 1 x)))))))
+#+end_src
