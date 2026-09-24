@@ -4155,14 +4155,17 @@ Cached per session; `my/manifolding-atlas-blueprint-refresh' rebuilds."
               (nreverse out)))))
 
 (defun my/manifolding-atlas--file-blueprint-keys (file)
-  "KEY strings of :BLUEPRINT:-tagged level-1 headings in FILE."
+  "KEY strings of :BLUEPRINT:-tagged level-1 headings in FILE.
+NOTE: the middle class is `[^\n]' (rest of line).  It was once written
+`[^\\n]', which excludes the letter n instead of newline and silently
+dropped every heading with an n before :BLUEPRINT:."
   (when (file-exists-p file)
     (let (keys)
       (with-temp-buffer
         (insert-file-contents file)
         (goto-char (point-min))
         (while (re-search-forward
-                "^\\* \\([A-Z][A-Z0-9_]*\\)[^\\n]*:BLUEPRINT:" nil t)
+                "^\\* \\([A-Z][A-Za-z0-9_]*\\)[^\n]*:BLUEPRINT:" nil t)
           (push (match-string 1) keys)))
       (nreverse keys))))
 
