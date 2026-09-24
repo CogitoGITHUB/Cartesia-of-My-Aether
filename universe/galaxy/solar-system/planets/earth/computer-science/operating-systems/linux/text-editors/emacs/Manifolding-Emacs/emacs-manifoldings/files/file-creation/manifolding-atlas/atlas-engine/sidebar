@@ -24,12 +24,8 @@ Why: Implementation of ~manifolding-atlas-ui-sidebar-toggle~ — minimal functio
         (delete-window win)
       (let ((buf (get-buffer-create "*Atlas Sidebar*")))
         (with-current-buffer buf
-          (let ((inhibit-read-only t))
-            (erase-buffer)
-            (insert "* Atlas Sidebar — minimal\n\n")
-            (insert "- No Atlas note at point (open a vault file)\n")
-            (insert "\n[q] close\n")
-            (view-mode 1)))
+          (view-mode 1))
+        (my/atlas-sidebar-refresh)))
         (display-buffer-in-side-window buf '((side . left) (window-width . 0.20)))))))
 
 (defun manifolding-atlas-ui-sidebar-open ()
@@ -134,10 +130,46 @@ Why: Implementation of ~manifolding-atlas-ui-sidebar-toggle~ — minimal functio
    ((string-match-p "^[ \t]*[-+*] [^:]" line) 'list)
    ((string-match-p "^[ \t]*[0-9]+[.)] " line) 'list)
 ;; Default: prose
-   (t 'prose)))
-
-
+    (t 'prose)))
 #+end_src
+
+** Sidebar content
+Calls the node-view section builders (never forks them): context plus
+the historical backlinks section the header always promised.
+#+begin_src emacs-lisp
+(defun my/atlas-sidebar--note-at-point ()
+  "Atlas note at point or in this buffer, or nil."
+  (or (and (fboundp 'my/manifolding-atlas--note-at-point)
+           (ignore-errors (my/manifolding-atlas--note-at-point)))
+      (and (fboundp 'my/manifolding-atlas--buffer-note)
+           (ignore-errors (my/manifolding-atlas--buffer-note)))))
+
+(defun my/atlas-sidebar-refresh ()
+  "Fill *Atlas Sidebar* with context and backlinks.  Read-only."
+  (interactive)
+  (let ((buf (get-buffer "*Atlas Sidebar*")))
+    (when (buffer-live-p buf)
+      (with-current-buffer buf
+        (let ((inhibit-read-only t)
+              (note (my/atlas-sidebar--note-at-point)))
+          (erase-buffer)
+          (insert "* Atlas Sidebar\n\n")
+          (if (null note)
+              (insert "- No Atlas note at point (open a vault file)\n")
+            (when (fboundp 'my/atlas-node-view-sections)
+              (insert "-- Context --\n")
+              (dolist (sec (ignore-errors (my/atlas-node-view-sections note)))
+                (insert (format "%s: %s\n" (car sec) (cdr sec))))
+              (insert "\n"))
+            (when (fboundp 'my/atlas-node-view-backlinks)
+              (insert "-- Backlinks --\n")
+              (let ((bl (ignore-errors (my/atlas-node-view-backlinks note))))
+                (if bl
+                    (dolist (b bl) (insert b "\n"))
+                  (insert "none\n")))))
+          (insert "\n[q] close  [g] refresh\n"))))))
+#+end_src
+
 
 
 
