@@ -6063,7 +6063,6 @@ reconcile for the whole session. Retry every 5s, bounded (~5 min)."
         (run-with-timer
          0.05 nil
          #'my/manifolding-atlas--boot-register-and-reconcile)))
-(message "reconcile scheduled (after compile on fresh boot, 0.05s on reload)")
 #+end_src
 
 ** Prompt Infrastructure
