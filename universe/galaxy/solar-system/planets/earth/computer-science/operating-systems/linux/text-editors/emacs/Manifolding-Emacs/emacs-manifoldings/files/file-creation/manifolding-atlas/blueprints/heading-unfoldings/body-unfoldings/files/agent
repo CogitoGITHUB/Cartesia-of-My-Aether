@@ -9,11 +9,8 @@
 :MM_ORDER:  306.0
 :END:
 
-** Context :BLUEPRINT_BODY:
 - What system this agent works in and where its files live:
 
-** Conventions :BLUEPRINT_BODY:
 - Heading, tag, drawer, and ordering rules it must obey:
 
-** Procedures :BLUEPRINT_BODY:
 - Step-by-step operations with verification gates:
