@@ -1018,7 +1018,7 @@ stale (salt-mismatched) index just means one full-scan boot."
                      ;; Also purge WIP entries: forbidden territory is never
                      ;; indexed, even if an older boot recorded it.
                      (when (and (file-exists-p k)
-                                (not (string-match-p "/WIP-DONT-TOUCH/" k)))
+                                (not (string-match-p "/WIP/" k)))
                        (push (cons k v) pairs)))
                    manifolding-emacs--discovery-index)
           ;; One previous generation kept: if this write ever corrupts,
@@ -1214,7 +1214,7 @@ files are never read, loaded, or compiled — by any caller."
                                               (string-match-p "/admin/" f)
                                               ;; WIP is forbidden territory:
                                               ;; never walk it, never read it.
-                                              (string-match-p "/WIP-DONT-TOUCH/" f)
+                                              (string-match-p "/WIP/" f)
                                               ;; The walk MATCH cannot express
                                               ;; "extensionless" (substring
                                               ;; semantics match trailing
