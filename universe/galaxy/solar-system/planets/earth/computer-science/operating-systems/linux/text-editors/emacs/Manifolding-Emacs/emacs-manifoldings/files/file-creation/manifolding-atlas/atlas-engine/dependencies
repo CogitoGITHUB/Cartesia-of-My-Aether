@@ -17,4 +17,7 @@
 (straight-use-package '(pg))
 (straight-use-package '(vui :repo "d12frosted/vui.el" :host github :type git))
 (straight-use-package '(consult :type git :host github :repo "minad/consult"))
+;; Vault file tree for the sidebar (toggle prefers treemacs, falls
+;; back to a dired side window when absent).
+(straight-use-package '(treemacs))
 #+end_src

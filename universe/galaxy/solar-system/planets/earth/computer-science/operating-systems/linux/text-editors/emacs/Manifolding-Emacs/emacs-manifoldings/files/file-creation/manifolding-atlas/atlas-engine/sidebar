@@ -29,7 +29,9 @@ Why: Implementation of ~manifolding-atlas-ui-sidebar-toggle~ — minimal functio
       (let ((buf (get-buffer-create "*Atlas Sidebar*")))
         (with-current-buffer buf
           (view-mode 1))
+        (my/atlas-sidebar-setup-keys)
         (my/atlas-sidebar-refresh)
+        (my/atlas-sidebar-follow-start)
         (display-buffer-in-side-window buf '((side . left) (window-width . 0.20)))))))
 
 (defun manifolding-atlas-ui-sidebar-open ()
@@ -266,4 +268,85 @@ counts plus the next few items.  Full detail lives in `agenda-day`.
         (insert (format "  - %s\n" (nth 1 e))))
       (dolist (x (seq-take protos 3))
         (insert (format "  - %s\n" (nth 1 x)))))))
+#+end_src
+
+** Follow, tree, keys
+Auto-follow (single 2s idle timer, skips non-file/non-org/WIP),
+vault file tree (treemacs when installed, dired side window
+otherwise), and sidebar-local keys.  Nothing here runs at load
+except nothing at all: timer starts on toggle.
+#+begin_src emacs-lisp
+(defvar my/atlas-sidebar-follow-timer nil
+  "Single idle timer refreshing the sidebar.")
+
+(defun my/atlas-sidebar-follow-tick ()
+  "Refresh sidebar for the current buffer when followable."
+  (let ((sb (get-buffer "*Atlas Sidebar*")))
+    (when (buffer-live-p sb)
+      (let ((cur (current-buffer)))
+        (when (and (not (eq cur sb))
+                   (buffer-file-name cur)
+                   (with-current-buffer cur (derived-mode-p 'org-mode))
+                   (let ((root (ignore-errors (my/manifolding-atlas-root-dir)))
+                         (bfn (buffer-file-name cur)))
+                     (and root bfn
+                          (file-in-directory-p bfn root)
+                          (not (string-match-p "/WIP/" bfn)))))
+          (unless (eq cur my/atlas-sidebar-source-buffer)
+            (setq my/atlas-sidebar-source-buffer cur)
+            (my/atlas-sidebar-refresh)))))))
+
+(defun my/atlas-sidebar-follow-start ()
+  "Start the follow timer once."
+  (unless (timerp my/atlas-sidebar-follow-timer)
+    (setq my/atlas-sidebar-follow-timer
+          (run-with-idle-timer 2 t #'my/atlas-sidebar-follow-tick))))
+
+(defun my/atlas-file-tree-toggle ()
+  "Vault file tree: treemacs when installed, dired side window otherwise."
+  (interactive)
+  (if (or (featurep 'treemacs) (locate-library "treemacs"))
+      (call-interactively #'treemacs)
+    (let ((root (ignore-errors (my/manifolding-atlas-root-dir))))
+      (if (null root)
+          (message "vault root unknown")
+        (display-buffer-in-side-window
+         (dired-noselect root) '((side . left) (window-width . 30)))))))
+
+(defvar my/atlas-sidebar-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "q") #'quit-window)
+    (define-key map (kbd "g") #'my/atlas-sidebar-refresh)
+    (define-key map (kbd "TAB") #'my/atlas-sidebar-cycle-depth)
+    (define-key map (kbd "1") (lambda () (interactive)
+                                (my/atlas-sidebar-goto-section "-- Context --")))
+    (define-key map (kbd "2") (lambda () (interactive)
+                                (my/atlas-sidebar-goto-section "-- Backlinks --")))
+    (define-key map (kbd "3") (lambda () (interactive)
+                                (my/atlas-sidebar-goto-section "-- Outline --")))
+    (define-key map (kbd "4") (lambda () (interactive)
+                                (my/atlas-sidebar-goto-section "-- Due --")))
+    (define-key map (kbd "j") #'next-line)
+    (define-key map (kbd "k") #'previous-line)
+    (define-key map (kbd "SPC") #'scroll-up-command)
+    (define-key map (kbd "DEL") #'scroll-down-command)
+    map)
+  "Sidebar-local keys.  No global bindings; view-mode conveniences kept.")
+
+(defun my/atlas-sidebar-goto-section (marker)
+  "Jump to MARKER section in the sidebar."
+  (let ((sb (get-buffer "*Atlas Sidebar*")))
+    (when (buffer-live-p sb)
+      (pop-to-buffer sb)
+      (goto-char (point-min))
+      (if (search-forward marker nil t)
+          (beginning-of-line)
+        (message "section absent: %s" marker)))))
+
+(defun my/atlas-sidebar-setup-keys ()
+  "Install the sidebar-local keymap."
+  (let ((sb (get-buffer "*Atlas Sidebar*")))
+    (when (buffer-live-p sb)
+      (with-current-buffer sb
+        (use-local-map my/atlas-sidebar-mode-map)))))
 #+end_src
