@@ -16,16 +16,20 @@ Sidebar, outline, backlinks, and UI configuration for manifolding-atlas.
 ** manifolding-atlas-ui-sidebar-toggle
 Why: Implementation of ~manifolding-atlas-ui-sidebar-toggle~ — minimal functional sidebar without vui.
 #+begin_src emacs-lisp
+(defvar my/atlas-sidebar-source-buffer nil
+  "Buffer the sidebar follows (set on open).")
+
 (defun manifolding-atlas-ui-sidebar-toggle ()
   "Toggle a minimal Atlas sidebar."
   (interactive)
   (let ((win (get-buffer-window "*Atlas Sidebar*")))
     (if win
         (delete-window win)
+      (setq my/atlas-sidebar-source-buffer (current-buffer))
       (let ((buf (get-buffer-create "*Atlas Sidebar*")))
         (with-current-buffer buf
           (view-mode 1))
-        (my/atlas-sidebar-refresh)))
+        (my/atlas-sidebar-refresh)
         (display-buffer-in-side-window buf '((side . left) (window-width . 0.20)))))))
 
 (defun manifolding-atlas-ui-sidebar-open ()
@@ -167,7 +171,81 @@ the historical backlinks section the header always promised.
                 (if bl
                     (dolist (b bl) (insert b "\n"))
                   (insert "none\n")))))
+          (my/atlas-sidebar-insert-outline note)
           (insert "\n[q] close  [g] refresh\n"))))))
+#+end_src
+
+** Buffer outline
+Native clickable heading tree of the followed buffer: indent,
+jump buttons, current-heading mark, depth cycling.  Built on
+plain regex (imenu/org-element need no display), capped for
+huge buffers.  Nothing here runs at load.
+#+begin_src emacs-lisp
+(defvar my/atlas-sidebar-outline-limit 500
+  "Max headings rendered in the outline section.")
+
+(defvar my/atlas-sidebar-outline-depth nil
+  "Max level shown; nil shows all.  Cycled by command.")
+
+(defun my/atlas-sidebar-outline-entries ()
+  "List of (LEVEL TITLE POS) for the followed buffer, capped."
+  (let (out (n 0))
+    (when (buffer-live-p my/atlas-sidebar-source-buffer)
+      (with-current-buffer my/atlas-sidebar-source-buffer
+        (when (derived-mode-p 'org-mode)
+          (save-excursion
+            (goto-char (point-min))
+            (while (and (< n my/atlas-sidebar-outline-limit)
+                        (re-search-forward "^\\(\\*+\\) \\(.*\\)$" nil t))
+              (push (list (length (match-string-no-properties 1))
+                          (match-string-no-properties 2)
+                          (match-beginning 0))
+                    out)
+              (setq n (1+ n)))))))
+    (nreverse out)))
+
+(defun my/atlas-sidebar-outline-current (entries)
+  "Buffer position of the entry at or before point, or nil."
+  (let ((pt (when (buffer-live-p my/atlas-sidebar-source-buffer)
+              (with-current-buffer my/atlas-sidebar-source-buffer
+                (point))))
+        (best nil))
+    (dolist (e entries)
+      (when (and pt (>= pt (nth 2 e)))
+        (setq best (nth 2 e))))
+    best))
+
+(defun my/atlas-sidebar-goto-entry (entry)
+  "Jump to outline ENTRY in the followed buffer."
+  (let ((buf my/atlas-sidebar-source-buffer))
+    (when (buffer-live-p buf)
+      (pop-to-buffer buf)
+      (goto-char (nth 2 entry)))))
+
+(defun my/atlas-sidebar-cycle-depth ()
+  "Cycle outline depth 1-2-3-all."
+  (interactive)
+  (setq my/atlas-sidebar-outline-depth
+        (pcase my/atlas-sidebar-outline-depth
+          ('nil 1) (1 2) (2 3) (_ nil)))
+  (my/atlas-sidebar-refresh))
+
+(defun my/atlas-sidebar-insert-outline (_note)
+  "Render the outline section for the followed buffer, if any."
+  (let ((entries (my/atlas-sidebar-outline-entries)))
+    (when entries
+      (insert "-- Outline --\n")
+      (let ((cur (my/atlas-sidebar-outline-current entries)))
+        (dolist (e entries)
+          (let ((entry e))
+            (when (or (null my/atlas-sidebar-outline-depth)
+                      (<= (nth 0 entry) my/atlas-sidebar-outline-depth))
+              (insert (if (equal (nth 2 entry) cur) ">> " "   "))
+              (insert-text-button
+               (format "%s%s" (make-string (* 2 (1- (nth 0 entry))) ?\s)
+                       (nth 1 entry))
+               'action (lambda (_) (my/atlas-sidebar-goto-entry entry)))
+              (insert "\n"))))))))
 #+end_src
 
 
