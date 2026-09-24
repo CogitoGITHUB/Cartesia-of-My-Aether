@@ -9,7 +9,6 @@
 :MM_ORDER:  237.0
 :END:
 
-** Config
 #+begin_src emacs-lisp :tangle no
 (leaf PACKAGE-NAME
   :require t
