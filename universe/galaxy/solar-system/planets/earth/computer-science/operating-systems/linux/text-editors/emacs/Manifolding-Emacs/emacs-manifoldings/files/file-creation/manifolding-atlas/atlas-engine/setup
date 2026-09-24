@@ -210,10 +210,13 @@ killing the whole poll cycle.
             (dolist (entry listing)
               (cond
                ((file-directory-p entry)
-                (unless (string= (file-name-nondirectory entry) ".git")
-                  (push entry dirs)))
+                 ;; WIP excluded: forbidden territory is never walked,
+                 ;; visited, or parsed by sync.
+                 (unless (member (file-name-nondirectory entry)
+                                 '(".git" "WIP"))
+                   (push entry dirs)))
                ((file-regular-p entry)
-                (push entry files))))))))
+                 (push entry files))))))))
     (seq-filter #'manifolding-atlas-db-sync--org-file-p
                 (nreverse files))))
 

@@ -375,7 +375,7 @@ clears legacy wormholes of this type."
 The state is represented ONLY by an in-drawer #+wormhole: line, so
 this drops the plain drawer entry and refreshes that transcription.
 Wormhole rendering is stripped first so the drawer edits see raw
-#+wormhole: directives; after-save-hook re-renders them.
+# Wormhole directives live here as documentation text; after-save-hook re-renders them.
 #+begin_src emacs-lisp :lexical t
 (defun my/manifolding-atlas--apply-state-post (property-type drawer-value unfolding-id note)
   "Post-apply wrapper for an unfolding state.
