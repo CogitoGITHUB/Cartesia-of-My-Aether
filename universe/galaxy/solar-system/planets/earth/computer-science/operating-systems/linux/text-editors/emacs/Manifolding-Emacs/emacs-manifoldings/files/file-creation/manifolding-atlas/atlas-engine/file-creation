@@ -25,19 +25,29 @@ edit its level-2 headings directly — save + reload applies.
   :group 'manifolding-atlas)
 
 (defun my/manifolding-atlas-drawer-order-file ()
-  "Return the drawer-order file: unique tagged file with a level-1
-headline but zero parseable KEYs. No path anywhere."
+  "Return the drawer-order file: a tagged file with a level-1
+headline and zero parseable KEYs.  Prefers the candidate that
+actually holds a key list (level-2 headings); template files share
+the first two properties but carry prose sections instead.  Falls
+back to the first candidate (old behavior) when none has keys.
+No path anywhere."
   (catch 'found
-    (dolist (f (mapcar #'cdr (my/manifolding-atlas-blueprint-key-files)))
-      (with-temp-buffer
-        (ignore-errors (insert-file-contents f))
-        (goto-char (point-min))
-        (when (and (re-search-forward "^\\* " nil t)
-                   (not (re-search-forward
-                         "^\\* [A-Z][A-Z0-9_]*\\([ \t]+:[A-Za-z0-9_:@]+:\\)?[ \t]*$"
-                         nil t)))
-          (throw 'found f))))
-    nil))
+    (let (first)
+      (dolist (f (mapcar #'cdr (my/manifolding-atlas-blueprint-key-files)))
+        (with-temp-buffer
+          (ignore-errors (insert-file-contents f))
+          (goto-char (point-min))
+          (when (and (re-search-forward "^\\* " nil t)
+                     (not (re-search-forward
+                           "^\\* [A-Z][A-Z0-9_]*\\([ \t]+:[A-Za-z0-9_:@]+:\\)?[ \t]*$"
+                           nil t)))
+            (unless first (setq first f))
+            (when (save-excursion
+                    (goto-char (point-min))
+                    (re-search-forward "^\\*\\*+ " nil t))
+              (throw 'found f)))))
+      (when first (throw 'found first))
+      nil)))
 
 (defun my/manifolding-atlas-drawer-order-from-file (&optional file)
   "Read drawer key order from FILE (default the order file).
