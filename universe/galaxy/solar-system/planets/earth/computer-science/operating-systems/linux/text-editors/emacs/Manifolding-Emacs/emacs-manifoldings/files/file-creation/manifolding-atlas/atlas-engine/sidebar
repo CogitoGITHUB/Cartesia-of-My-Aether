@@ -12,8 +12,6 @@ Sidebar, outline, backlinks, and UI configuration for manifolding-atlas.
 :END:
 
 ** Config
-#+begin_src emacs-lisp
-#+end_src
 
 ** manifolding-atlas-ui-sidebar-toggle
 Why: Implementation of ~manifolding-atlas-ui-sidebar-toggle~ — minimal functional sidebar without vui.
@@ -46,199 +44,73 @@ Why: Implementation of ~manifolding-atlas-ui-sidebar-toggle~ — minimal functio
 #+end_src
 
 ** Implementation
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
 
-#+begin_src emacs-lisp
-#+end_src
 
 #+begin_src emacs-lisp
 (defun manifolding-atlas-ui--detect-context-type (pos line)
@@ -267,71 +139,27 @@ Why: Implementation of ~manifolding-atlas-ui-sidebar-toggle~ — minimal functio
 
 #+end_src
 
-#+begin_src emacs-lisp
-#+end_src
-
-#+begin_src emacs-lisp
-#+end_src
-
-#+begin_src emacs-lisp
-#+end_src
-
-#+begin_src emacs-lisp
-#+end_src
-
-#+begin_src emacs-lisp
-#+end_src
-
-#+begin_src emacs-lisp
-#+end_src
-
-#+begin_src emacs-lisp
-#+end_src
-
-#+begin_src emacs-lisp
-#+end_src
-
-#+begin_src emacs-lisp
-#+end_src
-
-#+begin_src emacs-lisp
-#+end_src
 
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
 
-#+begin_src emacs-lisp
-#+end_src
+
+
+
+
+
+
+
+
+
 
 
