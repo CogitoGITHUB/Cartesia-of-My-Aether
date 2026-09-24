@@ -14,5 +14,9 @@
 
 ** Config :config:
 #+begin_src emacs-lisp
-
+;; Boot-speed plan Phase A1: measure per-require/load costs during
+;; startup, then get out of the way (deactivate after init).
+(require 'benchmark-init)
+(benchmark-init/activate)
+(add-hook 'after-init-hook #'benchmark-init/deactivate)
 #+end_src

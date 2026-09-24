@@ -24,14 +24,14 @@
 ** Needs convert predicate
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-emacs-mechanism--needs-convert-p (file)
-  "Non-nil when FILE is tagged :EMACS_MECHANISM: but lacks ID or DB rows."
-  (and (fboundp 'manifolding-emacs-file-first-headline)
-       (let ((parsed (manifolding-emacs-file-first-headline file)))
-         (when parsed
-           (let ((tags (nth 1 parsed)) (id (nth 2 parsed)))
-             (and tags (member "EMACS_MECHANISM"
-                               (split-string (string-trim tags ":" ":") ":" t))
-                  (or (null id) (not (my/manifolding-atlas-emacs-mechanism--indexed-p id)))))))))
+  "Non-nil when any tagged heading in FILE lacks an ID or DB rows."
+  (and (fboundp 'manifolding-emacs-file-tagged-units)
+       (cl-some (lambda (u)
+                  (let ((id (plist-get u :id)))
+                    (or (null id)
+                        (not (my/manifolding-atlas-emacs-mechanism--indexed-p
+                              id)))))
+                (manifolding-emacs-file-tagged-units file))))
 #+end_src
 
 ** Indexed predicate
@@ -49,22 +49,53 @@
 ** Auto convert file
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-emacs-mechanism-auto-convert-file (file &optional parent-id)
-  "Make FILE a real Atlas file: ID drawer, index rows, mm row. Returns ID."
+  "Make every tagged level-1 heading in FILE a real Atlas note: ID
+drawer, index rows, mm row. Returns the converted id list."
   (require 'org-id nil t)
-  (let* ((parsed (manifolding-emacs-file-first-headline file))
-         (id (or (nth 2 parsed)
-                 (with-current-buffer (find-file-noselect file)
-                   (goto-char (point-min))
-                   (when (re-search-forward "^\\*+ " nil t)
-                     (let ((new (org-id-uuid)))
-                       (forward-line 1)
-                       (insert ":PROPERTIES:\n:ID:       " new "\n:END:\n")
-                       (save-buffer) new))))))
-    (unless id (error "No headline to anchor :ID: in %s" file))
-    (when (fboundp 'manifolding-atlas-db-update-file)
-      (manifolding-atlas-db-update-file file))
-    (my/manifolding-atlas-emacs-mechanism--ensure-mm-row id parent-id)
-    id))
+  (let (converted)
+    (with-current-buffer (find-file-noselect file)
+      (goto-char (point-min))
+      (let (insrc)
+        (while (not (eobp))
+          (let ((line (buffer-substring-no-properties
+                       (line-beginning-position) (line-end-position))))
+            (cond
+             ((string-match-p "^[ \t]*#\\+begin_" line) (setq insrc t))
+             ((string-match-p "^[ \t]*#\\+end_" line) (setq insrc nil))
+             ((and (not insrc)
+                   (string-match "^\\* \\(.*\\)$" line)
+                   (let* ((text (match-string 1 line))
+                          (m (and (string-match "\\s-+\\(:[[:alnum:]_@]+\\(?::[[:alnum:]_@]+\\)*:\\)\\s-*$" text)
+                                        (match-string 1 text))))
+                     (and m (member "EMACS_MECHANISM"
+                                    (split-string (string-trim m ":" ":") ":" t)))))
+              (save-excursion
+                (forward-line 1)
+                (let ((id nil))
+                  (when (looking-at-p "^[ \t]*:PROPERTIES:[ \t]*$")
+                    (forward-line 1)
+                    (while (and (not (eobp))
+                                (not (looking-at-p "^[ \t]*:END:[ \t]*$")))
+                      (when (looking-at "^[ \t]*:ID:[ \t]*\\(\\S-+\\)")
+                        (setq id (match-string 1)))
+                      (forward-line 1))
+                    (unless id
+                      (setq id (org-id-uuid))
+                      (re-search-backward "^[ \t]*:PROPERTIES:[ \t]*$" nil t)
+                      (forward-line 1)
+                      (insert ":ID:       " id "\n")))
+                  (unless id
+                    (setq id (org-id-uuid))
+                    (insert ":PROPERTIES:\n:ID:       " id "\n:END:\n"))
+                  (push id converted))))))
+          (forward-line 1)))
+      (save-buffer))
+    (when converted
+      (when (fboundp 'manifolding-atlas-db-update-file)
+        (manifolding-atlas-db-update-file file))
+      (dolist (id converted)
+        (my/manifolding-atlas-emacs-mechanism--ensure-mm-row id parent-id)))
+    (nreverse converted)))
 #+end_src
 
 ** Ensure mm row

@@ -11,9 +11,8 @@
 - This vault's Emacs config lives under
   universe/.../text-editors/emacs/Manifolding-Emacs/ and boots from
   ~/.config/emacs/init.el (static seed). Generated .el artifacts live
-  ONLY in ~/.config/emacs/ (early-init.el, foundation-init.el,
-  manifolding-emacs.el) — never write .el into the vault, except
-  body-unfoldings/files/atlas.el which is a doct template SOURCE.
+   ONLY in ~/.config/emacs/ (early-init.el, foundation-init.el,
+   manifolding-emacs.el) — never write .el into the vault.
 - Vault root self-discovers via .git/ marker. HOME is
   /data/data/com.termux/files/home (never /root). Real user files use
   real paths: no symlinks, no env vars for locations.
@@ -23,10 +22,14 @@
 
 ** Conventions :BLUEPRINT_BODY:
 - All vault files are extensionless org. No .org suffix anywhere.
-- Every loadable file: first headline carries :EMACS_MECHANISM:, with a
-  :PROPERTIES: drawer holding :ID: plus :MM_PARENT: (note-id or none)
-  and :MM_ORDER: (float). Files without mm keys are chainless: they
-  load after the chain, alphabetically, with no error.
+- Load units are level-1 headings, not files: every
+  :EMACS_MECHANISM: level-1 is one unit with its own drawer (:ID: plus
+  :MM_PARENT: (note-id or none) and :MM_ORDER: (float)). Multiple
+  packages per file work because each heading carries its own state.
+  Untagged headings absorb into the preceding unit, never skipped.
+  Units without mm keys are chainless: they load after the chain,
+  alphabetically, with no error. Only level-1 binds units; deeper
+  headings are content.
 - Blueprint files: level-1 KEY headings carry :BLUEPRINT: merged into
   ONE contiguous colon run (spaces break the parser KEY match).
   Option lines carry :BLUEPRINT_BODY:. Unknown tags are ignored by the
