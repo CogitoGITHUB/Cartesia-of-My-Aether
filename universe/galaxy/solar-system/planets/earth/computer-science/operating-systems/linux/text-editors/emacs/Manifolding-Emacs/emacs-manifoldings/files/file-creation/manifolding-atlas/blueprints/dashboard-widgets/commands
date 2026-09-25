@@ -1,0 +1,9 @@
+#+title:      Commands Widget Blueprint
+* COMMANDS :DASHBOARD_BLUEPRINT:
+:PROPERTIES:
+:ID:       ca6a8684-d1e9-4eb6-9c9f-7639f8bdec8f
+:LENGTH:    1
+:END:
+
+Command index plus dashboard keys.
+Add ** Variant :BLUEPRINT_BODY: lines to declare display variants.

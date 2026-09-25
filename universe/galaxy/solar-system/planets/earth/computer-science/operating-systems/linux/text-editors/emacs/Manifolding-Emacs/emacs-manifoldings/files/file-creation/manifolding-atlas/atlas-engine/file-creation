@@ -4148,7 +4148,8 @@ No directories anywhere: templates resolve by KEY tag scan.
   "Drop cached blueprint discovery. Next lookup rescans."
   (interactive)
   (setq my/manifolding-atlas-blueprint-key-files nil
-        my/manifolding-atlas-template-registry nil)
+        my/manifolding-atlas-template-registry nil
+        my/manifolding-atlas-dashboard-key-files nil)
   (message "blueprint discovery cache cleared"))
 
 (defun my/manifolding-atlas-blueprint-key-files ()
@@ -4226,7 +4227,86 @@ Matches exact, upcased, or downcased KEY.  NAME may be a symbol
                   (when (re-search-forward "^[ \t]*:END:[ \t]*$" nil t)
                     (forward-line 1)
                     (delete-region beg (point)))))
-              (string-trim (buffer-string)))))))))
+               (string-trim (buffer-string)))))))))
+#+end_src
+
+** Dashboard blueprints — discovery + specs
+Dashboard widgets declared as `* KEY :…:DASHBOARD_BLUEPRINT:' files
+(blueprints/dashboard-widgets/). Own discovery walk and own spec
+registry: drawer prompt machinery never sees these files (no shared
+alist, no kind fork, no template-registry).
+#+begin_src emacs-lisp
+(defvar my/manifolding-atlas-dashboard-key-files nil
+  "Cached alist (KEY . FILE) from the :DASHBOARD_BLUEPRINT: tag scan.")
+
+(defvar my/manifolding-atlas-dashboard-specs (make-hash-table :test 'equal)
+  "Dashboard widget specs by downcased key symbol. Rebuilt wholesale
+by `my/manifolding-atlas-dashboard-register-all' — no diff, no
+known-keys.")
+
+(defun my/manifolding-atlas--file-dashboard-keys (file)
+  "KEY strings of :DASHBOARD_BLUEPRINT:-tagged level-1 headings in FILE."
+  (when (file-exists-p file)
+    (let (keys)
+      (with-temp-buffer
+        (insert-file-contents file)
+        (goto-char (point-min))
+        (while (re-search-forward
+                "^\\* \\([A-Z][A-Za-z0-9_]*\\)[^\n]*:DASHBOARD_BLUEPRINT:" nil t)
+          (push (match-string 1) keys)))
+      (nreverse keys))))
+
+(defun my/manifolding-atlas-dashboard-key-files ()
+  "Alist (KEY . FILE) for every :DASHBOARD_BLUEPRINT: level-1 KEY.
+Own walk, own cache: drawer prompt discovery is untouched."
+  (or my/manifolding-atlas-dashboard-key-files
+      (setq my/manifolding-atlas-dashboard-key-files
+            (let (out)
+              (when (fboundp 'my/manifolding-atlas-root-dir)
+                (let ((root (my/manifolding-atlas-root-dir)))
+                  (dolist (f (directory-files-recursively root "[^./]+$"))
+                    (unless (or (string-match-p "/\\.git/" f)
+                                (string-match-p "/admin/" f)
+                                (string-match-p "/WIP/" f))
+                      (when-let* ((keys (my/manifolding-atlas--file-dashboard-keys f)))
+                        (dolist (k keys)
+                          (unless (assoc k out)
+                            (push (cons k f) out))))))))
+              (nreverse out)))))
+
+(defun my/manifolding-atlas-dashboard-register-file (file)
+  "Parse FILE into dashboard specs (KEY OPTIONS PLIST + :file).
+No kind fork, no prompt registration: dashboard declaration only.
+Failures message instead of aborting. Returns registered count."
+  (let ((count 0))
+    (condition-case err
+        (dolist (spec (my/manifolding-atlas-org-prompt--parse file))
+          (let ((key (intern (downcase (nth 0 spec)))))
+            (puthash key (list :key (nth 0 spec)
+                               :options (nth 1 spec)
+                               :plist (nth 2 spec)
+                               :file file)
+                     my/manifolding-atlas-dashboard-specs)
+            (setq count (1+ count))))
+      (error (message "manifolding-atlas: dashboard blueprint %s: %s"
+                      (file-name-nondirectory file)
+                      (error-message-string err))))
+    count))
+
+(defun my/manifolding-atlas-dashboard-spec (name)
+  "Dashboard spec plist for NAME (string/symbol, any case), or nil."
+  (when name
+    (gethash (intern (downcase (if (symbolp name) (symbol-name name) name)))
+             my/manifolding-atlas-dashboard-specs)))
+
+(defun my/manifolding-atlas-dashboard-register-all ()
+  "Register every dashboard blueprint. Rebuilds wholesale (clrhash
+first): no diff, no known-keys. Returns registered count."
+  (clrhash my/manifolding-atlas-dashboard-specs)
+  (let ((count 0))
+    (dolist (pair (my/manifolding-atlas-dashboard-key-files))
+      (setq count (+ count (my/manifolding-atlas-dashboard-register-file (cdr pair)))))
+    count))
 #+end_src
 
 #+begin_src emacs-lisp
@@ -4268,14 +4348,20 @@ aborting the whole batch.  Returns number of prompts registered."
               failures (cdr result))))
     ;; Static TEMPLATE prompt (colocated with the KIND template code under
     ;; * Template helpers); replaces blueprints/unfoldings/template.org 1:1.
-    (condition-case err
-        (progn
-          (my/manifolding-atlas-org-prompt--register-static-template)
-          (setq count (1+ count)))
-      (error
-       (push (format "static-template: %s" (error-message-string err))
-             failures)))
-    (when failures
+     (condition-case err
+         (progn
+           (my/manifolding-atlas-org-prompt--register-static-template)
+           (setq count (1+ count)))
+       (error
+        (push (format "static-template: %s" (error-message-string err))
+              failures)))
+     ;; Dashboard blueprints: separate registry, same batch. Count
+     ;; stays prompts-only (contract); dashboard reports for itself.
+     (let ((dash (my/manifolding-atlas-dashboard-register-all)))
+       (when (> dash 0)
+         (message "manifolding-atlas: %d dashboard blueprint(s) registered"
+                  dash)))
+     (when failures
       (lwarn 'manifolding-atlas-org-prompts :warning
              "declarative prompt failures:\n%s"
              (string-join (nreverse failures) "\n")))

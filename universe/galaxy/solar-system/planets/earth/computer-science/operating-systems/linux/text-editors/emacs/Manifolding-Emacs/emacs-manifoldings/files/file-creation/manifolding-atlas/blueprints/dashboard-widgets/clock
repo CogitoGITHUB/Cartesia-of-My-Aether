@@ -1,0 +1,9 @@
+#+title:      Clock Widget Blueprint
+* CLOCK :DASHBOARD_BLUEPRINT:
+:PROPERTIES:
+:ID:       ea2cff6a-7bd0-409e-b66a-7642f19acf4f
+:LENGTH:    1
+:END:
+
+Live clock plus per-second updater.
+Add ** Variant :BLUEPRINT_BODY: lines to declare display variants.

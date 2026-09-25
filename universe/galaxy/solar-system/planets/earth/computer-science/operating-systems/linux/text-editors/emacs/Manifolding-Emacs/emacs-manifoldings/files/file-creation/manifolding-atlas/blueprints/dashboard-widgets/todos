@@ -1,0 +1,9 @@
+#+title:      Todos Widget Blueprint
+* TODOS :DASHBOARD_BLUEPRINT:
+:PROPERTIES:
+:ID:       432b252b-e80f-4f8d-adb8-bee31c369557
+:LENGTH:    1
+:END:
+
+Module TODOs section.
+Add ** Variant :BLUEPRINT_BODY: lines to declare display variants.
