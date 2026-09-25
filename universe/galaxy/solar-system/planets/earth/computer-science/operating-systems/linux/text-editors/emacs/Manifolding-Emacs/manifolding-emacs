@@ -291,8 +291,17 @@ compiler.  Prevents double-recording of synchronous part failures.")
     entry))
 
 (defun manifolding-emacs-record-warning (type message)
-  (push (list :type type :message message :time (float-time))
+  (push (list :type type :message message :time (float-time)
+              :file (and (boundp 'manifolding-emacs--current-unit-file)
+                         manifolding-emacs--current-unit-file))
         manifolding-emacs--boot-warnings))
+
+(defvar manifolding-emacs--current-unit-file nil
+  "Source file of the unit currently compiling/loading, or nil.
+Bound dynamically by `manifolding-emacs--unit-load' so captured
+byte-compile warnings attribute to their unit file instead of
+grouping under \"unknown\".  Declared here so the binding is
+special (dynamic) even if the loader ever gains lexical-binding.")
 
 (defun manifolding-emacs-record-status (package-name status
                                         &optional file message)
@@ -1933,6 +1942,7 @@ next tier, so one bad unit can't break a boot."
          (ph (manifolding-emacs--unit-parts-hash parts))
          (paths (manifolding-emacs--unit-elc-paths id))
          (el (nth 0 paths)) (elc (nth 1 paths)) (statep (nth 2 paths))
+         (manifolding-emacs--current-unit-file file)
          (straight-current-profile
           (or profile (and (boundp 'straight-current-profile)
                            straight-current-profile)))
@@ -1961,7 +1971,13 @@ next tier, so one bad unit can't break a boot."
           (progn
             (ignore-errors (delete-file elc))
             (if (and (condition-case nil
-                         (progn (byte-compile-file el) t)
+                         ;; Cross-unit calls resolve at load (all units
+                         ;; share one session), so unknown-function
+                         ;; noise is always false-positive here.
+                         ;; Free-variable, callargs, and unused
+                         ;; warnings still fire.
+                         (let ((byte-compile-warnings '(not unresolved)))
+                           (byte-compile-file el) t)
                        (error nil))
                      (file-exists-p elc))
                 (condition-case err
@@ -2357,9 +2373,9 @@ Atomic upstream renderers — kept whole.
         order)
     (dolist (e entries)
       (let* ((f (or (if (manifolding-emacs-error-entry-p e)
-                         (manifolding-emacs-error-entry-file e)
-                       nil)
-                     "unknown"))
+                        (manifolding-emacs-error-entry-file e)
+                      (plist-get e :file))
+                    "unknown"))
              (base (file-name-nondirectory f)))
         (unless (gethash base groups)
           (push base order))
@@ -2893,8 +2909,10 @@ Atomic upstream — kept whole.
     (when manifolding-emacs-mode-line-indicator
       (manifolding-emacs-doctor-indicator-mode 1))
     (condition-case err
-        (manifolding-emacs-with-warning-capture
-         (let ((buf (manifolding-emacs-show-splash))
+        ;; Warning capture during boot comes from the foundation
+        ;; `display-warning' advice alone: wrapping here too recorded
+        ;; every warning twice.
+        (let ((buf (manifolding-emacs-show-splash))
                (manifolding-emacs--boot-phase :compiling))
            (with-current-buffer buf
              (let ((inhibit-read-only t)
@@ -2905,8 +2923,8 @@ Atomic upstream — kept whole.
              (redisplay))
            (let ((message-log-max nil))
              (message "Manifolding-Emacs: reading modules/"))
-           (manifolding-emacs-compile-directory
-            (manifolding-emacs--splash-progress buf))))
+            (manifolding-emacs-compile-directory
+             (manifolding-emacs--splash-progress buf)))
       (error (setq fatal err)))
     (manifolding-emacs-errors-save-log)
     (unless fatal
