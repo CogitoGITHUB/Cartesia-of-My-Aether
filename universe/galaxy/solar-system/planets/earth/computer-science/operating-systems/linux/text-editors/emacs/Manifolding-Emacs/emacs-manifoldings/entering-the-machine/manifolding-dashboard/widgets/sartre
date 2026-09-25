@@ -1,0 +1,37 @@
+#+title:      Manifold Sartre Widget
+#+filetags:   :emacs-package:ui:
+#+property:   header-args:emacs-lisp :lexical t
+
+* Manifold Sartre Widget :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       0809668a-5c9d-4b8e-a305-f7905d8b5085
+:MM_PARENT: none
+:MM_ORDER:  78.5
+:END:
+:CATEGORY: ui
+
+Random Sartre quote.
+
+** Widget
+#+begin_src emacs-lisp
+(manifolding-dashboard-define-widget sartre
+  :doc "Random Sartre quote."
+  :helpers
+  ((defvar manifold/sartre-quotes
+     '("Existence precedes essence."
+       "Man is condemned to be free."
+       "Hell is other people."
+       "We are our choices."
+       "Freedom is what you do with what's been done to you."
+       "Every existing thing is born without reason, prolongs itself out of weakness, and dies by chance."
+       "Life has no meaning the moment you lose the illusion of being eternal."
+       "One always dies too soon — or too late. And yet one's whole life is complete at that moment."
+       "Words are loaded pistols."
+       "To be is to do."
+       "Man is not the sum of what he has already, but rather the sum of what he does not yet have.")))
+  :generate
+  ((dashboard-insert-heading "Sartre:" nil nil)
+   (insert "\n")
+   (insert "    " (nth (random (length manifold/sartre-quotes)) manifold/sartre-quotes))
+   (insert "\n")))
+#+end_src

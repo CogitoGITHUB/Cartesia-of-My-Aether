@@ -1,0 +1,101 @@
+#+title:      Manifolding Dashboard — Widget DSL
+#+filetags:   :emacs-package:ui:
+#+property:   header-args:emacs-lisp :lexical t
+
+* Dashboard Widget DSL :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       aa22d145-ead7-4293-a7c8-e5230a7da69c
+:MM_PARENT: none
+:MM_ORDER:  78.2
+:END:
+:CATEGORY: ui
+
+Mirrors the keyboard `define-state` DSL: one macro invocation declares
+a widget — generator defun, item-generators entry, registry push.
+Deleting a widgets/ file unregisters it next boot (fresh process, no
+manifest). Depends only on builtins.
+
+** Registry
+#+begin_src emacs-lisp
+(defvar manifolding-dashboard--widget-registry nil
+  "Manifold widget keys registered this boot, in load order.
+Fresh process plus file-drop files: only present files register.")
+#+end_src
+
+** Define-widget macro
+#+begin_src emacs-lisp
+(defmacro manifolding-dashboard-define-widget (name &rest spec)
+  "Declare dashboard widget NAME (unprefixed symbol, e.g. clock).
+SPEC keys: :length (default 1), :doc, :helpers (extra top-level
+forms: vars, timers, hooks), :generate (body forms rendering the
+section with point in the dashboard buffer). Expands to the
+`dashboard-insert-manifold-NAME' generator, the item-generators
+entry, and a registry push."
+  (declare (indent 1))
+  (let ((len (or (plist-get spec :length) 1))
+        (doc (plist-get spec :doc))
+        (helpers (plist-get spec :helpers))
+        (gen (plist-get spec :generate))
+        (fn (intern (format "dashboard-insert-manifold-%s" name)))
+        (key (intern (format "manifold-%s" name))))
+    `(progn
+       ,@helpers
+       (defun ,fn (_list-size)
+         ,@(and doc (list doc))
+         ,@gen)
+       (add-to-list 'dashboard-item-generators ',(cons key fn))
+       (unless (memq ',key manifolding-dashboard--widget-registry)
+         (push ',key manifolding-dashboard--widget-registry)))))
+#+end_src
+
+** Skeleton writer
+#+begin_src emacs-lisp
+(defun manifolding-dashboard--module-dir ()
+  "Absolute path of the manifolding-dashboard/ module directory.
+Derived from this file's own location; renames above it never break it."
+  (file-name-directory
+   (directory-file-name
+    (file-name-directory (or load-file-name buffer-file-name
+                             default-directory)))))
+
+(defun manifolding-dashboard-new-widget (name)
+  "Create widgets/<NAME> from the widget skeleton. Mirrors the
+keyboard scaffolding writers: file-drop registration, one wanted-list
+line in engine/setup. Errors loudly when the file already exists."
+  (interactive "sWidget name (unprefixed, e.g. clock): ")
+  (when (string-empty-p name)
+    (user-error "Widget name must not be empty"))
+  (let ((path (expand-file-name
+               (format "widgets/%s" name)
+               (manifolding-dashboard--module-dir))))
+    (when (file-exists-p path)
+      (user-error "Widget file exists: %s" path))
+    (with-temp-file path
+      (insert (format "#+title:      Manifold %s Widget\n#+filetags:   :emacs-package:ui:\n#+property:   header-args:emacs-lisp :lexical t\n\n* Manifold %s Widget :EMACS_MECHANISM:\n:PROPERTIES:\n:ID:       %s\n:MM_PARENT: none\n:MM_ORDER:  78.4\n:END:\n:CATEGORY: ui\n\nDescribe the widget here.\n\n** Widget\n#+begin_src emacs-lisp\n(manifolding-dashboard-define-widget %s\n  :doc \"What this section shows.\"\n  :generate\n  ((insert \"\\n\")\n   (insert \"hello\")))\n#+end_src\n"
+                      (capitalize name) (capitalize name) (org-id-uuid) name)))
+    (find-file path)
+    (message "Widget created: %s (add one wanted-list line in engine/setup)" path)))
+#+end_src
+
+** Validator
+#+begin_src emacs-lisp
+(defun manifolding-dashboard-validate ()
+  "Check the widget registry against reality. Mirrors the keyboard
+validator: generator defined? item-generators entry present? wanted
+entries resolvable? Returns problems (empty means clean)."
+  (let (problems)
+    (dolist (key manifolding-dashboard--widget-registry)
+      (let ((fn (cdr (assq key dashboard-item-generators))))
+        (unless (and fn (fboundp fn))
+          (push (format "widget %s: generator %s missing" key fn) problems))))
+    (dolist (pair manifolding-dashboard--wanted-items)
+      (let ((name (car pair)))
+        (when (and (string-prefix-p "manifold-" (format "%s" name))
+                   (not (memq name manifolding-dashboard--widget-registry))
+                   (not (cdr (assq name dashboard-item-generators))))
+          (push (format "wanted %s: no widget file registers it" name) problems))))
+    (when problems
+      (message "manifolding-dashboard: %d problem(s): %s"
+               (length problems) (mapconcat #'identity problems "; ")))
+    problems))
+#+end_src
