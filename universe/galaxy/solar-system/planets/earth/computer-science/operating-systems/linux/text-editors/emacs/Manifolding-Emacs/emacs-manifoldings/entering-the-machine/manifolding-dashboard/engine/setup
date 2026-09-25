@@ -64,9 +64,45 @@ file is missing or holds no headings."
                 (push k keys))))
           (nreverse keys))))))
 
+(defun manifolding-dashboard--blueprints-dir ()
+  "Absolute blueprints/ dir: sibling of heading-unfoldings, found via
+the first drawer key-file (no hardcoded universe path). Nil when
+unresolvable: lengths fall back to registry/stock."
+  (when (and (fboundp 'my/manifolding-atlas-blueprint-key-files)
+             (fboundp 'my/manifolding-atlas-root-dir))
+    (when-let* ((files (my/manifolding-atlas-blueprint-key-files))
+                (anchor (cdr (car files))))
+      (file-name-directory
+       (directory-file-name
+        (file-name-directory anchor))))))
+
+(defun manifolding-dashboard--spec-length-from-file (name)
+  "Display length for widget NAME from its dashboard blueprint file
+drawer (:LENGTH:), or nil when absent/unreadable. Reads the file
+directly (timing-proof: register-all runs post-boot, setup at load)."
+  (when-let* ((dir (manifolding-dashboard--blueprints-dir))
+              (ddir (expand-file-name "dashboard-widgets" dir))
+              ((_ (file-directory-p ddir)))
+              (want (manifolding-dashboard--blueprint-key name)))
+    (catch 'found
+      (dolist (f (directory-files ddir t "^[^.]"))
+        (when (and (file-regular-p f)
+                   (with-temp-buffer
+                     (insert-file-contents f)
+                     (goto-char (point-min))
+                     (and (re-search-forward
+                           (format "^\\* %s[ \t]" want) nil t)
+                          (let ((lim (save-excursion (forward-line 20) (point))))
+                            (re-search-forward
+                             "^[ \t]*:LENGTH:[ \t]*\\([0-9]+\\)" lim t))))))
+          (throw 'found (string-to-number (match-string 1)))))
+      nil)))
+
 (defun manifolding-dashboard--entry-length (name)
-  "Length for item NAME: registry first, then stock, else 1."
-  (or (cdr (assq name manifolding-dashboard--widget-registry))
+  "Length for item NAME: blueprint file first, then registry, then
+stock, else 1."
+  (or (manifolding-dashboard--spec-length-from-file name)
+      (cdr (assq name manifolding-dashboard--widget-registry))
       (cdr (assq name manifolding-dashboard--stock-items))
       1))
 

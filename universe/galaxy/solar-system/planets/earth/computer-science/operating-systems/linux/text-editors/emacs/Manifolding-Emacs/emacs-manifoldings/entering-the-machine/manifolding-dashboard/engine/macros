@@ -19,7 +19,14 @@ manifest). Depends only on builtins.
 #+begin_src emacs-lisp
 (defvar manifolding-dashboard--widget-registry nil
   "Manifold widget keys registered this boot, in load order.
-Fresh process plus file-drop files: only present files register.")
+Fresh process plus file-drop files: only present files register.
+Entries are (KEY . LENGTH).")
+
+(defun manifolding-dashboard--blueprint-key (name)
+  "Blueprint KEY string for dashboard item NAME: strip the manifold-
+prefix, upcase. `manifold-clock' meets `* CLOCK :…:DASHBOARD_BLUEPRINT:'.
+Single mapping both setup length lookup and validator use."
+  (upcase (replace-regexp-in-string "^manifold-" "" (format "%s" name))))
 #+end_src
 
 ** Define-widget macro
@@ -94,6 +101,23 @@ entries resolvable? Returns problems (empty means clean)."
                  (not (assq name manifolding-dashboard--widget-registry))
                  (not (cdr (assq name dashboard-item-generators))))
         (push (format "order file %s: no widget file registers it" name) problems)))
+    ;; Dashboard blueprint specs: every registered widget declared,
+    ;; every order-file manifold key specified.
+    (when (fboundp 'my/manifolding-atlas-dashboard-spec)
+      (dolist (pair manifolding-dashboard--widget-registry)
+        (unless (my/manifolding-atlas-dashboard-spec
+                 (manifolding-dashboard--blueprint-key (car pair)))
+          (push (format "widget %s: no dashboard blueprint declares it"
+                        (car pair))
+                problems)))
+      (when (fboundp 'manifolding-dashboard--order-file-keys)
+        (dolist (name (manifolding-dashboard--order-file-keys))
+          (when (and (string-prefix-p "manifold-" (format "%s" name))
+                     (not (my/manifolding-atlas-dashboard-spec
+                            (manifolding-dashboard--blueprint-key name))))
+            (push (format "order file %s: no dashboard blueprint specifies it"
+                          name)
+                  problems)))))
     (when problems
       (message "manifolding-dashboard: %d problem(s): %s"
                (length problems) (mapconcat #'identity problems "; ")))
