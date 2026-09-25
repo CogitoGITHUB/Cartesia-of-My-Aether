@@ -1213,8 +1213,8 @@ after by file and position.  Returns ordered unit plists."
 Runs the walk, tag filter, and `--collect-units' exactly once; both
 `manifolding-emacs-get-files' and `manifolding-emacs-compile-directory'
 share this so the topology is never computed twice per boot.
-If PROGRESS-FN is given, call it with (CURRENT TOTAL FILE) per file
-during the tag-filter and index passes, so the splash shows what is
+If PROGRESS-FN is given, call it with (CURRENT TOTAL FILE) once per
+file during the single discovery pass, so the splash shows what is
 being read while discovery runs (phase `:reading').
 Only extensionless files are ever considered: any basename containing
 a dot (.org, .nu, .el, …) is discarded before reading, so non-mechanism
@@ -1236,26 +1236,24 @@ files are never read, loaded, or compiled — by any caller."
              (total (length all))
              (n 0)
              (tagged nil))
-        (dolist (f all)
-          (setq n (1+ n))
-          (when progress-fn (funcall progress-fn n total f))
-          (when (manifolding-emacs-file-loadable-p f) (push f tagged)))
-        (setq tagged (nreverse tagged))
-        (let ((skipped (- total (length tagged)))
-              (units (manifolding-emacs--collect-units tagged)))
-          (when (> skipped 0)
-            (message "manifolding-emacs: skipping %d untagged file(s) (no :EMACS_MECHANISM:)"
-                     skipped))
-          ;; Refresh the on-disk index (verified files skip, changed files
-          ;; rescan) and persist it: the next boot verifies by hash instead
-          ;; of re-parsing.
-          (setq n 0)
-          (dolist (f all)
-            (setq n (1+ n))
-            (when progress-fn (funcall progress-fn n total f))
-            (manifolding-emacs--index-ensure f))
-          (manifolding-emacs--index-save)
-          (cons units (manifolding-emacs--units-files units))))
+         (dolist (f all)
+           (setq n (1+ n))
+           (when progress-fn (funcall progress-fn n total f))
+           (when (manifolding-emacs-file-loadable-p f) (push f tagged))
+           ;; Same pass refreshes the index entry (verified files skip,
+           ;; changed files rescan from the session memos just filled):
+           ;; one walk, each file named once.
+           (manifolding-emacs--index-ensure f))
+         (setq tagged (nreverse tagged))
+         (let ((skipped (- total (length tagged)))
+               (units (manifolding-emacs--collect-units tagged)))
+           (when (> skipped 0)
+             (message "manifolding-emacs: skipping %d untagged file(s) (no :EMACS_MECHANISM:)"
+                      skipped))
+           ;; Persist the refreshed index: the next boot verifies by
+           ;; hash instead of re-parsing.
+           (manifolding-emacs--index-save)
+           (cons units (manifolding-emacs--units-files units))))
     (message "manifolding-emacs: directory does not exist: %s"
              directory)
     nil))
