@@ -1,8 +1,8 @@
 #+title: Emacs Mechanism Module Template
 
-* BODY_EMACS_MECHANISM_MODULE :BLUEPRINT:
+* BODY_EMACS_MECHANISM_MODULE :DRAWER_BLUEPRINT:
 
-* Emacs Mechanism Module Template :EMACS_MECHANISM::BLUEPRINT:
+* Emacs Mechanism Module Template :EMACS_MECHANISM::DRAWER_BLUEPRINT:
 :PROPERTIES:
 :ID:       e1555fa3-427c-482d-bf2a-20cf7a155f91
 :MM_PARENT: none

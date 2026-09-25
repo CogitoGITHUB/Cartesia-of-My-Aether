@@ -1,7 +1,7 @@
 #+title:      task
 
 
-* BODY_TASK :BLUEPRINT:
+* BODY_TASK :DRAWER_BLUEPRINT:
 
 * Objective :EMACS_MECHANISM:
 :PROPERTIES:

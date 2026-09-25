@@ -11,7 +11,7 @@
 Must load before any prompt file calls ~my/manifolding-atlas-register-prompt~.
 
 *** Registry-driven templates
-Template files resolve by :BLUEPRINT: tag scan (template registry),
+Template files resolve by :DRAWER_BLUEPRINT: tag scan (template registry),
 never by directory. See template registry block for the mechanism.
 
 *** Drawer Key Order
@@ -348,7 +348,7 @@ is a list of (FILE . VALUE) for lines kept."
 
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-blueprint-files ()
-  "All files holding :BLUEPRINT: KEY headings, absolute."
+  "All files holding :DRAWER_BLUEPRINT: KEY headings, absolute."
   (mapcar #'cdr (my/manifolding-atlas-blueprint-key-files)))
 
 (defvar my/manifolding-atlas--pending-blueprint-register nil
@@ -376,7 +376,7 @@ existing KEY. Registers the prompt when the capture finalizes."
       (let ((id (org-id-new))
             (org-capture-templates
              `(("b" "Blueprint prompt" plain (file ,path)
-                 ,(format "* %s :unfolding:file:heading:task:BLUEPRINT:\n:PROPERTIES:\n:ID: %s\n:END:\n** First option :BLUEPRINT_BODY:\n%%?"
+                 ,(format "* %s :unfolding:file:heading:task:DRAWER_BLUEPRINT:\n:PROPERTIES:\n:ID: %s\n:END:\n** First option :BLUEPRINT_BODY:\n%%?"
                           key id)
                 :unnarrowed t :empty-lines 1 :kill-buffer t)))
             (org-capture-use-indirect-buffer nil)
@@ -4089,7 +4089,7 @@ for backward compatibility. A :PROPERTIES:...:END: drawer holding the
 ** my/manifolding-atlas-org-prompt--schema-files ()
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-org-prompt--schema-files ()
-  "Candidate files: every vault file holding a :BLUEPRINT: KEY heading."
+  "Candidate files: every vault file holding a :DRAWER_BLUEPRINT: KEY heading."
   (mapcar #'cdr (my/manifolding-atlas-blueprint-key-files)))
 #+end_src
 
@@ -4116,7 +4116,7 @@ extended failure list."
     (dolist (spec specs)
       (condition-case err
           ;; No :kind means template body, not a prompt (templates carry
-          ;; KEY + :BLUEPRINT: but no kind/context tags by design).
+          ;; KEY + :DRAWER_BLUEPRINT: but no kind/context tags by design).
           (if (plist-get (nth 2 spec) :kind)
               (progn
                 (apply #'my/manifolding-atlas-org-prompt--register file spec)
@@ -4142,7 +4142,7 @@ No directories anywhere: templates resolve by KEY tag scan.
   "Alist (TEMPLATE-KEY . FILE) for kind-less blueprint KEYs.")
 
 (defvar my/manifolding-atlas-blueprint-key-files nil
-  "Cached alist (KEY . FILE) from the :BLUEPRINT: tag scan. Nil = rebuild.")
+  "Cached alist (KEY . FILE) from the :DRAWER_BLUEPRINT: tag scan. Nil = rebuild.")
 
 (defun my/manifolding-atlas-blueprint-refresh ()
   "Drop cached blueprint discovery. Next lookup rescans."
@@ -4152,7 +4152,7 @@ No directories anywhere: templates resolve by KEY tag scan.
   (message "blueprint discovery cache cleared"))
 
 (defun my/manifolding-atlas-blueprint-key-files ()
-  "Alist (KEY . FILE) for every :BLUEPRINT: level-1 KEY in the vault.
+  "Alist (KEY . FILE) for every :DRAWER_BLUEPRINT: level-1 KEY in the vault.
 Cached per session; `my/manifolding-atlas-blueprint-refresh' rebuilds."
   (or my/manifolding-atlas-blueprint-key-files
       (setq my/manifolding-atlas-blueprint-key-files
@@ -4170,17 +4170,17 @@ Cached per session; `my/manifolding-atlas-blueprint-refresh' rebuilds."
               (nreverse out)))))
 
 (defun my/manifolding-atlas--file-blueprint-keys (file)
-  "KEY strings of :BLUEPRINT:-tagged level-1 headings in FILE.
+  "KEY strings of :DRAWER_BLUEPRINT:-tagged level-1 headings in FILE.
 NOTE: the middle class is `[^\n]' (rest of line).  It was once written
 `[^\\n]', which excludes the letter n instead of newline and silently
-dropped every heading with an n before :BLUEPRINT:."
+dropped every heading with an n before :DRAWER_BLUEPRINT:."
   (when (file-exists-p file)
     (let (keys)
       (with-temp-buffer
         (insert-file-contents file)
         (goto-char (point-min))
         (while (re-search-forward
-                "^\\* \\([A-Z][A-Za-z0-9_]*\\)[^\n]*:BLUEPRINT:" nil t)
+                "^\\* \\([A-Z][A-Za-z0-9_]*\\)[^\n]*:DRAWER_BLUEPRINT:" nil t)
           (push (match-string 1) keys)))
       (nreverse keys))))
 

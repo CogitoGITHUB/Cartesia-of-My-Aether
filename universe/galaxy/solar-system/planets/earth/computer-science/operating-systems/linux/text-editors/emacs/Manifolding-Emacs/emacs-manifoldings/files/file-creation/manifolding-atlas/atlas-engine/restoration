@@ -898,7 +898,7 @@ Lives in `my/manifolding-atlas-root-dir'. Auto-created if missing.")
 #+end_src
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-links--blueprint-trackable-p (file)
-  "Non-nil when FILE holds a :BLUEPRINT: KEY heading with a kind.
+  "Non-nil when FILE holds a :DRAWER_BLUEPRINT: KEY heading with a kind.
 Body-only template files (kind-less KEYs) are not prompts."
   (and (stringp file) (file-exists-p file)
        (cl-some (lambda (spec) (plist-get (nth 2 spec) :kind))

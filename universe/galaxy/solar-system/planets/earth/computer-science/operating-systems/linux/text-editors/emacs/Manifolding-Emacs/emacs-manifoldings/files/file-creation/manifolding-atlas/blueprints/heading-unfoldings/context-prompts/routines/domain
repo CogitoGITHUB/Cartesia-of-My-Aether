@@ -1,6 +1,6 @@
 #+title: Routines Domain Prompt
 
-* ROUTINE_DOMAIN :inline:routine:EMACS_MECHANISM::BLUEPRINT:
+* ROUTINE_DOMAIN :inline:routine:EMACS_MECHANISM::DRAWER_BLUEPRINT:
 :PROPERTIES:
 :ID: routine-domain
 :MM_PARENT: none

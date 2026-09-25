@@ -1,6 +1,6 @@
 #+title:      Tags Prompt
 
-* TAGS :tags:file:heading:task:EMACS_MECHANISM::BLUEPRINT:
+* TAGS :tags:file:heading:task:EMACS_MECHANISM::DRAWER_BLUEPRINT:
 :PROPERTIES:
 :ID: tags
 :MM_PARENT: none

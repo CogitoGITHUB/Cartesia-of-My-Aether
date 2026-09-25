@@ -1,6 +1,6 @@
 #+title:      TODO State Prompt
 
-* TODO_STATE :todo:file:heading:task:EMACS_MECHANISM::BLUEPRINT:
+* TODO_STATE :todo:file:heading:task:EMACS_MECHANISM::DRAWER_BLUEPRINT:
 :PROPERTIES:
 :ID: todo
 :MM_PARENT: none

@@ -1,6 +1,6 @@
 #+title:      Rules Prompt
 
-* RULES :inline:file:heading:task:EMACS_MECHANISM::BLUEPRINT:
+* RULES :inline:file:heading:task:EMACS_MECHANISM::DRAWER_BLUEPRINT:
 :PROPERTIES:
 :ID:       b1f44cda-d800-4837-846e-3a8b40536351
 :MM_PARENT: none

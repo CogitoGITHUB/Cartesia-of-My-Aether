@@ -1,8 +1,8 @@
 #+title:      journal
 
-* BODY_JOURNAL :BLUEPRINT:
+* BODY_JOURNAL :DRAWER_BLUEPRINT:
 
-* Journal :: %U :: %^{Session|Morning|Evening} :: %^{Location|Transit|Base|Unknown} :EMACS_MECHANISM::BLUEPRINT:
+* Journal :: %U :: %^{Session|Morning|Evening} :: %^{Location|Transit|Base|Unknown} :EMACS_MECHANISM::DRAWER_BLUEPRINT:
 :PROPERTIES:
 :ID:       9a6412e8-393c-4a4b-bb15-4a25d4425e2c
 :MM_PARENT: none

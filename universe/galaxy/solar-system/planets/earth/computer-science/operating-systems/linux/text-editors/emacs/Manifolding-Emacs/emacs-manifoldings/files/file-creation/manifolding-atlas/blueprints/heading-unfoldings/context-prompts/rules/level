@@ -1,6 +1,6 @@
 #+title:      Level Prompt
 
-* LEVEL :tagopt:rule:EMACS_MECHANISM::BLUEPRINT:
+* LEVEL :tagopt:rule:EMACS_MECHANISM::DRAWER_BLUEPRINT:
 :PROPERTIES:
 :ID: rule-level
 :MM_PARENT: none

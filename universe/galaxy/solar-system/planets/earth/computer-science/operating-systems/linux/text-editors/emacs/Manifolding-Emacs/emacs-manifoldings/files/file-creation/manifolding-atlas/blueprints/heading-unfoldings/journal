@@ -1,6 +1,6 @@
 #+title:      Journal Prompt
 
-* JOURNAL :inline:file:heading:task:EMACS_MECHANISM::BLUEPRINT:
+* JOURNAL :inline:file:heading:task:EMACS_MECHANISM::DRAWER_BLUEPRINT:
 :PROPERTIES:
 :ID:       4e921f47-dee6-4ccb-a8a7-5c74502cb71d
 :MM_PARENT: none

@@ -1,6 +1,6 @@
 #+title:      Priority Prompt
 
-* PRIORITY :inline:file:heading:task:EMACS_MECHANISM::BLUEPRINT:
+* PRIORITY :inline:file:heading:task:EMACS_MECHANISM::DRAWER_BLUEPRINT:
 :PROPERTIES:
 :ID:       54e09d81-4d73-4073-91b4-eb91c59006ad
 :MM_PARENT: none
