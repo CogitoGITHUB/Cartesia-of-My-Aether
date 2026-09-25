@@ -452,6 +452,7 @@ is applied, so callers never see stale/deleted entries."
                       :aliases nil :primary-title nil
                       :meta nil)))
           (user-error "manifolding-atlas-db-get-by-id: ID %s not found" id))))))
+#+end_src
 
 ** Graph Traversal
 
