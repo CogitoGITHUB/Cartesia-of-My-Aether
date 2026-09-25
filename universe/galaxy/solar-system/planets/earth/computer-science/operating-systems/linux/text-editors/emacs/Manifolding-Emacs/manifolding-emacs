@@ -1909,6 +1909,19 @@ that a loaded .elc equals freshly evaluated source."
        (equal (plist-get state :method) manifolding-emacs-package-method)
        (equal (plist-get state :parts-hash) parts-hash)))
 
+(defun manifolding-emacs--unit-cached-p (file unit parts)
+  "Non-nil when UNIT's PARTS would load from .elc right now: exact
+parts-hash match and the artifact exists.  Pure peek, no side
+effects — the splash uses it to announce cached vs fresh *before*
+the (possibly slow) load, and `--unit-load' uses it as the match."
+  (let* ((id (manifolding-emacs--unit-elc-id file unit))
+         (ph (manifolding-emacs--unit-parts-hash parts))
+         (paths (manifolding-emacs--unit-elc-paths id)))
+    (and (file-exists-p (nth 1 paths))
+         (manifolding-emacs--unit-state-ok-p
+          (manifolding-emacs--cache-read (nth 2 paths)) ph)
+          t)))
+
 (defun manifolding-emacs--unit-note-loaded (file parts)
   "Record package statuses + DEFINED-but-VOID checks after a compiled
 load, mirroring `manifolding-emacs--eval-parts' diagnostics so loaded
@@ -1952,9 +1965,7 @@ next tier, so one bad unit can't break a boot."
     (push id manifolding-emacs--unit-elc-live-ids)
     (cond
      ((and (not force)
-           (file-exists-p elc)
-           (manifolding-emacs--unit-state-ok-p
-            (manifolding-emacs--cache-read statep) ph))
+           (manifolding-emacs--unit-cached-p file unit parts))
       (condition-case err
           (progn (funcall load-it) 'loaded)
         (error
@@ -2079,10 +2090,13 @@ it, leaving every other unit untouched.  Used by the doctor."
 (defun manifolding-emacs-compile-directory (&optional progress-fn force)
   "Compile every tagged heading unit under the active Org directory.
 Units from all files order parents-first via `manifolding-emacs--collect-units'.
-If PROGRESS-FN is given, call it with (CURRENT TOTAL FILE) per unit —
-used to drive a splash screen without this file knowing anything
-about UI.  PROGRESS-FN also fires per file during discovery (phase
-`:reading'), so the splash names each file while it is read.
+If PROGRESS-FN is given, call it with (CURRENT TOTAL FILE &optional
+STATUS) per unit — used to drive a splash screen without this file
+knowing anything about UI.  STATUS is `loaded' when the unit will
+replay from cache, `compiled' when it has no cache and compiles
+fresh; discovery passes nil.  PROGRESS-FN also fires per file
+during discovery (phase `:reading'), so the splash names each file
+while it is read.
 Each unit loads from its compiled .elc on an exact parts-hash match
 — nothing recompiles, nothing re-evaluates from source.  Changed
 units byte-compile fresh; compile failures fall back to interpreted
@@ -2116,6 +2130,14 @@ compiled, in completion order."
             (pcase-let* ((`(,parts . ,profile)
                           (manifolding-emacs--compile-unit-parts
                            file u force)))
+              ;; Announce cached vs fresh before the (possibly slow)
+              ;; load, so the splash tells no-cache apart live.
+              (when progress-fn
+                (funcall progress-fn current total file
+                         (if (or force
+                                 (not (manifolding-emacs--unit-cached-p
+                                       file u parts)))
+                             'compiled 'loaded)))
               (let ((status (manifolding-emacs--unit-load
                              file u parts profile force)))
                 (unless (member file compiled)
@@ -2408,26 +2430,30 @@ Atomic upstream renderers — kept whole.
           (if (zerop total) 100
             (floor (* 100 (/ (float current) total))))))
 
-(defun manifolding-emacs-splash--render-progress (buf current total file)
+(defun manifolding-emacs-splash--render-progress (buf current total file &optional status)
   (let* ((errors (manifolding-emacs-errors-list))
          (warnings (manifolding-emacs-warnings-list))
-          (label (pcase manifolding-emacs--boot-phase
-                   (:compiling "Compiling") (:loading "Loading")
-                   (:reading "Reading")
-                   (_ "Processing")))
-         (bar (manifolding-emacs-splash--bar current total))
-         (eta (manifolding-emacs-splash--eta-line current total))
-         (head (concat "MANIFOLDING-EMACS\n\n"
+           (label (pcase manifolding-emacs--boot-phase
+                    (:compiling "Compiling") (:loading "Loading")
+                    (:reading "Reading")
+                    (_ "Processing")))
+          (bar (manifolding-emacs-splash--bar current total))
+          (eta (manifolding-emacs-splash--eta-line current total))
+          (head (concat "MANIFOLDING-EMACS\n\n"
                        (propertize eta 'face 'bold) "\n\n"
                        bar "\n\n"
-                         (if file
-                             (concat
-                              (format "%s: " label)
-                              ;; Belt and suspenders: a nil title must never
-                              ;; throw inside the progress renderer.
-                              (propertize (or (manifolding-emacs-file-title file) "?")
-                                          'face 'bold))
-                           "")
+                          (if file
+                              (concat
+                               (format "%s: " label)
+                               ;; Belt and suspenders: a nil title must never
+                               ;; throw inside the progress renderer.
+                               (propertize (or (manifolding-emacs-file-title file) "?")
+                                           'face 'bold)
+                               (pcase status
+                                 ('compiled "  [no cache — compiling fresh]")
+                                 ('loaded "  [cached]")
+                                 (_ "")))
+                            "")
                        "\n"
                        (format "%s%d errors · %d warnings\n"
                                (if (alist-get :fatal
@@ -2446,12 +2472,13 @@ Atomic upstream renderers — kept whole.
         (insert (manifolding-emacs-splash--center body))
         (goto-char (point-min))))))
 
-(defun manifolding-emacs-splash-update-progress (buf current total file)
+(defun manifolding-emacs-splash-update-progress (buf current total file &optional status)
   (when (buffer-live-p buf)
     (let* ((now (float-time))
            (st manifolding-emacs-splash--state)
            (first-call (zerop (or (plist-get st :count) 0)))
            (changed (or (/= current (or (plist-get st :last-count) -1))
+                        (not (equal status (plist-get st :last-status)))
                         (/= (length (manifolding-emacs-errors-list))
                             (or (plist-get st :last-e) -1))
                         (/= (length (manifolding-emacs-warnings-list))
@@ -2472,12 +2499,13 @@ Atomic upstream renderers — kept whole.
                   (null since)
                   (>= since manifolding-emacs-splash--redraw-interval))
           (plist-put manifolding-emacs-splash--state :last-render now)
-          (plist-put manifolding-emacs-splash--state :last-count current)
-          (plist-put manifolding-emacs-splash--state :last-e
-                     (length (manifolding-emacs-errors-list)))
-          (plist-put manifolding-emacs-splash--state :last-w
-                     (length (manifolding-emacs-warnings-list)))
-           (manifolding-emacs-splash--render-progress buf current total file)
+           (plist-put manifolding-emacs-splash--state :last-count current)
+           (plist-put manifolding-emacs-splash--state :last-status status)
+           (plist-put manifolding-emacs-splash--state :last-e
+                      (length (manifolding-emacs-errors-list)))
+           (plist-put manifolding-emacs-splash--state :last-w
+                      (length (manifolding-emacs-warnings-list)))
+            (manifolding-emacs-splash--render-progress buf current total file status)
            (with-current-buffer buf
              ;; Forced: a busy main thread must still paint, or the
              ;; splash looks frozen during long units.
@@ -2884,8 +2912,8 @@ recompile.  With FORCE (prefix argument) recompile everything."
     (remove-hook 'after-save-hook #'manifolding-emacs-preview t)))
 
 (defun manifolding-emacs--splash-progress (buf)
-  (lambda (current total file)
-    (manifolding-emacs-splash-update-progress buf current total file)))
+  (lambda (current total file &optional status)
+    (manifolding-emacs-splash-update-progress buf current total file status)))
 #+end_src
 
 ** Entry — boot
