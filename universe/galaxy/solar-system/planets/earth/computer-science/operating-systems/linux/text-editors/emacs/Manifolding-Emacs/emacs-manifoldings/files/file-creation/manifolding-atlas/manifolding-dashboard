@@ -11,11 +11,12 @@
 :CATEGORY: ui
 :END:
 
-Dashboard is VENDORED — no ~:PACKAGE:/~:STRAIGHT:~ here.  Upstream
-code is decomposed into small src blocks below (one concern each);
+Dashboard is VENDORED — no ~:PACKAGE:/~:STRAIGHT:~ here, and no
+straight dashboard checkout anymore.  Upstream code is decomposed
+into small src blocks below (one concern each);
 everything from *Configuration* onward is local and free to reshape.
-To take an upstream update, diff straight/repos/dashboard against
-these blocks.
+To take an upstream update, fetch emacs-dashboard/dashboard
+upstream and diff against these blocks.
 
 * Dashboard Widgets (upstream)
 
@@ -269,9 +270,9 @@ nerd-icons or (all-the-icons-faicon \"newspaper-o\") using all-the-icons."
 ** Banner constants
 #+begin_src emacs-lisp
 (defconst dashboard-banners-directory
-  ;; Vendored: locate-library can no longer find us — keep pointing
-  ;; at the original straight checkout so numbered/image banners work.
-  (expand-file-name "straight/repos/dashboard/banners/"
+  ;; Vendored: locate-library can no longer find us, and the straight
+  ;; dashboard checkout is gone — banners live under .local/share.
+  (expand-file-name ".local/share/dashboard/banners/"
                     user-emacs-directory)
   "Default banner directory.")
 
