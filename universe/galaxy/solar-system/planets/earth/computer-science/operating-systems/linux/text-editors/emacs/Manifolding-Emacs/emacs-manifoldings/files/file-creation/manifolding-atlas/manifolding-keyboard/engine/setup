@@ -56,10 +56,6 @@ dired beats it too. Everything else follows, newest first.")
 (add-hook 'view-mode-hook  (lambda () (manifolding-keyboard-set-state "motion")))
 (add-hook 'magit-mode-hook (lambda () (manifolding-keyboard-set-state "magit")))
 #+end_src
-** Modeline
-#+begin_src emacs-lisp
-(add-hook 'manifolding-keyboard-state-change-hook #'doom-modeline-refresh-bars)
-#+end_src
 ** Activate
 #+begin_src emacs-lisp
 (setq echo-keystrokes 0)
