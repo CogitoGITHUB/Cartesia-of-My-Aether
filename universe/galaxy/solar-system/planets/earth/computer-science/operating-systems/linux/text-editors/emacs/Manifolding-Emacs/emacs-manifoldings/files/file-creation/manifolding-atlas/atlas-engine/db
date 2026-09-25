@@ -142,6 +142,28 @@ signals — infrastructure state must be reportable, not exceptional."
     (setq my/manifolding-atlas--wormhole-links-table-ready t))
   manifolding-atlas-db--connection)
 
+;; Wire-format law: TEXT cells hold raw human strings (titles with `#',
+;; spaces, punctuation), NOT Elisp-readable s-expressions. Compound
+;; cells (unfoldings/tags) are `prin1-to-string' output, parsed back by
+;; row readers (`my/manifolding-atlas--row-to-note' `read's them).
+;; Upstream `emacsql-sqlite-read-column' runs the Elisp reader over
+;; every TEXT cell, so a title like "NERD-ICONS — ... #emacs-package"
+;; signals (invalid-read-syntax "#e"), surfaced as (emacsql-error "#e")
+;; on any SELECT * ; and any multi-token title silently splices extra
+;; objects into the row via mapcan, shifting every positional reader
+;; (`row-to-note' :path/:level/:pos all land wrong, no error).
+;; Bypass the reader: every non-empty TEXT cell arrives as the stored
+;; string. Integers/nil keep their upstream branches (numberp/null),
+;; so count(*)/empty cells are unaffected.
+(defun my/manifolding-atlas--read-column-raw (string)
+  "Return STRING as a single-column value, bypassing the Elisp reader.
+Wire-format law above: TEXT cells are raw strings."
+  (list string))
+
+(with-eval-after-load 'emacsql-sqlite
+  (advice-add 'emacsql-sqlite-read-column :override
+              #'my/manifolding-atlas--read-column-raw))
+
 ;; Missing core shims — extractor/parse-ctx structs, notes table, and workers
 ;; These are normally provided by the external `manifolding-atlas' package;
 ;; when that package is absent (as in this Termux checkout) we provide
@@ -190,7 +212,8 @@ signals — infrastructure state must be reportable, not exceptional."
     (let ((v (if (vectorp row) (append row nil) row)))
       (list :id (nth 0 v) :title (nth 1 v) :path (nth 2 v)
             :level (or (nth 3 v) 0) :pos (or (nth 4 v) 1)
-            :unfoldings (ignore-errors (read (nth 5 v))) :tags (ignore-errors (read (nth 6 v)))
+            :unfoldings (let ((s (nth 5 v))) (and (stringp s) (ignore-errors (read s))))
+            :tags (let ((s (nth 6 v))) (and (stringp s) (ignore-errors (read s))))
             :aliases nil :primary-title nil :meta nil))))
 
 (defun my/manifolding-atlas--ensure-links-table ()
@@ -382,7 +405,11 @@ is applied, so callers never see stale/deleted entries."
 (defun manifolding-atlas-db-query-by-ids (ids)
   (let ((db (manifolding-atlas-db)))
     (if (and db ids)
-        (mapcar #'my/manifolding-atlas--row-to-note (emacsql db [:select * :from notes :where (in id $v1)] (vconcat ids)))
+        ;; $v1 vector elements are prin1-encoded: raw strings gain Elisp
+        ;; quotes ('"uuid"') and never match stored raw text. Symbols
+        ;; prin1 bare, so intern string ids (UUID-safe: ids never hold
+        ;; spaces/quotes) to keep the single IN query.
+        (mapcar #'my/manifolding-atlas--row-to-note (emacsql db [:select * :from notes :where (in id $v1)] (vconcat (mapcar #'intern ids))))
       ;; Fallback: scan vault and filter by ids
       (when ids
         (seq-filter (lambda (n) (member (manifolding-atlas-note-id n) ids))
@@ -408,7 +435,8 @@ is applied, so callers never see stale/deleted entries."
 (defun manifolding-atlas-db-query-by-links-some (links)
   (let ((db (manifolding-atlas-db)))
     (if db
-        (emacsql db [:select * :from links :where (in source $v1)] (vconcat (mapcar #'car links)))
+        ;; Same $v1 prin1 rule as query-by-ids above: intern source ids.
+        (emacsql db [:select * :from links :where (in source $v1)] (vconcat (mapcar (lambda (l) (intern (car l))) links)))
       ;; Fallback: links require DB, vault scan has no link index
       (progn
         (message "manifolding-atlas-db-query-by-links-some: DB unavailable, links not indexed")
