@@ -1,0 +1,82 @@
+#+title:      Manifolding Dashboard — Setup
+#+filetags:   :emacs-package:ui:
+#+property:   header-args:emacs-lisp :lexical t
+
+* Dashboard Setup :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       797e199d-e94f-4e23-b316-d07a0694270f
+:MM_PARENT: none
+:MM_ORDER:  78.9
+:END:
+:CATEGORY: ui
+
+Wires last: composes the section order from the widget registry,
+then hooks, keys, recentf, startup. Loads after every widgets/ file
+so the registry is full.
+
+** Section order
+#+begin_src emacs-lisp
+(defvar manifolding-dashboard--wanted-items
+  '((manifold-clock . 1) (manifold-commands . 1)
+    (recents . 10) (bookmarks . 10) (registers . 10) (projects . 10)
+    (manifold-status . 1) (manifold-todos . 1) (manifold-sartre . 1))
+  "Dashboard section order. manifold-* entries resolve through the
+widget registry (a deleted widgets/ file is skipped, never an
+error); stock entries resolve through upstream generators. Adding a
+widget means one DSL file plus one line here — the single manual
+step, same rule as the keyboard leader map.")
+
+(setq dashboard-items
+      (let (out)
+        (dolist (pair manifolding-dashboard--wanted-items (nreverse out))
+          (when (assq (car pair) dashboard-item-generators)
+            (push pair out)))))
+#+end_src
+
+#+begin_src emacs-lisp
+(add-hook 'dashboard-mode-hook
+          (lambda ()
+            (setq-local mode-line-format nil)
+            ;; Let Olivetti handle centering — wide enough to not mangle the ASCII banner
+            (when (fboundp 'olivetti-mode)
+              (setq-local olivetti-body-width 120)
+              (olivetti-mode 1))
+            (local-set-key (kbd "r") #'dashboard-jump-to-recents)
+            (local-set-key (kbd "m") #'dashboard-jump-to-bookmarks)
+            (local-set-key (kbd "e") #'dashboard-jump-to-registers)
+            (local-set-key (kbd "p") #'dashboard-jump-to-projects)
+            (local-set-key (kbd "a") #'org-agenda)
+            (local-set-key (kbd "g") #'consult-register)
+            (local-set-key (kbd "c") (lambda () (interactive) (dashboard-jump-to-item 'manifold-commands)))
+            (local-set-key (kbd "q") (lambda () (interactive) (save-buffers-kill-terminal)))
+            (local-set-key (kbd "d") (lambda () (interactive) (dired "~")))))
+#+end_src
+
+** Recentf wiring
+#+begin_src emacs-lisp
+;; Ensure recentf is active so dashboard recents are always fresh
+(recentf-mode +1)
+(setq recentf-max-saved-items 100)
+;; Save recentf list every 5 minutes in case of crash
+(run-at-time nil (* 5 60) 'recentf-save-list)
+
+;; Refresh dashboard recents after every super-save
+(add-hook 'after-save-hook
+          (lambda ()
+            (when (and (fboundp 'recentf-add-file)
+                       buffer-file-name)
+              (recentf-add-file buffer-file-name))
+            (when (and (get-buffer-window "*dashboard*")
+                       (not (active-minibuffer-window))
+                       (not (cl-some (lambda (b) (buffer-local-value 'org-capture-mode b))
+                                     (buffer-list))))
+              (with-current-buffer "*dashboard*"
+                (dashboard-refresh-buffer)))))
+#+end_src
+
+#+begin_src emacs-lisp
+;; Only show dashboard on startup when no files were passed as arguments
+(when (and (not (daemonp))
+           (= 0 (length command-line-args-left)))
+  (dashboard-setup-startup-hook))
+#+end_src

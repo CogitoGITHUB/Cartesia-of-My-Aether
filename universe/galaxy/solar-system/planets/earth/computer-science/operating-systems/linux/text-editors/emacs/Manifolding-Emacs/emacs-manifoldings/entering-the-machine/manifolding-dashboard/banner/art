@@ -1,0 +1,35 @@
+#+title:      Manifold Banner Art
+#+filetags:   :emacs-package:ui:
+#+property:   header-args:emacs-lisp :lexical t
+
+* Manifold Banner Art :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       addbea6c-e0f3-41dd-842a-2743ee1f0e0d
+:MM_PARENT: none
+:MM_ORDER:  78.8
+:END:
+:CATEGORY: ui
+
+The rose MANIFOLD ascii banner plus banner selection. Edit freely.
+
+** Banner — vendored rose MANIFOLD art
+Lives here as a variable; no external banner file needed.
+#+begin_src emacs-lisp
+(defvar manifold/banner-text
+  "🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹
+🌹                                                                      🌹
+🌹  ███╗   ███╗ █████╗ ███╗   ██╗██╗███████╗ ██████╗ ██╗     ██████╗    🌹
+🌹  ████╗ ████║██╔══██╗████╗  ██║██║██╔════╝██╔═══██╗██║     ██╔══██╗   🌹
+🌹  ██╔████╔██║███████║██╔██╗ ██║██║█████╗  ██║   ██║██║     ██║  ██║   🌹
+🌹  ██║╚██╔╝██║██╔══██║██║╚██╗██║██║██╔══╝  ██║   ██║██║     ██║  ██║   🌹
+🌹  ██║ ╚═╝ ██║██║  ██║██║ ╚████║██║██║     ╚██████╔╝███████╗██████╔╝   🌹
+🌹  ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝      ╚═════╝ ╚══════╝╚═════╝    🌹
+🌹                                                                      🌹
+🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹"
+  "The rose MANIFOLD banner.")
+#+end_src
+
+#+begin_src emacs-lisp
+(setq dashboard-banner-ascii manifold/banner-text)
+(setq dashboard-startup-banner 'ascii)
+#+end_src
