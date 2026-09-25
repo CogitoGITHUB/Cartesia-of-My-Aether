@@ -44,8 +44,8 @@ entry, and a registry push."
          ,@(and doc (list doc))
          ,@gen)
        (add-to-list 'dashboard-item-generators ',(cons key fn))
-       (unless (memq ',key manifolding-dashboard--widget-registry)
-         (push ',key manifolding-dashboard--widget-registry)))))
+       (unless (assq ',key manifolding-dashboard--widget-registry)
+         (push ',(cons key len) manifolding-dashboard--widget-registry)))))
 #+end_src
 
 ** Skeleton writer
@@ -84,16 +84,16 @@ line in engine/setup. Errors loudly when the file already exists."
 validator: generator defined? item-generators entry present? wanted
 entries resolvable? Returns problems (empty means clean)."
   (let (problems)
-    (dolist (key manifolding-dashboard--widget-registry)
-      (let ((fn (cdr (assq key dashboard-item-generators))))
+    (dolist (pair manifolding-dashboard--widget-registry)
+      (let* ((key (car pair))
+             (fn (cdr (assq key dashboard-item-generators))))
         (unless (and fn (fboundp fn))
           (push (format "widget %s: generator %s missing" key fn) problems))))
-    (dolist (pair manifolding-dashboard--wanted-items)
-      (let ((name (car pair)))
-        (when (and (string-prefix-p "manifold-" (format "%s" name))
-                   (not (memq name manifolding-dashboard--widget-registry))
-                   (not (cdr (assq name dashboard-item-generators))))
-          (push (format "wanted %s: no widget file registers it" name) problems))))
+    (dolist (name (manifolding-dashboard--order-file-keys))
+      (when (and (string-prefix-p "manifold-" (format "%s" name))
+                 (not (assq name manifolding-dashboard--widget-registry))
+                 (not (cdr (assq name dashboard-item-generators))))
+        (push (format "order file %s: no widget file registers it" name) problems)))
     (when problems
       (message "manifolding-dashboard: %d problem(s): %s"
                (length problems) (mapconcat #'identity problems "; ")))

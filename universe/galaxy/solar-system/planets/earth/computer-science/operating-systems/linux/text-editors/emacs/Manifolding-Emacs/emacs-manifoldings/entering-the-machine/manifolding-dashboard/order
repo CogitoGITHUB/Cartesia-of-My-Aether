@@ -1,0 +1,17 @@
+* Dashboard Section Order
+
+Top to bottom is the dashboard section order. Move a heading and save:
+the dashboard recomposes on save. Add a widget file and it appends
+here on the next boot; delete one and its heading prunes. The banner
+is structural and always renders first — it never belongs here.
+Stock sections are never pruned.
+
+** manifold-clock
+** manifold-commands
+** recents
+** bookmarks
+** registers
+** projects
+** manifold-status
+** manifold-todos
+** manifold-sartre
