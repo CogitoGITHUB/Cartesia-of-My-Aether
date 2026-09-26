@@ -375,8 +375,14 @@ live in the vault.
             (lambda () (setq manifolding-emacs--boot-warnings '())))
 (advice-add 'display-warning :before
             (lambda (type message &rest _)
-              (push (list :type type :message message)
-                    manifolding-emacs--boot-warnings)))
+              ;; Single recorder for the whole boot (the loader no
+              ;; longer double-captures): routes through record-warning
+              ;; for file attribution when the loader is up, plain push
+              ;; before it exists.
+              (if (fboundp 'manifolding-emacs-record-warning)
+                  (manifolding-emacs-record-warning type message)
+                (push (list :type type :message message)
+                      manifolding-emacs--boot-warnings))))
 
 (setq manifolding-emacs-package-method 'leaf
       manifolding-emacs-org-directory
