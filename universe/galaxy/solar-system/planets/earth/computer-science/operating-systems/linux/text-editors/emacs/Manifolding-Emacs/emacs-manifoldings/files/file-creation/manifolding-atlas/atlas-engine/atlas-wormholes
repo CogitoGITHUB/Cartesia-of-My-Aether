@@ -9,7 +9,6 @@ dependency are embedded below as loader-managed source (no straight).
 The RET / mouse-2 keymap lives on the wormhole overlay's `keymap'
 property so it wins over org-mindmap-mode's minor-mode map.
 #+begin_src emacs-lisp
-(setq atlas-wormholes-extensions nil)
 (defvar atlas-wormholes-indent-mode nil)
 #+end_src
 * Vendored wormhole-clone engine :EMACS_MECHANISM:
@@ -437,7 +436,8 @@ formated.
 
 Change it to nil if indentention is not wormholed correctly from the
 program source, especially for the languages where indentation is
-significant such as Python and YAML.")
+significant such as Python and YAML."
+  :type 'boolean)
 
 ;;;; Faces
 
@@ -1498,12 +1498,12 @@ keyword.  If not, returns nil."
             (when level (if (and (stringp level) (string= level "auto"))
                             " :level "
                           (format " :level %d" level)))
-            (when disable-auto (format " :disable-auto"))
-            (when only-contents (format " :only-contents"))
+            (when disable-auto " :disable-auto")
+            (when only-contents " :only-contents")
             (when exclude-elements (format " :exclude-elements \"%s\""
                                            exclude-elements))
-            (when expand-links (format " :expand-links"))
-            (when no-first-heading (format " :no-first-heading"))
+            (when expand-links " :expand-links")
+            (when no-first-heading " :no-first-heading")
             custom-properties-string
             "\n")))
 
