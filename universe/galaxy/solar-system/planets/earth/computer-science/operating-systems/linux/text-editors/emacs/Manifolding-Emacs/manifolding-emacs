@@ -1683,6 +1683,11 @@ failing code so you never have to guess."
   "Bump to invalidate every cached module after loader changes.
 5: per-unit .elc pipeline (compiled loads replace interpreted eval).")
 
+(defvar my/loader-strict-p nil
+  "When non-nil, per-unit eval errors re-signal instead of logging.
+Set via --eval before init loads for strict test boots. Default nil
+keeps log-and-continue fast boots. Read lazily at boot time.")
+
 (defun manifolding-emacs-cache-dir ()
   (expand-file-name "module-cache/"
                     (expand-file-name ".local/cache/" user-emacs-directory)))
@@ -2057,18 +2062,18 @@ next tier, so one bad unit can't break a boot."
                     :message (format "fresh .elc failed to load (%s), eval fallback"
                                      (error-message-string err)))
                    (ignore-errors (delete-file elc))
-                   (manifolding-emacs--eval-parts file parts profile)
+                   (manifolding-emacs--eval-parts file parts profile my/loader-strict-p)
                    (manifolding-emacs--unit-state-write statep 'eval ph)
                    'eval))
               (manifolding-emacs-record-error
                :level 'file :file file
                :message "byte-compile failed, eval fallback")
-              (manifolding-emacs--eval-parts file parts profile)
+              (manifolding-emacs--eval-parts file parts profile my/loader-strict-p)
               (manifolding-emacs--unit-state-write statep 'eval ph)
               'eval))
         (manifolding-emacs-record-error
          :level 'file :file file :message ".el write failed, eval fallback")
-        (manifolding-emacs--eval-parts file parts profile)
+        (manifolding-emacs--eval-parts file parts profile my/loader-strict-p)
         'eval)))))
 
 (defun manifolding-emacs--prune-elc-cache ()
@@ -2216,6 +2221,8 @@ compiled, in completion order."
                (setq void-errors (1+ void-errors)))
               (manifolding-emacs-record-error
                :level 'file :file file :message msg))
+           (when my/loader-strict-p
+             (signal (car err) (cdr err)))
            (push (list (- (float-time) t0) file 'error)
                  manifolding-emacs--unit-times)))))
     (manifolding-emacs--prune-elc-cache)
@@ -2778,7 +2785,11 @@ opens at the end, with or without file arguments.
         (let ((manifolding-emacs--boot-phase :compiling))
            (manifolding-emacs-compile-directory
             #'manifolding-emacs--progress-tick))
-      (error (setq fatal err)))
+      (error (setq fatal err)
+             ;; Strict mode must abort with a backtrace, not melt into
+             ;; `fatal': re-signal after recording state.
+             (when my/loader-strict-p
+               (signal (car err) (cdr err)))))
     (manifolding-emacs-errors-save-log)
     (unless fatal
       (manifolding-emacs-maybe-freeze-on-clean-boot)
