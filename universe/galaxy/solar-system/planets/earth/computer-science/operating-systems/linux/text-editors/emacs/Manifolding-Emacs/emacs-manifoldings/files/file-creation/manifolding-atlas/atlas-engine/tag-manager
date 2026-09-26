@@ -161,7 +161,7 @@ NEW-TEXT-FN takes the replacement tag and returns the new line text."
                                          (concat "\\1#" new "\\2"))
                                        line)))
                               out)))))))
-                (forward-line 1)))))))
+                (forward-line 1))))))
     (nreverse out)))
 
 (defun my/atlas-tag-apply (occurrences new)
