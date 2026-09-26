@@ -86,16 +86,16 @@ directly (timing-proof: register-all runs post-boot, setup at load)."
               (want (manifolding-dashboard--blueprint-key name)))
     (catch 'found
       (dolist (f (directory-files ddir t "^[^.]"))
-        (when (and (file-regular-p f)
-                   (with-temp-buffer
-                     (insert-file-contents f)
-                     (goto-char (point-min))
-                     (and (re-search-forward
-                           (format "^\\* %s[ \t]" want) nil t)
-                          (let ((lim (save-excursion (forward-line 20) (point))))
-                            (re-search-forward
-                             "^[ \t]*:LENGTH:[ \t]*\\([0-9]+\\)" lim t))))))
-          (throw 'found (string-to-number (match-string 1))))
+        (and (file-regular-p f)
+             (with-temp-buffer
+               (insert-file-contents f)
+               (goto-char (point-min))
+               (and (re-search-forward
+                     (format "^\\* %s[ \t]" want) nil t)
+                    (let ((lim (save-excursion (forward-line 20) (point))))
+                      (re-search-forward
+                       "^[ \t]*:LENGTH:[ \t]*\\([0-9]+\\)" lim t))))
+             (throw 'found (string-to-number (match-string 1)))))
       nil)))
 
 (defun manifolding-dashboard--entry-length (name)
