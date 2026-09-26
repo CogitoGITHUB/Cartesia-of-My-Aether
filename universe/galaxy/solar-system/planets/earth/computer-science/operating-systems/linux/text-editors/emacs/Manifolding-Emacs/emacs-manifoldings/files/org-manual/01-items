@@ -731,7 +731,7 @@ You may define the allowed values for a particular property ‘Xyz’ by setting
   ,#+PROPERTY: var+ bar=2
   It is also possible to add to the values of inherited properties. The following results in the ‘Genres’ property having the value ‘Classic Baroque’ under the ‘Goldberg Variations’ subtree.
 
-  ,#+begin_src org
+  #+begin_src org
 
 
   # * CD collection

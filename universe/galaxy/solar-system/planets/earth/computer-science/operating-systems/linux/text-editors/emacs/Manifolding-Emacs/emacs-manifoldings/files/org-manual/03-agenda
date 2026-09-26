@@ -783,7 +783,7 @@ After that, everything happens automatically. All diary entries including holida
 
 If you are using the diary only for expression entries and holidays, it is faster to not use the above setting, but instead to copy or even move the entries into an Org file. Org mode evaluates diary-style expression entries, and does it faster because there is no overhead for first creating the diary display. Note that the expression entries must start at the left margin, no whitespace is allowed before them, as seen in the following segment of an Org file:94
 
-#+begin_src
+#+begin_src org
 
 # * Holidays
 #   :PROPERTIES:
@@ -803,7 +803,7 @@ If you are using the diary only for expression entries and holidays, it is faste
 Anniversaries from BBDB
 If you are using the Insidious Big Brother Database to store your contacts, you very likely prefer to store anniversaries in BBDB rather than in a separate Org or diary file. Org supports this and can show BBDB anniversaries as part of the agenda. All you need to do is to add the following to one of your agenda files:
 
-#+begin_src
+#+begin_src org
 
 # * Anniversaries
 #   :PROPERTIES:
@@ -823,7 +823,7 @@ After a change to BBDB, or for the first agenda display during an Emacs session,
 
 If you would like to see upcoming anniversaries with a bit of forewarning, you can use the following instead:
 
-#+begin_src
+#+begin_src org
 
 # * Anniversaries
 #   :PROPERTIES:

@@ -951,7 +951,7 @@ Org Beamer mode provides this key for quicker selections in Beamer normal enviro
 **** A Beamer example
 
 Here is an example of an Org document ready for Beamer export.
-#+begin_src
+#+begin_src org
 
 # #+TITLE: Example Presentation
 # #+AUTHOR: Carsten Dominik

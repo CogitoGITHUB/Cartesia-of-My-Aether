@@ -2398,7 +2398,23 @@ compiled, in completion order."
          (paren-errors 0) (void-errors 0))
     ;; Discovery is done: the unit loop below is compilation.
     (setq manifolding-emacs--boot-phase :compiling)
-    (dolist (u units)
+    ;; Position of the last dashboard-group unit: the dashboard opens
+    ;; only past it (full render, never staged).
+    (setq manifolding-emacs--dashboard-complete-at
+          (let ((i 0) (last nil))
+            (dolist (u units)
+              (setq i (1+ i))
+              (when (string-match-p "manifolding-dashboard/"
+                                    (or (plist-get u :file) ""))
+                (setq last i)))
+            last))
+    ;; *Warnings* must not steal the dashboard frame mid-loop: bury it
+    ;; until the loop is done. Real problems still pop at the sweep
+    ;; (after the loop) and stay listed for the Errors button.
+    (let ((display-buffer-alist
+           (cons '("\\*Warnings\\*" display-buffer-no-window)
+                 display-buffer-alist)))
+     (dolist (u units)
       (let ((file (plist-get u :file))
             (t0 (float-time))
             ;; Active-development units skip every cache: fresh parse
@@ -2445,9 +2461,9 @@ compiled, in completion order."
                :level 'file :file file :message msg))
            (when my/loader-strict-p
              (signal (car err) (cdr err)))
-           (push (list (- (float-time) t0) file 'error)
-                 manifolding-emacs--unit-times)))))
-    (manifolding-emacs--prune-elc-cache)
+            (push (list (- (float-time) t0) file 'error)
+                  manifolding-emacs--unit-times))))))
+     (manifolding-emacs--prune-elc-cache)
     (when-let ((log (get-buffer "*Compile-Log*")))
       ;; One pointer, not 280 popups: warnings live in the log buffer.
       (manifolding-emacs-record-error
@@ -2732,12 +2748,23 @@ compilation."
             (plist-put manifolding-emacs--progress-state :last-status status)
             (message "%s" (manifolding-emacs--progress-line
                            current total file status))
-            (when (and manifolding-emacs--booting
-                       (not manifolding-emacs--dashboard-progress-opened)
-                       (fboundp 'dashboard-open)
-                       (featurep 'dashboard))
-              (setq manifolding-emacs--dashboard-progress-opened t)
-              (condition-case nil (dashboard-open) (error nil)))
+             (when (and manifolding-emacs--booting
+                        (not manifolding-emacs--dashboard-progress-opened)
+                        (or (null manifolding-emacs--dashboard-complete-at)
+                            (>= current
+                                manifolding-emacs--dashboard-complete-at))
+                        (fboundp 'dashboard-open)
+                        (featurep 'dashboard))
+               (setq manifolding-emacs--dashboard-progress-opened t)
+               (condition-case nil
+                   (progn
+                     (dashboard-open)
+                     ;; Fullscreen first: the dashboard owns the frame
+                     ;; while units load behind it.
+                     (when-let ((win (get-buffer-window "*dashboard*" t)))
+                       (select-window win)
+                       (delete-other-windows win)))
+                 (error nil)))
             (redisplay t))))
     (error nil)))
 #+end_src
@@ -3069,16 +3096,72 @@ opens at the end, with or without file arguments.
                          (when (get-buffer "*dashboard*")
                            (condition-case nil
                                (dashboard-refresh-buffer)
-                             (error nil))))))
+                             (error nil))))
+                ;; Land fullscreen on the dashboard; surface *Warnings*
+                ;; only when errors were actually recorded.
+                (condition-case nil
+                    (progn
+                      (when-let ((win (get-buffer-window "*dashboard*" t)))
+                        (select-window win)
+                        (delete-other-windows win))
+                      (when (and (> (length (manifolding-emacs-errors-list)) 0)
+                                 (get-buffer "*Warnings*"))
+                        (display-buffer "*Warnings*")))
+                  (error nil)))
             (message "manifolding-emacs: dashboard unavailable — see *Messages*"))
         (error
          (message "manifolding-emacs: dashboard error %s — see *Messages*"
-                  (error-message-string dash-err))))))
+                  (error-message-string dash-err))))
+      ;; Done: say so in the echo area (minibuffer), last of all.
+      (message "Manifolding-Emacs: unfoldings complete — %d units, %d error(s), %d warning(s)%s"
+               (length manifolding-emacs--unit-times)
+               (length (manifolding-emacs-errors-list))
+               (length (manifolding-emacs-warnings-list))
+               (if fatal " (BOOT THREW — see *Warnings*)" "")))))
 #+end_src
 
 ** Entry — provide
 #+begin_src emacs-lisp
 (provide 'manifolding-emacs)
+#+end_src
+
+** Self-check — the loader scans itself
+A broken tangle once shipped a balanced-but-incomplete loader (the
+whole Errors-recording block silently dropped): every boot then died
+void on its first record call, with zero recorded errors. This runs
+at load, after every definition, and shouts when the artifact is
+incomplete. Costs nothing (fboundp checks only, builtins only, never
+throws), so it stays on every boot. Paren balance needs no check
+here: an unbalanced artifact already fails `load' loudly with the
+file name attached.
+#+begin_src emacs-lisp
+(defun manifolding-emacs--self-check ()
+  "Verify the loaded artifact defines its own load-bearing functions.
+Catches silent tangle drops. Uses only builtins so it works even
+when half the loader is missing. Never throws."
+  (condition-case nil
+      (let ((missing (cl-remove-if #'fboundp
+                                   '(manifolding-emacs-record-error
+                                     manifolding-emacs-record-warning
+                                     manifolding-emacs-record-status
+                                     manifolding-emacs--collect-units
+                                     manifolding-emacs--ordered-units
+                                     manifolding-emacs--compile-unit-parts
+                                     manifolding-emacs--check-unit-parens
+                                     manifolding-emacs--org-nesting-problems
+                                     manifolding-emacs--unit-load
+                                     manifolding-emacs-compile-directory
+                                     manifolding-emacs--progress-tick
+                                     manifolding-emacs-boot
+                                     manifolding-emacs-verify-cache))))
+        (when missing
+          (let ((msg (format "manifolding-emacs: LOADER INCOMPLETE — missing: %s (re-tangle manifolding-emacs in org-mode)"
+                             (mapconcat #'symbol-name missing " "))))
+            (message "%s" msg)
+            (display-warning 'manifolding-emacs msg :error))))
+    (error nil)))
+
+(manifolding-emacs--self-check)
 #+end_src
 
 
