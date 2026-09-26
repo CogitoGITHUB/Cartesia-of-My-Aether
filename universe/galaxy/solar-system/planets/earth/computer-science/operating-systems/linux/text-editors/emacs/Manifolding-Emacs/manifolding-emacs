@@ -3093,10 +3093,18 @@ opens at the end, with or without file arguments.
                 (dashboard-open)
                 (run-with-idle-timer
                  5 nil (lambda ()
-                         (when (get-buffer "*dashboard*")
-                           (condition-case nil
-                               (dashboard-refresh-buffer)
-                             (error nil))))
+                         ;; Never refresh mid-boot (units still load
+                         ;; behind the dashboard) and never let a
+                         ;; refresh error near the debugger: a 5s
+                         ;; timer firing mid-loop once froze a boot.
+                         (let ((debug-on-error nil)
+                               (debug-on-quit nil))
+                           (when (and (get-buffer "*dashboard*")
+                                      (not (and (boundp 'manifolding-emacs--booting)
+                                                manifolding-emacs--booting)))
+                             (condition-case nil
+                                 (dashboard-refresh-buffer)
+                               (error nil))))))
                 ;; Land fullscreen on the dashboard; surface *Warnings*
                 ;; only when errors were actually recorded.
                 (condition-case nil
@@ -3117,7 +3125,7 @@ opens at the end, with or without file arguments.
                (length manifolding-emacs--unit-times)
                (length (manifolding-emacs-errors-list))
                (length (manifolding-emacs-warnings-list))
-               (if fatal " (BOOT THREW — see *Warnings*)" "")))))
+               (if fatal " (BOOT THREW — see *Warnings*)" ""))))
 #+end_src
 
 ** Entry — provide
