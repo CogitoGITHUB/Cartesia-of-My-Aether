@@ -1,5 +1,3 @@
-#+title: Atlas Wormholes
-
 Use [[id:UUID][TITLE]] links. Safe because org-agenda-files is
 scoped to the notes directory only (see Notes Directory above),
 so org-id-find never scans straight build symlinks.

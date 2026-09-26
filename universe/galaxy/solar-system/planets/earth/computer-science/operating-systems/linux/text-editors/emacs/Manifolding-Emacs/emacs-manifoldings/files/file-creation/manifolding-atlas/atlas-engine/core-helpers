@@ -1,5 +1,3 @@
-#+title: Manifolding Atlas — Core Helpers
-
 Shared utility functions used across multiple domains.
 
 * Buffer Note Helper :EMACS_MECHANISM:

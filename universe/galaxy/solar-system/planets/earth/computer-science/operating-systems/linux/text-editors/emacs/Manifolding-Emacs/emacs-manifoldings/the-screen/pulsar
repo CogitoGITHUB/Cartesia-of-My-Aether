@@ -60,9 +60,9 @@ A convenience function can also be used ([[#h:6ca69953-1a89-4968-a46c-2fa5e57aca
 idea is to apply a different color than the one applied by default.
 For example:
 
-+begin_src emacs-lisp
+#+begin_src emacs-lisp :tangle no
 (add-hook 'minibuffer-setup-hook #'pulsar-pulse-line-blue)
-+end_src
+#+end_src
 
 ** Overview
 

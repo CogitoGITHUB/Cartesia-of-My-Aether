@@ -1,14 +1,10 @@
-#+title:      Manifolding Dashboard — Upstream Widgets
-#+filetags:   :emacs-package:ui:
-#+property:   header-args:emacs-lisp :lexical t
-
 * Dashboard Upstream Widgets :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       6984212e-fcea-4fd3-87e4-394b91b50247
 :MM_PARENT: none
 :MM_ORDER:  78.0
-:END:
 :CATEGORY: ui
+:END:
 
 Vendored emacs-dashboard 1.9.0-SNAPSHOT framework: requires, customization, banner engine, section macros, stock widgets. Src blocks byte-identical to upstream — never edit here except by upstream diff; local config lives in engine/, widgets/, banner/, faces/.
 
@@ -332,9 +328,12 @@ if `dashboard-startup-banner' is set to `ascii'."
                    (my/manifolding-atlas-root-dir)
                  "~/test/")))))
          (nil "  Status" "Show load status (C-c l s)"
-          (lambda (&rest _) (literate-config-status)))
+          (lambda (&rest _) (manifolding-emacs-doctor)))
          (nil "  Errors" "Show load errors (C-c l e)"
-          (lambda (&rest _) (literate-config-errors)))
+          (lambda (&rest _)
+            (if (get-buffer "*Warnings*")
+                (display-buffer "*Warnings*")
+              (manifolding-emacs-doctor))))
          (nil "  Scratch" "Go to scratch buffer"
           (lambda (&rest _) (switch-to-buffer "*scratch*")))))
   "Navigator buttons shown under the banner."

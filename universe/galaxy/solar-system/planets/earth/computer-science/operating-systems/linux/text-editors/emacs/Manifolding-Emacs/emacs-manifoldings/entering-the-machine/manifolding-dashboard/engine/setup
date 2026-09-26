@@ -1,14 +1,10 @@
-#+title:      Manifolding Dashboard — Setup
-#+filetags:   :emacs-package:ui:
-#+property:   header-args:emacs-lisp :lexical t
-
 * Dashboard Setup :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       797e199d-e94f-4e23-b316-d07a0694270f
 :MM_PARENT: none
 :MM_ORDER:  78.9
-:END:
 :CATEGORY: ui
+:END:
 
 Wires last: composes the section order from the widget registry,
 then hooks, keys, recentf, startup. Loads after every widgets/ file
@@ -33,21 +29,16 @@ blueprint default key list.")
     (agenda . 5))
   "Upstream sections and their lengths. Never pruned from the order file.")
 
-(defun manifolding-dashboard--dashboard-dir ()
-  "Absolute path of the manifolding-dashboard/ module directory.
-Prefers the loading unit's own file (bound by the loader during
-boot — always correct); falls back to module-dir discovery for
-interactive use (scaffolding runs while visiting dashboard files)."
-  (let ((uf (and (boundp 'manifolding-emacs--current-unit-file)
-                 manifolding-emacs--current-unit-file)))
-    (if (and (stringp uf) (file-exists-p uf))
-        (directory-file-name
-         (expand-file-name ".." (file-name-directory uf)))
-      (manifolding-dashboard--module-dir))))
-
 (defun manifolding-dashboard--order-file ()
-  "Absolute path of the section order file."
-  (expand-file-name "order" (manifolding-dashboard--dashboard-dir)))
+  "Absolute path of the section order file.
+Lives in admin/order/, beside the modeline's, so both bars' layouts are
+in one place. Anchored on the vault root rather than the module
+directory: this file is read and written at runtime (see
+`manifolding-dashboard--reconcile-order-file' and the widget
+scaffolder), and admin/ is excluded from unit discovery, so the loader
+will never compile it — which is what a data file wants."
+  (expand-file-name "admin/order/dashboard widgets"
+                   manifolding-emacs-vault-root))
 
 (defun manifolding-dashboard--order-file-keys ()
   "Item keys top-down from the order file (symbols), or nil when the
@@ -64,45 +55,18 @@ file is missing or holds no headings."
                 (push k keys))))
           (nreverse keys))))))
 
-(defun manifolding-dashboard--blueprints-dir ()
-  "Absolute blueprints/ dir: sibling of heading-unfoldings, found via
-the first drawer key-file (no hardcoded universe path). Nil when
-unresolvable: lengths fall back to registry/stock."
-  (when (and (fboundp 'my/manifolding-atlas-blueprint-key-files)
-             (fboundp 'my/manifolding-atlas-root-dir))
-    (when-let* ((files (my/manifolding-atlas-blueprint-key-files))
-                (anchor (cdr (car files))))
-      (file-name-directory
-       (directory-file-name
-        (file-name-directory anchor))))))
-
-(defun manifolding-dashboard--spec-length-from-file (name)
-  "Display length for widget NAME from its dashboard blueprint file
-drawer (:LENGTH:), or nil when absent/unreadable. Reads the file
-directly (timing-proof: register-all runs post-boot, setup at load)."
-  (when-let* ((dir (manifolding-dashboard--blueprints-dir))
-              (ddir (expand-file-name "dashboard-widgets" dir))
-              ((_ (file-directory-p ddir)))
-              (want (manifolding-dashboard--blueprint-key name)))
-    (catch 'found
-      (dolist (f (directory-files ddir t "^[^.]"))
-        (and (file-regular-p f)
-             (with-temp-buffer
-               (insert-file-contents f)
-               (goto-char (point-min))
-               (and (re-search-forward
-                     (format "^\\* %s[ \t]" want) nil t)
-                    (let ((lim (save-excursion (forward-line 20) (point))))
-                      (re-search-forward
-                       "^[ \t]*:LENGTH:[ \t]*\\([0-9]+\\)" lim t))))
-             (throw 'found (string-to-number (match-string 1)))))
-      nil)))
-
 (defun manifolding-dashboard--entry-length (name)
-  "Length for item NAME: blueprint file first, then registry, then
-stock, else 1."
-  (or (manifolding-dashboard--spec-length-from-file name)
-      (cdr (assq name manifolding-dashboard--widget-registry))
+  "Length for item NAME: the widget registry first, then stock, else 1.
+The registry is authoritative, and it is the widget's own
+`manifolding-dashboard-define-widget' :length — declared in the file that
+renders the section, next to the code that decides how tall it is.
+
+There was a blueprint-file step ahead of this, and it was worse than
+redundant: every widget blueprint declared `:LENGTH: 1` while the
+sections they claimed to measure rendered 2 to 6 lines, and one of them
+(`todos') has no fixed height at all. So the step was both wrong and
+unread, and removing it changed no rendering at all."
+  (or (cdr (assq name manifolding-dashboard--widget-registry))
       (cdr (assq name manifolding-dashboard--stock-items))
       1))
 

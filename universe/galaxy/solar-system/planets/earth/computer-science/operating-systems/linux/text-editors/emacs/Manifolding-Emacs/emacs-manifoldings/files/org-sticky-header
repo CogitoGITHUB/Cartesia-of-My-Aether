@@ -1,6 +1,4 @@
-#+title:      org-sticky-header
 #+identifier: 
-#+filetags:   :emacs-package:org:ui:
 
 * ORG-STICKY-HEADER — Sticky Heading in Header Line #emacs-package :EMACS_MECHANISM:
 :PROPERTIES:

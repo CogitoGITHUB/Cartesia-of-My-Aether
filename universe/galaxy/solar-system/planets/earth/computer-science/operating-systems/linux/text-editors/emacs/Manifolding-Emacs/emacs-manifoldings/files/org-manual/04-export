@@ -1,5 +1,3 @@
-#+title:      Org Export
-
 * Org Export :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       a0a92b30-d8c1-43de-a03e-cab8df3443dd
@@ -2469,7 +2467,6 @@ becomes
 
 Here is a more detailed example Org file. See (texinfo)GNU Sample Texts for an equivalent example using Texinfo code.
 
-#+title:      Emacs manual
 #+SUBTITLE: for version {{{version}}}, {{{updated}}}
 #+AUTHOR: A.U. Thor
 #+EMAIL: bug-sample@gnu.org

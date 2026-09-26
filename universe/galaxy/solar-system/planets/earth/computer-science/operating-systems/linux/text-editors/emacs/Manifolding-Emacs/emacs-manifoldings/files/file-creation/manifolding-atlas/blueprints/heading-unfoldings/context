@@ -1,5 +1,3 @@
-#+title:      Context Prompt
-
 * CONTEXT :inline:file:heading:task:EMACS_MECHANISM::DRAWER_BLUEPRINT:
 :PROPERTIES:
 :ID:       c89c6b85-9bd5-4ddd-80cb-ec79eacccfb8
@@ -7,7 +5,6 @@
 :MM_ORDER:  209.0
 :END:
 ** TODO :BLUEPRINT_BODY:
-** WARNING :BLUEPRINT_BODY:
 ** CAPTURED :BLUEPRINT_BODY:
 ** REFRESHED :BLUEPRINT_BODY:
 ** STALE :BLUEPRINT_BODY:

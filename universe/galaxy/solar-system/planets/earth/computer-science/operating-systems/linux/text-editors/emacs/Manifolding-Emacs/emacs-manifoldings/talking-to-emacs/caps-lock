@@ -1,6 +1,4 @@
-#+title:      caps-lock
 #+identifier: a575d02a-dd67-4077-9b4d-471ba6bc9dcd
-#+filetags:   :emacs-package:convenience:
 
 * caps-lock :EMACS_MECHANISM:
 :PROPERTIES:

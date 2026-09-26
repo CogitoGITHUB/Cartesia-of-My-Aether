@@ -1,6 +1,4 @@
-#+title:      request
 #+identifier: 9a0b1c2d-3e4f-5a6b-7c8d-9e0f1a2b3c4d
-#+filetags:   :emacs-package:http:
 
 * Request — HTTP client library :EMACS_MECHANISM:
 :PROPERTIES:

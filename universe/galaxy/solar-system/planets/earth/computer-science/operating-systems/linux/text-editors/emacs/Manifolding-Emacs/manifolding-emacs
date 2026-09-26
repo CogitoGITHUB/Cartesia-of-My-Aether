@@ -1,5 +1,3 @@
-#+title:      Manifolding Emacs — the literate package manager
-#+filetags:   :emacs-core:boot:
 #+auto_tangle: t
 
 * Manifolding Emacs

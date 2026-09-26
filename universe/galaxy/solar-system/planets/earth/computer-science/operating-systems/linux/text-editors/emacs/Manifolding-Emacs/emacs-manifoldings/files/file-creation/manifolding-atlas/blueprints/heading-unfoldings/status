@@ -1,5 +1,3 @@
-#+title:      Status Prompt
-
 Workflow state for a note's participation in active practice. This is
 deliberately a separate blueprint from STAGE: lifecycle states are not
 mastery states. You can suspend a beginner subject, an expert subject,

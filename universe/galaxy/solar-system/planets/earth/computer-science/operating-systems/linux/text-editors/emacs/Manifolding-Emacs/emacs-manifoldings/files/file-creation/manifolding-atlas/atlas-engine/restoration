@@ -1,5 +1,3 @@
-#+title: Manifolding Atlas Links Plugin
-
 Guards file and heading deletion when incoming or outgoing =id:= links exist.
 Guards deletion of untracked files and missing links.
 Provides restore command via Git history.

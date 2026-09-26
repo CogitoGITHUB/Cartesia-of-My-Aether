@@ -1,5 +1,3 @@
-#+title: Manifolding Keyboard — Universal Bindings
-
 Bindings shared across states (merged define-keys per state-set) plus every shared my/ command. Sources: Meow/Boon/ryo/key-chord/Embark extractions (GPL, same terms as upstream) and original my/ code. Single-state helpers live in their state file, not here.
 
 Filename is load order: zz- sorts last in states/, which this file

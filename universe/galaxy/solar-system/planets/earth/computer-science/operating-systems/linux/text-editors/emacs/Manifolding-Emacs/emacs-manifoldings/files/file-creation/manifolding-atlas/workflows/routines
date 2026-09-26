@@ -1,5 +1,3 @@
-#+title: Manifolding Atlas Routines Plugin
-
 Modular routines system for the atlas, modeled on the mastering plugin.
 A routine is an atlas note tagged =routine= whose child headings are
 routine entries referencing sources via =SOURCE=, =ROUTINE_ID= and

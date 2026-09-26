@@ -1,5 +1,3 @@
-#+title: Manifolding Keyboard — Meow Core
-
 Shared Meow-extracted infrastructure (meow 1.5.0, GPLv3): TUI ESC handling and the atomic-undo macro. Bound commands stay in states/ and call in.
 
 * TUI ESC / Meta disambiguation (Meow-extracted, ~my/esc-mode~) :EMACS_MECHANISM:

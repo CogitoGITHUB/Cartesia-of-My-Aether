@@ -1,5 +1,3 @@
-#+title: Manifolding Atlas — Mind Map
-
 Controller layer for the vault's visual mind map.
 
 Ownership (architectural law — see README): this subsystem owns

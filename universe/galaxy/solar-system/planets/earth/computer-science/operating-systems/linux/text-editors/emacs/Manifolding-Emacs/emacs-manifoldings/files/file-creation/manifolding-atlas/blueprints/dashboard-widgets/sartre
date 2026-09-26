@@ -1,9 +1,0 @@
-#+title:      Sartre Widget Blueprint
-* SARTRE :DASHBOARD_BLUEPRINT:
-:PROPERTIES:
-:ID:       a804cf45-7af3-4068-946f-97a32485eb83
-:LENGTH:    1
-:END:
-
-Random Sartre quote.
-Add ** Variant :BLUEPRINT_BODY: lines to declare display variants.

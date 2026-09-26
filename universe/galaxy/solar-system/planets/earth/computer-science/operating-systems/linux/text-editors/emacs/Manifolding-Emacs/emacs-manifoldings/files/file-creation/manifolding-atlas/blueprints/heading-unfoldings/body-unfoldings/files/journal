@@ -1,5 +1,3 @@
-#+title:      journal
-
 * BODY_JOURNAL :DRAWER_BLUEPRINT:
 
 * Journal :: %U :: %^{Session|Morning|Evening} :: %^{Location|Transit|Base|Unknown} :EMACS_MECHANISM::DRAWER_BLUEPRINT:

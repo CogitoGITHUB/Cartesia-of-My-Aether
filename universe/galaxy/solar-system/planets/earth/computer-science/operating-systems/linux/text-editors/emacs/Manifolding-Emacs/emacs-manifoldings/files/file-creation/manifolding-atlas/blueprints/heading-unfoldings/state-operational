@@ -1,5 +1,3 @@
-#+title:      State Operational Prompt
-
 * STATE_OPERATIONAL :unfolding:file:heading:task:EMACS_MECHANISM::DRAWER_BLUEPRINT:
 :PROPERTIES:
 :ID:       73e076fb-a4c4-4083-b1fe-1bf169fc6654
@@ -9,7 +7,6 @@
 :UNFOLDING: state-operational
 :END:
 ** TODO :BLUEPRINT_BODY:
-** WARNING :BLUEPRINT_BODY:
 ** PLANNED :BLUEPRINT_BODY:
 ** IN_PROGRESS :BLUEPRINT_BODY:
 ** DEPLOYED :BLUEPRINT_BODY:

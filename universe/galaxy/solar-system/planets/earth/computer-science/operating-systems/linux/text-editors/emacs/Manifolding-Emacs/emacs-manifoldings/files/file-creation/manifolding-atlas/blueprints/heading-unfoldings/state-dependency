@@ -1,5 +1,3 @@
-#+title:      State Dependency Prompt
-
 * STATE_DEPENDENCY :unfolding:file:heading:task:EMACS_MECHANISM::DRAWER_BLUEPRINT:
 :PROPERTIES:
 :ID:       7819dec9-1da9-48c9-a358-9ba82a97ff66
@@ -8,6 +6,5 @@
 :UNFOLDING: state-dependency
 :END:
 ** TODO :BLUEPRINT_BODY:
-** WARNING :BLUEPRINT_BODY:
 ** WAITING :BLUEPRINT_BODY:
 ** DELEGATED :BLUEPRINT_BODY:

@@ -1,5 +1,3 @@
-#+title: Manifolding Keyboard — Dev Leader
-
 SPC d: dev tree (literate/debug/config).
 
 * SPC d — Dev :EMACS_MECHANISM:
@@ -26,10 +24,7 @@ SPC d: dev tree (literate/debug/config).
    ("B" bug-hunter-file      "bug hunt file" :exit t)))
 (my/defhydra-state my/literate-config-hydra nil "Dev › Config" (my/literate-hydra/body "dev")
   "Config"
-  (("l" literate-config-load            "load"           :exit t)
-   ("s" literate-config-status          "status"         :exit t)
-   ("e" literate-config-errors          "errors"         :exit t)
-   ("d" (lambda () (interactive) (my/dired-here)) "modules dir"   :exit t)
+  (("d" (lambda () (interactive) (my/dired-here)) "modules dir"   :exit t)
    ("k" (lambda () (interactive) (my/find-file (manifolding-keyboard--module-dir))) "keyboard" :exit t))
   "Manifold"
   (("r" manifolding-emacs-reload        "reload all"     :exit t)

@@ -1,6 +1,3 @@
-#+title:      Org Mode
-#+filetags:   :emacs-package:org:core:
-
 * Org Mode — Built-in Configuration :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       20b7f928-018c-4624-8a35-7baed50b86b6
@@ -10,16 +7,12 @@
 :END:
 
 ** Todo Vocabulary
-Single source is `org-todo-states.org`; this mirrors it. Font-lock is
-refreshed on every Org buffer via hook so load order never matters.
+The TODO vocabulary is NOT set here. `org-todo-states.org` owns it and
+derives `org-todo-keywords' from the Atlas TODO blueprint; editing the
+keyword list here would be silently overwritten. See
+`my/cartesia-todo-states'.
 #+begin_src emacs-lisp
 (setq org-tags-column 0)
-(with-eval-after-load 'org
-  (setq org-todo-keywords
-        '((sequence "TODO" "NEXT" "DOING" "TESTING" "WAIT" "WARNING"
-                    "|"
-                    "DONE" "CANCELLED" "CANCELED"))))
-(add-hook 'org-mode-hook #'org-set-regexps-and-options)
 #+end_src
 
 ** Links

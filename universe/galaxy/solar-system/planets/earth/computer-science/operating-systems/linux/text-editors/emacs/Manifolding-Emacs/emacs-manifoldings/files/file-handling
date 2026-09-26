@@ -3,10 +3,12 @@
 #+manifold-stage: 05-world
 #+manifold-date: 2026-09-15
 
-* File Handling ( Look at shadowing files( its inside saving files !!! )) :EMACS_MECHANISM:
+* File Handling :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       da3dce23-cffe-4d6b-80ac-ad7e4060bb81
 :END:
+
+Look at shadowing files — it's inside saving files.
 
 The operating system stores data permanently in named files, so most of the text you edit with Emacs comes from a file and is ultimately stored in a file.
 

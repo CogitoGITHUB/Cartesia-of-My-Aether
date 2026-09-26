@@ -1,6 +1,4 @@
-#+title:      geoclue
 #+identifier: b8d63b92-06b5-49ef-9c77-a3ce3639dd18
-#+filetags:   :emacs-package:location:
 
 * geoclue :EMACS_MECHANISM:
 :PROPERTIES:

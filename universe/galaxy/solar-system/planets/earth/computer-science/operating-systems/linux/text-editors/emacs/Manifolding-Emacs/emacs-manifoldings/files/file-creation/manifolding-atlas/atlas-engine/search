@@ -1,5 +1,3 @@
-#+title: Atlas Search Todo Plugin
-
 Search TODO/FIXME/BUG/HACK keywords scoped to the atlas only. Vendored
 engine: the consult-todo package is embedded below as loader-managed
 source (no straight) with all symbols renamed `consult-todo-*` →

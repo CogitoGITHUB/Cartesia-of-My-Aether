@@ -1,14 +1,10 @@
-#+title:      Manifold Banner Art
-#+filetags:   :emacs-package:ui:
-#+property:   header-args:emacs-lisp :lexical t
-
 * Manifold Banner Art :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       addbea6c-e0f3-41dd-842a-2743ee1f0e0d
 :MM_PARENT: none
 :MM_ORDER:  78.8
-:END:
 :CATEGORY: ui
+:END:
 
 The rose MANIFOLD ascii banner plus banner selection. Edit freely.
 

@@ -3,7 +3,6 @@
 #+manifold-stage: 02-body
 #+manifold-date: 2026-09-15
 
-#+title:      Window Management
 
 * Window Management :EMACS_MECHANISM:
 :PROPERTIES:

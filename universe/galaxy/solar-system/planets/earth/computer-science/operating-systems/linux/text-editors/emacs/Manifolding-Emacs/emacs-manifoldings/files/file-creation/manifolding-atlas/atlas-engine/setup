@@ -71,10 +71,25 @@ the upward search) once poisoned this cache for the whole session."
 Single function everything asks. Self-locating: renames never break it."
   (my/cartesia-root-dir))
 
+;; Scope the agenda to notes. Excluded:
+;;   /.git/               internals
+;;   /WIP/                raw drift captures, not notes
+;;   /admin/              prompt and commit infrastructure, not notes
+;;   /emacs-manifoldings/ the Emacs config tree itself
+;;
+;; The last is load-bearing, not cosmetic. The Atlas blueprints under
+;; it carry 142 `** STATE :BLUEPRINT_BODY:' headings drawn from ~130
+;; distinct state words (seasons, day-parts, cadences, the mastery
+;; spine) plus every heading of the TODO vocabulary itself. With those
+;; states live as todo keywords — which `org-todo-states' now does —
+;; an unfiltered agenda would list the blueprint definitions as if
+;; they were your work.
 (setq org-agenda-files
       (cl-remove-if
        (lambda (f) (or (string-match-p (regexp-quote "/.git/") f)
-                       (string-match-p "/WIP/" f)))
+                       (string-match-p "/WIP/" f)
+                       (string-match-p "/admin/" f)
+                       (string-match-p "/emacs-manifoldings/" f)))
        (directory-files-recursively (my/manifolding-atlas-root-dir) "[^./]+$")))
 
 (add-to-list 'auto-mode-alist

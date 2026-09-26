@@ -1,5 +1,3 @@
-#+title: Manifolding Keyboard — Org Leader
-
 SPC o: Org tree (org/agenda/tasks/clock/edit/capture/atlas).
 
 * SPC o — Org :EMACS_MECHANISM:

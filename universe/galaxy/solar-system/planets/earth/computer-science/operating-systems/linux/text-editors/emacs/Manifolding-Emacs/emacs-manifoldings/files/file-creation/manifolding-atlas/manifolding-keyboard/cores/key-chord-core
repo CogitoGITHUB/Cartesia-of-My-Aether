@@ -1,5 +1,3 @@
-#+title: Manifolding Keyboard — Key-Chord Core
-
 Chord detection state machine and definition cluster. Bound definers stay in states/; everything here is shared machinery.
 
 * Chord input engine (key-chord-extracted, ~my/chord-input-method~) :EMACS_MECHANISM:

@@ -1,5 +1,3 @@
-#+title: Manifolding Atlas Citation Plugin
-
 Extracts =[@citekey]= citations from notes into a dedicated SQLite table via
 the manifolding-atlas v2 plugin system.  After a full sync, citations are queryable
 across the entire vault without re-parsing any files.

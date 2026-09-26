@@ -1,5 +1,3 @@
-#+title: Manifolding Atlas Protocols Plugin
-
 Turns any heading into a protocol step. Steps are assembled into protocol
 documents via the BUILD command, which uses key selection for
 multi-select and writes live wormhole pointers into topic-indexed

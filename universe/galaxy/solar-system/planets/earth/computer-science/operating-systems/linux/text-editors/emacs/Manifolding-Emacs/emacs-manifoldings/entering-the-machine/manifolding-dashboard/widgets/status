@@ -1,14 +1,10 @@
-#+title:      Manifold Status Widget
-#+filetags:   :emacs-package:ui:
-#+property:   header-args:emacs-lisp :lexical t
-
 * Manifold Status Widget :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       fb239a3d-e3c8-4537-b65a-107f06a2dd44
 :MM_PARENT: none
 :MM_ORDER:  78.6
-:END:
 :CATEGORY: ui
+:END:
 
 The loader's boot stats, as a dashboard section. Reads only from the
 loader's own helper functions (defined in manifolding-emacs.org,

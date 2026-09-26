@@ -24,30 +24,42 @@ edit its level-2 headings directly — save + reload applies.
   :type '(repeat string)
   :group 'manifolding-atlas)
 
+(defconst my/manifolding-atlas--drawer-order-file
+  (expand-file-name "admin/order/headings blueprints drawer"
+                   manifolding-emacs-vault-root)
+  "The drawer-order file, in admin/order/ beside the other two order files.
+
+Stated, not discovered. The search below cannot see admin/ — it walks
+the vault and skips it — so a file living there is unreachable to it, and
+a move that leaves the search untouched is a silent no-op. Data files
+belong in admin/, so the path is named here and the search kept only as a
+fallback for trees that have not moved.")
+
 (defun my/manifolding-atlas-drawer-order-file ()
   "Return the drawer-order file: a tagged file with a level-1
-headline and zero parseable KEYs.  Prefers the candidate that
-actually holds a key list (level-2 headings); template files share
-the first two properties but carry prose sections instead.  Falls
-back to the first candidate (old behavior) when none has keys.
-No path anywhere."
-  (catch 'found
-    (let (first)
-      (dolist (f (mapcar #'cdr (my/manifolding-atlas-blueprint-key-files)))
-        (with-temp-buffer
-          (ignore-errors (insert-file-contents f))
-          (goto-char (point-min))
-          (when (and (re-search-forward "^\\* " nil t)
-                     (not (re-search-forward
-                           "^\\* [A-Z][A-Z0-9_]*\\([ \t]+:[A-Za-z0-9_:@]+:\\)?[ \t]*$"
-                           nil t)))
-            (unless first (setq first f))
-            (when (save-excursion
-                    (goto-char (point-min))
-                    (re-search-forward "^\\*\\*+ " nil t))
-              (throw 'found f)))))
-      (when first (throw 'found first))
-      nil)))
+headline and zero parseable KEYs.  Prefers the named file, then the
+candidate that actually holds a key list (level-2 headings); template
+files share the first two properties but carry prose sections instead.
+Falls back to the first candidate when none has keys."
+  (if (file-exists-p my/manifolding-atlas--drawer-order-file)
+      my/manifolding-atlas--drawer-order-file
+    (catch 'found
+      (let (first)
+        (dolist (f (mapcar #'cdr (my/manifolding-atlas-blueprint-key-files)))
+          (with-temp-buffer
+            (ignore-errors (insert-file-contents f))
+            (goto-char (point-min))
+            (when (and (re-search-forward "^\\* " nil t)
+                       (not (re-search-forward
+                             "^\\* [A-Z][A-Z0-9_]*\\([ \t]+:[A-Za-z0-9_:@]+:\\)?[ \t]*$"
+                             nil t)))
+              (unless first (setq first f))
+              (when (save-excursion
+                      (goto-char (point-min))
+                      (re-search-forward "^\\*\\*+ " nil t))
+                (throw 'found f)))))
+        (when first (throw 'found first))
+        nil))))
 
 (defun my/manifolding-atlas-drawer-order-from-file (&optional file)
   "Read drawer key order from FILE (default the order file).
@@ -474,13 +486,13 @@ Also deletes orphaned vault data dir on the same confirm."
 #+end_src
 
 *** Template Infrastructure (doct, yasnippet)
-Doct capture templates are inlined below (no template directory exists
-anymore); yasnippet runs without a snippets dir (none exist on disk).
 :PROPERTIES:
 :PACKAGE:  doct
 :STRAIGHT: (doct :type git :host github :repo "progfolio/doct")
 :CATEGORY: editing
 :END:
+Doct capture templates are inlined below (no template directory exists
+anymore); yasnippet runs without a snippets dir (none exist on disk).
 #+begin_src emacs-lisp
 (with-eval-after-load 'org-capture
   (require 'doct nil t)
@@ -3175,8 +3187,6 @@ This is the headless building block UIs use to offer one-key fixes for a
 #+end_src
 
 
-#+title: Manifolding Atlas Capture Plugin
-#+property: header-args:emacs-lisp :tangle ../../infra/elisp/capture.el
 
 A literate plugin for manifolding-atlas v2 providing two workflows:
 1. Select text via key selection → create a new manifolding-atlas note
@@ -3556,8 +3566,6 @@ Why: Implementation of ~my/manifolding-atlas-insert-heading~.
 ;; Functions load via org evaluation; the tangled artifact lives at
 ;; infra/elisp/capture.el (tangle target of this file).
 #+end_src
-#+title: Manifolding Atlas — Declarative Org Prompts
-#+property: header-args:emacs-lisp :lexical t :results silent
 
 Turns plain org outlines into registered prompts. A declarative file has
 a level-1 heading shaped like a PROPERTY_KEY with plain org tags for

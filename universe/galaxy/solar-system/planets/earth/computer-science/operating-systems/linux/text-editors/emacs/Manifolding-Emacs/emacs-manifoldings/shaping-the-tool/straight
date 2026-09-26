@@ -1,6 +1,3 @@
-#+title:      straight
-#+filetags:   :emacs-config:core:
-
 * Straight.el Configuration :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       8597f163-086d-4dee-831a-21a2ac72fd4f

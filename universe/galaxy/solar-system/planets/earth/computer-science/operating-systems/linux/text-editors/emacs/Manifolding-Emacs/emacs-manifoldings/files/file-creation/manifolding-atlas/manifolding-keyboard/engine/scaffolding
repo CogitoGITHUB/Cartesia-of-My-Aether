@@ -1,5 +1,3 @@
-#+title: Manifolding Keyboard — Scaffolding
-
 Creators and validator for the split layout. Mirrors the Atlas
 blueprint-add pattern: creation writes a correctly-shaped file (loud
 on collision), discovery is free (recursive loader in mm order),

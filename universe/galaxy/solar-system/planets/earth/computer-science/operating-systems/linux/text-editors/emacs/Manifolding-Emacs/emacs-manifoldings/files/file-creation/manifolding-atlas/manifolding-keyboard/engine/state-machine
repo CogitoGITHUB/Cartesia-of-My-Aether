@@ -1,5 +1,3 @@
-#+title: Manifolding Keyboard — State Machine
-
 Modal state core: variables, naming, the define-keys binder, initialization, and the 12 state-mode invocations.
 * Buffer-local state variable :EMACS_MECHANISM:
 :PROPERTIES:
@@ -11,14 +9,42 @@ Modal state core: variables, naming, the define-keys binder, initialization, and
 (manifolding-keyboard-define-local-var manifolding-keyboard-state nil "Current manifolding-keyboard state.")
 #+end_src
 ** Set state
+The only place `manifolding-keyboard-state' is assigned, so the model line
+accommodation lives here rather than in each of the 15 state units. Emacs
+does not recompute a mode line because a buffer-local variable changed, and
+the bar shows the *name* of the state, so a state change has to be announced.
 #+begin_src emacs-lisp
 (defun manifolding-keyboard-set-state (state)
   "Set current manifolding-keyboard STATE."
-  (when (and manifolding-keyboard-state (not (equal manifolding-keyboard-state state)))
-    (funcall (manifolding-keyboard-get-state-mode manifolding-keyboard-state) -1))
-  (when state
-    (funcall (manifolding-keyboard-get-state-mode state) 1))
-  (setq manifolding-keyboard-state state))
+  (let ((previous manifolding-keyboard-state))
+    (when (and manifolding-keyboard-state (not (equal manifolding-keyboard-state state)))
+      (funcall (manifolding-keyboard-get-state-mode manifolding-keyboard-state) -1))
+    (when state
+      (funcall (manifolding-keyboard-get-state-mode state) 1))
+    (setq manifolding-keyboard-state state)
+    (unless (equal previous manifolding-keyboard-state)
+      ;; Model line accommodation. Guarded on fboundp so the keyboard has no
+      ;; dependency on the modeline module — either can be absent.
+      (when (fboundp 'manifolding-modeline--state-changed)
+        (manifolding-modeline--state-changed)))))
+#+end_src
+** Model line accommodation
+The bar reads the state from `manifolding-keyboard-state' and shows it in
+full — `normal`, `insert`, `presentation`, `git-timemachine` — not as a
+single letter. Fifteen two-letter codes are unreadable at a glance and, on a
+narrow bar, no narrower than the names are; the width is not the constraint,
+legibility is.
+
+This is the one function the model line consumes, so there is a single
+definition of "what the state reads as" and no second copy to drift.
+#+begin_src emacs-lisp
+(defun manifolding-keyboard-modeline-state-name ()
+  "Full name of the current state, for the mode line.
+Reads `manifolding-keyboard-state' directly — the bar never keeps its own
+copy, so the two can never disagree. Returns nil before the keyboard has
+assigned a state, and the segment treats nil as \"show nothing\"."
+  (let ((state manifolding-keyboard-state))
+    (and state (symbol-name state))))
 #+end_src
 ** Emulation mode map alist
 #+begin_src emacs-lisp

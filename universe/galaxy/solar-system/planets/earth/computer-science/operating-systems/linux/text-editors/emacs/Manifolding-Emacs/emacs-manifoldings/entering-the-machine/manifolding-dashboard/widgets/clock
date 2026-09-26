@@ -1,14 +1,10 @@
-#+title:      Manifold Clock Widget
-#+filetags:   :emacs-package:ui:
-#+property:   header-args:emacs-lisp :lexical t
-
 * Manifold Clock Widget :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       7b48da38-01b7-41e7-a1fd-06b8a6c08e4d
 :MM_PARENT: none
 :MM_ORDER:  78.3
-:END:
 :CATEGORY: ui
+:END:
 
 Live clock plus per-second updater.
 

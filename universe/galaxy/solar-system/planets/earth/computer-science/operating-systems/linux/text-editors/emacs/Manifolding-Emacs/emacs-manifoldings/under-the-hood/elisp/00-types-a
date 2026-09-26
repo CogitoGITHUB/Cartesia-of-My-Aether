@@ -3,7 +3,6 @@
 #+manifold-stage: 04-mind
 #+manifold-date: 2026-09-15
 
-#+title:      Elisp Data Types
 
 * Elisp Data Types :EMACS_MECHANISM:
 :PROPERTIES:

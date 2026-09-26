@@ -1,6 +1,4 @@
-#+title:      super-save
 #+identifier: 
-#+filetags:   :emacs-package:files:
 
 * SUPER-SAVE — Auto-save Buffers on Activity #emacs-package :EMACS_MECHANISM:
 :PROPERTIES:

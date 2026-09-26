@@ -1,5 +1,3 @@
-#+title:      speed-type
-
 NOTE: this vendored copy may need new features borrowed from the sibling typing packages before Atlas integration — monkeytype's mistyped-words + hard-transitions drills, typit-style timed benchmarks. Design pending.
 * Speed-Type — vendored typing trainer :EMACS_MECHANISM:
 :PROPERTIES:

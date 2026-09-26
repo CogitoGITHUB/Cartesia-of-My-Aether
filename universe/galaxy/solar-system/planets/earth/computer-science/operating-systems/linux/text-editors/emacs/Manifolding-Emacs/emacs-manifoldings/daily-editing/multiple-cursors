@@ -1,6 +1,4 @@
-#+title:      multiple-cursors
 #+identifier: 4a77025c-ee6b-47cd-99d5-5e47a22e52fa
-#+filetags:   :emacs-package:editing:
 
 * multiple-cursors :EMACS_MECHANISM:
 :PROPERTIES:

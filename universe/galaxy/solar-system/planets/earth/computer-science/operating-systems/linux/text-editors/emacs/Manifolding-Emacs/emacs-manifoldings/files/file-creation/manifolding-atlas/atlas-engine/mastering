@@ -1,5 +1,3 @@
-#+title: Manifolding Atlas Mastering Plugin
-
 Spaced-repetition review for manifolding-atlas notes, built on a
 10-state mastery spine (UNSEEN → CONTRIBUTING) with STATUS kept
 orthogonal (ACTIVE / SUSPENDED / ARCHIVED / DORMANT). Each note is a

@@ -1,6 +1,4 @@
-#+title:      org-auto-tangle
 #+identifier: 1d7f9b5e-3c2a-4e8f-af56-4b6c8e2f7d1a
-#+filetags:   :emacs-package:org:
 
 * ORG-AUTO-TANGLE — Auto Tangle on Save :EMACS_MECHANISM:
 :PROPERTIES:

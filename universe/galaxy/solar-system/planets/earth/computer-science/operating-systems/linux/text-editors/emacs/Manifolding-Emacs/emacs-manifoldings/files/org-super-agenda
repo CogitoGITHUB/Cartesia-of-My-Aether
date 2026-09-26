@@ -1,6 +1,3 @@
-#+title:    org-super-agenda
-#+filetags: :emacs-package:org:agenda:
-
 * Org Super Agenda :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       ffd35876-f50b-4594-989f-672b3a9b26e5
@@ -26,8 +23,9 @@ items and many files.
 (setq org-agenda-skip-scheduled-if-done t)
 (setq org-agenda-skip-deadline-if-done t)
 
-(setq org-todo-keywords
-      '((sequence "TODO" "DOING" "WAIT" "|" "DONE" "CANCELED")))
+;; org-todo-keywords is owned by `org-todo-states.org', which derives it
+;; from the Atlas TODO blueprint. Setting it here used to win by load
+;; order (MM_ORDER 194 > 107) and silently truncate the vocabulary.
 
 (let ((message-log-max nil))
   (let ((inhibit-message t)) (org-super-agenda-mode 1)))

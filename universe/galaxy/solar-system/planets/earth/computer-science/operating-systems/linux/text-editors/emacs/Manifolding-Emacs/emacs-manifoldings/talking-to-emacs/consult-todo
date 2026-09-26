@@ -1,6 +1,3 @@
-#+title:    consult-todo
-#+filetags: :emacs-package:consult:todo:
-
 * TODO Consult Todo :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       b3b44d95-500e-49b3-89ce-d8772874a241
@@ -26,13 +23,13 @@ emacs-consult-todo  ; custom declaration in config.scm
 ** Customization
 
 *** Config
+Selectors are derived from the Atlas TODO blueprint, so the narrow
+tracks the vocabulary automatically — FIXME, BUG and HACK were never
+todo states and matched nothing, while DOING, WAIT, DONE and the rest
+of the blueprint were unreachable from here.
 #+begin_src emacs-lisp
-(setq consult-todo-narrow
-      '((?t . "TODO")
-        (?f . "FIXME")
-        (?b . "BUG")
-        (?h . "HACK")
-        (?n . "NOTE")))
+(when-let ((narrow (my/cartesia-consult-todo-narrow)))
+  (setq consult-todo-narrow narrow))
 #+end_src
 
 * HL Todo

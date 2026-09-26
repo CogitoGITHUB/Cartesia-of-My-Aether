@@ -1,10 +1,3 @@
-#+title: Manifolding Atlas Backup & Git Plugin
-:PROPERTIES:
-:PACKAGE:  magit
-:STRAIGHT: (magit :type git :host github :repo "magit/magit" :depends (git-gutter) :files ("lisp/magit*.el" "lisp/git-*.el" "docs/magit.texi" "docs/AUTHORS.md" "LICENSE" ".dir-locals.el" ("githooks" "githooks/*") ("git-hooks" "git-hooks/*") (:exclude "lisp/magit-section.el") "magit-pkg.el"))
-:CATEGORY: git
-:PACKAGE:  git-gutter
-:END:
 #+begin_src emacs-lisp
 (require 'git-gutter)
 (global-git-gutter-mode 1)
@@ -36,6 +29,9 @@ into atlas auto-commits.")
 :ID:       d043ccc0-4355-4b34-a9b6-9a61a622be98
 :MM_PARENT: none
 :MM_ORDER:  126.0
+:PACKAGE:  magit
+:STRAIGHT: (magit :type git :host github :repo "magit/magit" :depends (git-gutter) :files ("lisp/magit*.el" "lisp/git-*.el" "docs/magit.texi" "docs/AUTHORS.md" "LICENSE" ".dir-locals.el" ("githooks" "githooks/*") ("git-hooks" "git-hooks/*") (:exclude "lisp/magit-section.el") "magit-pkg.el"))
+:CATEGORY: git
 :END:
 Async push with a sentinel that logs failures to the notes .git dir
 and retries once if a save landed mid-flight.

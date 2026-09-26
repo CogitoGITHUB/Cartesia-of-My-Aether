@@ -1,6 +1,3 @@
-#+title:      flyspell
-#+filetags:   :emacs-package:spelling:
-
 * Ispell — Spell Checker Interface :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       de49e7ae-d4b4-4d1c-a6e3-2ff99cf36448

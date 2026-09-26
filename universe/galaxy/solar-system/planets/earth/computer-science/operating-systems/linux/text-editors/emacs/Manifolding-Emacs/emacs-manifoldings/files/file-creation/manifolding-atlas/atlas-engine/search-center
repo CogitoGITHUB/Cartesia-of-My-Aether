@@ -1,5 +1,3 @@
-#+title: Atlas Search Center
-
 Universal retrieval surface for the Atlas — infrastructure, not a
 command collection. Providers (text, structure, database, todo,
 browse) feed one candidate contract into one consult--multi

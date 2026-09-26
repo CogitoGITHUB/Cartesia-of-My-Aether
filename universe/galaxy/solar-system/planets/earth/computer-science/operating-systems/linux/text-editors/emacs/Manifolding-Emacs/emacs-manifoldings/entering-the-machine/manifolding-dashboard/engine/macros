@@ -1,14 +1,10 @@
-#+title:      Manifolding Dashboard — Widget DSL
-#+filetags:   :emacs-package:ui:
-#+property:   header-args:emacs-lisp :lexical t
-
 * Dashboard Widget DSL :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       aa22d145-ead7-4293-a7c8-e5230a7da69c
 :MM_PARENT: none
 :MM_ORDER:  78.2
-:END:
 :CATEGORY: ui
+:END:
 
 Mirrors the keyboard `define-state` DSL: one macro invocation declares
 a widget — generator defun, item-generators entry, registry push.
@@ -22,11 +18,6 @@ manifest). Depends only on builtins.
 Fresh process plus file-drop files: only present files register.
 Entries are (KEY . LENGTH).")
 
-(defun manifolding-dashboard--blueprint-key (name)
-  "Blueprint KEY string for dashboard item NAME: strip the manifold-
-prefix, upcase. `manifold-clock' meets `* CLOCK :…:DASHBOARD_BLUEPRINT:'.
-Single mapping both setup length lookup and validator use."
-  (upcase (replace-regexp-in-string "^manifold-" "" (format "%s" name))))
 #+end_src
 
 ** Define-widget macro
@@ -57,13 +48,19 @@ entry, and a registry push."
 
 ** Skeleton writer
 #+begin_src emacs-lisp
-(defun manifolding-dashboard--module-dir ()
-  "Absolute path of the manifolding-dashboard/ module directory.
-Derived from this file's own location; renames above it never break it."
+(defvar manifolding-dashboard--module-dir
   (file-name-directory
    (directory-file-name
     (file-name-directory (or load-file-name buffer-file-name
-                             default-directory)))))
+                             default-directory))))
+  "Absolute path of the manifolding-dashboard/ module directory.
+
+A load-time constant, not a defun. `load-file-name' is only bound while
+this unit is being loaded; a defun that re-derives it per call therefore
+returns garbage for every caller that runs after boot — the widget
+scaffolder, the validator, anything else. That produced a validator
+reporting `no file at /tmp/widgets/clock', which is how the bug was
+found. Renames above this file never break it.")
 
 (defun manifolding-dashboard-new-widget (name)
   "Create widgets/<NAME> from the widget skeleton. Mirrors the
@@ -78,46 +75,77 @@ line in engine/setup. Errors loudly when the file already exists."
     (when (file-exists-p path)
       (user-error "Widget file exists: %s" path))
     (with-temp-file path
-      (insert (format "#+title:      Manifold %s Widget\n#+filetags:   :emacs-package:ui:\n#+property:   header-args:emacs-lisp :lexical t\n\n* Manifold %s Widget :EMACS_MECHANISM:\n:PROPERTIES:\n:ID:       %s\n:MM_PARENT: none\n:MM_ORDER:  78.4\n:END:\n:CATEGORY: ui\n\nDescribe the widget here.\n\n** Widget\n#+begin_src emacs-lisp\n(manifolding-dashboard-define-widget %s\n  :doc \"What this section shows.\"\n  :generate\n  ((insert \"\\n\")\n   (insert \"hello\")))\n#+end_src\n"
-                      (capitalize name) (capitalize name) (org-id-uuid) name)))
+      ;; The heading is the unit's name. The loader takes a unit's title
+      ;; from its level-1 heading and not from #+title:, and reads only
+      ;; :ID:, :MM_PARENT: and :MM_ORDER: out of the drawer. So this
+      ;; template emits no #+title:, #+filetags: or #+property: — the
+      ;; first two are ignored, and the third falsely implies a
+      ;; per-file lexical-binding control that does not exist.
+      (insert (format "* Manifold %s Widget :EMACS_MECHANISM:\n:PROPERTIES:\n:ID:       %s\n:MM_PARENT: none\n:MM_ORDER:  78.4\n:END:\n\nDescribe the widget here.\n\n** Widget\n#+begin_src emacs-lisp\n(manifolding-dashboard-define-widget %s\n  :doc \"What this section shows.\"\n  :generate\n  ((insert \"\\n\")\n   (insert \"hello\")))\n#+end_src\n"
+                      (capitalize name) (org-id-uuid) name)))
     (find-file path)
     (message "Widget created: %s (add one wanted-list line in engine/setup)" path)))
 #+end_src
 
 ** Validator
 #+begin_src emacs-lisp
+(defun manifolding-dashboard--widget-files ()
+  "Files in the module's widgets/ directory. Nil when it does not exist."
+  (let ((dir (expand-file-name "widgets" (manifolding-dashboard--module-dir))))
+    (and (file-directory-p dir)
+         (directory-files dir nil "[^./]+$" t))))
+
 (defun manifolding-dashboard-validate ()
   "Check the widget registry against reality. Mirrors the keyboard
 validator: generator defined? item-generators entry present? wanted
-entries resolvable? Returns problems (empty means clean)."
+entries resolvable? Every widget has a file? No file without a widget?
+
+Returns problems (empty means clean).
+
+The last two checks are the ones that matter and did not exist: this
+module once carried five `:DASHBOARD_BLUEPRINT:' files that no code path
+read for anything but a `:LENGTH:' of 1 — the same value the registry
+already returned — and a `:BLUEPRINT_BODY:' variant mechanism that was
+never implemented. They sat there looking load-bearing because the old
+validator only checked that every *widget* had a blueprint, never that
+anything *consumed* one. An orphan check is what catches that class."
   (let (problems)
     (dolist (pair manifolding-dashboard--widget-registry)
       (let* ((key (car pair))
+             (len (cdr pair))
              (fn (cdr (assq key dashboard-item-generators))))
         (unless (and fn (fboundp fn))
-          (push (format "widget %s: generator %s missing" key fn) problems))))
+          (push (format "widget %s: generator %s missing" key fn) problems))
+        ;; A non-positive length silently renders a clipped section.
+        (unless (and (integerp len) (> len 0))
+          (push (format "widget %s: bad :length %S (must be a positive integer)"
+                        key len)
+                problems))
+        ;; Every registered widget must be a real file, so a widget cannot
+        ;; be registered from somewhere that has since been moved away.
+        (let ((file (expand-file-name
+                     (format "widgets/%s" (string-remove-prefix "manifold-"
+                                                              (format "%s" key)))
+                     (manifolding-dashboard--module-dir))))
+          (unless (file-exists-p file)
+            (push (format "widget %s: registered but no file at %s" key file)
+                  problems)))))
     (dolist (name (manifolding-dashboard--order-file-keys))
       (when (and (string-prefix-p "manifold-" (format "%s" name))
                  (not (assq name manifolding-dashboard--widget-registry))
                  (not (cdr (assq name dashboard-item-generators))))
         (push (format "order file %s: no widget file registers it" name) problems)))
-    ;; Dashboard blueprint specs: every registered widget declared,
-    ;; every order-file manifold key specified.
-    (when (fboundp 'my/manifolding-atlas-dashboard-spec)
-      (dolist (pair manifolding-dashboard--widget-registry)
-        (unless (my/manifolding-atlas-dashboard-spec
-                 (manifolding-dashboard--blueprint-key (car pair)))
-          (push (format "widget %s: no dashboard blueprint declares it"
-                        (car pair))
-                problems)))
-      (when (fboundp 'manifolding-dashboard--order-file-keys)
-        (dolist (name (manifolding-dashboard--order-file-keys))
-          (when (and (string-prefix-p "manifold-" (format "%s" name))
-                     (not (my/manifolding-atlas-dashboard-spec
-                            (manifolding-dashboard--blueprint-key name))))
-            (push (format "order file %s: no dashboard blueprint specifies it"
-                          name)
-                  problems)))))
+    ;; The inverse: a file in widgets/ that no widget claims. This is the
+    ;; check that would have flagged the orphaned blueprints on the day
+    ;; they were added, instead of months later.
+    (let ((claimed (mapcar (lambda (key)
+                             (string-remove-prefix "manifold-" (format "%s" key)))
+                           (mapcar #'car manifolding-dashboard--widget-registry))))
+      (dolist (file (manifolding-dashboard--widget-files))
+        (unless (member (file-name-nondirectory file) claimed)
+          (push (format "orphan file widgets/%s: no widget registers it"
+                        (file-name-nondirectory file))
+                problems))))
     (when problems
       (message "manifolding-dashboard: %d problem(s): %s"
                (length problems) (mapconcat #'identity problems "; ")))

@@ -1,6 +1,4 @@
-#+title:      benchmark-init
 #+identifier: 2eda0585-3a49-4fcf-bde7-4db4f6d73a74
-#+filetags:   :emacs-package:profiling:
 
 * benchmark-init :EMACS_MECHANISM:
 :PROPERTIES:

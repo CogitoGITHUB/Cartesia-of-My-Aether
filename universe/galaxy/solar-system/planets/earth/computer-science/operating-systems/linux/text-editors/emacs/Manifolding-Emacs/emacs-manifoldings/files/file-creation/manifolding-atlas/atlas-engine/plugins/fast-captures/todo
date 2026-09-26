@@ -1,5 +1,3 @@
-#+title:      Manifolding Atlas — Fast Todo
-
 Quickly add a TODO item using org-capture.  Simple mode finishes
 immediately; capture mode opens the buffer with cursor ready.
 

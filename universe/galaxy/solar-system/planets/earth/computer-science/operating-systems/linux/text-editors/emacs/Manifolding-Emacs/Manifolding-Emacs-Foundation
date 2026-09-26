@@ -1,5 +1,3 @@
-#+title:      Manifolding Emacs Foundation
-#+filetags:   :emacs-core:foundation:
 #+auto_tangle: t
 
 This file is the SINGLE SOURCE OF TRUTH for early-init.el and

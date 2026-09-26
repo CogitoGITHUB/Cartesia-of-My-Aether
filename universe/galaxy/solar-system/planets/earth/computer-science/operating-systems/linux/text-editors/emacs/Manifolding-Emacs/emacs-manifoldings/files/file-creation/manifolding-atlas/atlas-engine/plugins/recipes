@@ -1,5 +1,3 @@
-#+title: Manifolding Atlas Recipes Plugin
-
 Manual recipe notes in the atlas. Recipes are authored by hand — no URL
 fetch, no source-url unfolding. They are stored under `recipes/` in the vault,
 carry recipe-specific unfoldings (SERVINGS, PREP_TIME, COOK_TIME,

@@ -1,5 +1,3 @@
-#+title:      State Validation Prompt
-
 * STATE_VALIDATION :unfolding:file:heading:task:EMACS_MECHANISM::DRAWER_BLUEPRINT:
 :PROPERTIES:
 :ID:       0dd729fa-6dfd-4bb6-9393-a78ba6b5f083
@@ -9,7 +7,6 @@
 :UNFOLDING: state-validation
 :END:
 ** TODO :BLUEPRINT_BODY:
-** WARNING :BLUEPRINT_BODY:
 ** DRAFT :BLUEPRINT_BODY:
 ** REVIEWED :BLUEPRINT_BODY:
 ** VALIDATED :BLUEPRINT_BODY:

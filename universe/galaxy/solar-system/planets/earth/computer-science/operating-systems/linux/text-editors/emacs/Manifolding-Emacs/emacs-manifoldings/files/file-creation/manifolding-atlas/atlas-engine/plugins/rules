@@ -1,5 +1,3 @@
-#+title:      Manifolding Atlas Rules Plugin
-
 Turns any heading (new or existing, in any manifolding-atlas note) into an
 extractable, routable, drillable Rule. Rules are marked via an unfolding
 (not a tag) so presentation mode / org-tree-slide stays clean. Topics

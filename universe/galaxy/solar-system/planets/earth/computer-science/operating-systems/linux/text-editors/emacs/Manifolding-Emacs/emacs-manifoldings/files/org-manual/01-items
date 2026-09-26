@@ -1,5 +1,3 @@
-#+title:      Org Items and Properties
-
 * Org Items and Properties :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       52b06e48-051d-412a-a0c1-8da6fde7152a
@@ -507,7 +505,6 @@ Tags make use of the hierarchical structure of outline trees. If a heading has a
 
 the final heading has the tags ‘work’, ‘boss’, ‘notes’, and ‘action’ even though the final heading is not explicitly marked with those tags. You can also set tags that all entries in a file should inherit just as if these tags were defined in a hypothetical level zero that surrounds the entire file. Use a line like this50
 
-#+filetags:   :emacs:
 To limit tag inheritance to specific tags, or to turn it off entirely, use the variables org-use-tag-inheritance and org-tags-exclude-from-inheritance.
 
 Tag inheritance is relevant when the agenda search tries to match a tag, either in the tags or tags-todo agenda types. In other agenda types, org-use-tag-inheritance has no effect. Still, you may want to have your tags correctly set in the agenda, so that tag filtering works fine, with inherited tags. Set org-agenda-use-tag-inheritance to control this: the default value includes all agenda types, but setting this to nil can really speed up agenda generation.

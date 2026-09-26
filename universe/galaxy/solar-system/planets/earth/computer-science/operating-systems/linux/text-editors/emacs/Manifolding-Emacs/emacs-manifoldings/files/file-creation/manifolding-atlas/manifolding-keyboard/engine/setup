@@ -1,5 +1,3 @@
-#+title: Manifolding Keyboard — Setup
-
 Requires, reload behavior, init state, hooks, modeline, activation.
 * Requires :EMACS_MECHANISM:
 :PROPERTIES:

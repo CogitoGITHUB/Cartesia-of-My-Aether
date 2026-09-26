@@ -1,0 +1,48 @@
+* Manifolding Modeline Clock :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       a95e427c-d1a8-42c6-f49a-7ec1823d6a4c
+:MM_PARENT: none
+:MM_ORDER:  80.9
+:CATEGORY: the-screen
+:END:
+
+Time and date, on row 2 alongside position.
+
+** Not `display-time'
+The manual is explicit that `display-time' works by setting
+`global-mode-string' to refer to `display-time-string'. Emacs' default
+`mode-line-format' uses that variable, so this is the sanctioned way to show
+a clock — and it would work here too, except that the bar composes its own
+`mode-line-format' and does not include `global-mode-string'. Adding that
+variable back just to get a clock would reintroduce a construct this tree
+deliberately does not publish, and would put the time in the default position
+rather than on row 2.
+
+So the clock is a segment like any other: its own cached string, its own
+accent, its own place in the order file.
+
+** Segment
+#+begin_src emacs-lisp
+(defvar manifolding-modeline--clock-cache nil
+  "Cached \"HH:MM day date\" string. Rebuilt on the bar's cache tick.")
+
+(defun manifolding-modeline--clock-refresh ()
+  "Recompute the clock cache. One `format-time-string', once per tick."
+  (setq manifolding-modeline--clock-cache
+        (format-time-string "%H:%M %a %d %b")))
+
+(manifolding-modeline-define-segment clock
+  :doc "Time and date, cached on the bar's tick."
+  :face nil
+  :side :right
+  :construct 'manifolding-modeline--clock-cache
+  :refresh '(manifolding-modeline--clock-refresh))
+#+end_src
+
+** Layout
+Twenty-four-hour time, then weekday, day and month. The date is short on
+purpose: this sits on a ~40-column bar opposite the position, and
+"Sat 26 Sep" costs less than it is worth on a phone. `manifolding-modeline-
+clock-interval' (30s) is the refresh period, so the minute is never more
+than half a minute stale — and because the bar redraws on every keystroke
+anyway, a sharper clock would cost redraws for no visible benefit.

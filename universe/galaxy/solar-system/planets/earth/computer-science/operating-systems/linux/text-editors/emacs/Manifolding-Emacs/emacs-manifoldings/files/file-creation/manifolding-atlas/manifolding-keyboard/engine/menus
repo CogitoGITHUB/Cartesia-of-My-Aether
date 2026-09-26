@@ -1,5 +1,3 @@
-#+title: Manifolding Keyboard — Menus
-
 Auto-derived Transient menus. Nothing here hand-lists keys: states
 menus walk live keymaps, the main hub lists the leaders/ directory,
 and per-leader menus come from the =my/defhydra-state= spec the files

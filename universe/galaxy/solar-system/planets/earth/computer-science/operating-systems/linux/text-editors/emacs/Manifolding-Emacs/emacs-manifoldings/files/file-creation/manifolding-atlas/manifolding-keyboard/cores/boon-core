@@ -1,5 +1,3 @@
-#+title: Manifolding Keyboard — Boon Core
-
 Shared Boon-extracted editing primitives (https://github.com/jyp/boon, GPL, same terms as upstream): region algebra, highlight engine, syntax predicates. Multi-caller callees live here; bound commands stay in states/ and call in.
 
 * Region algebra core :EMACS_MECHANISM:

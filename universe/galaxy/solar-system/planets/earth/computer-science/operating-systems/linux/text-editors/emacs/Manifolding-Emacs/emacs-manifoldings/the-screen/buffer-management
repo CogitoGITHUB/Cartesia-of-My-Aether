@@ -1,5 +1,4 @@
 #+TITLE: Buffer Management
-#+filetags: :emacs-config:buffer-management:
 
 # ─────────────────────────────────────────────────────────────────────
 # Automatically and manually manage buffer lifecycle.

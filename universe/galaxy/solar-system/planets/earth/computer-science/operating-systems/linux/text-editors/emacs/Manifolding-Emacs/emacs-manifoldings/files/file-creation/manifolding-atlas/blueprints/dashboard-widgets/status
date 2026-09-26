@@ -1,9 +1,0 @@
-#+title:      Status Widget Blueprint
-* STATUS :DASHBOARD_BLUEPRINT:
-:PROPERTIES:
-:ID:       f413a228-ce85-4ce4-adf5-68d05615560d
-:LENGTH:    1
-:END:
-
-Loader boot stats as a dashboard section.
-Add ** Variant :BLUEPRINT_BODY: lines to declare display variants.
