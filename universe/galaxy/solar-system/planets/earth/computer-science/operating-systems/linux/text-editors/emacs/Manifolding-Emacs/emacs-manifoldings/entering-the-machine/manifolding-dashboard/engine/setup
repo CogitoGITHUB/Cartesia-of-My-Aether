@@ -95,7 +95,7 @@ directly (timing-proof: register-all runs post-boot, setup at load)."
                           (let ((lim (save-excursion (forward-line 20) (point))))
                             (re-search-forward
                              "^[ \t]*:LENGTH:[ \t]*\\([0-9]+\\)" lim t))))))
-          (throw 'found (string-to-number (match-string 1)))))
+          (throw 'found (string-to-number (match-string 1))))
       nil)))
 
 (defun manifolding-dashboard--entry-length (name)

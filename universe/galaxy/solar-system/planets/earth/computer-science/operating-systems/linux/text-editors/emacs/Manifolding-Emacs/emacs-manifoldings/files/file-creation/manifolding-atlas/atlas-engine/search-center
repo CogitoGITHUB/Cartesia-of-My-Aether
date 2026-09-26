@@ -410,7 +410,7 @@ Unresolvable hits (non-note files) show no annotation — never a guess."
 (defun my/atlas-search--text-source ()
   "Consult source plist for vault ripgrep."
   (let ((builder (my/atlas-search--rg-builder)))
-    (list :name "Text" :narrow (?x . "Text") :category 'consult-grep
+    (list :name "Text" :narrow '(?x . "Text") :category 'consult-grep
           :async (consult--process-collection
                   (lambda (input) (funcall builder input))
                   :transform (consult--grep-format builder)
@@ -548,7 +548,7 @@ queries (by-tag, custom) are hydra launchers, not sources.")
 
 (defun my/atlas-search--files-source ()
   "Consult source for vault files."
-  (list :name "Files" :narrow (?n . "Files") :category 'atlas-candidate
+  (list :name "Files" :narrow '(?n . "Files") :category 'atlas-candidate
         :items (lambda ()
                  (mapcar (lambda (f)
                            (my/atlas-search--display-string

@@ -281,7 +281,10 @@ The text strings in the overlays are not identical"))))))))))))
 (require 'org)
 (require 'org-element)
 (require 'org-id)
-(require 'wormhole-clone)
+;; Provided by the vendored engine unit in this same file: noerror so
+;; byte-compile (which evaluates top-level requires) never fails on
+;; unit order; at load the provider is already evaluated.
+(require 'wormhole-clone nil t)
 (require 'text-property-search)
 (require 'seq)
 
