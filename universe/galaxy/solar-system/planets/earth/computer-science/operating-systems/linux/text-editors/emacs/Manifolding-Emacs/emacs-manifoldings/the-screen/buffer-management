@@ -85,7 +85,19 @@
 
 ** Config :config:
 #+begin_src emacs-lisp
-(setq bufler-groups
+(defun my/bufler--macro-has-workspace-p ()
+  "Non-nil when the live bufler-defgroups macro expands auto-workspace.
+A stale bufler (old checkout shadowing current files) expands it to a
+bare call and voids the boot; the interlock below skips grouping
+setup instead and reports exactly which bufler loaded."
+  (and (fboundp 'bufler-defgroups)
+       (let ((exp (condition-case nil
+                      (macroexpand '(bufler-defgroups (group (auto-workspace))))
+                    (error nil))))
+         (and exp (string-match-p "bufler-group" (format "%S" exp))))))
+
+(if (my/bufler--macro-has-workspace-p)
+    (setq bufler-groups
       (bufler-defgroups
         (group (auto-workspace))
         (group
@@ -120,6 +132,10 @@
           (auto-file)
           (auto-directory))
         (auto-mode)))
+  (manifolding-emacs-record-error
+   :level 'package :package 'bufler
+   :message (format "stale bufler macro (no auto-workspace clause); loaded from %s — grouping setup skipped"
+                    (or (locate-library "bufler") "?"))))
 (define-key bufler-list-mode-map (kbd "h") #'bufler-list-backward-section)
 (define-key bufler-list-mode-map (kbd "t") #'bufler-list-forward-section)
 (define-key bufler-list-mode-map (kbd "k") #'bufler-list-kill)

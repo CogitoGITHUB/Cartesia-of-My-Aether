@@ -2611,8 +2611,9 @@ BODY, TAGS, UNFOLDINGS, and CONTEXT are as in `manifolding-atlas-create'."
     (manifolding-atlas-db-update-file file-path)
 
     ;; Return the note
-    (or (manifolding-atlas-db-get-by-id id)
+    (or (manifolding-emacs-db-get-by-id id)
         (error "manifolding-atlas-create: Heading note with ID %s not found in database after creation" id))))
+#+end_src
 
 ** Birth enrollment (mastering fundamental)
 Every note is born into the review pool — learn it all or
@@ -2682,9 +2683,6 @@ schedule row exists, and syncs the first tag. Returns NOTE."
 
 ;;; Title Change Detection Mode
 
-
-
-#+end_src
 
 
 #+begin_src emacs-lisp

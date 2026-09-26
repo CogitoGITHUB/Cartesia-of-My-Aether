@@ -268,51 +268,33 @@ compiler.  Prevents double-recording of synchronous part failures.")
 #+end_src
 
 ** Errors — recording
+All problems surface through the standard *Warnings* buffer (one
+place to scan): `display-warning' logs and echoes; the foundation
+advice counts them into the boot lists without double-recording.
 #+begin_src emacs-lisp
-(defvar manifolding-emacs--errors-buffer-name "*Manifolding-Emacs Errors*"
-  "Buffer holding boot errors and warnings. *Messages* stays for
-compile progress only; details live here.")
-
-(defun manifolding-emacs--report-problem (text)
-  "Append TEXT to the errors buffer. Never throws, never messages."
-  (condition-case nil
-      (with-current-buffer (get-buffer-create
-                            manifolding-emacs--errors-buffer-name)
-        (let ((inhibit-read-only t))
-          (goto-char (point-max))
-          (insert text "\n")))
-    (error nil)))
-
 (cl-defun manifolding-emacs-record-error
     (&key level file line package keyword message)
-  "Record a failure: errors buffer always, `display-warning' when
-interactive. *Messages* is never touched."
+  "Record a failure and surface it via display-warning (the standard
+*Warnings* buffer). *Messages* is never touched."
   (let ((entry (manifolding-emacs--make-error-entry
                 :level level :file file :line line :package package
                 :keyword keyword :message message :time (float-time))))
     (push entry manifolding-emacs--boot-errors)
     (when package
       (manifolding-emacs-record-status package 'error file message))
-    (manifolding-emacs--report-problem
-     (format "manifolding-emacs ERROR %s%s%s: %s"
-             (or file "?") (if line (format ":%s" line) "")
-             (if package (format " [%s]" package) "") message))
-    (unless manifolding-emacs--booting
-      (display-warning
-       'manifolding-emacs
-       (format "%s%s%s: %s"
-               (or file "") (if line (format ":%s" line) "")
-               (if package (format " [%s]" package) "") message)
-       :error))
+    (display-warning
+     'manifolding-emacs
+     (format "%s%s%s: %s"
+             (or file "") (if line (format ":%s" line) "")
+             (if package (format " [%s]" package) "") message)
+     :error)
     entry))
 
 (defun manifolding-emacs-record-warning (type message)
   (push (list :type type :message message :time (float-time)
               :file (and (boundp 'manifolding-emacs--current-unit-file)
                          manifolding-emacs--current-unit-file))
-        manifolding-emacs--boot-warnings)
-  (manifolding-emacs--report-problem
-   (format "manifolding-emacs WARNING [%s]: %s" type message)))
+        manifolding-emacs--boot-warnings))
 
 (defvar manifolding-emacs--current-unit-file nil
   "Source file of the unit currently compiling/loading, or nil.
@@ -344,14 +326,11 @@ special (dynamic) even if the loader ever gains lexical-binding.")
     result))
 
 (defun manifolding-emacs-errors-clear-boot-state ()
-  "Clear the transient per-boot lists and the errors buffer.  Does NOT touch
+  "Clear the transient per-boot lists. Fresh *Warnings*/*Compile-Log*
+per run (killed below in compile-directory).  Does NOT touch
 `manifolding-emacs--package-status'."
   (setq manifolding-emacs--boot-errors '()
-        manifolding-emacs--boot-warnings '())
-  (when (get-buffer manifolding-emacs--errors-buffer-name)
-    (with-current-buffer manifolding-emacs--errors-buffer-name
-      (let ((inhibit-read-only t))
-        (erase-buffer)))))
+        manifolding-emacs--boot-warnings '()))
 
 (defun manifolding-emacs-errors-clear-all-status ()
   "Wipe all recorded package statuses.  Manual escape hatch for when
@@ -1149,6 +1128,12 @@ group is unchanged.")
 (defvar manifolding-emacs--bootstrap-first-ids '()
   "Unit IDs loading right after the bootstrap path groups, in listed
 order. Empty: path pinning covers the current bootstrap set.")
+
+(defvar manifolding-emacs--dashboard-complete-at nil
+  "1-based position of the last dashboard-group unit in the current
+boot order. The dashboard opens only once its own units are all
+loaded (full render, never staged). Set per boot by
+`manifolding-emacs-compile-directory'; nil means unknown.")
 
 (defvar manifolding-emacs--always-recompile-paths '("manifolding-dashboard/")
   "Path fragments whose units recompile fresh every boot, skipping
@@ -1998,6 +1983,173 @@ units report exactly like evaluated ones."
          :level 'part :file file
          :message (format "%s defined but VOID — nested inside another form"
                           (match-string 1 body)))))))
+#+end_src
+
+** Pre-flight gates — parens and block nesting
+Cheap whole-unit checks that run on every unit every boot, before any
+load/compile/eval. One reader pass plus one line scan: microseconds,
+never worth cache-gating. They catch breakage with exact positions
+instead of confusing downstream backtraces. The paren gate uses
+scan-sexps (the check-parens mechanism); the nesting gate catches the
+db/307 shape (a missing #+end_src silently dropping later code from
+babel extraction). Both log-and-continue by default and re-signal in
+strict mode, exactly like every other unit failure.
+#+begin_src emacs-lisp
+(defun manifolding-emacs--check-unit-parens (file unit parts)
+  "Scan UNIT's concatenated PARTS text with scan-sexps.
+On imbalance, record FILE, unit title, and the exact line from the
+scan-error data; re-signal in strict mode. Runs every boot, cached
+or not. Returns t when clean."
+  (let ((text (mapconcat (lambda (p) (or (plist-get p :body) "")) parts "\n"))
+        (title (or (and unit (plist-get unit :title))
+                   (and file (file-name-nondirectory file))
+                   "?")))
+    (if (string-empty-p (string-trim text))
+        t
+      (condition-case err
+          (with-temp-buffer
+            (insert text)
+            (goto-char (point-min))
+            (while (progn (forward-comment (point-max)) (not (eobp)))
+              ;; scan-sexps returns nil (no signal) on lone punctuation
+              ;; such as a trailing "." ending a comment line: step over
+              ;; it instead of crashing goto-char with nil.
+              (let ((next (scan-sexps (point) 1)))
+                (if (and (integerp next) (> next (point)))
+                    (goto-char next)
+                  (forward-char 1))))
+            t)
+        ;; scan-error covers unbalanced opens; invalid-read-syntax
+        ;; covers misordered closes (which paren counting misses);
+        ;; end-of-file covers truncation. Re-signal the original.
+        ((scan-error invalid-read-syntax end-of-file)
+         (let ((line (condition-case nil
+                         (with-temp-buffer
+                           (insert text)
+                           (goto-char (max (point-min)
+                                           (min (let ((p (nth 2 err)))
+                                                  (if (integerp p) p (point-max)))
+                                                (point-max))))
+                           (line-number-at-pos))
+                       (error nil))))
+           (manifolding-emacs-record-error
+            :level 'file :file file
+            :message (format "unit %s: paren scan failed%s: %s"
+                             title
+                             (if line (format " at line %d" line) "")
+                             (error-message-string err)))
+           (when my/loader-strict-p
+             (signal (car err) (cdr err)))
+           nil))))))
+
+
+(defun manifolding-emacs--org-nesting-problems (file)
+  "List block-structure problems in FILE (pure: no recording).
+Flags headings inside open #+begin_src ranges, mismatched end
+markers, unclosed opens at EOF, typeless #+begin/#+end markers,
+languageless src blocks holding code, and uppercase src languages.
+Lowercase non-emacs-lisp languages (org/scheme/shell) are
+intentional here (docs, Guix recipes), as are commented-out doc
+examples, and are never flagged. Returns nil when clean."
+  (when (and file (file-exists-p file))
+    (with-temp-buffer
+      (insert-file-contents-literally file)
+      (goto-char (point-min))
+      (let ((stack nil)
+            (problems nil)
+            (lnum 0))
+        (while (not (eobp))
+          (setq lnum (1+ lnum))
+          (let ((line (buffer-substring-no-properties
+                       (line-beginning-position)
+                       (line-end-position))))
+            (cond
+             ((string-match "^[ \t]*#\\+begin[ \t]*$" line)
+              (push (format "line %d: typeless #+begin marker (never forms a block)" lnum)
+                    problems))
+             ((string-match "^[ \t]*#\\+end[ \t]*$" line)
+              (push (format "line %d: typeless #+end marker (never closes a block)" lnum)
+                    problems))
+             ((string-match "^[ \t]*#\\+begin_\\([A-Za-z0-9_]+\\)\\(.*\\)$" line)
+              (let ((typ (downcase (match-string 1 line)))
+                    (rest (match-string 2 line)))
+                (push (cons typ lnum) stack)
+                (when (string= typ "src")
+                  (dolist (f (manifolding-emacs--nesting--src-flags rest lnum))
+                    (push f problems)))))
+             ((string-match "^[ \t]*#\\+end_\\([A-Za-z0-9_]+\\)" line)
+              (let ((typ (downcase (match-string 1 line))))
+                (cond ((null stack)
+                       (push (format "line %d: end_%s without any open block" lnum typ)
+                             problems))
+                      ((string= typ (caar stack))
+                       (pop stack))
+                      (t
+                       (push (format "line %d: end_%s closes open %s (opened line %d); expected end_%s"
+                                     lnum typ (caar stack) (cdar stack) (caar stack))
+                             problems)
+                       (pop stack)))))
+             ((and stack
+                   (string= "src" (caar stack))
+                   (string-match "^\\*+ " line))
+              (push (format "line %d: heading inside open src block (opened line %d)"
+                            lnum (cdar stack))
+                    problems))))
+          (forward-line 1))
+        (dolist (s stack)
+          (push (format "unclosed begin_%s at line %d" (car s) (cdr s)) problems))
+        (nreverse problems)))))
+(defun manifolding-emacs--nesting--src-flags (rest lnum)
+  "Return problem strings for a src begin line with REST (text after
+the marker). Point must be at the begin line (for body lookahead)."
+  (let ((lang (and (string-match "^[ \t]*\\([^ \t]+\\)" rest)
+                   (match-string 1 rest)))
+        (out nil))
+    (when (null lang)
+      (let ((bodystart (save-excursion (forward-line 1) (point)))
+            (bodyend (save-excursion
+                       (if (re-search-forward "^[ \t]*#\\+end_src" nil t)
+                           (match-beginning 0)
+                         (point-max)))))
+        (when (string-match-p "(" (buffer-substring-no-properties
+                                   bodystart bodyend))
+          (push (format "line %d: src block without language holds code (dropped from extraction)" lnum)
+                out))))
+    (when (and lang (not (string= lang (downcase lang))))
+      (push (format "line %d: src language has uppercase (extraction matches exact lowercase emacs-lisp)" lnum)
+            out))
+    (nreverse out)))
+
+(defun manifolding-emacs--check-org-nesting (file unit)
+  "Run the nesting check on FILE with unit context. Records problems
+with FILE and unit title; re-signals in strict mode. Runs every boot.
+Returns t when clean."
+  (let ((problems (manifolding-emacs--org-nesting-problems file)))
+    (if (null problems)
+        t
+      (let ((msg (format "unit %s: block-nesting problems: %s"
+                         (or (and unit (plist-get unit :title))
+                             (and file (file-name-nondirectory file))
+                             "?")
+                         (mapconcat #'identity problems "; "))))
+        (manifolding-emacs-record-error :level 'file :file file :message msg)
+        (when my/loader-strict-p
+          (signal 'error (list msg)))
+        nil))))
+
+(defun manifolding-emacs--tangle-nesting-gate (file &rest _)
+  "Org-nesting gate at tangle time: message problems, never block the
+tangle. Catches heading-inside-block breakage in any tangled source."
+  (let ((problems (and (stringp file) (file-exists-p file)
+                       (manifolding-emacs--org-nesting-problems file))))
+    (when problems
+      (message "manifolding-emacs: nesting problems in %s: %s"
+               (file-name-nondirectory file)
+               (mapconcat #'identity problems "; ")))))
+
+(advice-add 'org-babel-tangle-file :before #'manifolding-emacs--tangle-nesting-gate)
+#+end_src
+#+begin_src emacs-lisp
 
 (defun manifolding-emacs--unit-load (file unit parts profile &optional force)
   "Load UNIT's PARTS, compiling only on change.  Returns the status
@@ -2009,7 +2161,10 @@ symbol `loaded', `compiled', or `eval'.
   interpreted eval fallback, today's behavior.
 FORCE skips the state match and recompiles (explicit user touch).
 Never throws: every failure records an error and falls through to the
-next tier, so one bad unit can't break a boot."
+next tier, so one bad unit can't break a boot. (Strict mode re-signals
+instead — see eval fallback.)
+Pre-flight gates run in `manifolding-emacs--compile-unit-parts',
+before any load/compile/eval."
   (let* ((id (manifolding-emacs--unit-elc-id file unit))
          (ph (manifolding-emacs--unit-parts-hash parts))
          (paths (manifolding-emacs--unit-elc-paths id))
@@ -2092,18 +2247,73 @@ unit's artifacts vanish on the next boot.  Never throws."
                                                    dir)))))))))
     (error nil)))
 
+(defun manifolding-emacs-verify-cache ()
+  "Prove the .elc cache holds no stale entries. Checks duplicate unit
+IDs (two units sharing artifacts means silent wrong code), orphan
+artifacts prune would remove, and dry-runs every peek. Reports
+problems via messages; modifies nothing except warming the parts
+cache on miss (what the next boot would do anyway). Never throws."
+  (interactive)
+  (condition-case err
+      (let* ((discovered (manifolding-emacs--ordered-units
+                          "[^./]+$" (manifolding-emacs-get-org-directory) nil))
+             (units (car discovered))
+             (seen (make-hash-table :test 'equal))
+             (dups nil) (live 0) (rebuild 0) (n 0))
+        (dolist (u units)
+          (setq n (1+ n))
+          (let ((id (manifolding-emacs--unit-elc-id
+                     (plist-get u :file) u)))
+            (if (gethash id seen)
+                (push (list id (plist-get u :file) (gethash id seen)) dups)
+              (puthash id (plist-get u :file) seen))
+            (pcase-let ((`(,parts . ,_profile)
+                         (manifolding-emacs--compile-unit-parts
+                          (plist-get u :file) u nil)))
+              (if (manifolding-emacs--unit-cached-p
+                   (plist-get u :file) u parts)
+                  (setq live (1+ live))
+                (setq rebuild (1+ rebuild))))))
+        (let ((orphans
+               (let ((dir (manifolding-emacs--unit-elc-dir))
+                     (out nil))
+                 (when (file-directory-p dir)
+                   (dolist (f (directory-files dir nil "\\.elc\\'") out)
+                     (let ((id (file-name-sans-extension f)))
+                       (unless (gethash id seen)
+                         (push id out))))))))
+          (message "manifolding-emacs: cache verify: %d units, %d would load, %d would rebuild, %d duplicate ids, %d orphans"
+                   n live rebuild (length dups) (length orphans))
+          (dolist (d dups)
+            (message "manifolding-emacs: DUPLICATE unit id %s: %s and %s"
+                     (nth 0 d) (nth 1 d) (nth 2 d)))
+          (dolist (o orphans)
+            (message "manifolding-emacs: orphan artifact %s (prune removes it next boot)" o))
+          (list :units n :load live :rebuild rebuild
+                :duplicates dups :orphans orphans)))
+    (error (message "manifolding-emacs: verify failed: %s"
+                    (error-message-string err))
+           nil)))
+
 (defun manifolding-emacs--compile-unit-parts (file unit &optional force)
   "Return (PARTS . PROFILE) for UNIT in FILE, via cache unless FORCE.
 On a miss, extract fresh and refresh the cache entry — so an explicit
 `manifolding-emacs-compile-file' touch warms the next boot, and the
-next boot replays unchanged files without re-parsing or re-hashing."
+next boot replays unchanged files without re-parsing or re-hashing.
+Pre-flight gates (parens, block nesting) run here on every call —
+before any load/compile/eval, cached or not."
   (let ((start (plist-get unit :start-line)))
-    (or (and (not force) (manifolding-emacs--cache-lookup file start))
-        (pcase-let ((`(,parts . ,profile)
-                     (manifolding-emacs--extract-parts
-                      file (cons start (plist-get unit :end-line)))))
-          (manifolding-emacs--cache-store file start parts profile)
-          (cons parts profile)))))
+    (let ((res (or (and (not force) (manifolding-emacs--cache-lookup file start))
+                   (pcase-let ((`(,parts . ,profile)
+                                (manifolding-emacs--extract-parts
+                                 file (cons start (plist-get unit :end-line)))))
+                     (manifolding-emacs--cache-store file start parts profile)
+                     (cons parts profile)))))
+      ;; Pre-flight gates run here on every call — hits included —
+      ;; before any load/compile/eval downstream.
+      (manifolding-emacs--check-unit-parens file unit (car res))
+      (manifolding-emacs--check-org-nesting file unit)
+      res)))
 
 (defun manifolding-emacs-compile-file (file)
   "Compile FILE, one tagged heading unit at a time.  Returns FILE.
@@ -2146,6 +2356,13 @@ it, leaving every other unit untouched.  Used by the doctor."
 
 ** Compiler — directory loop & summary
 #+begin_src emacs-lisp
+;; *Compile-Log* never takes the frame: one pointer in the log buffer,
+;; not 280 popups (the end-of-loop bury below already did this; this
+;; makes it total, boot and reload alike). Dashboard display is
+;; unaffected: only the compile log is matched here.
+(add-to-list 'display-buffer-alist
+             '("\\*Compile-Log\\*" display-buffer-no-window))
+
 (defun manifolding-emacs-compile-directory (&optional progress-fn force)
   "Compile every tagged heading unit under the active Org directory.
 Units from all files order parents-first via `manifolding-emacs--collect-units'.
@@ -2167,6 +2384,11 @@ compiled, in completion order."
   (setq manifolding-emacs--boot-phase :reading)
   (setq manifolding-emacs--unit-times nil)
   (setq manifolding-emacs--unit-elc-live-ids nil)
+  ;; Fresh signal every run: boot and reload both start clean, so stale
+  ;; entries and stale log buffers can never mix into this run's report.
+  (manifolding-emacs-errors-clear-boot-state)
+  (dolist (b '("*Warnings*" "*Compile-Log*"))
+    (when (get-buffer b) (kill-buffer b)))
   (let* ((discovered (manifolding-emacs--ordered-units
                       "[^./]+$" (manifolding-emacs-get-org-directory)
                       progress-fn))
@@ -2235,13 +2457,17 @@ compiled, in completion order."
     (manifolding-emacs--write-unit-times)
     (cond
      ((> paren-errors 0)
-      (manifolding-emacs--report-problem
-       (format "manifolding-emacs: %d paren error(s) — see the errors buffer for exact positions"
-               paren-errors)))
+      (display-warning
+       'manifolding-emacs
+       (format "%d paren error(s) — see *Warnings* for exact positions"
+               paren-errors)
+       :warning))
      ((> void-errors 0)
-      (manifolding-emacs--report-problem
-       (format "manifolding-emacs: %d void function(s) — check nesting in listed files"
-               void-errors))))
+      (display-warning
+       'manifolding-emacs
+       (format "%d void function(s) — check nesting in listed files"
+               void-errors)
+       :warning)))
     (nreverse compiled)))
 
 (defun manifolding-emacs-aggregate-directory (output-file)
@@ -2800,7 +3026,7 @@ opens at the end, with or without file arguments.
                (if fatal "BOOT THREW - " "")
                errn warnn
                (if (and (not (zerop (+ errn warnn))) (not fatal))
-                   " — details in *Manifolding-Emacs Errors*" "")))
+                   " — details in *Warnings*" "")))
     ;; Void-defun sweep: verify critical functions actually exist.
     (dolist (check
              '(("my/manifolding-atlas-org-prompt--ask" . "org-prompts.org")
@@ -2808,9 +3034,11 @@ opens at the end, with or without file arguments.
                ("my/manifolding-atlas-routines-run" . "routines.org")
                                ("manifolding-keyboard-define-keys" . "engine/state-machine.org")))
       (unless (fboundp (intern (car check)))
-        (manifolding-emacs--report-problem
-         (format "⚠ CRITICAL: %s is VOID — check %s for paren/nesting issues"
-                 (car check) (cdr check))))))
+        (display-warning
+         'manifolding-emacs
+         (format "CRITICAL: %s is VOID — check %s for paren/nesting issues"
+                 (car check) (cdr check))
+         :warning))))
     ;; Paren-issue detector.
     (dolist (e (manifolding-emacs-errors-list))
       (when (and (manifolding-emacs-error-entry-p e)
@@ -2818,8 +3046,10 @@ opens at the end, with or without file arguments.
                  (string-match-p
                   "UNBALANCED PARENS\\|End of file during parsing"
                   (manifolding-emacs-error-entry-message e)))
-        (manifolding-emacs--report-problem
-         "⚠ UNBALANCED PARENS — the errors buffer shows the exact function and position. Fix the extra/missing closer and reload.")))
+        (display-warning
+         'manifolding-emacs
+         "UNBALANCED PARENS — *Warnings* shows the exact function and position. Fix the extra/missing closer and reload."
+         :warning)))
     ;; Always land on the dashboard: normal opens and file opens alike.
     ;; Errors and warnings live in the errors buffer and the status widget.
     (let ((secs (- (float-time) (or manifolding-emacs--boot-t0 (float-time)))))
@@ -2850,3 +3080,8 @@ opens at the end, with or without file arguments.
 #+begin_src emacs-lisp
 (provide 'manifolding-emacs)
 #+end_src
+
+
+
+
+
