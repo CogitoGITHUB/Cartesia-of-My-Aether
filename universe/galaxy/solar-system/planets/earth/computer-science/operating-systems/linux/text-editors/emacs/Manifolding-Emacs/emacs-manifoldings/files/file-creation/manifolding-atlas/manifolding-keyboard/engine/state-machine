@@ -173,7 +173,7 @@ startup so hooks install and the first sweep runs with states/
 registry fully populated — a direct call would initialize boot
 buffers against an empty registry)
 #+begin_src emacs-lisp
-(require 'manifolding-keyboard)
+(require 'manifolding-keyboard nil t)
 (add-hook 'emacs-startup-hook #'manifolding-keyboard-setup)
 #+end_src
 
