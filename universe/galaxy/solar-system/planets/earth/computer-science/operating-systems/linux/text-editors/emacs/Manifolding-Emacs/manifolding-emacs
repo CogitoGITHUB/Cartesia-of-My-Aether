@@ -659,23 +659,6 @@ return its trimmed body string."
                            (eql (manifolding-emacs-error-entry-line e)
                                 line)))
                     manifolding-emacs--boot-errors)))))
-
-(defun manifolding-emacs-splash-add-error-at-point ()
-  (interactive)
-  (let ((e (manifolding-emacs-error-under-point)))
-    (if e (progn (manifolding-emacs-add-error-to-todo e)
-                 (message "Error added to %s" manifolding-emacs-todo-file))
-      (user-error "No error found at point"))))
-
-(defun manifolding-emacs-splash-add-all-errors ()
-  (interactive)
-  (if (not manifolding-emacs--boot-errors)
-      (user-error "No errors to add")
-    (dolist (e manifolding-emacs--boot-errors)
-      (manifolding-emacs-add-error-to-todo e))
-    (message "All %d errors added to %s"
-             (length manifolding-emacs--boot-errors)
-             manifolding-emacs-todo-file)))
 #+end_src
 
 ** Errors — persistence
@@ -2327,21 +2310,18 @@ that should happen silently just because nothing broke today."
 ** Splash — constants & state
 Pure renderer: reads the error/warnings lists, never mutates them.
 #+begin_src emacs-lisp
-(defconst manifolding-emacs-splash--bar-width 54)
 (defconst manifolding-emacs-splash--redraw-interval 0.1
-  "Seconds between live splash redraws (throttle).")
+  "Seconds between live progress updates (throttle).")
 (defconst manifolding-emacs-splash--history-length 24
   "How many past boot durations the sparkline remembers.")
 
-(defvar manifolding-emacs-splash--state nil
-  "Live render state: (:t0 :count :last-render :elapsed-final).")
 
 (defvar manifolding-emacs-splash--history-file
   (expand-file-name ".local/cache/manifolding-boot-times"
                     user-emacs-directory))
 
 (defvar manifolding-emacs--last-boot-seconds nil
-  "Duration of the most recent boot, set by the clean-finish handoff
+  "Duration of the most recent boot, set by the boot finish handoff
 and displayed by the dashboard's Manifold status widget.")
 
 (defvar manifolding-emacs--unit-times nil
@@ -2381,16 +2361,6 @@ timing must never break a boot."
                             (car r) (or (nth 2 r) 'unknown) (cadr r))))))
     (error nil)))
 
-(defun manifolding-emacs-show-splash ()
-  (let ((buf (get-buffer-create "*Manifolding-Emacs*")))
-    (with-current-buffer buf
-      (erase-buffer)
-      (let ((org-mode-hook nil)) (org-mode)))
-    (condition-case nil
-        (switch-to-buffer buf)
-      (error nil))
-    buf))
-
 (defun manifolding-emacs-splash--record-duration (seconds)
   (make-directory
    (file-name-directory manifolding-emacs-splash--history-file) t)
@@ -2416,7 +2386,7 @@ timing must never break a boot."
     (error nil)))
 #+end_src
 
-** Splash — sparkline, centering, bar
+** Splash — sparkline (kept: dashboard status widget)
 #+begin_src emacs-lisp
 (defun manifolding-emacs-splash--sparkline ()
   "Render recent boot durations as a one-line block sparkline."
@@ -2434,163 +2404,83 @@ timing must never break a boot."
                                         (/ (- s mn) span)))))
                      (aref chars (min (1- (length chars))
                                       (max 0 idx)))))
-                 times ""))))))
-
-(defun manifolding-emacs-splash--center (text)
-  "Center each line of TEXT within the live window width."
-  (let* ((win (get-buffer-window "*Manifolding-Emacs*" t))
-         (w (if win (window-body-width win) 80))
-         (lines (split-string text "\n")))
-    (mapconcat
-     (lambda (line)
-       (let* ((len (length line))
-              (pad (if (< len w) (make-string (/ (- w len) 2) ?\s) "")))
-         (concat pad line)))
-     lines "\n")))
-
-(defun manifolding-emacs-splash--bar (current total)
-  (let* ((ratio (if (zerop total) 1.0 (/ (float current) total)))
-         (done (floor (* ratio manifolding-emacs-splash--bar-width)))
-         (todo (- manifolding-emacs-splash--bar-width done)))
-    (concat "["
-            (propertize (make-string done ?█) 'face 'bold)
-            (make-string todo ?·)
-            "]")))
+                  times ""))))))
 #+end_src
 
-** Splash — problem grouping & progress rendering
-Atomic upstream renderers — kept whole.
+** Progress — messages plus dashboard header line
+No splash buffer: every tick logs one line to *Messages* (visible in
+the echo area, the *Messages* buffer, and CLI output) and, once the
+dashboard is live, mirrors it into the dashboard header line.
 #+begin_src emacs-lisp
-(defun manifolding-emacs-splash--group-by-file (entries)
-  "Group error/warning ENTRIES by file."
-  (let ((groups (make-hash-table :test #'equal))
-        order)
-    (dolist (e entries)
-      (let* ((f (or (if (manifolding-emacs-error-entry-p e)
-                        (manifolding-emacs-error-entry-file e)
-                      (plist-get e :file))
-                    "unknown"))
-             (base (file-name-nondirectory f)))
-        (unless (gethash base groups)
-          (push base order))
-        (push e (gethash base groups))))
-    (mapcar (lambda (base)
-              (cons base (nreverse (gethash base groups))))
-            (nreverse order))))
+(defvar manifolding-emacs--progress-state nil
+  "Live progress state: (:t0 :count :last-render :last-count :last-status).")
 
-(defun manifolding-emacs-splash--problems-section (label entries)
-  "Render LABEL section for grouped ENTRIES, or empty string."
-  (if (null entries)
-      ""
-    (let ((out (list (format "\n%s — %d\n" label (length entries)))))
-      (pcase-dolist (`(,base . ,items)
-                       (manifolding-emacs-splash--group-by-file entries))
-        (push (format "%s\n"
-                      (propertize (format "%s (%d)" base (length items))
-                                  'face 'bold))
-              out)
-        (dolist (e items)
-          (push (format "  %s\n"
-                        (if (manifolding-emacs-error-entry-p e)
-                            (manifolding-emacs-error-entry-message e)
-                          (plist-get e :message)))
-                out)))
-      (apply #'concat (nreverse out)))))
+(defvar manifolding-emacs--dashboard-progress-opened nil
+  "Non-nil once this boot opened the dashboard for live progress.
+Manual reloads never steal the frame: only boots open it.")
 
-(defun manifolding-emacs-splash--eta-line (current total)
-  (format "%d/%d · %d%%" current total
-          (if (zerop total) 100
-            (floor (* 100 (/ (float current) total))))))
+(defun manifolding-emacs--progress-line (current total file status)
+  "One-line progress text for *Messages* and the dashboard header."
+  (let ((label (pcase manifolding-emacs--boot-phase
+                 (:compiling "Compiling") (:loading "Loading")
+                 (:reading "Reading")
+                 (_ "Processing"))))
+    (concat (format "Manifolding-Emacs %d/%d · %s: " current total label)
+            (or (and file (manifolding-emacs-file-title file)) "?")
+            (pcase status
+              ('compiled " [no cache — compiling fresh]")
+              ('loaded " [cached]")
+              (_ ""))
+            (let ((e (length (manifolding-emacs-errors-list)))
+                  (w (length (manifolding-emacs-warnings-list))))
+              (if (and (zerop e) (zerop w))
+                  ""
+                (format " · %d errors · %d warnings" e w))))))
 
-(defun manifolding-emacs-splash--render-progress (buf current total file &optional status)
-  (let* ((errors (manifolding-emacs-errors-list))
-         (warnings (manifolding-emacs-warnings-list))
-           (label (pcase manifolding-emacs--boot-phase
-                    (:compiling "Compiling") (:loading "Loading")
-                    (:reading "Reading")
-                    (_ "Processing")))
-          (bar (manifolding-emacs-splash--bar current total))
-          (eta (manifolding-emacs-splash--eta-line current total))
-          (head (concat "MANIFOLDING-EMACS\n\n"
-                       (propertize eta 'face 'bold) "\n\n"
-                       bar "\n\n"
-                          (if file
-                              (concat
-                               ;; Phase label in red on its own line, the
-                               ;; unit title beneath: instantly clear
-                               ;; what is happening to what.
-                               (propertize (concat label ":") 'face 'error)
-                               "\n"
-                               ;; Belt and suspenders: a nil title must never
-                               ;; throw inside the progress renderer.
-                               (propertize (or (manifolding-emacs-file-title file) "?")
-                                           'face 'bold)
-                               (pcase status
-                                 ('compiled "  [no cache — compiling fresh]")
-                                 ('loaded "  [cached]")
-                                 (_ "")))
-                            "")
-                        "\n"
-                        ;; Clean boot, clean screen: the counts only
-                        ;; appear once there is something to report.
-                        (if (and (zerop (length errors))
-                                 (zerop (length warnings)))
-                            ""
-                          (format "%s%d errors · %d warnings\n"
-                                  (if (alist-get :fatal
-                                           manifolding-emacs-splash--state)
-                                      "BOOT THREW — " "")
-                                  (length errors) (length warnings)))))
-         (body (concat head
-                       (manifolding-emacs-splash--problems-section
-                        "ERRORS" errors)
-                       (manifolding-emacs-splash--problems-section
-                        "WARNINGS" warnings))))
-    (with-current-buffer buf
-      (let ((inhibit-read-only t)
-            (org-mode-hook nil))
-        (erase-buffer)
-        (insert (manifolding-emacs-splash--center body))
-        (goto-char (point-min))))))
-
-(defun manifolding-emacs-splash-update-progress (buf current total file &optional status)
-  (when (buffer-live-p buf)
-    (let* ((now (float-time))
-           (st manifolding-emacs-splash--state)
-           (first-call (zerop (or (plist-get st :count) 0)))
-           (changed (or (/= current (or (plist-get st :last-count) -1))
-                        (not (equal status (plist-get st :last-status)))
-                        (/= (length (manifolding-emacs-errors-list))
-                            (or (plist-get st :last-e) -1))
-                        (/= (length (manifolding-emacs-warnings-list))
-                            (or (plist-get st :last-w) -1)))))
-      (when first-call
-        (setq manifolding-emacs-splash--state
-              (list :t0 now :count 0 :last-render 0
-                    :last-count -1 :last-e -1 :last-w -1))
-        (setq st manifolding-emacs-splash--state))
-      (plist-put manifolding-emacs-splash--state :count current)
-      (let* ((since (and (not first-call)
-                         (- now (or (plist-get
-                                     manifolding-emacs-splash--state
-                                     :last-render)
-                                    0))))
-             (finished (>= current total)))
-        (when (or first-call finished changed
-                  (null since)
-                  (>= since manifolding-emacs-splash--redraw-interval))
-          (plist-put manifolding-emacs-splash--state :last-render now)
-           (plist-put manifolding-emacs-splash--state :last-count current)
-           (plist-put manifolding-emacs-splash--state :last-status status)
-           (plist-put manifolding-emacs-splash--state :last-e
-                      (length (manifolding-emacs-errors-list)))
-           (plist-put manifolding-emacs-splash--state :last-w
-                      (length (manifolding-emacs-warnings-list)))
-            (manifolding-emacs-splash--render-progress buf current total file status)
-           (with-current-buffer buf
-             ;; Forced: a busy main thread must still paint, or the
-             ;; splash looks frozen during long units.
-             (redisplay t)))))))
+(defun manifolding-emacs--progress-tick (current total file &optional status)
+  "Log progress to *Messages*; mirror it to the dashboard header line
+once the dashboard is live. Throttled to redraw-interval. Never throws:
+a progress tick must never break compilation."
+  (condition-case nil
+      (let* ((now (float-time))
+             (st manifolding-emacs--progress-state)
+             (first-call (zerop (or (plist-get st :count) 0)))
+             (changed (or (/= current (or (plist-get st :last-count) -1))
+                          (not (equal status (plist-get st :last-status))))))
+        (when first-call
+          (setq manifolding-emacs--progress-state
+                (list :t0 now :count 0 :last-render 0
+                      :last-count -1 :last-status nil))
+          (setq st manifolding-emacs--progress-state))
+        (plist-put manifolding-emacs--progress-state :count current)
+        (let* ((since (and (not first-call)
+                           (- now (or (plist-get manifolding-emacs--progress-state
+                                                 :last-render)
+                                      0))))
+               (finished (>= current total)))
+          (when (or first-call finished changed
+                    (null since)
+                    (>= since manifolding-emacs-splash--redraw-interval))
+            (plist-put manifolding-emacs--progress-state :last-render now)
+            (plist-put manifolding-emacs--progress-state :last-count current)
+            (plist-put manifolding-emacs--progress-state :last-status status)
+            (let ((line (manifolding-emacs--progress-line
+                         current total file status)))
+              (message "%s" line)
+              (when (and (fboundp 'dashboard-open)
+                         (featurep 'dashboard))
+                (let ((dbuf (get-buffer "*dashboard*")))
+                  (when (and manifolding-emacs--booting
+                             (not manifolding-emacs--dashboard-progress-opened))
+                    (setq manifolding-emacs--dashboard-progress-opened t)
+                    (condition-case nil (dashboard-open) (error nil))
+                    (setq dbuf (get-buffer "*dashboard*")))
+                  (when (buffer-live-p dbuf)
+                    (with-current-buffer dbuf
+                      (let ((inhibit-read-only t))
+                        (setq header-line-format line)))))))
+            (redisplay t))))
+    (error nil)))
 #+end_src
 
 ** Splash — counts
@@ -2616,51 +2506,10 @@ Atomic upstream renderers — kept whole.
         0)
     (error 0)))
 
-(defun manifolding-emacs-splash-clean-finish (buf boot-seconds)
-  "Record the duration, then hand off to the *dashboard*.
-The old splash dashboard is gone: *dashboard* IS the post-boot view.
-Non-clean boots stay in *Manifolding-Emacs* with the full report."
-  (manifolding-emacs-splash--record-duration boot-seconds)
-  (setq manifolding-emacs--last-boot-seconds boot-seconds)
-  (cond
-   ((and (fboundp 'dashboard-refresh-buffer)
-         (fboundp 'dashboard-open))
-    ;; Bury the progress screen; the vendored dashboard takes over.
-    (when (buffer-live-p buf) (bury-buffer buf))
-    (dashboard-open))
-   (t
-    (manifolding-emacs-splash-update-dashboard
-     buf boot-seconds "CLEAN BOOT"))))
 #+end_src
 
 ** Splash — module todos & vault git info
 #+begin_src emacs-lisp
-(defvar manifolding-emacs-splash--todos-expanded nil
-  "When non-nil, the dashboard lists every module TODO instead of a few.")
-
-(defvar manifolding-emacs-splash--todos-cache nil
-  "Module TODOs from the last scan.  Filled on an idle timer after the
-dashboard renders, so boot never pays the full-vault read up front.")
-
-(defvar manifolding-emacs-splash--todos-pending nil
-  "Non-nil while a TODO backfill timer is already scheduled.")
-
-(defun manifolding-emacs-splash--schedule-todos-backfill (buf boot-seconds banner)
-  "Re-scan module TODOs once idle, then re-render the dashboard.
-The boot-time render shows whatever the cache holds (nil on a fresh
-boot); the backfill fills it in without blocking startup."
-  (unless manifolding-emacs-splash--todos-pending
-    (setq manifolding-emacs-splash--todos-pending t)
-    (run-with-idle-timer
-     5 nil
-     (lambda ()
-       (setq manifolding-emacs-splash--todos-pending nil)
-       (setq manifolding-emacs-splash--todos-cache
-             (manifolding-emacs-splash--module-todos))
-       (when (buffer-live-p buf)
-         (manifolding-emacs-splash-update-dashboard
-          buf boot-seconds banner))))))
-
 (defun manifolding-emacs-splash--module-todos ()
   "Return list of (FILE-BASE . TITLE) TODO headings from mechanism files.
 Driven by the discovery index: only files with tagged units are read,
@@ -2703,104 +2552,6 @@ so non-mechanism files are never touched."
     (error nil)))
 #+end_src
 
-** Splash — dashboard render
-Atomic upstream renderer — kept whole.
-#+begin_src emacs-lisp
-(defun manifolding-emacs-splash-update-dashboard (buf boot-seconds banner)
-  (when (buffer-live-p buf)
-    (let* ((errors (length (manifolding-emacs-errors-list)))
-           (warnings (length (manifolding-emacs-warnings-list)))
-           (notes (manifolding-emacs-splash--notes-count))
-           (missing (manifolding-emacs-splash--missing-prompts-count))
-           (missing-path (expand-file-name
-                          "admin/MISSING PROMPTS"
-                          (if (fboundp 'my/manifolding-atlas-root-dir)
-                              (my/manifolding-atlas-root-dir)
-                            (expand-file-name "~"))))
-            (git-line (manifolding-emacs-splash--vault-git-info))
-            (todos manifolding-emacs-splash--todos-cache)
-           (todo-lines
-            (when todos
-              (let* ((shown (if manifolding-emacs-splash--todos-expanded
-                                todos
-                              (let ((n 0) acc)
-                                (dolist (td todos)
-                                  (when (< n 3)
-                                    (push td acc)
-                                    (setq n (1+ n))))
-                                (nreverse acc))))
-                    (out (list (format "module TODOs: %d%s\n"
-                                       (length todos)
-                                       (if (> (length todos) 3)
-                                           (concat "  [t] "
-                                                   (if manifolding-emacs-splash--todos-expanded
-                                                       "collapse"
-                                                     "show all"))
-                                         "")))))
-                (dolist (td shown)
-                  (push (format "  %s: %s\n"
-                                (propertize (car td) 'face 'bold)
-                                (cdr td))
-                        out))
-                (apply #'concat (nreverse out)))))
-           (body (concat
-                  "MANIFOLDING ATLAS — "
-                  (propertize (or banner "READY") 'face 'bold)
-                  "\n\n"
-                  (propertize
-                   (format "boot %.1fs" boot-seconds) 'face 'bold)
-                  (manifolding-emacs-splash--sparkline)
-                  "\n\n"
-                  (format "modules compiled · errors %d · warnings %d\n"
-                          errors warnings)
-                  (format "vault notes: %d · missing prompts: %d\n"
-                          notes missing)
-                  (when git-line (format "git: %s\n" git-line))
-                  (or todo-lines "")
-                  "\n[g] reload    [m] missing prompts    [q] dismiss\n"
-                  (when (fboundp 'magit-status)
-                    "[p] push    [G] magit\n")))
-           (inhibit-read-only t))
-      (with-current-buffer buf
-        (erase-buffer)
-        (insert (manifolding-emacs-splash--center body))
-        (goto-char (point-min))
-        (use-local-map
-         (let ((map (make-sparse-keymap)))
-           (define-key map "g"
-                       (lambda () (interactive) (manifolding-emacs-reload)))
-           (define-key map "m"
-                       (lambda () (interactive)
-                         (find-file missing-path)))
-           (define-key map "q" #'quit-window)
-           (define-key map "t"
-                       (lambda () (interactive)
-                         (setq manifolding-emacs-splash--todos-expanded
-                               (not manifolding-emacs-splash--todos-expanded))
-                         (manifolding-emacs-splash-update-dashboard
-                          buf boot-seconds banner)))
-           (when (and (fboundp 'my/manifolding-atlas-root-dir)
-                      (fboundp 'my/manifolding-atlas-git--push))
-             (define-key map "p"
-                         (lambda () (interactive)
-                           (message "Manifolding Atlas: pushing notes...")
-                           (my/manifolding-atlas-git--push
-                            (expand-file-name
-                             "admin/MISSING PROMPTS"
-                             (my/manifolding-atlas-root-dir))))))
-           (when (fboundp 'magit-status)
-             (define-key map "G"
-                         (lambda () (interactive)
-                           (magit-status
-                            (if (fboundp 'my/manifolding-atlas-root-dir)
-                                (my/manifolding-atlas-root-dir)
-                              default-directory)))))
-            map))
-         (redisplay))
-    ;; TODO scan runs idle-deferred: the render above shows the cache.
-    (manifolding-emacs-splash--schedule-todos-backfill
-     buf boot-seconds banner))))
-#+end_src
 
 ** Doctor — known packages & rows
 Answers "is everything actually OK?" without triggering every package
@@ -2992,48 +2743,40 @@ recompile.  With FORCE (prefix argument) recompile everything."
       (add-hook 'after-save-hook #'manifolding-emacs-preview nil t)
     (remove-hook 'after-save-hook #'manifolding-emacs-preview t)))
 
-(defun manifolding-emacs--splash-progress (buf)
-  (lambda (current total file &optional status)
-    (manifolding-emacs-splash-update-progress buf current total file status)))
 #+end_src
 
 ** Entry — boot
-Atomic upstream — kept whole.
+Progress goes to *Messages* and the dashboard header; the dashboard
+opens at the end, with or without file arguments.
 #+begin_src emacs-lisp
  (defvar fatal nil "Non-nil when boot throws an error.")
 
  (defvar manifolding-emacs--boot-t0 nil "Boot start time for dashboard.")
 
  (defun manifolding-emacs-boot ()
-   "Compile every Org file, with a splash screen, structured error
- tracking, an idle sweep to surface deferred-load errors early, and
- (optionally) an automatic version freeze if the boot was clean."
+   "Compile every Org file, with progress in *Messages* and the
+ dashboard header line, structured error tracking, an idle sweep to
+ surface deferred-load errors early, and (optionally) an automatic
+ version freeze if the boot was clean. The dashboard opens at the end,
+ whether or not files were passed on the command line."
    (interactive)
    (let ((manifolding-emacs--booting t)
          (boot-t0 (float-time)))
      (setq manifolding-emacs--boot-t0 boot-t0)
      (setq fatal nil)
-    (setq manifolding-emacs-splash--state nil)
+    (setq manifolding-emacs--progress-state nil)
+    (setq manifolding-emacs--dashboard-progress-opened nil)
     (manifolding-emacs-errors-clear-boot-state)
     (when manifolding-emacs-mode-line-indicator
       (manifolding-emacs-doctor-indicator-mode 1))
+    (message "Manifolding-Emacs: reading modules/ …")
     (condition-case err
         ;; Warning capture during boot comes from the foundation
         ;; `display-warning' advice alone: wrapping here too recorded
         ;; every warning twice.
-        (let ((buf (manifolding-emacs-show-splash))
-               (manifolding-emacs--boot-phase :compiling))
-           (with-current-buffer buf
-             (let ((inhibit-read-only t)
-                   (org-mode-hook nil))
-               (erase-buffer)
-               (insert (manifolding-emacs-splash--center
-                        "MANIFOLDING-EMACS\n\nreading modules/ …")))
-             (redisplay))
-           (let ((message-log-max nil))
-             (message "Manifolding-Emacs: reading modules/"))
-            (manifolding-emacs-compile-directory
-             (manifolding-emacs--splash-progress buf)))
+        (let ((manifolding-emacs--boot-phase :compiling))
+           (manifolding-emacs-compile-directory
+            #'manifolding-emacs--progress-tick))
       (error (setq fatal err)))
     (manifolding-emacs-errors-save-log)
     (unless fatal
@@ -3061,63 +2804,37 @@ Atomic upstream — kept whole.
                   (manifolding-emacs-error-entry-message e)))
         (message
          "⚠ UNBALANCED PARENS — the error above shows the exact function and position. Fix the extra/missing closer and reload.")))
-    (let ((buf (get-buffer "*Manifolding-Emacs*")))
-      (when (buffer-live-p buf)
-        (with-current-buffer buf
-          (let ((inhibit-read-only t))
-            (goto-char (point-min))
-            (cond
-             (fatal
-              (insert (propertize
-                       (format "Boot threw: %s\n\n"
-                               (error-message-string fatal))
-                       'face 'error))
-              (insert "This escaped all three isolation tiers - check *Messages*.\n")
-              (local-set-key "q" #'quit-window))
-             ((manifolding-emacs-errors-list)
-              (insert (propertize "Boot completed with errors.\n\n"
-                                  'face 'error))
-              (insert "Press RET or `C-c C-o' on a link to jump to it.\n")
-              (insert "Press `t' to file the error at point to TODO, `T' for all.\n\n")
-              (local-set-key "q" #'quit-window)
-              (local-set-key "t" #'manifolding-emacs-splash-add-error-at-point)
-              (local-set-key "T" #'manifolding-emacs-splash-add-all-errors))
-             ((manifolding-emacs-warnings-list)
-              (insert (propertize "Boot completed with warnings.\n\n"
-                                  'face 'warning))
-              (local-set-key "q" #'quit-window)
-              (local-set-key "g"
-                             (lambda ()
-                               (interactive) (manifolding-emacs-reload))))
-               (t
-                (condition-case dash-err
-                    (manifolding-emacs-splash-clean-finish
-                     buf (- (float-time) (or manifolding-emacs--boot-t0 (float-time))))
-                   (error
-                    (message "manifolding-emacs: dashboard error %s"
-                               (error-message-string dash-err)))))))))))
+    ;; Always land on the dashboard: normal opens and file opens alike.
+    ;; Errors and warnings live in *Messages* and the status widget.
+    (let ((secs (- (float-time) (or manifolding-emacs--boot-t0 (float-time)))))
+      (unless fatal
+        (manifolding-emacs-splash--record-duration secs)
+        (setq manifolding-emacs--last-boot-seconds secs))
+      (when fatal
+        (message "manifolding-emacs: BOOT THREW: %s"
+                 (error-message-string fatal)))
+      (condition-case dash-err
+          (if (and (fboundp 'dashboard-open)
+                   (fboundp 'dashboard-refresh-buffer))
+              (progn
+                (when (get-buffer "*dashboard*")
+                  (with-current-buffer "*dashboard*"
+                    (let ((inhibit-read-only t))
+                      (setq header-line-format nil))))
+                (dashboard-open)
+                (run-with-idle-timer
+                 5 nil (lambda ()
+                         (when (get-buffer "*dashboard*")
+                           (condition-case nil
+                               (dashboard-refresh-buffer)
+                             (error nil))))))
+            (message "manifolding-emacs: dashboard unavailable — see *Messages*"))
+        (error
+         (message "manifolding-emacs: dashboard error %s — see *Messages*"
+                  (error-message-string dash-err))))))
 #+end_src
 
-** Entry — message redirection
-Loader chatter goes to its own buffer, never *Messages*.
+** Entry — provide
 #+begin_src emacs-lisp
-(defvar manifolding-emacs--log-buffer-name "*Manifolding-Emacs*"
-  "Buffer receiving loader chatter instead of *Messages*.")
-
-(defun manifolding-emacs--redirect-message (orig fmt &rest args)
-  "Route loader-prefixed chatter into its own buffer."
-  (if (and (stringp fmt)
-           (string-prefix-p "manifolding-emacs:" fmt))
-      (progn
-        (with-current-buffer (get-buffer-create
-                              manifolding-emacs--log-buffer-name)
-          (let ((inhibit-read-only t))
-            (goto-char (point-max))
-            (insert (apply #'format fmt args) "\n")))
-        nil)
-    (apply orig fmt args)))
-
-(advice-add 'message :around #'manifolding-emacs--redirect-message)
-
 (provide 'manifolding-emacs)
 #+end_src
