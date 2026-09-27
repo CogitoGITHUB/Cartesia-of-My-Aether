@@ -10,8 +10,18 @@
 :CATEGORY: mode-line
 :END:
 
-Full weekday, full day/month/year, full HH:MM:SS. No truncation.
+Full weekday, full day/month/year, full HH:MM:SS — no truncation.
+Fuzzy words lead when the vendored fuzzy clock is present.
 #+begin_src emacs-lisp
 (manifolding-modeline-define-segment datetime
-  (format-time-string "%A %d %B %Y  %H:%M:%S"))
+  (let* ((now (decode-time))
+         (fuzzy (and (fboundp 'fuzzy-clock-format-time)
+                     (condition-case nil
+                         (fuzzy-clock-format-time
+                          'hour (nth 2 now) (nth 1 now)
+                          (nth 3 now) (nth 4 now) (nth 5 now)
+                          (nth 6 now) nil nil)
+                       (error nil)))))
+    (concat (and fuzzy (concat fuzzy " "))
+            (format-time-string "%A %d %B %Y  %H:%M:%S"))))
 #+end_src

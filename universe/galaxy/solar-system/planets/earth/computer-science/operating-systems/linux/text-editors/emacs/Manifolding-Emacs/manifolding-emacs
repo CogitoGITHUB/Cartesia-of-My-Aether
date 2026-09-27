@@ -2477,13 +2477,20 @@ compiled, in completion order."
        (format "%d paren error(s) — see *Warnings* for exact positions"
                paren-errors)
        :warning))
-     ((> void-errors 0)
-      (display-warning
-       'manifolding-emacs
-       (format "%d void function(s) — check nesting in listed files"
-               void-errors)
-       :warning)))
-    (nreverse compiled)))
+      ((> void-errors 0)
+       (display-warning
+        'manifolding-emacs
+        (format "%d void function(s) — check nesting in listed files"
+                void-errors)
+        :warning)))
+     ;; The loop kills *Warnings* at start; on a clean run nothing
+     ;; recreates it and the buffer looks "gone". Always leave one
+     ;; behind so it is switchable, with a clean bill when empty.
+     (unless (get-buffer "*Warnings*")
+       (with-current-buffer (get-buffer-create "*Warnings*")
+         (let ((inhibit-read-only t))
+           (insert "manifolding-emacs: clean — no errors, no warnings.\n"))))
+     (nreverse compiled)))
 
 (defun manifolding-emacs-aggregate-directory (output-file)
   "Concatenate every tagged file's raw contents into OUTPUT-FILE."
