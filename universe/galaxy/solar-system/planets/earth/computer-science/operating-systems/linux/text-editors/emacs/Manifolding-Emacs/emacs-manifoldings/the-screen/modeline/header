@@ -36,14 +36,16 @@ Off by default: see the note above on window geometry and on olivetti.")
   "The header construct: keyboard state, then atlas context.
 The state name is the same function the bar uses, so the two rows can
 never report different things."
-  (when manifolding-modeline-header-p
-    (let ((state (manifolding-keyboard-modeline-state-name))
-          (atlas manifolding-modeline--atlas-cache))
-      (when (or state atlas)
-        (append (when state (list (propertize state 'face 'mode-line)))
-                (when (and state atlas) (list "  "))
-                (when atlas
-                  (list (propertize atlas 'face 'manifolding-modeline-info))))))))
+   (when manifolding-modeline-header-p
+     (let ((state (and (fboundp 'manifolding-keyboard-modeline-state-name)
+                       (manifolding-keyboard-modeline-state-name)))
+           (atlas (and (boundp 'manifolding-modeline--atlas-cache)
+                       manifolding-modeline--atlas-cache)))
+       (when (or state atlas)
+         (append (when state (list (propertize state 'face 'mode-line)))
+                 (when (and state atlas) (list "  "))
+                 (when atlas
+                   (list (propertize atlas 'face 'manifolding-modeline-info-face))))))))
 
 (defun manifolding-modeline-toggle-header ()
   "Show or hide the optional top row."

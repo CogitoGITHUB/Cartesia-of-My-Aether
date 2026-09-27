@@ -16,6 +16,9 @@
 
 ** Config :config:
 #+begin_src emacs-lisp
+;; Declared so byte-compilation never warns; the package binds them.
+(defvar buffer-terminator-verbose)
+(defvar buffer-terminator-inactivity-timeout)
 (setq buffer-terminator-verbose nil
       buffer-terminator-inactivity-timeout (* 30 60))
 (buffer-terminator-mode +1)
@@ -84,75 +87,93 @@
 
 ** Config :config:
 #+begin_src emacs-lisp
+;; Bufler must be fully loaded before its macro runs: the leaf :config
+;; can evaluate before autoloads resolve, and a half-present macro
+;; voids the boot on `auto-workspace'. Require first, verify second.
 (condition-case req-err
     (require 'bufler)
   (error (manifolding-emacs-record-error
           :level 'package :package 'bufler
           :message (format "require bufler failed (%s) — grouping setup skipped"
                            (error-message-string req-err)))))
-(defun my/bufler--macro-has-workspace-p ()
-  "Non-nil when the live bufler-defgroups macro fully expands
-auto-workspace away, leaving no call behind. A stale bufler leaves
-the call in place and would void the boot; the setup below skips
-grouping instead and reports exactly which bufler loaded."
-  (and (fboundp 'bufler-defgroups)
-       (fboundp 'bufler-group)
-       (let ((exp (condition-case nil
+(defvar bufler-groups nil
+  "Declared here so byte-compilation never warns; bufler sets it.")
+(defvar bufler-list-mode-map nil
+  "Declared here so byte-compilation never warns; bufler defines it.")
+(defvar my/bufler--groups-spec
+  '((group (auto-workspace))
+    (group
+      (group-or "*Help/Info*"
+                (mode-match "*Help*" (rx bos "help-"))
+                (mode-match "*Info*" (rx bos "info-"))))
+    (group
+      (group-not "*Special"
+                 (group-or "*Special*"
+                           (mode-match "Magit" (rx bos "magit-"))
+                           (mode-match "Forge" (rx bos "forge-"))
+                           (mode-match "Dired" (rx bos "dired"))
+                           (mode-match "grep" (rx bos "grep-"))
+                           (mode-match "compilation" (rx bos "compilation-"))
+                           (auto-file)))
+      (group
+        (name-match "**Special**"
+                    (rx bos "*" (or "Messages" "Warnings" "scratch" "Backtrace") "*")))
+      (group
+        (mode-match "*Magit* (non-status)" (rx bos "magit-"))
+        (auto-directory))
+      (mode-match "*Helm*" (rx bos "helm-"))
+      (auto-mode))
+    (dir user-emacs-directory)
+    (group
+      (auto-project)
+      (mode-match "Magit" (rx bos "magit-"))
+      (mode-match "Forge" (rx bos "forge-"))
+      (auto-file)
+      (auto-directory))
+    (group
+      (auto-file)
+      (auto-directory))
+    (auto-mode))
+  "Group specs as inert data. Expanded once by the installer below;
+never evaluated raw, so no macro call can survive to void at
+runtime. Single copy: edit here, nowhere else.")
+(defun my/bufler--install-groups ()
+  "Expand the spec fully, eval only when no macro call survives.
+Every failure records precisely (including a cut of the offending
+expansion) and keeps defaults. Never throws, never voids."
+  (let ((expanded (condition-case nil
                       (macroexpand-all
-                       '(bufler-defgroups (group (auto-workspace))))
-                    (error nil))))
-         (and exp
-              (not (string-match-p "(auto-workspace)"
-                                   (format "%S" exp)))))))
+                       `(bufler-defgroups ,@my/bufler--groups-spec))
+                    (error nil)))
+        (src (or (locate-library "bufler") "?")))
+    (cond
+     ((null expanded)
+      (manifolding-emacs-record-error
+       :level 'package :package 'bufler
+       :message (format "groups expansion failed; loaded from %s — defaults kept" src)))
+     ((string-match-p "(auto-workspace)" (format "%S" expanded))
+      (manifolding-emacs-record-error
+       :level 'package :package 'bufler
+       :message (format "groups expansion unclean (%.300s); loaded from %s — defaults kept"
+                        expanded src)))
+     ((not (fboundp 'bufler-group))
+      (manifolding-emacs-record-error
+       :level 'package :package 'bufler
+       :message (format "bufler-group missing; loaded from %s — defaults kept" src)))
+     (t
+      (condition-case set-err
+          (setq bufler-groups (eval expanded t))
+        (error (manifolding-emacs-record-error
+                :level 'package :package 'bufler
+                :message (format "groups eval failed (%s); loaded from %s — defaults kept"
+                                 (error-message-string set-err) src))))))))
 
-(if (my/bufler--macro-has-workspace-p)
-    (condition-case set-err
-        (setq bufler-groups
-      (bufler-defgroups
-        (group (auto-workspace))
-        (group
-          (group-or "*Help/Info*"
-                     (mode-match "*Help*" (rx bos "help-"))
-                     (mode-match "*Info*" (rx bos "info-"))))
-        (group
-          (group-not "*Special"
-                      (group-or "*Special*"
-                                (mode-match "Magit" (rx bos "magit-"))
-                                (mode-match "Forge" (rx bos "forge-"))
-                                (mode-match "Dired" (rx bos "dired"))
-                                (mode-match "grep" (rx bos "grep-"))
-                                (mode-match "compilation" (rx bos "compilation-"))
-                                (auto-file)))
-          (group
-            (name-match "**Special**"
-                         (rx bos "*" (or "Messages" "Warnings" "scratch" "Backtrace") "*")))
-          (group
-            (mode-match "*Magit* (non-status)" (rx bos "magit-"))
-            (auto-directory))
-          (mode-match "*Helm*" (rx bos "helm-"))
-          (auto-mode))
-        (dir user-emacs-directory)
-        (group
-          (auto-project)
-          (mode-match "Magit" (rx bos "magit-"))
-          (mode-match "Forge" (rx bos "forge-"))
-          (auto-file)
-          (auto-directory))
-        (group
-          (auto-file)
-          (auto-directory))
-        (auto-mode)))
-      (error (manifolding-emacs-record-error
-              :level 'package :package 'bufler
-              :message (format "bufler groups setup voided (%s); loaded from %s — defaults kept"
-                               (error-message-string set-err)
-                               (or (locate-library "bufler") "?")))))
-  (manifolding-emacs-record-error
-   :level 'package :package 'bufler
-   :message (format "stale bufler macro (no auto-workspace clause); loaded from %s — grouping setup skipped"
-                    (or (locate-library "bufler") "?"))))
-(define-key bufler-list-mode-map (kbd "h") #'bufler-list-backward-section)
-(define-key bufler-list-mode-map (kbd "t") #'bufler-list-forward-section)
-(define-key bufler-list-mode-map (kbd "k") #'bufler-list-kill)
-(define-key bufler-list-mode-map (kbd "g") #'bufler-list-update)
+(my/bufler--install-groups)
+;; The map is only a declared placeholder until bufler loads; never
+;; crash the unit on keys when it did not.
+(when (keymapp bufler-list-mode-map)
+  (define-key bufler-list-mode-map (kbd "h") #'bufler-list-backward-section)
+  (define-key bufler-list-mode-map (kbd "t") #'bufler-list-forward-section)
+  (define-key bufler-list-mode-map (kbd "k") #'bufler-list-kill)
+  (define-key bufler-list-mode-map (kbd "g") #'bufler-list-update))
 #+end_src

@@ -26,9 +26,13 @@ the bar shows the *name* of the state, so a state change has to be announced.
     (setq state (intern state)))
   (let ((previous manifolding-keyboard-state))
     (when (and manifolding-keyboard-state (not (equal manifolding-keyboard-state state)))
-      (funcall (manifolding-keyboard-get-state-mode manifolding-keyboard-state) -1))
+      (let ((old-mode (manifolding-keyboard-get-state-mode manifolding-keyboard-state)))
+        (when (fboundp old-mode) (funcall old-mode -1))))
     (when state
-      (funcall (manifolding-keyboard-get-state-mode state) 1))
+      (let ((new-mode (manifolding-keyboard-get-state-mode state)))
+        (if (fboundp new-mode)
+            (funcall new-mode 1)
+          (message "manifolding-keyboard: unknown state %s" state))))
     (setq manifolding-keyboard-state state)
     (unless (equal previous manifolding-keyboard-state)
       ;; Model line accommodation. Guarded on fboundp so the keyboard has no

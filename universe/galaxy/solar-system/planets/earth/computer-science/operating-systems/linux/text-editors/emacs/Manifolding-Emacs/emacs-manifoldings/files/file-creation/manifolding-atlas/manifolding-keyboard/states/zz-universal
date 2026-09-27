@@ -426,7 +426,7 @@ whitespace to that line's indentation column."
   "Show relative line numbers, switching to absolute in insert state."
   (when display-line-numbers
     (setq display-line-numbers
-          (if (equal manifolding-keyboard-state "insert") t 'relative))))
+          (if (eq manifolding-keyboard-state 'insert) t 'relative))))
 #+end_src
 #+begin_src emacs-lisp
 (defun my/line-beginning ()

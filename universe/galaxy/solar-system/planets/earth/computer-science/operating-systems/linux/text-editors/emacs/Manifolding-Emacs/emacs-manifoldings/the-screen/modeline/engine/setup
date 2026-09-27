@@ -136,7 +136,7 @@ waiting for the render timer.
 Mini-modeline reroutes `message' past *Messages*; this logs a copy
 directly (no recursion: never calls message itself).
 #+begin_src emacs-lisp
-(defun manifolding-modeline--log-message (func &rest args)
+(defun manifolding-modeline--log-message (_func &rest args)
   "Append FUNC's message text to *Messages* before it shows inline."
   (when args
     (condition-case nil
