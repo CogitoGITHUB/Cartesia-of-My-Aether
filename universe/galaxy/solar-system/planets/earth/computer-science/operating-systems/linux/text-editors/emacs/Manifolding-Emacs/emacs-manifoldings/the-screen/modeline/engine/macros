@@ -1,309 +1,94 @@
-* Manifolding Modeline Engine :EMACS_MECHANISM:
+#+title:      Modeline Segment DSL
+#+filetags:   :emacs-package:ui:
+#+property:   header-args:emacs-lisp :lexical t
+
+* Modeline Segment DSL :EMACS_MECHANISM:
 :PROPERTIES:
-:ID:       c3e8a712-5f04-49bb-b6d3-8a27c5e10f42
+:ID:       af6e44e4-6eb8-46f2-af60-8a6f95e17000
 :MM_PARENT: none
-:MM_ORDER:  80.1
-:CATEGORY: the-screen
+:MM_ORDER:  80.2
+:CATEGORY: mode-line
 :END:
 
-The segment DSL and the one layout primitive the whole bar depends on.
+Construct reference plus the segment registry. Migrated from
+the-screen/display/06-screen (The Data Structure of the Mode Line);
+widgets register, engine/setup composes.
 
-A *segment* is a named, reorderable piece of the bar. The `order' file says
-where each one goes; the registry says what it is. Nothing in a widget knows
-its own position, so reordering the bar is a text edit.
+** The Data Structure of the Mode Line
 
-** Right-align, portably
-Emacs 29 added `mode-line-format-right-align', which is the obvious way to
-pin a cluster to the right edge. It is absent before 29, and this tree pins
-no version, so the bar uses the public-API equivalent: render the right
-cluster to a string with `format-mode-line' and pad in front of it with
-spaces computed from the real window width. Slightly more work per row, all
-of it against cached variables, and it works on every version.
-#+begin_src emacs-lisp
-(defun manifolding-modeline--window-width ()
-  "Column width of the window this mode line is being built for.
-Prefers the window actually showing the current buffer so a vertical split
-gets its own width rather than the full frame."
-  (or (let ((win (get-buffer-window (current-buffer) 0)))
-        (and win (window-size win 'horizontal)))
-      (window-size (selected-window) 'horizontal)
-      (frame-width)))
+The mode line contents are controlled by a data structure called a mode line construct, made up of lists, strings, symbols, and numbers kept in buffer-local variables. Each data type has a specific meaning for the mode line appearance, as described below. The same data structure is used for constructing frame titles (see Frame Titles) and header lines (see Window Header Lines).
 
-(defun manifolding-modeline-right-pad (format &optional margin)
-  "Return a mode-line construct that pins FORMAT to the right edge.
-FORMAT is any mode-line construct. MARGIN is columns kept clear on the
-right, default 1. Falls back to the un-padded string when the window
-width is unknown, so this never errors during a redisplay."
-  (let ((margin (or margin 1)))
-  (list :eval
-        (let* ((right (format-mode-line format))
-               (width (manifolding-modeline--window-width))
-               (room (and (stringp right) width (> width 0)
-                          (- width (string-width right) margin))))
-          ;; `format' coerces: format-mode-line can hand back a cons when a
-          ;; row's only cell is itself a construct, and string-width on a cons
-          ;; is "wrong type argument: characterp". Coerce to text before any
-          ;; string operation, and fall back to the un-padded value when the
-          ;; window width is unknown.
-          (if room
-              (concat (make-string room ?\s) (format "%s" right))
-            (if (stringp right) right (format "%s" right)))))))
-#+end_src
-
-** The segment registry
-#+begin_src emacs-lisp
-(defvar manifolding-modeline--segments nil
-  "Modeline segments, keyed by symbol.
-Each value is the plist passed to `manifolding-modeline-define-segment'.")
-
-(defvar manifolding-modeline-refresh-hook nil
-  "Hooks run by `manifolding-modeline-update-caches' on every tick.
-Each fast segment's refresh form is added here, so adding a segment never
-means editing the engine.")
-
-(defvar manifolding-modeline-refresh-slow-hook nil
-  "Hooks run by `manifolding-modeline-update-caches' every
-`manifolding-modeline-slow-every' ticks. For segments whose refresh opens
-a connection or otherwise costs real work — see the atlas segment, which
-probes PostgreSQL and must not do so every thirty seconds on a phone.")
-
-(defmacro manifolding-modeline-define-segment (name &rest spec)
-  "Declare modeline segment NAME from SPEC.
-:doc      one line, surfaced by `manifolding-modeline-audit'.
-:face     accent face, or nil for the base `mode-line' face.
-:side     :left or :right. Only a *fallback*, consulted when the
-            `order' file names the segment bare. The order file is
-            authoritative, so a widget can be moved without a code
-            change.
-:construct  form evaluated by `manifolding-modeline-build-row'; must
-            return a mode-line construct. May be given as a form to
-            `eval' or as a function of no arguments. Runs at build time,
-            never at redisplay time.
-:cache    symbol naming this segment's defvar, holding the text
-          `construct' reads. The only thing a redisplay touches.
-:refresh  form run to recompute that cache. This is where any slow work
-          belongs. Goes on the fast hook.
-:slow     when non-nil, `:refresh' goes on the slow hook instead."
-  ;; No `doc-string' declare: there is no separate docstring argument —
-  ;; the prose above documents SPEC's keys, and the `:doc' value is one of
-  ;; them. Declaring arg 3 as a docstring made the byte-compiler swallow
-  ;; every segment's :doc string and fail the unit outright.
-  (declare (indent 1))
-  (let* ((cache   (plist-get spec :cache))
-         ;; `:refresh' may be written either as a bare form
-         ;;   (manifolding-modeline--clock-refresh)
-         ;; or in this codebase's `:generate' idiom, quoted:
-         ;;   '(manifolding-modeline--clock-refresh)
-         ;; The latter reads as (quote (fn)), which would be spliced in
-         ;; and leave the hook body evaluating to a *list* instead of
-         ;; calling anything. Unwrap that one level.
-         (refresh (let ((r (plist-get spec :refresh)))
-                    (and r (if (and (consp r) (eq (car r) 'quote))
-                                (cadr r)
-                              r))))
-         ;; Chosen here, in the macro body, and interpolated as a value.
-         ;; Deciding it inside the template needs a nested quasiquote, and
-         ;; in a nested one `,slow' escapes to the wrong depth — the
-         ;; unexpanded `(if ,slow ...)' then gets spliced in as data and
-         ;; the unit dies with "Wrong type argument: listp".
-         (hook    (if (plist-get spec :slow)
-                       'manifolding-modeline-refresh-slow-hook
-                     'manifolding-modeline-refresh-hook))
-         (forms   nil))
-    (when cache
-      (push `(defvar ,cache nil
-              "Cached text for the `NAME' modeline segment.
-Written only by `manifolding-modeline-update-caches'.")
-            forms))
-    ;; Two quoting rules, both learned the hard way. Emacs lisp-2 splits
-    ;; values from names, and a quasiquote splices a symbol in as *code*:
-    ;;
-    ;;   ',name   the symbol `buffer-id' as a datum — right for a list
-    ;;            key, which `assq' will look up.
-    ;;   ,cache   the symbol as a reference — right in `defvar', where a
-    ;;            variable is being named.
-    ;;
-    ;; and the same applies to the hook below: `add-hook' wants the hook
-    ;; *variable's name*, so it needs ',hook. With a bare ,hook the
-    ;; expansion reads the variable's value and passes nil, which dies as
-    ;; "Attempt to set a constant symbol: nil".
-    (push `(setq manifolding-modeline--segments
-                (cons (cons ',name ',spec) manifolding-modeline--segments))
-          forms)
-    (when refresh
-      (push `(add-hook ',hook (lambda () ,refresh)) forms))
-    `(progn ,@(nreverse forms))))
-
-(defun manifolding-modeline-segment (name)
-  "Plist describing modeline segment NAME, or nil if unregistered."
-  (cdr (assq name manifolding-modeline--segments)))
-
-(defun manifolding-modeline-segment-names ()
-  "Registered segment names, sorted, for audits and completion."
-  (sort (mapcar #'car manifolding-modeline--segments) #'string<))
-#+end_src
-
-** Accent
-Segments never `propertize' themselves; they name a face and the
-composer applies it. That keeps colour in `faces' where it belongs and
-means a segment file has no styling knowledge at all.
-#+begin_src emacs-lisp
-(defun manifolding-modeline-accent (name text)
-  "Return TEXT carrying segment NAME's accent face, or TEXT if it has none.
-TEXT may be a symbol naming a cache or stock variable, in which case its
-value is used — `propertize' needs a string, not a symbol. A symbol with
-no face is returned untouched, which is what keeps the unaccented stock
-segments live: Emacs re-evaluates a symbol construct on every redisplay."
-  (let ((face (plist-get (manifolding-modeline-segment name) :face)))
-    (when text
-      (when (and (symbolp text) face)
-        ;; A cache that has not been filled yet is nil, and propertize
-        ;; rejects nil — a segment with nothing to say says nothing.
-        (setq text (symbol-value text)))
-      (if (and text (not (and (stringp text) (string-empty-p text)))
-               face (not (symbolp text)))
-          (propertize text 'face face)
-        text))))
-
-(defun manifolding-modeline--segment-text (spec)
-  "Evaluate SPEC's :construct and return its mode-line text.
-
-Three shapes are in use, and they are not interchangeable:
-
-  symbol   a stock mode-line variable or a cache. Returned as-is: Emacs
-           re-evaluates the symbol on every redisplay, so naming one is
-           how a segment stays live for free.
-  list     a form to evaluate — `(my/refresh-fn)' calls the function.
-  function a zero-arg lambda, for the segments that must choose a face
-           or read something only meaningful at build time.
-
-Dispatching on type rather than guessing matters: a bare `eval' of a
-`lambda' form yields the closure instead of its result, and
-`functionp' is true for a one-element list, so a form and a lambda
-cannot be told apart that way."
-  (let ((form (plist-get spec :construct)))
-    (cond ((null form) nil)
-          ((symbolp form) form)
-          ((functionp form) (funcall form))
-          (t (eval form)))))
-
-(defun manifolding-modeline--row-cell (name)
-  "Return segment NAME's finished text for a row, or nil if it has none.
-Resolve, then accent, then discard empties — in that order. Filtering
-first would test the *symbol* naming a cache, which is never empty even
-when the cache is, and an accented segment would propertize nil."
-  (let* ((spec (manifolding-modeline-segment name))
-         (raw (and spec (manifolding-modeline--segment-text spec)))
-         (text (and raw (manifolding-modeline-accent name raw))))
-    (when (and text (not (and (stringp text) (string-empty-p text))))
-      text)))
-
-(defun manifolding-modeline-build-row (left-names right-names)
-  "Build one mode-line row: LEFT-NAMES then RIGHT-NAMES, right-padded.
-The two lists are authoritative — the `order' file decides what sits
-where, not the segment. Returns nil when both sides come out empty,
-which the composer drops so a row never renders as a blank line."
-  (let (left right)
-    (dolist (name left-names)
-      (let ((text (manifolding-modeline--row-cell name)))
-        (when text (push text left))))
-    (dolist (name right-names)
-      (let ((text (manifolding-modeline--row-cell name)))
-        (when text (push text right))))
-    (when (or left right)
-      (append (nreverse left)
-              ;; `list' around the helper, not a bare append. The helper
-              ;; returns the two-element construct (:eval STRING), and
-              ;; append splices its elements into the row — putting the bare
-              ;; symbol :eval in the format where Org reads it as literal
-              ;; text, so format-mode-line hands back a symbol and
-              ;; string-width dies with "characterp". Wrapped, it stays one
-              ;; list element and is a real construct.
-              (when right
-                (list (manifolding-modeline-right-pad (nreverse right))))))))
-#+end_src
-
-** Manual extract — The Data Structure of the Mode Line
-Migrated verbatim from `the-screen/display/06-screen' (which was a raw
-Emacs-manual extract with no config). This is the specification the DSL
-above implements.
-
-The mode line contents are controlled by a data structure called a mode
-line construct, made up of lists, strings, symbols, and numbers kept in
-buffer-local variables. Each data type has a specific meaning for the mode
-line appearance, as described below. The same data structure is used for
-constructing frame titles and header lines.
-
-A mode line construct may be as simple as a fixed string of text, but it
-usually specifies how to combine fixed strings with variables' values to
-construct the text. Many of these variables are themselves defined to
-have mode line constructs as their values.
+A mode line construct may be as simple as a fixed string of text, but it usually specifies how to combine fixed strings with variables’ values to construct the text. Many of these variables are themselves defined to have mode line constructs as their values.
 
 Here are the meanings of various data types as mode line constructs:
 
 string
-A string as a mode line construct appears verbatim except for
-%-constructs in it. These stand for substitution of other data.
+A string as a mode line construct appears verbatim except for %-constructs in it. These stand for substitution of other data; see %-Constructs in the Mode Line.
 
-If parts of the string have face properties, they control display of the
-text just as they would text in the buffer. Any characters which have no
-face properties are displayed, by default, in the face mode-line or
-mode-line-inactive. The help-echo and keymap properties in string have
-special meanings.
+If parts of the string have face properties, they control display of the text just as they would text in the buffer. Any characters which have no face properties are displayed, by default, in the face mode-line or mode-line-inactive (see Standard Faces in The GNU Emacs Manual). The help-echo and keymap properties in string have special meanings. See Properties in the Mode Line.
 
 symbol
-A symbol as a mode line construct stands for its value. The value of
-symbol is used as a mode line construct, in place of symbol. However,
-the symbols t and nil are ignored, as is any symbol whose value is void.
+A symbol as a mode line construct stands for its value. The value of symbol is used as a mode line construct, in place of symbol. However, the symbols t and nil are ignored, as is any symbol whose value is void.
 
-There is one exception: if the value of symbol is a string, it is
-displayed verbatim: the %-constructs are not recognized.
+There is one exception: if the value of symbol is a string, it is displayed verbatim: the %-constructs are not recognized.
 
-Unless symbol is marked as risky (i.e., it has a non-nil
-risky-local-variable property), all text properties specified in symbol's
-value are ignored. This includes the text properties of strings in
-symbol's value, as well as all :eval and :propertize forms in it. (The
-reason for this is security: non-risky variables could be set
-automatically from file variables without prompting the user.)
+Unless symbol is marked as risky (i.e., it has a non-nil risky-local-variable property), all text properties specified in symbol’s value are ignored. This includes the text properties of strings in symbol’s value, as well as all :eval and :propertize forms in it. (The reason for this is security: non-risky variables could be set automatically from file variables without prompting the user.)
 
-(string rest…) / (list rest…)
-A list whose first element is a string or list means to process all the
-elements recursively and concatenate the results. This is the most common
-form of mode line construct. (Note that text properties are handled
-specially (for reasons of efficiency) when displaying strings in the mode
-line: Only the text property on the first character of the string are
-considered, and they are then used over the entire string. If you need a
-string with different text properties, you have to use the special
-:propertize mode line construct.)
+(string rest…)
+(list rest…)
+A list whose first element is a string or list means to process all the elements recursively and concatenate the results. This is the most common form of mode line construct. (Note that text properties are handled specially (for reasons of efficiency) when displaying strings in the mode line: Only the text property on the first character of the string are considered, and they are then used over the entire string. If you need a string with different text properties, you have to use the special :propertize mode line construct.)
 
 (:eval form)
-A list whose first element is the symbol :eval says to evaluate form, and
-use the result as a string to display. Make sure this evaluation cannot
-load any files, as doing so could cause infinite recursion.
+A list whose first element is the symbol :eval says to evaluate form, and use the result as a string to display. Make sure this evaluation cannot load any files, as doing so could cause infinite recursion.
 
 (:propertize elt props…)
-A list whose first element is the symbol :propertize says to process the
-mode line construct elt recursively, then add the text properties
-specified by props to the result. The argument props should consist of
-zero or more pairs text-property value. If elt is or produces a string
-with text properties, all the characters of that string should have the
-same properties, or else some of them might be removed by :propertize.
+A list whose first element is the symbol :propertize says to process the mode line construct elt recursively, then add the text properties specified by props to the result. The argument props should consist of zero or more pairs text-property value. If elt is or produces a string with text properties, all the characters of that string should have the same properties, or else some of them might be removed by :propertize.
 
 (symbol then else)
-A list whose first element is a symbol that is not a keyword specifies a
-conditional. Its meaning depends on the value of symbol. If symbol has a
-non-nil value, the second element, then, is processed recursively as a
-mode line construct. Otherwise, the third element, else, is processed
-recursively. You may omit else; then the mode line construct displays
-nothing if the value of symbol is nil or void.
+A list whose first element is a symbol that is not a keyword specifies a conditional. Its meaning depends on the value of symbol. If symbol has a non-nil value, the second element, then, is processed recursively as a mode line construct. Otherwise, the third element, else, is processed recursively. You may omit else; then the mode line construct displays nothing if the value of symbol is nil or void.
 
 (width rest…)
-A list whose first element is an integer specifies truncation or padding
-of the results of rest. The remaining elements rest are processed
-recursively as mode line constructs and concatenated together. When width
-is positive, the result is space filled on the right if its width is less
-than width. When width is negative, the result is truncated on the right
-to −width columns if its width exceeds −width.
+A list whose first element is an integer specifies truncation or padding of the results of rest. The remaining elements rest are processed recursively as mode line constructs and concatenated together. When width is positive, the result is space filled on the right if its width is less than width. When width is negative, the result is truncated on the right to −width columns if its width exceeds −width columns.
 
-For example, the usual way to show what percentage of a buffer is above
-the top of the window is to use a list like this: (-3 "%p").
+For example, the usual way to show what percentage of a buffer is above the top of the window is to use a list like this: (-3 "%p").
+
+** Segment registry
+One registry, tiny surface: widgets register a zero-argument
+function per key; the composer calls them. Rendering never throws
+(a sick segment shows “?”) and never returns newlines (the stacked
+rows own the only two).
+#+begin_src emacs-lisp
+(defvar manifolding-modeline--segments nil
+  "Alist (KEY . zero-argument render function).")
+
+(defun manifolding-modeline--register (key fn)
+  "Register FN under KEY, replacing any older entry."
+  (setq manifolding-modeline--segments
+        (assq-delete-all key manifolding-modeline--segments))
+  (push (cons key fn) manifolding-modeline--segments))
+
+(defmacro manifolding-modeline-define-segment (key &rest body)
+  "Define segment KEY whose rendered string is BODY's value.
+BODY runs per render: keep it O(1), side-effect free, files never
+loaded here (infinite-recursion risk lives there)."
+  (declare (indent 1))
+  `(manifolding-modeline--register ',key (lambda () ,@body)))
+
+(defun manifolding-modeline--render (key)
+  "Render segment KEY to a single-line string. Never throws."
+  (condition-case nil
+      (let ((fn (cdr (assq key manifolding-modeline--segments))))
+        (if (null fn)
+            ""
+          (replace-regexp-in-string
+           "\n" " " (or (funcall fn) ""))))
+    (error "?")))
+
+(defmacro manifolding-modeline--with-source-buffer (&rest body)
+  "Run BODY in the selected window's buffer.
+Mini-modeline renders inside the minibuffer buffer, so bare
+`buffer-name' or point would lie; this re-anchors to the user."
+  (declare (indent 0))
+  `(with-current-buffer (window-buffer (selected-window))
+     ,@body))
+#+end_src

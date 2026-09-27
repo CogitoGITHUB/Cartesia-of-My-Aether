@@ -1,432 +1,152 @@
-* Manifolding Modeline Engine Setup :EMACS_MECHANISM:
+#+title:      Modeline Composer
+#+filetags:   :emacs-package:ui:
+#+property:   header-args:emacs-lisp :lexical t
+
+* Modeline Composer :EMACS_MECHANISM:
 :PROPERTIES:
-:ID:       d90b4e38-1c76-4f2a-95e8-3b71d6c0a853
+:ID:       c45be44e-cab1-4b0b-bde8-3836b5698eb7
 :MM_PARENT: none
-:MM_ORDER:  80.2
-:CATEGORY: the-screen
+:MM_ORDER:  80.3
+:CATEGORY: mode-line
 :END:
 
-Reads the `order' file, composes the rows, installs the result, and owns
-the triggers and the clobber guard.
+Reads the order file, builds both stacked rows plus the fallback
+single-row bar, detaches the doctor segment from global-mode-string
+(the widget calls it directly — never twice), and keeps *Messages*
+complete under mini-modeline. Migrated from
+the-screen/display/06-screen (Emulating Mode Line Formatting).
 
-** Where this lives
-The order file is anchored on the vault root, not on this module. A unit
-is normally byte-compiled and loaded as its own .el, so `load-file-name'
-points at that unit — but when compilation fails the loader falls back to
-`eval', and then `load-file-name' points at the tangled loader instead.
-The vault root is correct on both load paths.
+** Emulating Mode Line Formatting
+
+You can use the function format-mode-line to compute the text that would appear in a mode line or header line based on a certain mode line construct.
+
+Function: format-mode-line format &optional face window buffer ¶
+This function formats a line of text according to format as if it were generating the mode line for window, but it also returns the text as a string. The argument window defaults to the selected window. If buffer is non-nil, all the information used is taken from buffer; by default, it comes from window’s buffer.
+
+The value string normally has text properties that correspond to the faces, keymaps, etc., that the mode line would have. Any character for which no face property is specified by format gets a default value determined by face. If face is t, that stands for either mode-line if window is selected, otherwise mode-line-inactive. If face is nil or omitted, that stands for the default face. If face is an integer, the value returned by this function will have no text properties.
+
+You can also specify other valid faces as the value of face. If specified, that face provides the face property for characters whose face is not specified by format.
+
+Note that using mode-line, mode-line-inactive, or header-line as face will actually redisplay the mode line or the header line, respectively, using the current definitions of the corresponding face, in addition to returning the formatted string. (Other faces do not cause redisplay.)
+
+For example, (format-mode-line header-line-format) returns the text that would appear in the selected window’s header line ("" if it has no header line). (format-mode-line header-line-format 'header-line) returns the same text, with each character carrying the face that it will have in the header line itself, and also redraws the header line.
+
+** Order reader
+The order file groups keys under `** Row N Left/Right' with `***'
+keys. Missing file or empty group means empty row (renders blank,
+pairing holds).
 #+begin_src emacs-lisp
-(defun manifolding-modeline--order-file ()
-  "Path of the segment order file.
-Lives in admin/order/, beside the dashboard's, so both bars' layouts are
-in one place. Anchored on the vault root, not on the module directory:
-admin/ is excluded from unit discovery, so the loader never compiles this
-file — which is what a data file wants."
-  (expand-file-name "admin/order/modeline widgets"
-                   manifolding-emacs-vault-root))
-#+end_src
+(defvar manifolding-modeline--row1-left-keys nil)
+(defvar manifolding-modeline--row1-right-keys nil)
+(defvar manifolding-modeline--row2-left-keys nil)
+(defvar manifolding-modeline--row2-right-keys nil)
 
-** Shape
-#+begin_src emacs-lisp
-(defgroup manifolding-modeline nil
-  "The multi-row Manifolding status bar."
-  :group 'emacs
-  :prefix "manifolding-modeline-")
-
-(defcustom manifolding-modeline-max-rows 3
-  "Most rows the bar may occupy.
-Adaptivity chooses fewer than this on a narrow or short terminal; this is
-a ceiling, not a target."
-  :type 'natnum
-  :group 'manifolding-modeline)
-
-(defcustom manifolding-modeline-wide-columns 80
-  "Frame width at or above which `manifolding-modeline-max-rows' is used.
-Below it the bar drops to one row less. On a phone in portrait this is
-what keeps the bar from crowding the text."
-  :type 'natnum
-  :group 'manifolding-modeline)
-
-(defcustom manifolding-modeline-minimum-text-rows 8
-  "Text rows to leave free. Caps the row count on a short terminal."
-  :type 'natnum
-  :group 'manifolding-modeline)
-
-(defvar manifolding-modeline--installed nil
-  "Non-nil once `manifolding-modeline-install' has run.")
-#+end_src
-
-** Reading the order file
-One heading per group: `** row-<n>-<left|right> seg seg'. A bare
-`** seg' is a shorthand for row 1 on the side its registry entry
-declares, which keeps the file close to the dashboard's flat `** key'
-convention for the common case.
-#+begin_src emacs-lisp
-(defvar manifolding-modeline--order-cache nil
-  "Memoised `manifolding-modeline-read-order' result and the sig it came from.
-Lets a full recompose happen on a keyboard state change without re-reading
-the order file from disk each time.")
-
-(defun manifolding-modeline--order-sig ()
-  "Signature of the order file: mtime and size, or nil when absent."
-  (let ((attrs (file-attributes (manifolding-modeline--order-file))))
-    (and attrs (cons (nth 5 attrs) (nth 7 attrs)))))
-
-(defun manifolding-modeline-read-order ()
-  "Parse the order file into a list of (ROW LEFT RIGHT), lowest row first.
-LEFT and RIGHT are lists of segment names, either of which may be nil.
-Memoised on the file's mtime and size, so recomposing after a keyboard state
-change costs no disk read. Returns nil when the file is missing, so a moved
-or empty order file degrades to an empty bar rather than an error on every
-redisplay."
-  (let ((sig (manifolding-modeline--order-sig)))
-    (if (equal sig manifolding-modeline--order-cache)
-        (cdr manifolding-modeline--order-cache)
-      (let ((rows (manifolding-modeline--read-order-uncached)))
-        (setq manifolding-modeline--order-cache (cons sig rows))
-        rows))))
-
-(defun manifolding-modeline--read-order-uncached ()
-  "Parse the order file into a list of (ROW LEFT RIGHT), lowest row first.
-LEFT and RIGHT are lists of segment names, either of which may be nil.
-
-A plain alist, not a hash table. An earlier version keyed a hash on
-`(cons ROW . SIDE)', and every gethash missed the puthash before it —
-under :test `eq' two identical conses are distinct objects, and the
-failure was silent, composing an empty bar with no error anywhere.
-Six lines of alist is not worth that class of bug."
-  (let ((file (manifolding-modeline--order-file))
-        rows)
-    (when (file-exists-p file)
+(defun manifolding-modeline--read-order ()
+  "Fill the four row key lists from the sibling order file."
+  (let ((order (expand-file-name
+                "order"
+                (file-name-directory
+                 ;; At unit load this is the .elc in module-el cache,
+                 ;; not the vault: resolve via the loader's current
+                 ;; unit file (same pattern as the dashboard dir).
+                 (or (and (boundp 'manifolding-emacs--current-unit-file)
+                          manifolding-emacs--current-unit-file)
+                     load-file-name buffer-file-name default-directory))))
+        (row nil) (side nil)
+        r1l r1r r2l r2r)
+    (when (file-exists-p order)
       (with-temp-buffer
-        (insert-file-contents file)
+        (insert-file-contents order)
         (goto-char (point-min))
-        (while (re-search-forward "^\\*\\*+[ \t]+\\(.*\\)$" nil t)
-          (let* ((words (split-string (match-string 1) "[ \t]+" t))
-                 (head (car words))
-                 (matched (and (string-match
-                                "\\`row-\\([0-9]+\\)-\\(left\\|right\\)\\'"
-                                head)
-                               (list (string-to-number (match-string 1 head))
-                                     (intern (match-string 2 head))
-                                     ;; Intern, not the raw strings.
-                                     ;; The registry is keyed by symbol, so
-                                     ;; `assq' never finds a name that is
-                                     ;; still a string — and the bare-heading
-                                     ;; branch below needs the registry to
-                                     ;; look up a side at all.
-                                     (mapcar #'intern (cdr words)))))
-                 (groups
-                  (if matched
-                      ;; Explicit group: one row, one side, several segments.
-                      (list (list (nth 0 matched) (nth 1 matched) (nth 2 matched)))
-                    ;; Bare heading: row 1, each segment on its declared side.
-                    (mapcar (lambda (name)
-                              (list 1
-                                    (plist-get (manifolding-modeline-segment name)
-                                               :side)
-                                    (list name)))
-                            words))))
-            (dolist (group groups)
-              (let ((row (nth 0 group))
-                    (side (nth 1 group))
-                    (segs (nth 2 group)))
-                (when (and row side segs)
-                  ;; Two things have to be right here, and both bit.
-                  ;;
-                  ;; The cell needs three slots: `setf' on slot 1 of a
-                  ;; `(list row)' cell computes (setcar (nthcdr 1 '(1)) …)
-                  ;; = (setcar nil …).
-                  ;;
-                  ;; And the `or' must yield the *cell*, not the row list.
-                  ;; `setq' returns the value it assigned, so the new cell
-                  ;; is the CAR of the cons just pushed — without that
-                  ;; `car', `cell' is the whole list of cells, length 1,
-                  ;; and the same setcar-on-nil happens with no clue why.
-                  (let* ((cell (or (assq row rows)
-                                   (car (setq rows (cons (list row nil nil) rows)))))
-                         (slot (if (eq side :left) 1 2)))
-                    (setf (nth slot cell) (append (nth slot cell) segs))))))))))
-    (sort rows (lambda (a b) (< (car a) (car b))))))
-
-(defun manifolding-modeline--row-count ()
-  "How many rows the current terminal can afford."
-  (let ((by-width (if (>= (frame-width) manifolding-modeline-wide-columns)
-                      manifolding-modeline-max-rows
-                    (max 1 (1- manifolding-modeline-max-rows))))
-        (by-height (max 1 (- (frame-height) manifolding-modeline-minimum-text-rows))))
-    (max 1 (min by-width by-height manifolding-modeline-max-rows))))
+        (while (not (eobp))
+          (let ((line (buffer-substring-no-properties
+                       (line-beginning-position) (line-end-position))))
+            (cond
+             ((string-match "^\\*\\* Row \\([12]\\) \\(Left\\|Right\\)" line)
+              (setq row (string-to-number (match-string 1 line))
+                    side (match-string 2 line)))
+             ((string-match "^\\*\\*\\* \\([a-z-]+\\)" line)
+              (let ((key (intern (match-string 1 line))))
+                (cond
+                 ((and (= row 1) (equal side "Left")) (push key r1l))
+                 ((and (= row 1) (equal side "Right")) (push key r1r))
+                 ((and (= row 2) (equal side "Left")) (push key r2l))
+                 ((and (= row 2) (equal side "Right")) (push key r2r)))))))
+          (forward-line 1))))
+    (setq manifolding-modeline--row1-left-keys (nreverse r1l)
+          manifolding-modeline--row1-right-keys (nreverse r1r)
+          manifolding-modeline--row2-left-keys (nreverse r2l)
+          manifolding-modeline--row2-right-keys (nreverse r2r))))
 #+end_src
 
-** Composing and installing
+** Composer
+Each side renders exactly "line1\nline2" (segments are newline
+sanitized at render time), so the stacked pairing never breaks even
+with empty rows. The fallback bar is row 1 only: a newline in a real
+mode-line kills the whole row.
 #+begin_src emacs-lisp
-(defvar manifolding-modeline--format nil
-  "The construct last handed to `mode-line-format'.")
-(defun manifolding-modeline--current-format-p ()
-  "Non-nil when `mode-line-format' is still the one we installed.
-Used to tell our own value apart from a value a package has clobbered."
-  (equal mode-line-format manifolding-modeline--format))
-
-(defun manifolding-modeline-format ()
-  "Build the full multi-row mode-line construct for this terminal.
-Rows beyond what the terminal can afford are left out entirely, so the
-bar narrows by losing its least important row rather than truncating.
-
-Rows are interleaved with a literal newline rather than joined as text.
-A row is a *construct* — a list holding stock-variable symbols and
-strings — and `mapconcat' over a list of lists is a type error. Joining
-with text would also have meant `format-mode-line' at build time, baking
-the stock symbols and losing the liveness that costs nothing."
-  (let* ((limit (manifolding-modeline--row-count))
-         (out nil))
-    ;; No cl-lib/seq here either. `cl-remove-if' is a macro with no
-    ;; autoload cookie, so from a timer or a late hook it is as void as
-    ;; `cl-zero-p' was. A plain loop cannot rot that way.
-    (dolist (row (manifolding-modeline-read-order))
-      (when (<= (car row) limit)
-        (let ((built (manifolding-modeline-build-row (nth 1 row) (nth 2 row))))
-          (when built
-            (when out (setq out (append out (list "\n"))))
-            (setq out (append out (if (consp built) built (list built))))))))
-    out))
-
-(defun manifolding-modeline-refresh ()
-  "Recompose the bar and install it as `mode-line-format'.
-Cheap: re-reads the order file and re-renders cached strings only.
-Does not touch segment caches — see `manifolding-modeline-update-caches'.
-Preserves the dashboard, which sets `mode-line-format' to nil on purpose."
-  (let ((format (manifolding-modeline-format)))
-    (setq mode-line-format format
-          manifolding-modeline--format format)
-    (force-mode-line-update t)))
-
-(defcustom manifolding-modeline-slow-every 10
-  "Run the slow refresh hook once every N ticks.
-At the default tick that is every five minutes. Segments whose refresh
-opens a database connection register here, because on a phone a
-connection attempt is the most expensive thing this bar could do and the
-information it carries does not change faster than that."
-  :type 'natnum
-  :group 'manifolding-modeline)
-
-(defvar manifolding-modeline--tick 0
-  "Ticks since load, used to space out the slow refresh hook.")
-
-(defun manifolding-modeline-update-caches ()
-  "Run every segment's refresh form, then redraw.
-This is the only place slow work happens — git, the atlas, the doctor's
-counts, the clock — and it runs from triggers, never from a redisplay.
-Never wired to `after-buffer-change-functions': a buffer switch must not
-cost a database connection."
-  (run-hooks 'manifolding-emine-refresh-hook)
-  (setq manifolding-modeline--tick (1+ manifolding-modeline--tick))
-  ;; `(= x 0)' rather than `cl-zero-p'. The cl-lib macros the loader
-  ;; itself uses are autoloaded; `cl-zero-p' is not, so calling it from a
-  ;; timer fired before anything had pulled cl-lib in is a void-function
-  ;; that takes the whole cache tick down. Same for `pushnew' — see the
-  ;; note in the order-file reader.
-  (when (= (mod manifolding-modeline--tick
-                     (max 1 manifolding-modeline-slow-every))
-           0)
-    (run-hooks 'manifolding-modeline-refresh-slow-hook))
-  (force-mode-line-update t))
-#+end_src
-
-** The clobber guard
-`display-time', `vc-mode', `flymake-mode', `anzu-mode' and `olivetti-mode'
-all `setq' `mode-line-format', which replaces a multi-row value with a
-one-row one. Rather than fight any of them, the bar notices it is no
-longer installed and reinstalls itself on the next window event. Cost is
-one `equal' per window-configuration change.
-#+begin_src emacs-lisp
-(defun manifolding-modeline--guard-clobber ()
-  "Reinstall the bar if a package replaced `mode-line-format'."
-  (when (and manifolding-modeline--installed
-             (not (manifolding-modeline--current-format-p))
-             (not (eq mode-line-format nil)))
-    (manifolding-modeline-refresh)))
-
-(defun manifolding-modeline--state-changed ()
-  "Modeline accommodation hook called when the keyboard state changes.
-A full recompose, not just a redraw: the state name is a string baked in
-when the bar is built, so `force-mode-line-update' alone would keep showing
-the old one. The order-file memo makes this cheap. Declared here and called
-by the keyboard, which guards the call with `fboundp' so the keyboard never
-depends on this module."
-  (when manifolding-modeline--installed
-    (manifolding-modeline-refresh)))
-#+end_src
-
-** Triggers
-#+begin_src emacs-lisp
-(defvar manifolding-modeline--ticks nil
-  "Seconds between clock refreshes.")
-(defcustom manifolding-modeline-clock-interval 30
-  "Seconds between clock and date refreshes.
-The bar is redrawn far more often than this — on every keystroke, window
-change and buffer switch — but the clock string itself is rebuilt only
-this often."
-  :type 'integer
-  :group 'manifolding-modeline)
-
-(defvar manifolding-modeline--timer nil
-  "Timer refreshing the clock, or nil.")
-
-(defun manifolding-modeline--start-timer ()
-  "Run the periodic cache refresh."
-  (when (timerp manifolding-modeline--timer)
-    (cancel-timer manifolding-modeline--timer))
-  (setq manifolding-modeline--timer
-        (run-with-timer manifolding-modeline-clock-interval
-                        manifolding-modeline-clock-interval
-                        #'manifolding-modeline-update-caches)))
+(defun manifolding-modeline--side (side)
+  "Render SIDE (left or right) as a two-line string."
+  (let ((r1 (cdr (assq side '((left . manifolding-modeline--row1-left-keys)
+                              (right . manifolding-modeline--row1-right-keys)))))
+        (r2 (cdr (assq side '((left . manifolding-modeline--row2-left-keys)
+                              (right . manifolding-modeline--row2-right-keys))))))
+    (concat (mapconcat #'manifolding-modeline--render (symbol-value r1) "")
+            "\n"
+            (mapconcat #'manifolding-modeline--render (symbol-value r2) ""))))
 
 (defun manifolding-modeline-install ()
-  "Install the bar: compose it, wire the triggers, start the clock."
-  (unless manifolding-modeline--installed
-    ;; Caches must exist before the first compose, or every row is empty.
-    (run-hooks 'manifolding-modeline-refresh-hook)
-    (add-hook 'after-make-mode-functions
-              #'manifolding-modeline--guard-clobber)
-    (add-hook 'window-configuration-change-hook
-              #'manifolding-modeline--guard-clobber)
-    (add-hook 'window-size-change-functions
-              #'manifolding-modeline--guard-clobber)
-    ;; Deliberately NOT on after-buffer-change-functions. The stock
-    ;; segments are symbols, so Emacs re-evaluates them per redisplay and
-    ;; buffer-id / position / modified are always current with no help.
-    ;; Everything cached is either stable or slow, and the tick covers it.
-    (add-hook 'manifolding-modeline-reload-hook
-              #'manifolding-modeline-install)
-    (setq manifolding-modeline--installed t))
-  (manifolding-modeline-refresh)
-  (manifolding-modeline--start-timer))
-
-(defun manifolding-modeline-uninstall ()
-  "Remove the bar and every trigger, restoring the stock mode line."
-  (interactive)
-  (when (timerp manifolding-modeline--timer)
-    (cancel-timer manifolding-modeline--timer)
-    (setq manifolding-modeline--timer nil))
-  (dolist (hook '(after-make-mode-functions
-                  window-configuration-change-hook
-                  window-size-change-functions
-                  after-buffer-change-functions
-                  manifolding-modeline-reload-hook))
-    (remove-hook hook #'manifolding-modeline--guard-clobber))
-  (remove-hook 'manifolding-modeline-reload-hook
-               #'manifolding-modeline-install)
-  (setq mode-line-format nil
-        manifolding-modeline--format nil
-        manifolding-modeline--installed nil)
+  "Read order, detach doctor, install fallback bar.
+The single install path: called by the install unit (after-init),
+never inline here — segments register with the widgets, and
+composing before they arrive builds an empty bar."
+  (manifolding-modeline--read-order)
+  ;; The doctor widget calls the indicator function directly; drop the
+  ;; global-mode-string copy so it never shows twice.
+  (setq global-mode-string
+        (delete '(:eval (manifolding-emacs-doctor--mode-line-string))
+                global-mode-string))
+  ;; Fallback single-row bar reuses the same segment functions.
+  (setq-default mode-line-format
+                (list '(:eval (mapconcat #'manifolding-modeline--render
+                                         manifolding-modeline--row1-left-keys ""))
+                      " "
+                      '(:eval (mapconcat #'manifolding-modeline--render
+                                         manifolding-modeline--row1-right-keys ""))))
   (force-mode-line-update t))
 #+end_src
 
-** Audit
-The gate. Checks every segment named by the order file is registered,
-every registered segment is placed, and the composed bar is non-degenerate
-— the same three failure modes that would otherwise show up as a silently
-missing piece of a 40-column bar.
+** State-change entry
+The keyboard calls this (guarded, neither side depends on the
+other) on every real state flip. Push the bar now instead of
+waiting for the render timer.
 #+begin_src emacs-lisp
-(defvar manifolding-modeline-reload-hook nil
-  "Run by `manifolding-modeline-reload' after reinstalling.")
-
-(defun manifolding-modeline-audit ()
-  "Report order-file and registry disagreements. Returns a list of problems."
-  (let* ((rows (manifolding-modeline-read-order))
-         (placed (mapcan (lambda (row) (append (nth 1 row) (nth 2 row))) rows))
-         (registered (manifolding-modeline-segment-names))
-         (problems))
-    (dolist (name placed)
-      (unless (manifolding-modeline-segment name)
-        (push (format "order names unregistered segment `%s'" name) problems)))
-    (dolist (name registered)
-      (unless (member name placed)
-        (push (format "segment `%s' is registered but not placed" name) problems)))
-    (when (null rows)
-      (push "order file produced no rows" problems))
-    ;; The format is a mode-line *construct* — a list — not a string, so it
-    ;; must not be handed to string-empty-p. Nil or an empty list is the
-    ;; only degenerate case worth reporting.
-    (let ((format (manifolding-modeline-format)))
-      (when (or (null format) (and (listp format) (null format)))
-        (push "composed bar is empty" problems)))
-    (nreverse problems)))
-
-(defun manifolding-modeline-reload ()
-  "Recompose the bar in place. For iterating on the order file."
-  (interactive)
-  (manifolding-modeline-install))
+(defun manifolding-modeline--state-changed ()
+  "Refresh the bar after a keyboard state change. Never throws."
+  (condition-case nil
+      (progn
+        (force-mode-line-update)
+        (when (and (boundp 'mini-modeline-mode) mini-modeline-mode
+                   (fboundp 'mini-modeline-display))
+          (mini-modeline-display 'force)))
+    (error nil)))
 #+end_src
 
-** Manual extract — The Mode Line and Its Top Level
-Migrated from `the-screen/display/06-screen'.
+** Messages shim
+Mini-modeline reroutes `message' past *Messages*; this logs a copy
+directly (no recursion: never calls message itself).
+#+begin_src emacs-lisp
+(defun manifolding-modeline--log-message (func &rest args)
+  "Append FUNC's message text to *Messages* before it shows inline."
+  (when args
+    (condition-case nil
+        (with-current-buffer (get-buffer-create "*Messages*")
+          (let ((inhibit-read-only t))
+            (goto-char (point-max))
+            (insert (apply #'format args) "\n")))
+      (error nil))))
 
-Each Emacs window (aside from minibuffer windows) typically has a mode line
-at the bottom, which displays status information about the buffer displayed
-in the window. The mode line contains information about the buffer, such as
-its name, associated file, depth of recursive editing, and major and minor
-modes. A window can also have a header line, which is much like the mode
-line but appears at the top of the window.
-
-The variable in overall control of the mode line is mode-line-format.
-
-mode-line-format
-The value of this variable is a mode line construct that controls the
-contents of the mode-line. It is always buffer-local in all buffers. If you
-set this variable to nil in a buffer, that buffer does not have a mode
-line. (A window that is just one line tall also does not display a mode
-line.)
-
-The default value of mode-line-format is designed to use the values of
-other variables such as mode-line-position and mode-line-modes (which in
-turn incorporates the values of the variables mode-name and
-minor-mode-alist). Very few modes need to alter mode-line-format itself.
-For most purposes, it is sufficient to alter some of the variables that
-mode-line-format either directly or indirectly refers to.
-
-If you do alter mode-line-format itself, the new value should use the same
-variables that appear in the default value, rather than duplicating their
-contents or displaying the information in another fashion. This way,
-customizations made by the user or by Lisp programs (such as display-time
-and major modes) via changes to those variables remain effective.
-
-This bar does exactly that: it names the stock variables rather than
-re-implementing them, and it keeps the expensive parts in caches so that a
-major mode which publishes into minor-mode-alist still shows up.
-
-** Manual extract — Emulating Mode Line Formatting
-Migrated from `the-screen/display/06-screen'. `format-mode-line' is how the
-right-hand padding is computed above.
-
-You can use the function format-mode-line to compute the text that would
-appear in a mode line or header line based on a certain mode line
-construct.
-
-format-mode-line format &optional face window buffer
-This function formats a line of text according to format as if it were
-generating the mode line for window, but it also returns the text as a
-string. The argument window defaults to the selected window. If buffer is
-non-nil, all the information used is taken from buffer; by default, it
-comes from window's buffer.
-
-The value string normally has text properties that correspond to the faces,
-keymaps, etc., that the mode line would have. Any character for which no
-face property is specified by format gets a default value determined by
-face. If face is t, that stands for either mode-line if window is selected,
-otherwise mode-line-inactive. If face is nil or omitted, that stands for
-the default face. If face is an integer, the value returned by this
-function will have no text properties.
-
-You can also specify other valid faces as the value of face. If specified,
-that face provides the face property for characters whose face is not
-specified by format.
-
-Note that using mode-line, mode-line-inactive, or header-line as face will
-actually redisplay the mode line or the header line, respectively, using
-the current definitions of the corresponding face, in addition to returning
-the formatted string. (Other faces do not cause redisplay.)
-
-For example, (format-mode-line header-line-format) returns the text that
-would appear in the selected window's header line ("" if it has no header
-line).
+(with-eval-after-load 'mini-modeline
+  (advice-add #'mini-modeline--reroute-msg :before
+              #'manifolding-modeline--log-message))
+#+end_src

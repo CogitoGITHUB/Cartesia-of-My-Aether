@@ -3118,6 +3118,14 @@ opens at the end, with or without file arguments.
         (error
          (message "manifolding-emacs: dashboard error %s — see *Messages*"
                   (error-message-string dash-err))))
+      ;; Status moves to the minibuffer now that boot logging is done:
+      ;; enabling here (never in a unit) keeps *Messages* complete
+      ;; through the whole boot, and the done message below shows
+      ;; inline in the new stacked bar.
+      (condition-case nil
+          (when (fboundp 'mini-modeline-mode)
+            (mini-modeline-mode 1))
+        (error nil))
       ;; Done: say so in the echo area (minibuffer), last of all.
       (message "Manifolding-Emacs: unfoldings complete — %d units, %d error(s), %d warning(s)%s"
                (length manifolding-emacs--unit-times)

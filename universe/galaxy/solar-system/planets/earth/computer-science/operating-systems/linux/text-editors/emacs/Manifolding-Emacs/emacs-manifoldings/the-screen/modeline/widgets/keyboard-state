@@ -1,38 +1,24 @@
-* Manifolding Modeline Keyboard State :EMACS_MECHANISM:
+#+title:      Modeline Keyboard State
+#+filetags:   :emacs-package:ui:
+#+property:   header-args:emacs-lisp :lexical t
+
+* Modeline Keyboard State :EMACS_MECHANISM:
 :PROPERTIES:
-:ID:       a3d5c8e1-7f42-4b60-9c83-1e6a2b7d0486
+:ID:       a4a3623d-4a26-4af1-892e-f0a0920184dc
 :MM_PARENT: none
-:MM_ORDER:  80.6
-:CATEGORY: the-screen
+:MM_ORDER:  80.5
+:CATEGORY: mode-line
 :END:
 
-The current `manifolding-keyboard' state, spelled out in full. Leads row 1
-because it is the answer to "what will my next key do?" — the only question a
-modal editor makes you ask constantly.
-
-** Segment
-The text is rebuilt on every recompose, not cached. That is deliberate: the
-value is a `symbol-name' of a buffer-local variable, which is the cheapest
-read in the bar, and caching it would need invalidating on a hook the
-keyboard does not otherwise have. The keyboard calls
-`manifolding-modeline--state-changed' from `manifolding-keyboard-set-state',
-which recomposes the bar when — and only when — the state actually changed.
+First on the line, always. Full state name straight from
+`manifolding-keyboard-modeline-state-name' — the bar never keeps
+its own copy, so the two can never disagree. Empty before the
+keyboard assigns a state.
 #+begin_src emacs-lisp
 (manifolding-modeline-define-segment keyboard-state
-  :doc "Current manifolding-keyboard state, in full."
-  :face nil
-  :side :left
-  ;; A lambda, not `'(fn)'. A quoted call would have to be `eval'd at build
-  ;; time, and a lambda is byte-compilable and needs no eval at all.
-  :construct (lambda () (manifolding-keyboard-modeline-state-name)))
+  (propertize
+   (or (and (fboundp 'manifolding-keyboard-modeline-state-name)
+            (manifolding-keyboard-modeline-state-name))
+       "")
+   'face 'manifolding-modeline-keyboard-face))
 #+end_src
-
-** Why a rebuild and not a redraw
-The composer bakes each segment's text into `mode-line-format' as a literal
-string, which is what keeps redisplay free of segment work. The cost is that
-a segment whose text changes has to be rebuilt, not merely redrawn. That is
-the right trade for every segment here — the expensive ones (branch, atlas,
-clock, doctor) change on the order of seconds, and the cheap one (this) is
-rebuilt on the order of a keyboard state change. Nothing in the bar changes
-often enough for the distinction to matter, and everything in it is too
-expensive to compute per redisplay.

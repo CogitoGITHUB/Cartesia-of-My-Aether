@@ -1,98 +1,47 @@
-* Manifolding Modeline Atlas :EMACS_MECHANISM:
+#+title:      Modeline Atlas Status
+#+filetags:   :emacs-package:ui:
+#+property:   header-args:emacs-lisp :lexical t
+
+* Modeline Atlas Status :EMACS_MECHANISM:
 :PROPERTIES:
-:ID:       f84d316b-c097-41b5-e38f-6db0712c593b
+:ID:       2d2d02eb-50bb-47e3-ac8e-ab26f13ff534
 :MM_PARENT: none
-:MM_ORDER:  80.8
-:CATEGORY: the-screen
+:MM_ORDER:  80.10
+:CATEGORY: mode-line
 :END:
 
-Row 3 on its own: whether this buffer is a vault note, and whether the
-atlas database is reachable. Nothing else in the bar is about where you
-are in the system, so it gets its own line rather than competing with the
-buffer name for row 1.
-
-** Reading the database
-`my/manifolding-atlas-db-health' is the right source and is unusually
-well-behaved: it returns `(STATE . HINT)' and documents that it never
-signals, because infrastructure state is meant to be reported rather than
-raised. It does open a connection, though — so on a phone with no
-PostgreSQL running it will report DOWN every time, and that is the normal
-case here, not a fault. The accent reflects that: DOWN is the expected
-offline state and is drawn in the calm blue, while the states that mean
-"this is misconfigured" get the red.
-
-** Segment
+A when the atlas DB is reachable, C appended while clocking. Cached
+on a minute timer plus after-save (never a syscall per render).
 #+begin_src emacs-lisp
-(defvar manifolding-modeline--atlas-cache nil
-  "Cached atlas row text, or nil when there is nothing to say.")
-
-(defun manifolding-modeline--atlas-state ()
-  "Short word for the current database state, or nil if the Atlas is absent."
-  (when (fboundp 'my/manifolding-atlas-db-health)
-    (condition-case nil
-        (let ((state (car (my/manifolding-atlas-db-health))))
-          (pcase state
-            ('CONNECTED "db ok")
-            ('DOWN "db off")
-            ('AUTH-FAILED "db auth")
-            ('DATABASE-MISSING "db none")
-            ('SCHEMA-OUTDATED "db schema")
-            (_ nil)))
-      (error nil))))
-
-(defun manifolding-modeline--atlas-notes-p ()
-  "Non-nil when the current buffer is a file inside the vault."
-  (and (fboundp 'my/manifolding-atlas-git--in-notes-p)
-       (buffer-file-name)
-       (condition-case nil
-           (and (my/manifolding-atlas-git--in-notes-p buffer-file-name) t)
-         (error nil))))
+(defvar manifolding-modeline--atlas-cache "A")
 
 (defun manifolding-modeline--atlas-refresh ()
-  "Recompute the atlas row."
+  "Recompute the cached atlas letters."
   (setq manifolding-modeline--atlas-cache
-        (let ((db (manifolding-modeline--atlas-state))
-              (note (manifolding-modeline--atlas-notes-p)))
-          (cond ((and db note) (concat "vault " db))
-                (db db)
-                (note "vault")
-                (t nil)))))
+        (condition-case nil
+            (concat
+             (if (and (boundp 'manifolding-atlas-db-location)
+                      (stringp manifolding-atlas-db-location)
+                      (file-exists-p manifolding-atlas-db-location))
+                 "A"
+               (propertize "A" 'face 'manifolding-modeline-error-face))
+             (if (and (fboundp 'org-clocking-p) (org-clocking-p))
+                 (propertize "C" 'face 'manifolding-modeline-ok-face)
+               ""))
+          (error "A")))
+  nil)
 
-(defun manifolding-modeline--atlas-alert-p ()
-  "Non-nil when the database needs intervention rather than a start command."
-  (and (fboundp 'my/manifolding-atlas-db-health)
-       (memq (condition-case nil
-                 (car (my/manifolding-atlas-db-health))
-               (error nil))
-             '(AUTH-FAILED DATABASE-MISSING SCHEMA-OUTDATED))))
+(defvar manifolding-modeline--atlas-timer nil)
+
+(unless (timerp manifolding-modeline--atlas-timer)
+  (setq manifolding-modeline--atlas-timer
+        (run-with-timer 0 60 #'manifolding-modeline--atlas-refresh)))
+
+(unless (member #'manifolding-modeline--atlas-refresh after-save-hook)
+  (add-hook 'after-save-hook #'manifolding-modeline--atlas-refresh))
+
+(manifolding-modeline--atlas-refresh)
 
 (manifolding-modeline-define-segment atlas
-  :doc "Vault membership and database state."
-  ;; The face is chosen here rather than declared, because it depends on
-  :face nil
-  :side :left
-  :construct
-  (lambda ()
-    (let ((text manifolding-modeline--atlas-cache))
-      (and text
-           (list :propertize text
-                 (list 'face (if (manifolding-modeline--atlas-alert-p)
-                                 'manifolding-modeline-alert
-                               'manifolding-modeline-info))))))
-  :refresh '(manifolding-modeline--atlas-refresh)
-  :slow t)
+  manifolding-modeline--atlas-cache)
 #+end_src
-
-** Cost
-`db-health' opens a connection, which makes this by far the most expensive
-segment in the bar — on a phone with no PostgreSQL running it will report
-DOWN, and the attempt itself is the cost. So it registers on the *slow*
-refresh hook and is probed once every `manifolding-modeline-slow-every'
-ticks (five minutes at the defaults), never on the 30-second tick and never
-on a redisplay. The vault-membership half of the segment is just a path
-comparison and would be happy to run every tick; the two are kept together
-because splitting them would mean two segments to place in the order file
-for one line of text.
-
-If it still proves too chatty on the device, drop `atlas` from row 3 in the
-`order' file — no code change, which is what putting layout there is for.

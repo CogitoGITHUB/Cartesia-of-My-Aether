@@ -1,67 +1,21 @@
-* Manifolding Modeline Doctor :EMACS_MECHANISM:
+#+title:      Modeline Doctor Errors
+#+filetags:   :emacs-package:ui:
+#+property:   header-args:emacs-lisp :lexical t
+
+* Modeline Doctor Errors :EMACS_MECHANISM:
 :PROPERTIES:
-:ID:       ba6f538d-e2b9-43d7-05ab-8fd2934e7b5d
+:ID:       0288b0e8-2539-4bbb-ae9f-8a41307c7611
 :MM_PARENT: none
-:MM_ORDER:  80.10
-:CATEGORY: the-screen
+:MM_ORDER:  80.14
+:CATEGORY: mode-line
 :END:
 
-The loader's error and warning counts, right end of row 3.
-
-** Same helpers as the dashboard, no second source
-`manifolding-dashboard/widgets/status' already reports these, from
-`manifolding-emacs-errors-list' and `manifolding-emacs-warnings-list'. This
-segment calls the same two functions rather than keeping its own tally, so
-the bar and the dashboard cannot disagree about whether the config is clean.
-
-** Nothing to detach
-The design assumed a doctor segment already lived in `global-mode-string' and
-would need moving out. It does not: there is no live mode-line configuration
-anywhere in the tree — `global-mode-string' and `mode-line-format` appear
-only in the Emacs manual extract at `the-screen/display/06-screen', which this
-build migrated the mode-line chapters out of. So this is a new segment, not a
-relocation, and no loader edit is involved.
-
-** Segment
+Package-health string straight from the loader's indicator function
+("" when clean, accented count when broken). Setup detaches the
+global-mode-string copy, so this is the only instance.
 #+begin_src emacs-lisp
-(defvar manifolding-modeline--doctor-cache nil
-  "Cached doctor text, or nil when the config is clean and there is nothing to say.")
-
-(defun manifolding-modeline--doctor-count (getter)
-  "Length of the loader list GETTER returns, tolerating an absent loader."
-  (if (fboundp getter)
-      (length (funcall getter))
-    0))
-
-(defun manifolding-modeline--doctor-refresh ()
-  "Recompute the doctor text. Shows nothing when there is nothing wrong."
-  (let ((errors (manifolding-modeline--doctor-count
-                 'manifolding-emacs-errors-list))
-        (warnings (manifolding-modeline--doctor-count
-                   'manifolding-emacs-warnings-list)))
-    (setq manifolding-modeline--doctor-cache
-          (cond ((> errors 0) (format "err %d" errors))
-                ((> warnings 0) (format "warn %d" warnings))
-                (t nil)))))
-
 (manifolding-modeline-define-segment doctor
-  :doc "Loader errors and warnings. Silent when clean."
-  :face nil
-  :side :right
-  :construct
-  (lambda ()
-    (let ((text manifolding-modeline--doctor-cache))
-      (and text
-           ;; Errors and warnings share the red accent. Distinguishing them
-           ;; by colour as well as by word would put a fourth accent in a
-           ;; bar that promised three, for a difference the word already
-           ;; makes.
-           (list :propertize text (list 'face 'manifolding-modeline-alert)))))
-  :refresh '(manifolding-modeline--doctor-refresh))
+  (or (and (fboundp 'manifolding-emacs-doctor--mode-line-string)
+           (manifolding-emacs-doctor--mode-line-string))
+      ""))
 #+end_src
-
-** Silent when clean
-An empty right-hand cluster is what lets the bar read as one deliberate line
-rather than a stub, so a healthy config deliberately shows nothing here
-instead of "err 0". If you would rather always see the numbers, the
-`t' branch in the refresh is the only thing to change.

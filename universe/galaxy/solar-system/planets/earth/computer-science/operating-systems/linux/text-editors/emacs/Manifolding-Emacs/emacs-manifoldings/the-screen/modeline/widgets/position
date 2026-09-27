@@ -1,0 +1,21 @@
+#+title:      Modeline Position
+#+filetags:   :emacs-package:ui:
+#+property:   header-args:emacs-lisp :lexical t
+
+* Modeline Position :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       5a40f897-0f92-4840-b5b3-d64b86207efc
+:MM_PARENT: none
+:MM_ORDER:  80.8
+:CATEGORY: mode-line
+:END:
+
+Line, column, percent. Point math only, no window calls, no format.
+#+begin_src emacs-lisp
+(manifolding-modeline-define-segment position
+  (manifolding-modeline--with-source-buffer
+    (let ((size (max 1 (- (point-max) (point-min)))))
+      (format "L%d C%d %d%%"
+              (line-number-at-pos) (current-column)
+              (/ (* 100 (1- (point))) size)))))
+#+end_src

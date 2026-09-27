@@ -1,71 +1,19 @@
-* Manifolding Modeline Version Control :EMACS_MECHANISM:
+#+title:      Modeline VC Branch
+#+filetags:   :emacs-package:ui:
+#+property:   header-args:emacs-lisp :lexical t
+
+* Modeline VC Branch :EMACS_MECHANISM:
 :PROPERTIES:
-:ID:       e73c205a-bf86-40a4-d27e-5caf601b482a
+:ID:       31d95a97-a8b9-400c-bbd3-aafc2e23ec5d
 :MM_PARENT: none
-:MM_ORDER:  80.7
-:CATEGORY: the-screen
+:MM_ORDER:  80.9
+:CATEGORY: mode-line
 :END:
 
-The current branch, from magit.
-
-** Why magit and not `vc-mode'
-`vc-mode' is a variable: it records *that* a buffer is under version
-control, not which branch. Getting a branch name out of the stock machinery
-means `vc-git-diff-index' or a `git rev-parse' — a subprocess. On a phone,
-spawning git is the single most expensive thing a status bar could do, and
-doing it per redisplay is not an option.
-
-magit already keeps the branch in memory, so reading it is a hash lookup
-rather than a subprocess — magit pays for the git call once per repository
-and this segment only ever reads its cache. It is refreshed on save, on
-commit, and by the bar's shared cache tick, so the branch is right the
-instant you commit without paying for a git call on any redisplay. If magit
-cannot answer, the bar falls back to the stock `vc-mode' value rather than
-going blank.
-
-** Dirtiness is not this segment's job
-The design called for a "dirty accent" on the branch. It lives in the
-`modified' segment instead, and deliberately so: `mode-line-modified' is a
-stock variable, so Emacs re-evaluates it on every redisplay and the accent
-tracks the buffer with no trigger and no subprocess. Folding it into the
-branch would mean either a baked, stale accent or a git call per redisplay.
-The bar shows dirtiness on the left, next to the buffer it belongs to.
-
-** Segment
+Stock vc-mode string (backend:branch), empty when unversioned. A
+plain variable read: VC updates it, never us.
 #+begin_src emacs-lisp
-(defvar manifolding-modeline--vc-cache nil
-  "Cached branch name for the current buffer, or nil when there is no repository.")
-
-(defun manifolding-modeline--vc-refresh ()
-  "Recompute `manifolding-modeline--vc-cache'. Never signals."
-  (setq manifolding-modeline--vc-cache
-        (or (manifolding-modeline--vc-branch)
-            ;; Fall back to whatever Emacs itself records, so a machine
-            ;; without magit still shows that the buffer is versioned.
-            (and (stringp vc-mode)
-                 (not (string-empty-p vc-mode))
-                 vc-mode))))
-
-(defun manifolding-modeline--vc-branch ()
-  "Current branch according to magit's caches, or nil if magit cannot say.
-Guarded on both availability and failure: magit is a normal package that
-can be missing, out of date, or pointed at a repository it has not opened."
-  (when (fboundp 'magit-get-current-branch)
-    (condition-case nil
-        (let ((branch (magit-get-current-branch)))
-          (when (and (stringp branch) (not (string-empty-p branch)))
-            (string-trim branch)))
-      (error nil))))
-
-;; Immediacy. The shared cache tick would catch these within 30s, but a
-;; branch that is stale right after a commit is the one moment you read it.
-(add-hook 'after-save-hook #'manifolding-modeline--vc-refresh)
-(add-hook 'vc-post-checkin-hook #'manifolding-modeline--vc-refresh)
-
 (manifolding-modeline-define-segment vc
-  :doc "Current branch from magit, cached on save and commit."
-  :face manifolding-modeline-info
-  :side :right
-  :construct 'manifolding-modeline--vc-cache
-  :refresh '(manifolding-modeline--vc-refresh))
+  (manifolding-modeline--with-source-buffer
+    (or (and (boundp 'vc-mode) vc-mode) "")))
 #+end_src

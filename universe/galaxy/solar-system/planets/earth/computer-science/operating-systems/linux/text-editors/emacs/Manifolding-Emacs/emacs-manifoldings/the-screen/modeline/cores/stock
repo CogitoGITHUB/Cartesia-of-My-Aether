@@ -1,402 +1,281 @@
-* Manifolding Modeline Stock Segments :EMACS_MECHANISM:
+#+title:      Modeline Stock Segments
+#+filetags:   :emacs-package:ui:
+#+property:   header-args:emacs-lisp :lexical t
+
+* Modeline Stock Segments :EMACS_MECHANISM:
 :PROPERTIES:
-:ID:       b7d41e60-2a35-4c19-8f72-1e6d0a94c301
+:ID:       c58fb4f6-731a-40c9-ab77-caa0898dc8be
 :MM_PARENT: none
-:MM_ORDER:  80.4
-:CATEGORY: the-screen
+:MM_ORDER:  80.1
+:CATEGORY: mode-line
 :END:
 
-Segments built from Emacs' own mode-line variables. These are the ones the
-manual calls *essential*: it warns that parts of Emacs set them on the
-understanding that the mode line will display them, so a bar that ignores
-them loses information other code expects to be able to publish.
+Stock reference for everything the bar borrows from Emacs itself.
+Migrated from the-screen/display/06-screen (Mode Line Format and its
+subsections); the bar composes these in engine/setup, widgets read
+them without reimplementing.
 
-No `:eval' anywhere in this file. Each of these variables is a mode-line
-construct already, so naming it in the bar costs nothing at redisplay.
+** Mode Line Format
 
-** The stock variables, in bar order
-#+begin_src emacs-lisp
-(manifolding-modeline-define-segment buffer-id
-  :doc "Buffer name, via Emacs' own mode-line-buffer-identification."
-  :face nil
-  :side :left
-  :construct 'mode-line-buffer-identification)
+Each Emacs window (aside from minibuffer windows) typically has a mode line at the bottom, which displays status information about the buffer displayed in the window. The mode line contains information about the buffer, such as its name, associated file, depth of recursive editing, and major and minor modes. A window can also have a header line, which is much like the mode line but appears at the top of the window.
 
-(defvar manifolding-modeline--modified-cache nil
-  "Cached modified/read-only text for the `modified' segment.
-Rebuilt by the bar's refresh hook; nil when there is nothing to say.")
+This section describes how to control the contents of the mode line and header line. We include it in this chapter because much of the information displayed in the mode line relates to the echo area.
 
-(defun manifolding-modeline--modified-refresh ()
-  "Recompute the modified flag text and its accent.
-Builtins only. `buffer-read-only-p' and `local-value' are both void on
-the builds this tree has to survive, and `buffer-local-value' demands a
-real buffer argument. Reading the buffer's own local-variable list is the
-one form that cannot fail: `assq' and `buffer-local-variables' are
-primitives, and a nil result means \"not set buffer-locally\", which is the
-calm default.
+** Mode Line Basics
 
-Cached rather than `\\='eval\\='d per redisplay. An `\\='eval\\=' construct
-meant the text was always live, but it also meant the row held a *form*
-rather than a string, which is a distinction every consumer then has to
-get right. The bar already redraws on every keystroke and on save, so the
-cache is current without a per-redisplay cost."
-  (let* ((ro (cdr (assq 'read-only (buffer-local-variables))))
-         (face (cond (ro (if buffer-modified-mode-p
-                             'manifolding-modeline-alert
-                           'manifolding-modeline-info))
-                     ((buffer-modified-p) 'manifolding-modeline-modified))))
-    (setq manifolding-modeline--modified-cache
-          (and face (propertize (format-mode-line 'mode-line-modified)
-                                'face face)))))
+The contents of each mode line are specified by the buffer-local variable mode-line-format (see The Top Level of Mode Line Control). This variable holds a mode line construct: a template that controls what is displayed on the buffer’s mode line. The value of header-line-format specifies the buffer’s header line in the same way. All windows for the same buffer use the same mode-line-format and header-line-format unless a mode-line-format or header-line-format parameter has been specified for that window (see Window Parameters).
 
-(manifolding-modeline-define-segment modified
-  :doc "Modified / read-only flag, cached and accented."
-  :face nil
-  :side :left
-  :construct 'manifolding-modeline--modified-cache
-  :refresh '(manifolding-modeline--modified-refresh))
+For efficiency, Emacs does not continuously recompute each window’s mode line and header line. It does so when circumstances appear to call for it—for instance, if you change the window configuration, switch buffers, narrow or widen the buffer, scroll, or modify the buffer. If you alter any of the variables referenced by mode-line-format or header-line-format (see Variables Used in the Mode Line), or any other data structures that affect how text is displayed (see Emacs Display), you should use the function force-mode-line-update to update the display.
 
-;; A save is the moment the flag changes, so refresh on it.
-(add-hook 'after-save-hook #'manifolding-modeline--modified-refresh)
+Function: force-mode-line-update &optional all ¶
+This function forces Emacs to update the current buffer’s mode line and header line, based on the latest values of all relevant variables, during its next redisplay cycle. If the optional argument all is non-nil, it forces an update for all mode lines and header lines.
 
-(manifolding-modeline-define-segment position
-  :doc "Point position, via mode-line-position."
-  :face nil
-  :side :left
-  :construct 'mode-line-position)
+This function also forces an update of the menu bar and frame title.
 
-;; vc-mode is Emacs' stock version-control indicator. It is a variable, not
-;; a segment: the bar shows the branch from magit (see widgets/vc), which
-;; is a cached string, because the stock variable carries no branch name
-;; and the version-control machinery that would add one is far too slow to
-;; run per redisplay on a phone. Kept here as the documented fallback.
-(defvar manifolding-modeline--stock-vc 'vc-mode
-  "Stock construct Emacs uses to report version control.
-Not placed in the bar by default; see `widgets/vc' for why.")
-#+end_src
+The selected window’s mode line is usually displayed in a different color using the face mode-line-active. Other windows’ mode lines appear in the face mode-line-inactive instead. See Faces.
 
-** Manual extract — Mode Line Basics
-Migrated from `the-screen/display/06-screen'.
+Function: mode-line-window-selected-p ¶
+If you want to have more extensive differences between the mode lines in selected and non-selected windows, you can use this predicate in an :eval construct. For instance, if you want to display the buffer name in bold in selected windows, but in italics in the other windows, you can say something like:
 
-The contents of each mode line are specified by the buffer-local variable
-mode-line-format. This variable holds a mode line construct: a template
-that controls what is displayed on the buffer's mode line. The value of
-header-line-format specifies the buffer's header line in the same way. All
-windows for the same buffer use the same mode-line-format and
-header-line-format unless a mode-line-format or header-line-format
-parameter has been specified for that window.
+(setq-default
+ mode-line-buffer-identification
+ '(:eval (propertize "%12b"
+		     'face (if (mode-line-window-selected-p)
+			       'bold
+			     'italic))))
+Some modes put a lot of data in the mode line, pushing elements at the end of the mode line off to the right. Emacs can “compress” the mode line if the mode-line-compact variable is non-nil by turning stretches of spaces into a single space. If this variable is long, this is only done when the mode line is wider than the currently selected window. (This computation is approximate, based on the number of characters, and not their displayed width.) This variable can be buffer-local to only compress mode-lines in certain buffers.
 
-For efficiency, Emacs does not continuously recompute each window's mode
-line and header line. It does so when circumstances appear to call for it —
-for instance, if you change the window configuration, switch buffers,
-narrow or widen the buffer, scroll, or modify the buffer. If you alter any
-of the variables referenced by mode-line-format or header-line-format, or
-any other data structures that affect how text is displayed, you should
-use the function force-mode-line-update to update the display.
+** The Top Level of Mode Line Control
 
-force-mode-line-update &optional all
-This function forces Emacs to update the current buffer's mode line and
-header line, based on the latest values of all relevant variables, during
-its next redisplay cycle. If the optional argument all is non-nil, it
-forces an update for all mode lines and header lines. This function also
-forces an update of the menu bar and frame title.
+The variable in overall control of the mode line is mode-line-format.
 
-The selected window's mode line is usually displayed in a different color
-using the face mode-line-active. Other windows' mode lines appear in the
-face mode-line-inactive instead.
+User Option: mode-line-format ¶
+The value of this variable is a mode line construct that controls the contents of the mode-line. It is always buffer-local in all buffers.
 
-mode-line-window-selected-p
-If you want to have more extensive differences between the mode lines in
-selected and non-selected windows, you can use this predicate in an :eval
-construct. For instance, if you want to display the buffer name in bold in
-selected windows, but in italics in the other windows, you can say
-something like:
+If you set this variable to nil in a buffer, that buffer does not have a mode line. (A window that is just one line tall also does not display a mode line.)
 
-  (setq-default
-   mode-line-buffer-identification
-   '(:eval (propertize "%12b"
-                       'face (if (mode-line-window-selected-p)
-                                 'bold
-                               'italic))))
+The default value of mode-line-format is designed to use the values of other variables such as mode-line-position and mode-line-modes (which in turn incorporates the values of the variables mode-name and minor-mode-alist). Very few modes need to alter mode-line-format itself. For most purposes, it is sufficient to alter some of the variables that mode-line-format either directly or indirectly refers to.
 
-Some modes put a lot of data in the mode line, pushing elements at the end
-of the mode line off to the right. Emacs can "compress" the mode line if
-the mode-line-compact variable is non-nil by turning stretches of spaces
-into a single space. If this variable is long, this is only done when the
-mode line is wider than the currently selected window. (This computation
-is approximate, based on the number of characters, and not their displayed
-width.) This variable can be buffer-local to only compress mode-lines in
-certain buffers.
+If you do alter mode-line-format itself, the new value should use the same variables that appear in the default value (see Variables Used in the Mode Line), rather than duplicating their contents or displaying the information in another fashion. This way, customizations made by the user or by Lisp programs (such as display-time and major modes) via changes to those variables remain effective.
 
-** Manual extract — Variables Used in the Mode Line
-Migrated from `the-screen/display/06-screen'.
+Here is a hypothetical example of a mode-line-format that might be useful for Shell mode (in reality, Shell mode does not set mode-line-format):
 
-This section describes variables incorporated by the standard value of
-mode-line-format into the text of the mode line. There is nothing
-inherently special about these variables; any other variables could have
-the same effects on the mode line if the value of mode-line-format is
-changed to use them. However, various parts of Emacs set these variables on
-the understanding that they will control parts of the mode line;
-therefore, practically speaking, it is essential for the mode line to use
-them.
+(setq mode-line-format
+  (list "-"
+   'mode-line-mule-info
+   'mode-line-modified
+   'mode-line-frame-identification
+   "%b--"
+   ;; Note that this is evaluated while making the list.
+   ;; It makes a mode line construct which is just a string.
+   (getenv "HOST")
+   ":"
+   'default-directory
+   "   "
+   'global-mode-string
+   "   %[("
+   '(:eval (format-time-string "%F"))
+   'mode-line-process
+   'minor-mode-alist
+   "%n"
+   ")%]--"
+   '(which-function-mode ("" which-func-format "--"))
+   '(line-number-mode "L%l--")
+   '(column-number-mode "C%c--")
+   '(-3 "%p")))
+(The variables line-number-mode, column-number-mode and which-function-mode enable particular minor modes; as usual, these variable names are also the minor mode command names.)
 
-mode-line-mule-info
-This variable holds the value of the mode line construct that displays
-information about the language environment, buffer coding system, and
-current input method.
+** Variables Used in the Mode Line
 
-mode-line-modified
-This variable holds the value of the mode line construct that displays
-whether the current buffer is modified. Its default value displays '**' if
-the buffer is modified, '--' if the buffer is not modified, '%%' if the
-buffer is read only, and '%*' if the buffer is read only and modified.
+This section describes variables incorporated by the standard value of mode-line-format into the text of the mode line. There is nothing inherently special about these variables; any other variables could have the same effects on the mode line if the value of mode-line-format is changed to use them. However, various parts of Emacs set these variables on the understanding that they will control parts of the mode line; therefore, practically speaking, it is essential for the mode line to use them. Also see Optional Mode Line in The GNU Emacs Manual.
+
+Variable: mode-line-mule-info ¶
+This variable holds the value of the mode line construct that displays information about the language environment, buffer coding system, and current input method. See Non-ASCII Characters.
+
+Variable: mode-line-modified ¶
+This variable holds the value of the mode line construct that displays whether the current buffer is modified. Its default value displays ‘**’ if the buffer is modified, ‘--’ if the buffer is not modified, ‘%%’ if the buffer is read only, and ‘%*’ if the buffer is read only and modified.
+
 Changing this variable does not force an update of the mode line.
 
-mode-line-frame-identification
-This variable identifies the current frame. Its default value displays " "
-if you are using a window system which can show multiple frames, or "-%F "
-on an ordinary terminal which shows only one frame at a time.
+Variable: mode-line-frame-identification ¶
+This variable identifies the current frame. Its default value displays " " if you are using a window system which can show multiple frames, or "-%F " on an ordinary terminal which shows only one frame at a time.
 
-mode-line-buffer-identification
-This variable identifies the buffer being displayed in the window. Its
-default value displays the buffer name, padded with spaces to at least 12
-columns.
+Variable: mode-line-buffer-identification ¶
+This variable identifies the buffer being displayed in the window. Its default value displays the buffer name, padded with spaces to at least 12 columns.
 
-mode-line-position
-This variable indicates the position in the buffer. Its default value
-displays the buffer percentage and, optionally, the buffer size, the line
-number and the column number.
+Variable: mode-line-position ¶
+This variable indicates the position in the buffer. Its default value displays the buffer percentage and, optionally, the buffer size, the line number and the column number.
 
-mode-line-percent-position
-This option is used in mode-line-position. Its value specifies both the
-buffer percentage to display (one of nil, "%o", "%p", "%P" or "%q") and a
-width to space-fill or truncate to.
+User Option: mode-line-percent-position ¶
+This option is used in mode-line-position. Its value specifies both the buffer percentage to display (one of nil, "%o", "%p", "%P" or "%q", see %-Constructs in the Mode Line) and a width to space-fill or truncate to. You are recommended to set this option with the customize-variable facility.
 
-vc-mode
-The variable vc-mode, buffer-local in each buffer, records whether the
-buffer's visited file is maintained with version control, and, if so,
-which kind. Its value is a string that appears in the mode line, or nil
-for no version control.
+Variable: vc-mode ¶
+The variable vc-mode, buffer-local in each buffer, records whether the buffer’s visited file is maintained with version control, and, if so, which kind. Its value is a string that appears in the mode line, or nil for no version control.
 
-mode-line-modes
-This variable displays the buffer's major and minor modes. Its default
-value also displays the recursive editing level, information on the
-process status, and whether narrowing is in effect.
+Variable: mode-line-modes ¶
+This variable displays the buffer’s major and minor modes. Its default value also displays the recursive editing level, information on the process status, and whether narrowing is in effect.
 
-mode-line-remote
-This variable is used to show whether default-directory for the current
-buffer is remote.
+Variable: mode-line-remote ¶
+This variable is used to show whether default-directory for the current buffer is remote.
 
-mode-line-client
+Variable: mode-line-client ¶
 This variable is used to identify emacsclient frames.
 
 The following three variables are used in mode-line-modes:
 
-mode-name
-This buffer-local variable holds the "pretty" name of the current buffer's
-major mode. Each major mode should set this variable so that the mode name
-will appear in the mode line. The value does not have to be a string, but
-can use any of the data types valid in a mode-line construct. To compute
-the string that will identify the mode name in the mode line, use
-format-mode-line.
+Variable: mode-name ¶
+This buffer-local variable holds the “pretty” name of the current buffer’s major mode. Each major mode should set this variable so that the mode name will appear in the mode line. The value does not have to be a string, but can use any of the data types valid in a mode-line construct (see The Data Structure of the Mode Line). To compute the string that will identify the mode name in the mode line, use format-mode-line (see Emulating Mode Line Formatting).
 
-mode-line-process
-This buffer-local variable contains the mode line information on process
-status in modes used for communicating with subprocesses. It is displayed
-immediately following the major mode name, with no intervening space. For
-example, its value in the *shell* buffer is (":%s"), which allows the shell
-to display its status along with the major mode as: '(Shell:run)'.
-Normally this variable is nil.
+Variable: mode-line-process ¶
+This buffer-local variable contains the mode line information on process status in modes used for communicating with subprocesses. It is displayed immediately following the major mode name, with no intervening space. For example, its value in the *shell* buffer is (":%s"), which allows the shell to display its status along with the major mode as: ‘(Shell:run)’. Normally this variable is nil.
 
-mode-line-front-space
-This variable is displayed at the front of the mode line. By default, this
-construct is displayed right at the beginning of the mode line, except
-that if there is a memory-full message, it is displayed first.
+Variable: mode-line-front-space ¶
+This variable is displayed at the front of the mode line. By default, this construct is displayed right at the beginning of the mode line, except that if there is a memory-full message, it is displayed first.
 
-mode-line-end-spaces
+Variable: mode-line-end-spaces ¶
 This variable is displayed at the end of the mode line.
 
-mode-line-misc-info
-Mode line construct for miscellaneous information. By default, this shows
-the information specified by global-mode-string.
+Variable: mode-line-misc-info ¶
+Mode line construct for miscellaneous information. By default, this shows the information specified by global-mode-string.
 
-mode-line-position-line-format
-The format used to display line numbers when line-number-mode is switched
-on. '%l' in the format will be replaced with the line number.
+Variable: mode-line-position-line-format ¶
+The format used to display line numbers when line-number-mode (see Optional Mode Line in The GNU Emacs Manual) is switched on. ‘%l’ in the format will be replaced with the line number.
 
-mode-line-position-column-format
-The format used to display column numbers when column-number-mode is
-switched on. '%c' in the format will be replaced with a zero-based column
-number, and '%C' will be replaced with a one-based column number.
+Variable: mode-line-position-column-format ¶
+The format used to display column numbers when column-number-mode (see Optional Mode Line in The GNU Emacs Manual) is switched on. ‘%c’ in the format will be replaced with a zero-based column number, and ‘%C’ will be replaced with a one-based column number.
 
-mode-line-position-column-line-format
-The format used to display column numbers when both line-number-mode and
-column-number-mode are switched on. See the previous two variables for the
-meaning of the '%l', '%c' and '%C' format specs.
+Variable: mode-line-position-column-line-format ¶
+The format used to display column numbers when both line-number-mode and column-number-mode are switched on. See the previous two variables for the meaning of the ‘%l’, ‘%c’ and ‘%C’ format specs.
 
-minor-mode-alist
-This variable holds an association list whose elements specify how the mode
-line should indicate that a minor mode is active. Each element of the
-minor-mode-alist should be a two-element list:
+Variable: minor-mode-alist ¶
+This variable holds an association list whose elements specify how the mode line should indicate that a minor mode is active. Each element of the minor-mode-alist should be a two-element list:
 
-  (minor-mode-variable mode-line-string)
+(minor-mode-variable mode-line-string)
+More generally, mode-line-string can be any mode line construct. It appears in the mode line when the value of minor-mode-variable is non-nil, and not otherwise. These strings should begin with spaces so that they don’t run together. Conventionally, the minor-mode-variable for a specific mode is set to a non-nil value when that minor mode is activated.
 
-More generally, mode-line-string can be any mode line construct. It appears
-in the mode line when the value of minor-mode-variable is non-nil, and not
-otherwise. These strings should begin with spaces so that they don't run
-together. Conventionally, the minor-mode-variable for a specific mode is set
-to a non-nil value when that minor mode is activated. minor-mode-alist
-itself is not buffer-local. Each variable mentioned in the alist should be
-buffer-local if its minor mode can be enabled separately in each buffer.
+minor-mode-alist itself is not buffer-local. Each variable mentioned in the alist should be buffer-local if its minor mode can be enabled separately in each buffer.
 
-global-mode-string
-This variable holds a mode line construct that, by default, appears in the
-mode line as part of mode-line-misc-info, just after the which-function-mode
-information if that minor mode is enabled, else after mode-line-modes.
-Elements that are added to this construct should normally end in a space
-(to ensure that consecutive global-mode-string elements display properly).
-For instance, the command display-time sets global-mode-string to refer to
-the variable display-time-string, which holds a string containing the time
-and load information.
+Variable: global-mode-string ¶
+This variable holds a mode line construct that, by default, appears in the mode line as part of mode-line-misc-info, just after the which-function-mode information if that minor mode is enabled, else after mode-line-modes. Elements that are added to this construct should normally end in a space (to ensure that consecutive global-mode-string elements display properly). For instance, the command display-time sets global-mode-string to refer to the variable display-time-string, which holds a string containing the time and load information.
 
-The '%M' construct substitutes the value of global-mode-string. This
-construct is not used by the default mode line, as the variable itself is
-used in mode-line-misc-info.
+The ‘%M’ construct substitutes the value of global-mode-string (which is part of mode-line-misc-info by default).
 
-Here is a simplified version of the default value of mode-line-format. The
-real default value also specifies addition of text properties.
+Here is a simplified version of the default value of mode-line-format. The real default value also specifies addition of text properties.
 
-  ("-"
-   mode-line-mule-info
-   mode-line-modified
-   mode-line-frame-identification
-   mode-line-buffer-identification
-   "   "
-   mode-line-position
-   (vc-mode vc-mode)
-   "   "
-   mode-line-modes
-   (which-function-mode ("" which-func-format "--"))
-   (global-mode-string ("--" global-mode-string))
-   "-%-")
+("-"
+ mode-line-mule-info
+ mode-line-modified
+ mode-line-frame-identification
+ mode-line-buffer-identification
+ "   "
+ mode-line-position
+ (vc-mode vc-mode)
+ "   "
+ mode-line-modes
+ (which-function-mode ("" which-func-format "--"))
+ (global-mode-string ("--" global-mode-string))
+ "-%-")
 
-** Manual extract — %-Constructs in the Mode Line
-Migrated from `the-screen/display/06-screen'. This is the reference the
-`%' based segments above are written against.
+** %-Constructs in the Mode Line
 
-Strings used as mode line constructs can use certain %-constructs to
-substitute various kinds of data. The following is a list of the defined
-%-constructs, and what they mean.
+Strings used as mode line constructs can use certain %-constructs to substitute various kinds of data. The following is a list of the defined %-constructs, and what they mean.
 
-In any construct except '%%', you can add a decimal integer after the '%' to
-specify a minimum field width. If the width is less, the field is padded to
-that width. Purely numeric constructs ('c', 'i', 'I', and 'l') are padded by
-inserting spaces to the left, and others are padded by inserting spaces to
-the right.
+In any construct except ‘%%’, you can add a decimal integer after the ‘%’ to specify a minimum field width. If the width is less, the field is padded to that width. Purely numeric constructs (‘c’, ‘i’, ‘I’, and ‘l’) are padded by inserting spaces to the left, and others are padded by inserting spaces to the right.
 
 %b
-The current buffer name, obtained with the buffer-name function.
+The current buffer name, obtained with the buffer-name function. See Buffer Names.
 
 %c
-The current column number of point, counting from zero starting at the left
-margin of the window.
+The current column number of point, counting from zero starting at the left margin of the window.
 
 %C
-The current column number of point, counting from one starting at the left
-margin of the window.
+The current column number of point, counting from one starting at the left margin of the window.
 
 %e
-When Emacs is nearly out of memory for Lisp objects, a brief message saying
-so. Otherwise, this is empty.
+When Emacs is nearly out of memory for Lisp objects, a brief message saying so. Otherwise, this is empty.
 
 %f
-The visited file name, obtained with the buffer-file-name function.
+The visited file name, obtained with the buffer-file-name function. See Buffer File Name.
 
 %F
-The title (only on a window system) or the name of the selected frame.
+The title (only on a window system) or the name of the selected frame. See Basic Parameters.
 
 %i
-The size of the accessible part of the current buffer; basically (- (point-max)
-(point-min)).
+The size of the accessible part of the current buffer; basically (- (point-max) (point-min)).
 
 %I
-Like '%i', but the size is printed in a more readable way by using 'k' for
-10^3, 'M' for 10^6, 'G' for 10^9, etc., to abbreviate.
+Like ‘%i’, but the size is printed in a more readable way by using ‘k’ for 10^3, ‘M’ for 10^6, ‘G’ for 10^9, etc., to abbreviate.
 
 %l
-The current line number of point, counting within the accessible portion of
-the buffer.
+The current line number of point, counting within the accessible portion of the buffer.
 
 %M
-The value of global-mode-string (which is part of mode-line-misc-info by
-default).
+The value of global-mode-string (which is part of mode-line-misc-info by default).
 
 %n
-'Narrow' when narrowing is in effect; nothing otherwise.
+‘Narrow’ when narrowing is in effect; nothing otherwise (see narrow-to-region in Narrowing).
 
 %o
-The degree of travel of the window through (the visible portion of) the
-buffer, i.e. the size of the text above the top of the window expressed as
-a percentage of all the text outside the window, or 'Top', 'Bottom' or
-'All'.
+The degree of travel of the window through (the visible portion of) the buffer, i.e. the size of the text above the top of the window expressed as a percentage of all the text outside the window, or ‘Top’, ‘Bottom’ or ‘All’.
 
 %p
-The percentage of the buffer text above the top of window, or 'Top', 'Bottom'
-or 'All'. Note that the default mode line construct truncates this to three
-characters.
+The percentage of the buffer text above the top of window, or ‘Top’, ‘Bottom’ or ‘All’. Note that the default mode line construct truncates this to three characters.
 
 %P
-The percentage of the buffer text that is above the bottom of the window
-(which includes the text visible in the window, as well as the text above
-the top), plus 'Top' if the top of the buffer is visible on screen; or
-'Bottom' or 'All'.
+The percentage of the buffer text that is above the bottom of the window (which includes the text visible in the window, as well as the text above the top), plus ‘Top’ if the top of the buffer is visible on screen; or ‘Bottom’ or ‘All’.
 
 %q
-The percentages of text above both the top and the bottom of the window,
-separated by '-', or 'All'.
+The percentages of text above both the top and the bottom of the window, separated by ‘-’, or ‘All’.
 
 %s
-The status of the subprocess belonging to the current buffer, obtained with
-process-status.
+The status of the subprocess belonging to the current buffer, obtained with process-status. See Process Information.
 
 %z
 The mnemonics of keyboard, terminal, and buffer coding systems.
 
 %Z
-Like '%z', but including the end-of-line format.
+Like ‘%z’, but including the end-of-line format.
 
 %*
-'%' if the buffer is read only; '*' if the buffer is modified; '-'
-otherwise.
+‘%’ if the buffer is read only (see buffer-read-only);
+‘*’ if the buffer is modified (see buffer-modified-p);
+‘-’ otherwise. See Buffer Modification.
 
 %+
-'*' if the buffer is modified; '%' if the buffer is read only; '-'
-otherwise. This differs from '%*' only for a modified read-only buffer.
+‘*’ if the buffer is modified (see buffer-modified-p);
+‘%’ if the buffer is read only (see buffer-read-only);
+‘-’ otherwise. This differs from ‘%*’ only for a modified read-only buffer. See Buffer Modification.
 
 %&
-'*' if the buffer is modified, and '-' otherwise.
+‘*’ if the buffer is modified, and ‘-’ otherwise.
 
 %@
-'@' if the buffer's default-directory is on a remote machine, and '-'
-otherwise.
+‘@’ if the buffer’s default-directory (see Functions that Expand Filenames) is on a remote machine, and ‘-’ otherwise.
 
 %[
-An indication of the depth of recursive editing levels (not counting
-minibuffer levels): one '[' for each editing level.
+An indication of the depth of recursive editing levels (not counting minibuffer levels): one ‘[’ for each editing level. See Recursive Editing.
 
 %]
-One ']' for each recursive editing level (not counting minibuffer levels).
+One ‘]’ for each recursive editing level (not counting minibuffer levels).
 
 %-
 Dashes sufficient to fill the remainder of the mode line.
 
 %%
-The character '%' — this is how to include a literal '%' in a string in
-which %-constructs are allowed.
+The character ‘%’—this is how to include a literal ‘%’ in a string in which %-constructs are allowed.
 
-Obsolete %-Constructs — should no longer be used:
+Obsolete %-Constructs
+The following constructs should no longer be used.
 
 %m
-Obsolete; use the mode-name variable instead. The %m construct is
-inadequate, as it produces an empty string if the value of mode-name is a
-non-string mode-line construct (as in emacs-lisp-mode, for example).
+Obsolete; use the mode-name variable instead. The %m construct is inadequate, as it produces an empty string if the value of mode-name is a non-string mode-line construct (as in emacs-lisp-mode, for example).
+
+** Stock reference config
+Only what the widgets lean on. The bar itself is composed in
+engine/setup; nothing here draws.
+#+begin_src emacs-lisp
+;; Compact-long keeps a long tail from pushing content off narrow
+;; terminals; percent-position keeps the stock L/C/% trio familiar.
+(setq-default mode-line-compact 'long
+              mode-line-percent-position '(-3 "%p"))
+#+end_src

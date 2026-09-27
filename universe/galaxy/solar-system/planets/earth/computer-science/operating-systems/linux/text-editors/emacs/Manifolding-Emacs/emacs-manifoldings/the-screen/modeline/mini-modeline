@@ -1,0 +1,35 @@
+#+title:      mini-modeline
+#+identifier: 209a5e73-1e5f-49db-995c-75c66cd123f7
+#+filetags:   :emacs-package:mode-line:
+
+* mini-modeline :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       209a5e73-1e5f-49db-995c-75c66cd123f7
+:MM_PARENT: none
+:MM_ORDER:  80.0
+:PACKAGE:  mini-modeline
+:STRAIGHT: (mini-modeline :type git :host github :repo "kiennq/emacs-mini-modeline")
+:CATEGORY: mode-line
+:END:
+
+Status in the minibuffer, stacked two rows: identity over context.
+The bar itself is composed by engine/setup from the order file; here
+only package install plus mini-modeline display variables. Never
+enabled at load: the loader enables it at boot end, after the
+dashboard lands and before the done message, so boot logging stays
+in *Messages*.
+
+** Config :config:
+#+begin_src emacs-lisp
+(require 'mini-modeline)
+(setq mini-modeline-l-format '((:eval (manifolding-modeline--side 'left)))
+      mini-modeline-r-format '((:eval (manifolding-modeline--side 'right)))
+      mini-modeline-truncate-p nil
+      mini-modeline-update-interval 0.1
+      mini-modeline-echo-duration 2
+      mini-modeline-echo-position "left"
+      mini-modeline-hide-mode-line t
+      mini-modeline-enhance-visual t
+      mini-modeline-right-padding 3
+      mini-modeline-face-attr '(:background "#000000" :foreground "#FFFFFF"))
+#+end_src

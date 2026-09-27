@@ -1,0 +1,19 @@
+#+title:      Modeline Buffer Name
+#+filetags:   :emacs-package:ui:
+#+property:   header-args:emacs-lisp :lexical t
+
+* Modeline Buffer Name :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       54171912-edb5-4e8a-99dc-b65a64c56fc9
+:MM_PARENT: none
+:MM_ORDER:  80.7
+:CATEGORY: mode-line
+:END:
+
+Buffer name in the buffer-id face (bold by stock convention). No
+mouse maps: the minibuffer display cannot click.
+#+begin_src emacs-lisp
+(manifolding-modeline-define-segment buffer-id
+  (manifolding-modeline--with-source-buffer
+    (propertize (buffer-name) 'face 'mode-line-buffer-id)))
+#+end_src
