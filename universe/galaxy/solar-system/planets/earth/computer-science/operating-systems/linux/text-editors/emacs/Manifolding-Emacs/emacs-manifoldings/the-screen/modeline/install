@@ -38,8 +38,10 @@ the units are evaluated."
      (message "manifolding-modeline: install failed: %s"
               (error-message-string err)))))
 
-(when (and (boundp 'after-init-hook) after-init-hook)
-  (add-hook 'after-init-hook #'manifolding-modeline--install-after-init)
-  ;; Run it now too, so a --batch boot still gets a bar.
-  (manifolding-modeline--install-after-init))
+(when (boundp 'after-init-hook)
+  (add-hook 'after-init-hook #'manifolding-modeline--install-after-init))
+;; Run it now too, so a --batch boot still gets a bar. (Not gated on
+;; the hook being non-nil: during init it never is, which used to
+;; skip both paths and leave the rows empty forever.)
+(manifolding-modeline--install-after-init)
 #+end_src

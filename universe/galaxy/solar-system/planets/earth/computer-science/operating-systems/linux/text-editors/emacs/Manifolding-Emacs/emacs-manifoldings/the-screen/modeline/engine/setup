@@ -41,18 +41,51 @@ pairing holds).
 (defvar manifolding-modeline--row2-left-keys nil)
 (defvar manifolding-modeline--row2-right-keys nil)
 
-(defun manifolding-modeline--read-order ()
-  "Fill the four row key lists from the sibling order file."
-  (let ((order (expand-file-name
-                "order"
-                (file-name-directory
-                 ;; At unit load this is the .elc in module-el cache,
-                 ;; not the vault: resolve via the loader's current
-                 ;; unit file (same pattern as the dashboard dir).
+;; The unit tree root, captured at load (the only moment the loader
+;; binds the current unit file). after-init installers and M-: probes
+;; run with no such binding; without this the order file is
+;; unresolvable and the rows stay empty.
+(defvar manifolding-modeline--dir
+  (let ((d (file-name-directory
+            (directory-file-name
+                     (file-name-directory
+                      (or (and (boundp 'manifolding-emacs--current-unit-file)
+                               manifolding-emacs--current-unit-file)
+                          load-file-name buffer-file-name default-directory))))))
+    ;; Only keep it when it really is the tree (batch probes load
+    ;; from module-el cache, where it is not).
+    (when (file-exists-p (expand-file-name "order" d)) d))
+  "Directory holding order and widgets (the-screen/modeline/).")
+
+(defun manifolding-modeline--tree-dir ()
+  "Modeline tree directory, or nil when unresolvable.
+Prefers the root captured at unit load; falls back through the
+loader binding and buffer context (covers M-: probes)."
+  (let ((dir nil))
+    (when (and (boundp 'manifolding-modeline--dir)
+               manifolding-modeline--dir
+               (file-directory-p manifolding-modeline--dir))
+      (setq dir manifolding-modeline--dir))
+    (unless dir
+      (setq dir (file-name-directory
                  (or (and (boundp 'manifolding-emacs--current-unit-file)
                           manifolding-emacs--current-unit-file)
-                     load-file-name buffer-file-name default-directory))))
-        (row nil) (side nil)
+                     load-file-name
+                     buffer-file-name
+                     default-directory))))
+    dir))
+
+(defun manifolding-modeline--order-file ()
+  "Absolute path of the sibling order file, or nil."
+  (let ((dir (manifolding-modeline--tree-dir)))
+    (when dir
+      (expand-file-name "order" dir))))
+
+(defun manifolding-modeline--read-order ()
+  "Fill the four row key lists from the sibling order file."
+  (let ((order (manifolding-modeline--order-file))
+        (row nil)
+        (side nil)
         r1l r1r r2l r2r)
     (when (file-exists-p order)
       (with-temp-buffer
