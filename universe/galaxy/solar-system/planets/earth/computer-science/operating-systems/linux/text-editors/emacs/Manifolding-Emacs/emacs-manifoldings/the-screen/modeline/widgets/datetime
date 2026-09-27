@@ -1,0 +1,17 @@
+#+title:      Modeline Datetime
+#+filetags:   :emacs-package:ui:
+#+property:   header-args:emacs-lisp :lexical t
+
+* Modeline Datetime :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       4bec5973-0edb-4915-9163-f80a3f847570
+:MM_PARENT: none
+:MM_ORDER:  80.12
+:CATEGORY: mode-line
+:END:
+
+Full weekday, full day/month/year, full HH:MM:SS. No truncation.
+#+begin_src emacs-lisp
+(manifolding-modeline-define-segment datetime
+  (format-time-string "%A %d %B %Y  %H:%M:%S"))
+#+end_src

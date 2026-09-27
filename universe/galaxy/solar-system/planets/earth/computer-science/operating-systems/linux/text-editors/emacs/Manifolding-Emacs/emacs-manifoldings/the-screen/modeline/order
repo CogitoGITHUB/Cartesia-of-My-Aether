@@ -11,9 +11,9 @@ render blank, never dropped), so the stacked pairing never breaks.
 *** buffer-id
 *** position
 ** Row 1 Right
-*** clock
-** Row 2 Left
 *** vc
 *** atlas
-** Row 2 Right
+** Row 2 Left
 *** doctor
+** Row 2 Right
+*** datetime

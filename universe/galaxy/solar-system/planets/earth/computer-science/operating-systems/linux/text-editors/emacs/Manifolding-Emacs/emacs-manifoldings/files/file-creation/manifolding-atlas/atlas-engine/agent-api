@@ -28,9 +28,15 @@ Semantic similarity and AI proposals stay dormant without one."
       (message "agent connected: %s" my/atlas-agent-endpoint)
     (message "no agent connected: AI features dormant")))
 
+(defvar my/atlas-agent-warn-when-absent nil
+  "Non-nil to warn at boot when no agent is connected. Off by
+default: dormant is the normal state, no need to announce it.")
+
 (defun my/atlas-agent-boot-check ()
-  "One-shot boot warning when no agent is connected."
-  (unless (or noninteractive my/atlas-agent-endpoint)
+  "One-shot boot warning when no agent is connected (opt-in)."
+  (when (and my/atlas-agent-warn-when-absent
+             (not noninteractive)
+             (not my/atlas-agent-endpoint))
     (display-warning 'manifolding-atlas
                      "No agent connected (my/atlas-agent-endpoint is nil): semantic similarity and AI proposals are dormant."
                      :warning)))

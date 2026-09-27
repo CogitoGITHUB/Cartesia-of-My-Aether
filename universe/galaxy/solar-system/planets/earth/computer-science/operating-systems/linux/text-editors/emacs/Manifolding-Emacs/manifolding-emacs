@@ -2462,12 +2462,13 @@ compiled, in completion order."
             (push (list (- (float-time) t0) file 'error)
                   manifolding-emacs--unit-times))))))
      (manifolding-emacs--prune-elc-cache)
-    (when-let ((log (get-buffer "*Compile-Log*")))
-      ;; One pointer, not 280 popups: warnings live in the log buffer.
-      (manifolding-emacs-record-error
-       :level 'file :file "byte-compile"
-       :message "warnings emitted — see *Compile-Log*")
-      (bury-buffer log))
+     (when-let ((log (get-buffer "*Compile-Log*")))
+       ;; One pointer in the warnings list, not an error: warnings live
+       ;; in the log buffer. Never pops anything; the Errors button and
+       ;; the manifold-status widget surface it on demand.
+       (manifolding-emacs-record-warning
+        'bytecomp "warnings emitted — see *Compile-Log*")
+       (bury-buffer log))
     (manifolding-emacs--write-unit-times)
     (cond
      ((> paren-errors 0)
@@ -3103,16 +3104,15 @@ opens at the end, with or without file arguments.
                              (condition-case nil
                                  (dashboard-refresh-buffer)
                                (error nil))))))
-                ;; Land fullscreen on the dashboard; surface *Warnings*
-                ;; only when errors were actually recorded.
+                ;; Land fullscreen on the dashboard and stay there.
+                ;; Nothing auto-displays at boot end, ever: errors and
+                ;; warnings live in *Warnings* plus the Errors button
+                ;; and the manifold-status widget, on demand.
                 (condition-case nil
                     (progn
                       (when-let ((win (get-buffer-window "*dashboard*" t)))
                         (select-window win)
-                        (delete-other-windows win))
-                      (when (and (> (length (manifolding-emacs-errors-list)) 0)
-                                 (get-buffer "*Warnings*"))
-                        (display-buffer "*Warnings*")))
+                        (delete-other-windows win)))
                   (error nil)))
             (message "manifolding-emacs: dashboard unavailable — see *Messages*"))
         (error

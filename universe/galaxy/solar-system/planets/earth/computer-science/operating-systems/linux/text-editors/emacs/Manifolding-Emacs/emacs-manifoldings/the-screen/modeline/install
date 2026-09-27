@@ -10,7 +10,7 @@ The one top-level call that starts the bar.
 
 It has to be its own unit, and it has to be the **last** lane slot. The
 composer can only build a row from segments that are already registered,
-and segments arrive with the widgets at 80.6–80.10. Calling install from
+and segments arrive with the widgets at 80.05–80.13. Calling install from
 `engine/setup` (80.2) therefore composes an empty bar; calling it from any
 widget composes a partial one, because a later widget would have nothing
 re-triggering the compose. So: a unit of its own, after everything.
@@ -20,7 +20,8 @@ composer, the segments, the order file, the clobber guard and the clock
 timer were all written and verified individually, and the bar still never
 appeared, because nothing called install. Everything was green and the
 feature was dead. If the bar ever stops showing, check here first:
-`manifolding-modeline--installed` should be `t`.
+`manifolding-modeline-install` must have run (called immediately
+below and again on `after-init-hook`).
 
 Deferring to `after-init-hook` rather than installing inline is what makes
 it safe against a later unit that also touches the format, and it means a
