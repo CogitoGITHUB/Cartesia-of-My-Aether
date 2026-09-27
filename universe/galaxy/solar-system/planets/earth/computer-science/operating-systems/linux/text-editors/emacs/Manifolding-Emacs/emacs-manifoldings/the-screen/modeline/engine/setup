@@ -170,16 +170,23 @@ Used to tell our own value apart from a value a package has clobbered."
 (defun manifolding-modeline-format ()
   "Build the full multi-row mode-line construct for this terminal.
 Rows beyond what the terminal can afford are left out entirely, so the
-bar narrows by losing its least important row rather than by truncating."
+bar narrows by losing its least important row rather than truncating.
+
+Rows are interleaved with a literal newline rather than joined as text.
+A row is a *construct* — a list holding stock-variable symbols and
+strings — and `mapconcat' over a list of lists is a type error. Joining
+with text would also have meant `format-mode-line' at build time, baking
+the stock symbols and losing the liveness that costs nothing."
   (let* ((limit (manifolding-modeline--row-count))
-         (rows (manifolding-modeline-read-order))
-         (kept (cl-remove-if (lambda (row) (> (car row) limit)) rows))
-         (built (delq nil (mapcar (lambda (row)
-                                    (or (manifolding-modeline-build-row
-                                         (nth 1 row) (nth 2 row))
-                                        ""))
-                                  kept))))
-    (when built (mapconcat #'identity built "\n"))))
+         (rows (cl-remove-if (lambda (row) (> (car row) limit))
+                            (manifolding-modeline-read-order)))
+         (out nil))
+    (dolist (row rows)
+      (let ((built (manifolding-modeline-build-row (nth 1 row) (nth 2 row))))
+        (when built
+          (when out (setq out (append out (list "\n"))))
+          (setq out (append out (if (consp built) built (list built)))))))
+    out))
 
 (defun manifolding-modeline-refresh ()
   "Recompose the bar and install it as `mode-line-format'.
@@ -330,8 +337,12 @@ missing piece of a 40-column bar.
         (push (format "segment `%s' is registered but not placed" name) problems)))
     (when (null rows)
       (push "order file produced no rows" problems))
-    (when (and (null problems) (string-empty-p (or (manifolding-modeline-format) "")))
-      (push "composed bar is empty" problems))
+    ;; The format is a mode-line *construct* — a list — not a string, so it
+    ;; must not be handed to string-empty-p. Nil or an empty list is the
+    ;; only degenerate case worth reporting.
+    (let ((format (manifolding-modeline-format)))
+      (when (or (null format) (and (listp format) (null format)))
+        (push "composed bar is empty" problems)))
     (nreverse problems)))
 
 (defun manifolding-modeline-reload ()

@@ -1,12 +1,12 @@
 # AGENT.md — Operating guide for this Emacs configuration
 
 **Read this before touching anything.** It exists because the setup has rules
-that are not visible from any single file, and several of them are silent when
-violated.
+that are not visible from any single file, several of them are silent when
+violated, and a few things people reasonably assume are true are not.
 
 Companion document: `CAESTRIA AGENT INTEGRATION INTO ATLAS` is the *Atlas API
 contract* (how to call the Atlas, what agents may not do). This file is the
-*Emacs build* (how the loader works, how to add a unit, how to test). They do not
+*Emacs build* (how the loader works, what the Atlas is, how to test). They do not
 overlap.
 
 ---
@@ -26,11 +26,11 @@ Everything lives under one git repo:
 | `Manifolding-Emacs/Manifolding-Emacs-Foundation` | Org source, tangled at every boot into `early-init.el` + `foundation-init.el` |
 | `Manifolding-Emacs/manifolding-emacs` | **the loader** (3176 lines) — discovery, ordering, extraction, compilation, caching, doctor |
 | `Manifolding-Emacs/emacs-manifoldings/` | the unit tree: ~400 files, ~300 tagged units |
-| `admin/` | session + layout state, excluded from unit discovery (see §8) |
+| `admin/` | session + layout state, excluded from unit discovery (see §10) |
 | `WIP/` | raw captures. Never read, never walked, by anything. |
 | `emacs-mechanism/` | blueprint/metadata for the mechanism system |
 | `~/.config/emacs/init.el` | static seed. Locates the Foundation, tangles it, loads `foundation-init.el`. |
-| `~/.config/emacs/*.el` | **build artifacts.** Never edit. See §7. |
+| `~/.config/emacs/*.el` | **build artifacts.** Never edit. See §9. |
 
 Environment: Termux inside a proot Ubuntu, Emacs 30.2, TTY only (no GUI), phone
 screen. `~` is `/root`, which is the same tree as
@@ -68,7 +68,7 @@ break it.
 3. **It has a level-1 Org heading tagged `:EMACS_MECHANISM:`**
    (`manifolding-emacs--scan-file-tagged-units`, `:844-850`).
 
-Nothing else. There is no per-module directory requirement — see §6.
+Nothing else. There is no per-module directory requirement — see §8.
 
 ### The heading is the name
 
@@ -79,7 +79,8 @@ The unit's `:title` is **the level-1 heading text with its tags stripped**
 
 The property drawer must sit on the line **immediately** after the heading
 (`:875` — prose between the heading and the drawer silently detaches it, and
-the package is then never built). The scanner reads:
+the package is then never built; this is why `doct` was never installed). The
+scanner reads:
 
 - `:ID:` — identity, and the cache key
 - `:MM_PARENT:` — the parent's **`:ID:`**, *not* its title and *not* its path
@@ -116,7 +117,39 @@ deliberately **not** touched, because that sweep was scoped to `universe/`.
 
 ---
 
-## 3. Writing a unit
+## 3. Naming: everything self-describing, nothing plain
+
+**A short name is a bug waiting to happen.** Every plain name in this tree has
+already cost something: `order` did not say which bar's order; `stock` did not
+say whose stock; `setup` and `macros` say nothing at all; and `dashboard` in
+`admin/order/` was genuinely ambiguous with the dashboard module itself.
+
+1. **A filename says what it orders or configures, not which module reads it.**
+   `admin/order/dashboard widgets`, `admin/order/modeline widgets`,
+   `admin/order/headings blueprints drawer`. Never `order`, never `drawer`.
+2. **Directories say which module owns them.** `manifolding-dashboard/`,
+   `manifolding-keyboard/`, `manifolding-atlas/`. Never a bare `engine/`,
+   `core/`, or `blueprints/` at a shared level.
+3. **Function and variable names carry their module.** `manifolding-dashboard--…`,
+   `my/manifolding-atlas--…`, `manifolding-modeline--…`. A name that could
+   belong to two modules belongs to neither.
+4. **Never name a file after the module that reads it** when the file means
+   something else. A drawer-order file inside the Atlas is a layout file for the
+   whole vault, not an Atlas artefact.
+
+The test: **could this path be mistaken for anything else in the tree, and would
+grepping for it find only this thing?**
+
+Two naming traps that are load-bearing:
+
+- **A dot in a unit filename makes it invisible** (§2A.1). A dot is fine in
+  `admin/`, which the loader never walks.
+- **Renaming a unit file changes the loader cache key** for any unit without an
+  explicit `:ID:`.
+
+---
+
+## 4. Writing a unit
 
 ```org
 * Human Readable Name :EMACS_MECHANISM:
@@ -135,50 +168,95 @@ Prose here is not loaded. Only #+begin_src blocks are.
 
 - Copy an existing unit's header block; the drawer is not optional in practice.
 - `:MM_ORDER:` is a float and **must** be unique — collisions are not
-  diagnosed, they just make order arbitrary. Check with
-  `rg -o ':MM_ORDER:[ \t]+N' universe/ | sort | uniq -d`.
-- Prefer `:MM_PARENT: <parent uuid>` over a bare float when you want to be
-  sure of landing after something specific.
+  diagnosed, they just make order arbitrary.
+- Prefer `:MM_PARENT: <parent uuid>` over a bare float when you must land after
+  something specific.
 
-### The lisp-2 trap, which I hit three times in one session
+### Five ways to write a unit that does not work
 
-Inside a quasiquote, `,x` and `',x` are **not** interchangeable:
+All of these were done and all of them were caught only by booting, at 6–8
+minutes each. See §7 for the loop that finds them in seconds.
 
-- `,cache` — splices the symbol as a *variable reference*. Right in `(defvar
-  ,cache …)`, which is naming a variable.
-- `',name` — splices the *symbol as a datum*. Right for a list key that `assq`
-  will look up.
-- `add-hook` takes a variable's **name**, so it needs `',hook`. A bare `,hook`
-  passes the variable's *value* — usually `nil` — and you get
-  `Attempt to set a constant symbol: nil`.
+1. **The lisp-2 trap.** Inside a quasiquote, `,x` and `',x` are not
+   interchangeable. `,cache` splices a *variable reference* (right in `defvar`);
+   `',name` splices the *symbol as datum* (right for an `assq` key). And
+   `add-hook` wants a variable's **name**, so it needs `',hook` — a bare `,hook`
+   passes the value, usually `nil`, giving `Attempt to set a constant symbol`.
+   Reference: `manifolding-dashboard/engine/macros`.
+2. **Nested quasiquotes.** Choosing inside the template (`` `(add-hook (if ,slow
+   …)) ``) escapes `,slow` to the wrong depth and splices the *unexpanded* form
+   in as data. Compute the value in the macro body and interpolate it.
+3. **A bare `cl-lib`/`seq` alias.** `pushnew`, `position` and friends resolve to
+   nothing — or to something else — depending on what else is loaded. `position`
+   is not a function at all; `cl-position` and `seq-position` are separate
+   symbols. Use `member`/`length` or the explicit `cl-`/`seq-` prefix.
+4. **A new `#+begin_src` inside an open one.** Large units have a block that
+   spans hundreds of lines. Inserting a heading plus a new block inside it trips
+   the loader's nesting gate (`heading inside open src block (opened line N)`)
+   and the whole unit fails. Either extend the existing block or put your code
+   after its `#+end_src`.
+5. **A cache key that misses.** `:test 'eq` on a **cons** key never matches:
+   two `(cons 1 :left)` calls build distinct objects, so every `gethash` misses
+   the `puthash` before it — silently. Use `:test 'equal`, or an alist.
 
-The working reference for this idiom is
-`manifolding-dashboard/engine/macros` (`manifolding-dashboard-define-widget`).
-Copy from it; do not reason it out from scratch.
+### And the habit that prevents a whole class of it
 
-### Also
-
-- Do **not** use a bare `cl-lib`/`seq` compatibility alias (`pushnew`,
-  `position`, …). They resolve to nothing — or to something else — depending on
-  what else is loaded. Use `member`/`length`, or the explicit `cl-`/`seq-`
-  prefix.
-- Never use `eval` on a list form to produce a mode-line value. Use a
-  `lambda` (see `manifolding-modeline--segment-text` for the three shapes).
+**Add a lint that fails loudly; do not add a fix that fails quietly.** Five
+`**:DASHBOARD_BLUEPRINT:` files sat in the tree for months looking load-bearing
+because nothing ever asked whether a declared thing was *used*. The dashboard
+validator now reports an **orphan file** in `widgets/` that no widget registers,
+and a widget registered with no file. A validator that only checks what exists
+is not a validator.
 
 ---
 
-## 4. Module map
+## 5. What the Atlas is
+
+This is the note-taking system, not the Emacs config. Under
+`emacs-manifoldings/files/file-creation/manifolding-atlas/`. Verdicts are from
+reading the tree, and many files there are raw Emacs-manual prose with an empty
+src block — those are **not** implementations.
+
+| Area | State | Detail |
+|---|---|---|
+| **Note factory** | WORKING | `atlas-engine/file-creation` — 8040 lines, 252 src blocks, the largest real implementation. `manifolding-atlas-create/-find/-insert/-visit`, prompt registry, `${var}` / `%(elisp)` template expansion, blueprint add/edit/nest. |
+| **Blueprints** | WORKING | `blueprints/heading-unfoldings/` — ~45 files. Most are **pure vocabulary**: a `:DRAWER_BLUEPRINT:` heading plus `** VALUE :BLUEPRINT_BODY:` children, zero src blocks. `todo` defines 22 TODO states, `mastery` the stage spine, `status` the lifecycle. |
+| **Database** | WORKING | `atlas-engine/db` — 371 src blocks. emacsql. `notes` (id, title, path, level, pos, unfoldings, tags) + `links`. Extractor registry with priority. Traversal: `db--bfs`, `db-ancestors`, `db-component`, `db-shortest-path`, `db-isolated`. |
+| **Search** | WORKING | `atlas-engine/search-center` (827 lines) — the real surface. `my/atlas-search` is one `consult--multi` over Text (rg, async), DB, Org-ql (7 presets) and Files. **Extensible**: `my/atlas-search-register-provider`, with the candidate contract asserted in code. |
+| **Keyword scan** | WORKING | `atlas-engine/search` — vendored `consult-todo`, deliberately not `rgrep` or `hl-todo--search`. |
+| **Query language** | WORKING, narrow | `atlas-engine/query-language` — and/or/not, tag, title-match, recent-days, before/after, sort/limit. **No full-text operator.** |
+| **Context UI** | WORKING | `sidebar` (20% window, Context/Backlinks/Outline/Due, 2s idle follow), `node-view`, `search-center` preview, `mind-map`. `sidebar` has an empty `** Implementation` section from a split-out refactor. |
+| **Semantic search** | **dormant by design** | `atlas-engine/semantic-similar` — Ollama `/api/embed` + `bge-m3`, sidecar is a printed Elisp alist, `-similar` is a linear scan, one vector per note, and `my/atlas-semantic-enabled` is `nil`. The file says "Nothing here runs at load." |
+| **Export** | essentially ABSENT | Only `mm/export-json` (a mind-map dump). No org-publish, no HTML, no flatten-to-headings. |
+| **LLM question-answering** | ABSENT | Nothing calls a model to answer anything. `ai-proposals` is a generic shell command with no retrieval; `agent-api` is the read/write surface for agents and stamps `PROVENANCE_*`; `plugins/citation` extracts `[@citekey]` into a `citations` table. The two halves exist, the citation-validating join does not. |
+| **Dashboard** | PLACEHOLDER | The real dashboard is a separate module under `entering-the-machine/`. Inside the Atlas, "dashboard" is only a declaration registry (§11). |
+
+### The database is fine — do not "fix" it
+
+- `my/manifolding-atlas-db-backend` defaults to **`sqlite`**
+  (`atlas-engine/db:28`) against `admin/manifolding-atlas.db` — a real file with
+  **302 notes**. A `pg` backend exists and is fully implemented, and
+  `my/manifolding-atlas-db-health` reports `DOWN` **for pg only**. Seeing `DOWN`
+  in a proot batch run means you were looking at the wrong backend.
+- **Sync is poll-based on purpose** (`setup:115-120`: "fswatch rarely exists on
+  Termux"), so the DB updating lazily is the design, not a fault. There is also
+  an after-save autosync and an idle orphan prune where disk is truth.
+- PostgreSQL *is* installed and running under Termux; it is just not the default.
+
+---
+
+## 6. Module map
 
 All paths relative to `Manifolding-Emacs/emacs-manifoldings/`.
 
 | Directory | MM_ORDER lane | Role |
 |---|---|---|
-| `entering-the-machine/manifolding-dashboard/` | 78.3–78.5 | dashboard: `engine/`, `cores/` (vendored emacs-dashboard), `widgets/`, `banner/`, `faces`, `order` |
-| `the-screen/modeline/` | 80.1–80.11 | multi-row mode line: `engine/`, `cores/stock`, `faces`, `widgets/`, `header` |
-| `files/file-creation/manifolding-atlas/` | 100+ | the Atlas: `atlas-engine/`, `blueprints/`, plugins, and the note-taking system itself |
-| `files/file-creation/manifolding-atlas/manifolding-keyboard/` | 2.x–4.x | modal key system: `engine/` (state machine, macros, scaffolding), `states/` (15), `leaders/` (19) |
+| `entering-the-machine/manifolding-dashboard/` | 78.3–78.5 | dashboard: `engine/`, `cores/` (vendored emacs-dashboard), `widgets/`, `banner/`, `faces`. Its order file lives in `admin/`. |
+| `the-screen/modeline/` | 80.1–80.11 | multi-row mode line: `engine/`, `cores/stock`, `faces`, `widgets/`, `header`. Its order file lives in `admin/`. |
+| `files/file-creation/manifolding-atlas/` | 100+ | the Atlas — see §5 |
+| `…/manifolding-atlas/manifolding-keyboard/` | 2.x–4.x | modal key system: `engine/` (state machine, macros, scaffolding), `states/` (15), `leaders/` (19) |
 | `the-screen/display/06-screen` | — | raw Emacs-manual prose, parked. Still holds display/windows/frames/Imenu/font-lock |
-| `org-manual/*` | — | raw Emacs-manual prose, parked. Deliberately: the tag marks files *to be written* |
+| `org-manual/*` | — | raw Emacs-manual prose, parked |
 
 The manual-extract files are **intentional placeholders**, not broken config.
 `:EMACS_MECHANISM:` is aspirational — it marks a file as a unit you intend to
@@ -187,62 +265,72 @@ prose across as you go. Do not "fix" a parked unit.
 
 ---
 
-## 5. Testing — this is the part that matters
+## 7. Testing — the loop, and the two that lie
 
-**Do not reason about whether config works. Boot it.**
+### The fast loop: seconds, not nine minutes
 
 ```sh
-emacs --batch -Q \
-  --load /root/.config/emacs/init.el \
-  --load /tmp/kilo/probe.el
+emacs --batch -Q --load /tmp/kilo/bc.el  <file> [<file>…]   # BALANCED / BROKEN
+emacs --batch -Q --load /tmp/kilo/bc2.el <file> [<file>…]   # per-block, names the block
 ```
 
-Takes **6–8 minutes**: reads ~400 files, compiles ~300 units. Run it in the
-background, not in the foreground. Progress prints as
-`N/300 · Compiling: <name> · E errors · W warnings` — watch the error counter,
-and note *which unit* it moves on, because that is where a failure lives.
+`bc.el` extracts each `#+begin_src emacs-lisp` block and byte-compiles it, which
+is the same primitive the loader's `--check-unit-parens` uses. `bc2.el` does each
+block separately so it can tell you *which* one. **Use these for anything
+paren-shaped. A missing paren should never cost a boot.**
 
-A full boot is clean at **89 packages ok, 1 error** (see §9). Any number above
-that means you regressed something.
+Two caveats: a `BROKEN` means "read the message" — `byte-compile-file` also
+returns nil for non-paren reasons, e.g. `Cannot open load file "s"` — and ignore
+the first line of output, which walks the script's own arguments.
 
-### Two ways to get results, and one that silently lies
+**`/tmp/kilo/check.el` is a hand-rolled scanner and should be deleted, not
+trusted.** It had three separate bugs — an empty scan range, string detection
+only at column 0, and an infinite loop on nested blocks — each of which would
+have silently passed broken code. The byte-compiler is the only paren oracle
+worth believing.
 
-**Good — load a real file.** Extract the unit's blocks to a `.el` and `load` it.
-This is the loader's own path and it is the only one that is trustworthy:
+### The authoritative loop: the real boot
 
-```elisp
-;; write each #+begin_src block to /tmp/kilo/units/<name>.el, then
-(dolist (f '("macros" "setup" "stock" "doctor")) (load (expand-file-name
-  (concat f ".el") "/tmp/kilo/units/") nil t))
+```sh
+emacs --batch -Q --load /root/.config/emacs/init.el --load /tmp/kilo/noquit.el
 ```
 
-**Bad — `eval` of a string.** On this Emacs 30.2 build, `(eval "(defvar xyz-abc
-1)")` **defines nothing** and `(eval '(some-fn))` **returns the list
-unevaluated**. It reports success and changes no state. I lost a long stretch of
-debugging to this: an entire isolated test harness was measuring its own
-harness and reporting phantom "void-function" errors that existed nowhere but in
-the test. If a test tells you a symbol is void, check that you loaded a *file*.
+Takes **6–8 minutes**: ~400 files read, ~300 units compiled. Run it in the
+background. Progress prints as `N/300 · Compiling: <name> · E errors · W
+warnings` — watch the counter and note which unit it is on.
 
-**The real boot is authoritative.** When an isolated test and the boot disagree,
-the boot is right.
+`noquit.el` detaches the desktop save hook, which otherwise blocks batch runs on
+"Overwrite this desktop file?".
 
-### Fastest useful loop
+A clean boot is **89 packages ok, 1 error** — the one being the pre-existing
+`bufler` issue in §11. Higher means you regressed something.
 
-1. Make the edit in `universe/`.
-2. Read `/root/.config/emacs/manifolding-emacs-errors.log.el` after a boot:
-   ```sh
-   grep -o ':level [a-z]*' /root/.config/emacs/manifolding-emacs-errors.log.el | sort | uniq -c
-   grep -o ':status [a-z-]*' /root/.config/emacs/manifolding-emacs-errors.log.el | sort | uniq -c
-   ```
-   `:status ok` count is the health metric. `:level part` entries carry the
-   failing file, line, and package.
-3. `M-x manifolding-dashboard-validate`, `M-x manifolding-keyboard-validate`,
-   `M-x manifolding-modeline-audit` — the three gates, all of which return a
-   list and should be empty.
+### `eval` of a string does not work here
+
+On this Emacs 30.2 build, `(eval "(defvar xyz-abc 1)")` **defines nothing** and
+`(eval '(some-fn))` **returns the list unevaluated**. It reports success and
+changes no state. An entire isolated harness of mine was measuring its own
+harness and reporting phantom `void-function` errors that existed nowhere but in
+the test. **To exercise code, extract it to a `.el` and `load` it.** `load`
+works; `eval` of a string silently does nothing.
+
+When an isolated test and the boot disagree, the boot is right.
+
+### After a boot
+
+```sh
+grep -o ':level [a-z]*'  ~/.config/emacs/manifolding-emacs-errors.log.el | sort | uniq -c
+grep -o ':status [a-z-]*' ~/.config/emacs/manifolding-emacs-errors.log.el | sort | uniq -c
+```
+
+`:status ok` is the health metric. `:level part` entries carry the failing
+file, line and package. The three gates — `manifolding-dashboard-validate`,
+`manifolding-keyboard-validate`, `manifolding-modeline-audit` — should all be
+empty.
 
 ---
 
-## 6. Moving files between modules
+## 8. Moving files between modules
 
 **Safe.** Discovery is content-addressed, ordering is ID-addressed, and
 cross-file references are by symbol. Moving a keyboard state, a leader, a
@@ -254,86 +342,79 @@ Three exceptions, all real:
 1. **Chainless units reorder by path.** Give anything you move an `:MM_ORDER:`.
    `leaders/tools` currently has none — that is the one to fix first.
 2. **`manifolding-keyboard-validate` scans two hard-coded directories**
-   (`manifolding-keyboard/engine/scaffolding:132-134`): `states/` and
-   `leaders/`, non-recursively. Move a state out and the validator silently
-   stops checking it. Silence there means "not looked at", not "fine". The
-   dashboard's validator is registry-based and has no such problem.
+   (`manifolding-keyboard/engine/scaffolding:132-134`): `states/` and `leaders/`,
+   non-recursively. Move a state out and the validator silently stops checking
+   it. Silence means "not looked at", not "fine".
 3. **A dot in the new filename makes the file vanish.** §2A.1.
 
 Scaffolders still *write* to fixed directories, so a reorganisation is not
-self-maintaining until those are changed too.
+self-maintaining until those change too.
 
 ---
 
-## 7. Never edit these
+## 9. Never edit these
 
 `~/.config/emacs/early-init.el`, `~/.config/emacs/foundation-init.el`,
 `~/.config/emacs/manifolding-emacs.el`, and anything the loader writes into its
-cache. All are regenerated from `universe/` on every boot. Edit the **Org source
-under `universe/`** or your change is gone.
+cache. All are regenerated from `universe/` on every boot.
 
-One consequence worth internalising: **editing a macro does not invalidate its
-users' caches.** The cache is keyed per unit on that unit's own content hash, so
-fix a DSL in `engine/macros` and the widgets that *call* it keep their stale
-compiled expansion. Bump `manifolding-emacs-cache-salt` or clear the cache when
-you change how a macro expands.
+**Editing a macro does not invalidate its users' caches.** The cache is keyed per
+unit on that unit's own content hash, so fix a DSL in `engine/macros` and the
+widgets that *call* it keep their stale compiled expansion. Bump
+`manifolding-emacs-cache-salt` or clear the cache when you change how a macro
+expands.
 
 ---
 
-## 8. What's in `admin/`
+## 10. What's in `admin/`
 
 Excluded from unit discovery, which is what makes it the right home for
-non-code state. Current layout:
+non-code state.
 
 ```
 admin/
-  order/dashboard widgets        dashboard section order (read AND written at runtime)
-  order/modeline widgets         modeline segment order
-  order/headings blueprints drawer  the :DRAWER_BLUEPRINT: registry
-  desktop/                       Emacs session desktop
-  manifolding-atlas.db           Atlas database
+  order/dashboard widgets           dashboard section order (read AND written at runtime)
+  order/modeline widgets            modeline segment order
+  order/headings blueprints drawer  drawer key order + the blueprint registry (registry NOT built — see §11)
+  desktop/                          Emacs session desktop
+  manifolding-atlas.db              Atlas database, sqlite, 302 notes
 ```
 
 The three order files are named for **what they order**, not after the module
-that reads them, so `admin/order/modeline widgets` cannot be confused with the
-modeline *code* in `emacs-manifoldings/the-screen/modeline/`. All three are
-reached through one helper each, so a reader and a writer never diverge:
-`manifolding-dashboard--order-file`, `manifolding-modeline--order-file`,
-`my/manifolding-atlas--drawer-order-file` — all anchored on
-`manifolding-emacs-vault-root`.
+that reads them. Each is reached through one helper, so a reader and a writer
+never diverge: `manifolding-dashboard--order-file`,
+`manifolding-modeline--order-file`, `my/manifolding-atlas--drawer-order-file` —
+all anchored on `manifolding-emacs-vault-root`.
 
-Filenames here contain **spaces** on purpose. They are safe: `admin/` is
-excluded from unit discovery, so the loader never touches them, and they are
-only ever reached by `expand-file-name` in the helpers above. Quoting matters
-if you shell out: `ls "admin/order/dashboard widgets"`.
-
-The order files and blueprints moved here on 2026-09-26. Before that,
-`manifolding-dashboard--blueprints-dir` inferred the blueprint directory as *the
-grandparent of whichever blueprint file a whole-vault walk returned first* — so
-relocating one blueprint silently repointed every other widget's lookup. It is
-now an explicit path from the Atlas:
-`my/manifolding-atlas-dashboard-blueprints-dir`
-(`atlas-engine/file-creation:4253`), and the dashboard delegates to it.
+Filenames contain **spaces** on purpose. Safe: `admin/` is excluded from unit
+discovery, so the loader never touches them. Quote them in shell:
+`ls "admin/order/dashboard widgets"`.
 
 **Policy note:** `CAESTRIA AGENT INTEGRATION INTO ATLAS` says agents must never
-edit anything under `admin/`. That rule was written when `admin/` held only the
-database and `.known-keys`. Layout files now live there too, so the rule needs
-updating — treat the order files and dashboard blueprints as source, and
-everything else in `admin/` as generated.
+edit anything under `admin/`. That rule predates the move — `admin/` held only
+the database and `.known-keys`. Treat the three order files as source and
+everything else in `admin/` as generated. That document needs updating.
 
 ---
 
-## 9. Known issues
+## 11. Known issues
 
 | What | State |
 |---|---|
-| `bufler` / `auto-workspace` void in `the-screen/buffer-management:86` | **Pre-existing.** The loaded bufler checkout's `bufler-defgroups` macro has no `auto-workspace` clause. The unit already carries an interlock (`my/bufler--macro-has-workspace-p`) that detects this and skips grouping setup instead of dying. Not caused by any recent work. Fix by updating the bufler checkout. |
-| modeline left column | Segments are parsed but land in the right slot — `read-order` returns rows like `(1 nil (…))`. Suspect the `slot` computation or the side regex. Cosmetic: the bar renders, mirrored. |
-| Atlas database | Needs PostgreSQL. On this device it reports `DOWN`, which is expected, not a fault. The Atlas DB probe is on the model's *slow* hook (every ~5 min) precisely so this is not a per-redisplay cost. |
-| `manifolding-emacs-todo-file` | Points at `modules/TODO`, which does not exist. Only used by the interactive "file this boot error as a TODO" escape hatch. |
+| `bufler` / `auto-workspace` void in `the-screen/buffer-management:86` | **Pre-existing.** The loaded bufler checkout's `bufler-defgroups` macro has no `auto-workspace` clause. The unit carries an interlock (`my/bufler--macro-has-workspace-p`) that skips grouping setup instead of dying. Fix by updating the bufler checkout. This is the 1 error in an otherwise clean boot. |
+| **The blueprint registry is not built** | The design is agreed: one `:BLUEPRINT_<KEY>:` property per blueprint in `admin/order/headings blueprints drawer`, values relative to `heading-unfoldings/`, order is arrangement, and an interactive sync writes the arrangement into each file's `:MM_ORDER:` by **reusing the numbers those files already own** so no collision is possible. A first sync must report **no changes**. An earlier attempt broke two Atlas units and was reverted; `my/manifolding-atlas-dashboard-key-files` is a better host for it than `file-creation`. Do not re-derive this from scratch. |
+| `my/manifolding-atlas-dashboard-register-all` | **Confirmed dead** — the Atlas's in-dashboard registration sweep runs every boot and finds nothing, because its blueprint directory does not exist. Roughly 350 lines on the Atlas boot path. Not removed, because deleting it means touching boot. |
+| modeline left column | Segments parse but land in the right slot: `read-order` returns rows like `(1 nil (…))`. The `row-N-side` regex is **verified correct** (`row-1-left` → `1`, `left`, and `(eq 'left :left)` is true), so the fault is in the slot assignment below it — untraced. Cosmetic: the bar renders mirrored. |
+| modeline audit | Last verified failing on a `characterp` in the right-align padding; a fix landed in `manifolding-modeline-format` (rows are constructs, not strings, so they are interleaved with a literal `"\n"` rather than `mapconcat`-ed) and a follow-up in the audit's emptiness check. Both are balanced; the combination has **not** been confirmed in a boot. |
+| `manifolding-atlas-drawer-key-order` | A **second** source for the same key order the drawer file carries (`("TODO_STATE" "ID")`). They can disagree silently. Reconcile before building the registry. |
+| `manifolding-emacs-todo-file` | Points at `modules/TODO`, which does not exist. Only affects the interactive "file this boot error as a TODO" escape hatch. |
 | `/root/modules` | Dangling symlink to `~/.config/emacs/modules/`, which does not exist. Nothing references it. |
+| `links` table empty | 0 rows while `mm-nodes` has data. May be expected; worth a look separately. |
+| ~128 compiler warnings | Nearly all in `atlas-engine/file-creation`: free variables, docstring width, an obsolete `max-specpdl-size`, a duplicate `manifolding-atlas-insert`. Pre-existing, surfaced whenever that file recompiles. |
 
-## 10. Quick reference
+---
+
+## 12. Quick reference
 
 ```sh
 VAULT=/data/data/com.termux/files/home/Cartesia-of-My-Aether
@@ -342,18 +423,23 @@ EMACS=$VAULT/universe/galaxy/solar-system/planets/earth/computer-science/operati
 # health, after a boot
 grep -o ':status [a-z-]*' ~/.config/emacs/manifolding-emacs-errors.log.el | sort | uniq -c
 
+# paren check — use this, not a boot
+emacs --batch -Q --load /tmp/kilo/bc.el "$EMACS/emacs-manifoldings/<file>"
+
 # duplicate MM_ORDER (should print nothing)
 grep -oE ':MM_ORDER:[ \t]+[0-9.]+' -r $VAULT/universe/ | sort | uniq -d
 
 # units the loader would discover
 grep -rlE '^\* .*:EMACS_MECHANISM:' $VAULT/universe/ | wc -l
 
-# git review
+# Atlas database
+sqlite3 $VAULT/admin/manifolding-atlas.db 'select count(*) from notes;'
+
 git -C $VAULT status --short
 git -C $VAULT diff --stat
 ```
 
-**`grep` gotcha that cost me time twice:** in a *basic* regex, `\+` means "one
-or more of the previous", not a literal `+`. `grep -c '^#\+begin_src'` silently
+**`grep` gotcha that cost time twice:** in a *basic* regex, `\+` means "one or
+more of the previous", not a literal `+`. `grep -c '^#\+begin_src'` silently
 matches nothing, because the line is `#+begin_src`. Use `rg`, or `[+]`, or a
 plain `+` in BRE.

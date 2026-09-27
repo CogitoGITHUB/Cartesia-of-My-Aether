@@ -35,13 +35,19 @@ FORMAT is any mode-line construct. MARGIN is columns kept clear on the
 right, default 1. Falls back to the un-padded string when the window
 width is unknown, so this never errors during a redisplay."
   (let ((margin (or margin 1)))
-    (list :eval
-          (let* ((right (format-mode-line format))
-                 (width (manifolding-modeline--window-width))
-                 (room (and width (> width 0) (- width (string-width right) margin))))
-            (if (and room (> room 0))
-                (concat (make-string room ?\s) right)
-              right)))))
+  (list :eval
+        (let* ((right (format-mode-line format))
+               (width (manifolding-modeline--window-width))
+               (room (and (stringp right) width (> width 0)
+                          (- width (string-width right) margin))))
+          ;; `format' coerces: format-mode-line can hand back a cons when a
+          ;; row's only cell is itself a construct, and string-width on a cons
+          ;; is "wrong type argument: characterp". Coerce to text before any
+          ;; string operation, and fall back to the un-padded value when the
+          ;; window width is unknown.
+          (if room
+              (concat (make-string room ?\s) (format "%s" right))
+            (if (stringp right) right (format "%s" right)))))))
 #+end_src
 
 ** The segment registry
@@ -206,7 +212,15 @@ which the composer drops so a row never renders as a blank line."
         (when text (push text right))))
     (when (or left right)
       (append (nreverse left)
-              (when right (manifolding-modeline-right-pad (nreverse right)))))))
+              ;; `list' around the helper, not a bare append. The helper
+              ;; returns the two-element construct (:eval STRING), and
+              ;; append splices its elements into the row — putting the bare
+              ;; symbol :eval in the format where Org reads it as literal
+              ;; text, so format-mode-line hands back a symbol and
+              ;; string-width dies with "characterp". Wrapped, it stays one
+              ;; list element and is a real construct.
+              (when right
+                (list (manifolding-modeline-right-pad (nreverse right))))))))
 #+end_src
 
 ** Manual extract — The Data Structure of the Mode Line

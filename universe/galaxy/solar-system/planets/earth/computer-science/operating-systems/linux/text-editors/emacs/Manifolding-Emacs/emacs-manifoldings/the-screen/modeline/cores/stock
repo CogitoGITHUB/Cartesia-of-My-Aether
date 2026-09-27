@@ -22,31 +22,42 @@ construct already, so naming it in the bar costs nothing at redisplay.
   :side :left
   :construct 'mode-line-buffer-identification)
 
+(defvar manifolding-modeline--modified-cache nil
+  "Cached modified/read-only text for the `modified' segment.
+Rebuilt by the bar's refresh hook; nil when there is nothing to say.")
+
+(defun manifolding-modeline--modified-refresh ()
+  "Recompute the modified flag text and its accent.
+Builtins only. `buffer-read-only-p' and `local-value' are both void on
+the builds this tree has to survive, and `buffer-local-value' demands a
+real buffer argument. Reading the buffer's own local-variable list is the
+one form that cannot fail: `assq' and `buffer-local-variables' are
+primitives, and a nil result means \"not set buffer-locally\", which is the
+calm default.
+
+Cached rather than `\\='eval\\='d per redisplay. An `\\='eval\\=' construct
+meant the text was always live, but it also meant the row held a *form*
+rather than a string, which is a distinction every consumer then has to
+get right. The bar already redraws on every keystroke and on save, so the
+cache is current without a per-redisplay cost."
+  (let* ((ro (cdr (assq 'read-only (buffer-local-variables))))
+         (face (cond (ro (if buffer-modified-mode-p
+                             'manifolding-modeline-alert
+                           'manifolding-modeline-info))
+                     ((buffer-modified-p) 'manifolding-modeline-modified))))
+    (setq manifolding-modeline--modified-cache
+          (and face (propertize (format-mode-line 'mode-line-modified)
+                                'face face)))))
+
 (manifolding-modeline-define-segment modified
-  :doc "Modified / read-only flag, via mode-line-modified, accented live."
+  :doc "Modified / read-only flag, cached and accented."
   :face nil
   :side :left
-  ;; The one :eval in this file, and it earns its place. The other two
-  ;; segments name a stock variable, so Emacs re-evaluates the symbol on
-  ;; every redisplay and they stay correct for free. Colour is different:
-  ;; `propertize' happens at build time, so an accent chosen here would
-  ;; freeze on whatever the buffer looked like at the last recompose. One
-  ;; buffer-local read and one propertize per redisplay is far cheaper than
-  ;; a full recompose on every keystroke.
-  :construct
-  (lambda ()
-    ;; `buffer-read-only-p' is not available on every build this tree has
-    ;; to run on, and it is a one-line answer either way: the buffer-local
-    ;; `read-only', falling back to the global value.
-    (let* ((ro (buffer-local-value 'read-only nil))
-           (face (cond (ro (if buffer-modified-mode-p
-                               'manifolding-modeline-alert
-                             'manifolding-modeline-info))
-                       ((buffer-modified-p) 'manifolding-modeline-modified))))
-      (list :eval
-            (list :propertize
-                  (format-mode-line 'mode-line-modified)
-                  (list 'face face))))))
+  :construct 'manifolding-modeline--modified-cache
+  :refresh '(manifolding-modeline--modified-refresh))
+
+;; A save is the moment the flag changes, so refresh on it.
+(add-hook 'after-save-hook #'manifolding-modeline--modified-refresh)
 
 (manifolding-modeline-define-segment position
   :doc "Point position, via mode-line-position."

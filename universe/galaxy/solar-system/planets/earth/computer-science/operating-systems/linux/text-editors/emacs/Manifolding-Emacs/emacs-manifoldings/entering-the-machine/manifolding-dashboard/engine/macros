@@ -49,18 +49,27 @@ entry, and a registry push."
 ** Skeleton writer
 #+begin_src emacs-lisp
 (defvar manifolding-dashboard--module-dir
-  (file-name-directory
+  (file-name-as-directory
    (directory-file-name
-    (file-name-directory (or load-file-name buffer-file-name
-                             default-directory))))
+    (expand-file-name
+     ".."
+     (file-name-directory
+      ;; The loader binds this per unit (manifolding-emacs:2170), so it is
+      ;; the one anchor that is right on both load paths. `load-file-name'
+      ;; is bound only while a unit loads and `default-directory' pointed
+      ;; at the loader's *cache* on the interpreted path — which is how this
+      ;; once resolved to `~/.config/emacs/.local/cache/'. And
+      ;; `manifolding-emacs-loader-dir' is no use either: that is the
+      ;; tangled loader's own directory (~/.config/emacs), not the vault.
+      (or (and (boundp 'manifolding-emacs--current-unit-file)
+               manifolding-emacs--current-unit-file)
+          load-file-name
+          buffer-file-name
+          default-directory)))))
   "Absolute path of the manifolding-dashboard/ module directory.
 
-A load-time constant, not a defun. `load-file-name' is only bound while
-this unit is being loaded; a defun that re-derives it per call therefore
-returns garbage for every caller that runs after boot — the widget
-scaffolder, the validator, anything else. That produced a validator
-reporting `no file at /tmp/widgets/clock', which is how the bug was
-found. Renames above this file never break it.")
+A variable, not a defun, so it is read as one. Renames above this file
+never break it, and a full vault move needs no edit.")
 
 (defun manifolding-dashboard-new-widget (name)
   "Create widgets/<NAME> from the widget skeleton. Mirrors the
@@ -71,7 +80,7 @@ line in engine/setup. Errors loudly when the file already exists."
     (user-error "Widget name must not be empty"))
   (let ((path (expand-file-name
                (format "widgets/%s" name)
-               (manifolding-dashboard--module-dir))))
+               manifolding-dashboard--module-dir)))
     (when (file-exists-p path)
       (user-error "Widget file exists: %s" path))
     (with-temp-file path
@@ -91,7 +100,7 @@ line in engine/setup. Errors loudly when the file already exists."
 #+begin_src emacs-lisp
 (defun manifolding-dashboard--widget-files ()
   "Files in the module's widgets/ directory. Nil when it does not exist."
-  (let ((dir (expand-file-name "widgets" (manifolding-dashboard--module-dir))))
+  (let ((dir (expand-file-name "widgets" manifolding-dashboard--module-dir)))
     (and (file-directory-p dir)
          (directory-files dir nil "[^./]+$" t))))
 
@@ -126,7 +135,7 @@ anything *consumed* one. An orphan check is what catches that class."
         (let ((file (expand-file-name
                      (format "widgets/%s" (string-remove-prefix "manifold-"
                                                               (format "%s" key)))
-                     (manifolding-dashboard--module-dir))))
+                     manifolding-dashboard--module-dir)))
           (unless (file-exists-p file)
             (push (format "widget %s: registered but no file at %s" key file)
                   problems)))))

@@ -917,6 +917,13 @@ declarative schemas.")
         (progn
           (my/manifolding-atlas-missing--rebuild-from-health)
           (setq my/manifolding-atlas-reinforce--last-sweep (float-time))
+          ;; Keep the blueprint registry complete. `refresh' only ever
+          ;; appends a missing entry, so running it from the idle sweep
+          ;; cannot disturb an arrangement. The destructive half — sync,
+          ;; which rewrites every :MM_ORDER: — stays interactive.
+          (ignore-errors
+            (when (fboundp 'my/manifolding-atlas-drawer-registry-refresh)
+              (my/manifolding-atlas-drawer-registry-refresh)))
           (my/manifolding-atlas-reinforce--audit))
       (error (message "Schema sweep failed: %s" err)))))
 (defun my/manifolding-atlas-reinforce--schedule ()
@@ -1028,17 +1035,68 @@ the DB and we grade fresh data, not pre-save state."
 (defvar my/manifolding-atlas-reinforce--drawer-order-extra-keys '("ID")
   "Drawer keys allowed in drawer-order.org without a prompt blueprint.
 Org-native keys live here; everything else must match a spec :key.")
+(defun my/manifolding-atlas-reinforce--audit-drawer-registry ()
+  "Return issue strings for the :DRAWER_BLUEPRINT: registry.
+Three checks, and the third is the one that matters: a property whose
+file is gone, a blueprint with no property, and registry order that
+disagrees with the files' current :MM_ORDER: (a sync is pending).
+Passive; never writes."
+  (require 'cl-lib)
+  (let ((issues nil))
+    (when (fboundp 'my/manifolding-atlas-drawer-registry)
+      (let* ((root (and (boundp 'my/manifolding-atlas-blueprints-root)
+                        (file-name-directory my/manifolding-atlas-blueprints-root)))
+             (entries (condition-case nil
+                          (my/manifolding-atlas-drawer-registry)
+                        (error nil)))
+             (known (condition-case nil
+                       (my/manifolding-atlas-blueprint-key-files)
+                     (error nil)))
+        (when (or (null root) (null known))
+          (push "drawer registry: blueprint root or key files unavailable" issues)
+          (return-from my/manifolding-atlas-reinforce--audit-drawer-registry
+            (nreverse issues)))
+        (dolist (e entries)
+          (unless (assoc (car e) known)
+            (push (format "registry: %s names no blueprint file" (car e)) issues))
+          (unless (file-exists-p (expand-file-name (cdr e) root))
+            (push (format "registry: %s -> %s is missing" (car e) (cdr e)) issues)))
+        (dolist (pair known)
+          (unless (assoc (car pair) entries)
+            (push (format "registry: %s has no entry yet" (car pair)) issues)))
+        ;; Drift: is the registry order what the files currently say?
+        (let* ((orders nil) (i 0) (drift nil))
+          (dolist (f (mapcar #'cdr known))
+            (with-temp-buffer
+              (insert-file-contents f)
+              (goto-char (point-min))
+              (when (re-search-forward "^[ \t]*:MM_ORDER:[ \t]*\\([0-9.]+\\)" nil t)
+                (push (cons (cons 0 (file-name-nondirectory f))
+                            (string-to-number (match-string 1)))
+                      orders))))
+          (setq orders (sort orders (lambda (a b) (< (cdr a) (cdr b)))))
+          (dolist (e entries)
+            (let* ((want (assoc (car e) orders))
+                   (have (nth i orders)))
+              (when (and want have (not (equal (cdr want) (cdr have))))
+                (push (format "registry: %s is %s but should be %s (sync pending)"
+                              (car e) (cdr have) (cdr want))
+                      drift)))
+            (setq i (1+ i))))
+          (dolist (d drift) (push d issues)))))
+    (nreverse issues)))
+
 (defun my/manifolding-atlas-reinforce--audit-drawer-order ()
   "Return issue strings for drawer-order.org headings with no prompt.
 Compares against spec :key strings (drawer keys, e.g. TODO_STATE),
 not prompt names. Passive check only — never touches the order file
 or the drawer sweep; silent when clean or engine unavailable."
-  (let ((issues nil))
+  (let ((issues (my/manifolding-atlas-reinforce--audit-drawer-registry)))
     (when (fboundp 'my/manifolding-atlas-drawer-order-from-file)
       (let ((order (condition-case nil
                        (my/manifolding-atlas-drawer-order-from-file)
                      (error nil)))
-            (known nil))
+            known)
         (when (and (boundp 'my/manifolding-atlas-org-prompt--specs)
                    (hash-table-p my/manifolding-atlas-org-prompt--specs))
           (maphash (lambda (_k spec)
