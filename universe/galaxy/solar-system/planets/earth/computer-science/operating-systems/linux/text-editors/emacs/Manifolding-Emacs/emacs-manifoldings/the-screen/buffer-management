@@ -84,19 +84,30 @@
 
 ** Config :config:
 #+begin_src emacs-lisp
+(condition-case req-err
+    (require 'bufler)
+  (error (manifolding-emacs-record-error
+          :level 'package :package 'bufler
+          :message (format "require bufler failed (%s) — grouping setup skipped"
+                           (error-message-string req-err)))))
 (defun my/bufler--macro-has-workspace-p ()
-  "Non-nil when the live bufler-defgroups macro expands auto-workspace.
-A stale bufler (old checkout shadowing current files) expands it to a
-bare call and voids the boot; the interlock below skips grouping
-setup instead and reports exactly which bufler loaded."
+  "Non-nil when the live bufler-defgroups macro fully expands
+auto-workspace away, leaving no call behind. A stale bufler leaves
+the call in place and would void the boot; the setup below skips
+grouping instead and reports exactly which bufler loaded."
   (and (fboundp 'bufler-defgroups)
+       (fboundp 'bufler-group)
        (let ((exp (condition-case nil
-                      (macroexpand '(bufler-defgroups (group (auto-workspace))))
+                      (macroexpand-all
+                       '(bufler-defgroups (group (auto-workspace))))
                     (error nil))))
-         (and exp (string-match-p "bufler-group" (format "%S" exp))))))
+         (and exp
+              (not (string-match-p "(auto-workspace)"
+                                   (format "%S" exp)))))))
 
 (if (my/bufler--macro-has-workspace-p)
-    (setq bufler-groups
+    (condition-case set-err
+        (setq bufler-groups
       (bufler-defgroups
         (group (auto-workspace))
         (group
@@ -131,6 +142,11 @@ setup instead and reports exactly which bufler loaded."
           (auto-file)
           (auto-directory))
         (auto-mode)))
+      (error (manifolding-emacs-record-error
+              :level 'package :package 'bufler
+              :message (format "bufler groups setup voided (%s); loaded from %s — defaults kept"
+                               (error-message-string set-err)
+                               (or (locate-library "bufler") "?")))))
   (manifolding-emacs-record-error
    :level 'package :package 'bufler
    :message (format "stale bufler macro (no auto-workspace clause); loaded from %s — grouping setup skipped"
