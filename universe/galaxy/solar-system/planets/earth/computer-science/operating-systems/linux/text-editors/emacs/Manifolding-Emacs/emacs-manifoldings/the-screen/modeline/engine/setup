@@ -178,14 +178,16 @@ strings — and `mapconcat' over a list of lists is a type error. Joining
 with text would also have meant `format-mode-line' at build time, baking
 the stock symbols and losing the liveness that costs nothing."
   (let* ((limit (manifolding-modeline--row-count))
-         (rows (cl-remove-if (lambda (row) (> (car row) limit))
-                            (manifolding-modeline-read-order)))
          (out nil))
-    (dolist (row rows)
-      (let ((built (manifolding-modeline-build-row (nth 1 row) (nth 2 row))))
-        (when built
-          (when out (setq out (append out (list "\n"))))
-          (setq out (append out (if (consp built) built (list built)))))))
+    ;; No cl-lib/seq here either. `cl-remove-if' is a macro with no
+    ;; autoload cookie, so from a timer or a late hook it is as void as
+    ;; `cl-zero-p' was. A plain loop cannot rot that way.
+    (dolist (row (manifolding-modeline-read-order))
+      (when (<= (car row) limit)
+        (let ((built (manifolding-modeline-build-row (nth 1 row) (nth 2 row))))
+          (when built
+            (when out (setq out (append out (list "\n"))))
+            (setq out (append out (if (consp built) built (list built))))))))
     out))
 
 (defun manifolding-modeline-refresh ()
@@ -216,10 +218,16 @@ This is the only place slow work happens — git, the atlas, the doctor's
 counts, the clock — and it runs from triggers, never from a redisplay.
 Never wired to `after-buffer-change-functions': a buffer switch must not
 cost a database connection."
-  (run-hooks 'manifolding-modeline-refresh-hook)
+  (run-hooks 'manifolding-emine-refresh-hook)
   (setq manifolding-modeline--tick (1+ manifolding-modeline--tick))
-  (when (cl-zero-p (mod manifolding-modeline--tick
-                              (max 1 manifolding-modeline-slow-every)))
+  ;; `(= x 0)' rather than `cl-zero-p'. The cl-lib macros the loader
+  ;; itself uses are autoloaded; `cl-zero-p' is not, so calling it from a
+  ;; timer fired before anything had pulled cl-lib in is a void-function
+  ;; that takes the whole cache tick down. Same for `pushnew' — see the
+  ;; note in the order-file reader.
+  (when (= (mod manifolding-modeline--tick
+                     (max 1 manifolding-modeline-slow-every))
+           0)
     (run-hooks 'manifolding-modeline-refresh-slow-hook))
   (force-mode-line-update t))
 #+end_src
