@@ -16,6 +16,14 @@ the bar shows the *name* of the state, so a state change has to be announced.
 #+begin_src emacs-lisp
 (defun manifolding-keyboard-set-state (state)
   "Set current manifolding-keyboard STATE."
+  ;; Normalise the input to a symbol. The state machine is keyed by symbols
+  ;; and calls `manifolding-keyboard-get-state-mode' on the result, but it is
+  ;; also driven from `change-major-mode-after-body-hook', and under polymode
+  ;; the mode name arriving here is a *string* — poly-org-mode yields "org",
+  ;; not a symbol. Left unconverted that is a wrong-type-argument inside the
+  ;; state table lookup, thrown from the middle of a mode-line compose.
+  (when (stringp state)
+    (setq state (intern state)))
   (let ((previous manifolding-keyboard-state))
     (when (and manifolding-keyboard-state (not (equal manifolding-keyboard-state state)))
       (funcall (manifolding-keyboard-get-state-mode manifolding-keyboard-state) -1))
@@ -42,9 +50,19 @@ definition of "what the state reads as" and no second copy to drift.
   "Full name of the current state, for the mode line.
 Reads `manifolding-keyboard-state' directly — the bar never keeps its own
 copy, so the two can never disagree. Returns nil before the keyboard has
-assigned a state, and the segment treats nil as \"show nothing\"."
+assigned a state, and the segment treats nil as \"show nothing\".
+
+Total over the value's type, not just symbols. The state is normally a
+symbol, but the keyboard is also driven from `change-major-mode-after-body-
+hook', and under polymode the mode name reaching `set-state' is a *string*
+— `poly-org-mode` yields \"org\". Calling `symbol-name' on that is a
+wrong-type-argument, and it fires from inside the mode-line compose, so it
+takes the whole bar down rather than just this segment."
   (let ((state manifolding-keyboard-state))
-    (and state (symbol-name state))))
+    (cond ((null state) nil)
+          ((symbolp state) (symbol-name state))
+          ((stringp state) state)
+          (t (format "%s" state)))))
 #+end_src
 ** Emulation mode map alist
 #+begin_src emacs-lisp
