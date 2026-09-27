@@ -124,9 +124,9 @@ mode-line kills the whole row.
                               (right . manifolding-modeline--row1-right-keys)))))
         (r2 (cdr (assq side '((left . manifolding-modeline--row2-left-keys)
                               (right . manifolding-modeline--row2-right-keys))))))
-    (concat (mapconcat #'manifolding-modeline--render (symbol-value r1) "")
+    (concat (mapconcat #'manifolding-modeline--render (symbol-value r1) " ")
             "\n"
-            (mapconcat #'manifolding-modeline--render (symbol-value r2) ""))))
+            (mapconcat #'manifolding-modeline--render (symbol-value r2) " "))))
 
 (defun manifolding-modeline-install ()
   "Read order, detach doctor, install fallback bar.
