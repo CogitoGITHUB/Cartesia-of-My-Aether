@@ -1181,6 +1181,12 @@ Called as a post-apply function by the mind-map prompt."
                (mm/set-parent note-id parent-id)
              (mm/make-root note-id))
            (mm/set-order-key note-id (mm/order-key-after target-id)))))
+      ("node"
+       (when (and target-id (not (string= note-id target-id)))
+         (mm/reparent note-id target-id)
+         (when (fboundp 'my/mm-set-drawer)
+           (my/mm-set-drawer (manifolding-atlas-note-path note)
+                             "MM_ANCHOR" target-id))))
       ("root"
        (mm/make-root note-id)))))
 #+end_src

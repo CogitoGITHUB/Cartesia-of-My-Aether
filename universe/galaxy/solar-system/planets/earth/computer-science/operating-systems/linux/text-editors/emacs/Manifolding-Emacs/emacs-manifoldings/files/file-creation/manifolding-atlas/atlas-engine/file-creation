@@ -553,6 +553,31 @@ Fragment keys:
 ;; Reset on every config load so prompts don't accumulate duplicates
 (setq my/manifolding-atlas-prompt-registry nil)
 
+(defcustom my/manifolding-atlas-prompt-key-order
+  '("MM_MAP_SELECT" "MIND_MAP_PLACEMENT")
+  "Prompt keys forced first, in order, during collection.
+Map first, then placement, then everything else in registry order.
+Never allow placement before the map is chosen."
+  :type '(repeat string)
+  :group 'manifolding-atlas)
+
+(defun my/manifolding-atlas--ordered-specs (specs)
+  "Stable-sort SPECS by `my/manifolding-atlas-prompt-key-order'.
+Unknown keys keep registry-relative order at the end."
+  (let ((n 0)
+        (rank (make-hash-table :test 'equal)))
+    (dolist (k my/manifolding-atlas-prompt-key-order)
+      (puthash k n rank)
+      (setq n (1+ n)))
+    (sort (copy-sequence specs)
+          (lambda (a b)
+            (let ((ka (format "%s" (plist-get a :key)))
+                  (kb (format "%s" (plist-get b :key))))
+              (let ((ra (gethash ka rank 1e18))
+                    (rb (gethash kb rank 1e18)))
+                (or (< ra rb)
+                    (and (= ra rb) (string< ka kb)))))))))
+
 (defun my/manifolding-atlas-register-prompt (&rest plist)
   "Register a prompt spec PLIST into `my/manifolding-atlas-prompt-registry'.
 If :key is missing, copies :name into :key for backward compat."
@@ -5717,24 +5742,108 @@ Why: Implementation of ~my/manifolding-atlas-org-prompt--ask-mindmap~.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-org-prompt--ask-mindmap (choice)
   "Resolve a mindmap CHOICE into a placement plist."
-  (cond
-   ((and (stringp choice)
-         (member choice '("parent" "child" "sibling")))
-    (let ((target (manifolding-atlas-select
-                   (pcase choice
-                     ("parent"
-                      "Child to place under this note: ")
-                     ("child"
-                      "Parent for this note: ")
-                     ("sibling"
-                      "Place after this note: "))
-                   :require-match t)))
+   (cond
+    ((and (stringp choice)
+          (member choice '("parent" "child" "sibling" "node")))
+     (let ((target (manifolding-atlas-select
+                    (pcase choice
+                      ("parent"
+                       "Child to place under this note: ")
+                      ("child"
+                       "Parent for this note: ")
+                      ("sibling"
+                       "Place after this note: ")
+                      ("node"
+                       "Attach under this heading: "))
+                    :require-match t)))
       (list :placement choice
             :target-id (when target
                          (manifolding-atlas-note-id target)))))
-   ((stringp choice)
-    (list :placement "root" :target-id nil))
+    ((stringp choice)
+     (list :placement "root" :target-id nil))
+    (t "WARNING")))
+#+end_src
+** Mindmap file picker
+Same search-and-create pattern as files: pick an existing map, or
+create one (validator rejects a second map per directory).
+** my/manifolding-atlas-org-prompt--ask-mm-map-select
+Why: Implementation of ~my/manifolding-atlas-org-prompt--ask-mm-map-select~.
+
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-org-prompt--ask-mm-map-select (&optional choice label)
+  "Resolve an MM_MAP_SELECT pick into a map id string.
+With a valid CHOICE (buffer UI), use it; otherwise prompt (minibuffer
+path picks its own mode, static options are only the registry shape)."
+  (unless (member choice '("use-nearest-map" "choose-map"))
+    (setq choice (completing-read
+                  (format "%s: " (or label "Mind-map"))
+                  '("use-nearest-map" "choose-map")
+                  nil t nil nil "use-nearest-map")))
+  (cond
+   ((equal choice "use-nearest-map")
+    (or (my/mm-default-map-for-new-note) "WARNING"))
+   ((equal choice "choose-map")
+    (or (my/mm-pick-map) "WARNING"))
    (t "WARNING")))
+
+(defun my/mm-default-map-for-new-note ()
+  "Map id by the default rule for a not-yet-existing note.
+Probes with a fake child path so the target directory itself counts."
+  (let ((dir (or (and (boundp 'manifolding-atlas--create-target-dir)
+                      manifolding-atlas--create-target-dir)
+                 (and (fboundp 'my/manifolding-atlas-root-dir)
+                      (ignore-errors (my/manifolding-atlas-root-dir))))))
+    (when dir
+      (let ((m (my/mm-default-map (expand-file-name ".new-note" dir))))
+        (when m (my/mm-file-id m))))))
+
+(defun my/mm-pick-map ()
+  "Completing-read over existing maps plus create-new. Returns map id."
+  (let* ((maps (and (fboundp 'my/mm-map-files) (my/mm-map-files)))
+         (names (mapcar (lambda (f)
+                          (cons (file-name-nondirectory
+                                 (directory-file-name f))
+                                f))
+                        maps))
+         (pick (completing-read
+                "Mind-map: "
+                (append (mapcar #'car names)
+                        '("[create new map]"))
+                nil t)))
+    (if (equal pick "[create new map]")
+        (my/mm-create-map)
+      (let ((f (cdr (assoc pick names))))
+        (and f (my/mm-file-id f))))))
+
+(defun my/mm-create-map ()
+  "Create a mind-map file (dir picked, validator enforced). Returns id."
+  (let* ((root (and (fboundp 'my/manifolding-atlas-root-dir)
+                    (ignore-errors (my/manifolding-atlas-root-dir))))
+         (dir (and root
+                   (completing-read
+                    "New map directory: " nil nil nil
+                    (expand-file-name root)))))
+    (when (and dir (file-directory-p dir))
+      (my/mm-validate-map-dir dir)
+      (let ((file (expand-file-name "mindmap" dir)))
+        (with-temp-file file
+          (insert "#+title: Mind Map\n\n"
+                  "* Mind Map :EMACS_MECHANISM:\n"
+                  ":PROPERTIES:\n"
+                  ":ID:       " (my/mm-new-id) "\n"
+                  ":MM_PARENT: none\n"
+                  ":MM_ORDER:  0.0\n"
+                  ":MM_KIND:   map\n"
+                  ":END:\n\n"
+                  "#+begin_mindmap\n"
+                  "Root\n"
+                  "#+end_mindmap\n"))
+        (my/mm-refresh-maps)
+        (my/mm-file-id file)))))
+
+(defun my/mm-new-id ()
+  "Fresh UUID string for created files."
+  (if (fboundp 'org-id-new) (org-id-new) (md5 (format "%s%s" (float-time) (random)))))
 #+end_src
 *** Buffer-vs-minibuffer dispatch
 ** my/manifolding-atlas-org-prompt--ask
@@ -5857,6 +5966,8 @@ Why: Implementation of ~my/manifolding-atlas-org-prompt--ask-minibuffer~.
         (completing-read (format "%s: " label)
                          (cons sentinel options)
                          nil t nil nil sentinel)))
+    ('mm-map
+     (my/manifolding-atlas-org-prompt--ask-mm-map-select nil label))
     (_
       (my/manifolding-atlas-org-prompt--ask-options
        label options default))))
@@ -6038,6 +6149,19 @@ Why: Implementation of ~my/manifolding-atlas-org-prompt--fragment-mindmap~.
                              placement target-id))))))
     `(:unfoldings ((,key . "WARNING")))))
 #+end_src
+** Map-select fragment
+Stores the chosen map id as MM_MAP (plain id string, not a link)
+with a post-apply that validates the map and refreshes the cache.
+** my/manifolding-atlas-org-prompt--fragment-mm-map-select
+Why: Implementation of ~my/manifolding-atlas-org-prompt--fragment-mm-map-select~.
+
+#+begin_src emacs-lisp
+(defun my/manifolding-atlas-org-prompt--fragment-mm-map-select (key val)
+  (if (and (stringp val) (not (string-equal val "WARNING")))
+      `(:unfoldings ((,key . ,val))
+        :post-apply (,(apply-partially #'my/mm-assign-map val)))
+    `(:unfoldings ((,key . "WARNING")))))
+#+end_src
 ** Unfolding fragment
 Skips clear outstanding state transcriptions; real picks resolve to
 unfolding notes and apply through the state post hook.
@@ -6085,6 +6209,8 @@ Why: Implementation of ~my/manifolding-atlas-org-prompt--fragment~.
     ('multi (my/manifolding-atlas-org-prompt--fragment-multi key val))
     ('mindmap (my/manifolding-atlas-org-prompt--fragment-mindmap
                key val))
+    ('mm-map (my/manifolding-atlas-org-prompt--fragment-mm-map-select
+              key val))
     ('unfolding (my/manifolding-atlas-org-prompt--fragment-unfolding
             key plist val))
     (_
@@ -6450,7 +6576,8 @@ buffer-UI prompts are queued on
   (let* ((contexts (if (listp context) context (cons context extra-contexts)))
          result
          deferred-list)
-    (dolist (spec my/manifolding-atlas-prompt-registry)
+    (dolist (spec (my/manifolding-atlas--ordered-specs
+                    my/manifolding-atlas-prompt-registry))
       (when (seq-intersection contexts (plist-get spec :contexts) #'eq)
          (let* ((key (plist-get spec :key))
                 (declared (and (fboundp
