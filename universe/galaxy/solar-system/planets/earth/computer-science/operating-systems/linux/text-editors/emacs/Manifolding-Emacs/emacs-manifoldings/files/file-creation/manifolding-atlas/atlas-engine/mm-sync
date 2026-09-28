@@ -140,12 +140,17 @@ MM_ANCHOR, MM_PARENT, MM_ORDER. Never throws."
         (my/mm-refresh-maps))
     (error nil)))
 
-** Text sync (in-place rows)
-Parse the map region, match rows to declared member files, and
-substitute title text in place (same width or narrower, padded).
-Re-validates every id in mm_nodes before writing: a file deleted
-between parse and write leaves no ghost row. Returns structural
-diffs (added/removed ids) for the structural phase. Never throws.
+** Text sync (pure diff + in-place renames)
+The map model: region root row holds the MAP title (structural,
+never a member); member files map 1:1 to non-root rows in MM_ORDER.
+my/mm-sync--diff computes (ADDED REMOVED ROOT-OK SUBS) without
+writing anything: exact text matches pair free, leftovers zip in
+order, fitting renames become SUBS, no-fit pairs split to
+added/removed, root-ok requires exactly one parent-less row whose
+text equals the map title. my/mm-sync--apply-text performs SUBS
+only on the rename-only path (no structural change, so positions
+stay valid). Anything structural goes to the rebuild phase, which
+renders all titles fresh. Never throws.
 #+begin_src emacs-lisp
 (defvar my/mm--syncing nil
   "Re-entrancy guard: bound t while a sync writes.")
@@ -218,9 +223,13 @@ files falling back to it by the default rule. Sorted by MM_ORDER."
     (sort out (lambda (a b) (< (nth 3 a) (nth 3 b))))))
 
 (defun my/mm-sync-region-rows (map-file)
-  "Node rows of MAP-FILE's mindmap region: ((ROW COL WIDTH TEXT))."
+  "Node rows of MAP-FILE's mindmap region.
+Each entry: (ROW COL WIDTH TEXT HAD-PARENT). The parent flag lets
+text sync partition the structural root (map title) from member
+rows without touching vendor node objects."
   (when (and (fboundp 'org-mindmap-parser-parse-region)
-             (fboundp 'org-mindmap-parser-node-text))
+             (fboundp 'org-mindmap-parser-node-text)
+             (fboundp 'org-mindmap-parser-node-parent))
     (with-current-buffer (find-file-noselect map-file)
       (save-excursion
         (goto-char (point-min))
@@ -229,16 +238,18 @@ files falling back to it by the default rule. Sorted by MM_ORDER."
           (let ((roots (ignore-errors (org-mindmap-parser-parse-region)))
                 rows)
             (dolist (r (or roots '()))
-              (my/mm-sync--collect-rows r rows))
+              (setq rows (my/mm-sync--collect-rows r rows)))
             (nreverse rows)))))))
 
 (defun my/mm-sync--collect-rows (node acc)
-  "Push (ROW COL WIDTH TEXT) for NODE and descendants onto ACC."
+  "Push (ROW COL WIDTH TEXT HAD-PARENT) for NODE and descendants."
   (when (fboundp 'org-mindmap-parser-node-text)
     (push (list (org-mindmap-parser-node-row node)
                 (org-mindmap-parser-node-col node)
                 (org-mindmap-parser-node-width node)
-                (org-mindmap-parser-node-text node))
+                (org-mindmap-parser-node-text node)
+                (not (null (and (fboundp 'org-mindmap-parser-node-parent)
+                                (org-mindmap-parser-node-parent node)))))
           acc)
     (dolist (c (org-mindmap-parser-node-children node))
       (setq acc (my/mm-sync--collect-rows c acc))))
@@ -258,48 +269,110 @@ nor deletes them."
   (and (stringp text)
        (string-match-p "^[ \t]*#\\+" text)))
 
-(defun my/mm-sync-text (map-file)
-  "In-place title sync of MAP-FILE. Returns (ADDED . REMOVED) id lists.
-Text match first, order zip second, width-fit gate third,
-mm_nodes revalidation fourth. Never throws."
+(defun my/mm-sync--base-text (text)
+  "Row TEXT without a glued wormhole-directive tail.
+The vendor parser glues region directive lines into the last node
+as continuation text (proven: last child parses as \"C #+wormhole:
+...\"); matching compares the base title while positions still
+address the node's own span, so the directive line is never
+touched by substitution."
+  (if (and (stringp text)
+           (string-match " #\\+wormhole:" text))
+      (substring text 0 (match-beginning 0))
+    text))
+
+(defun my/mm-sync--diff (map-file)
+  "Pure diff of MAP-FILE: (ADDED REMOVED ROOT-OK SUBS). Writes nothing.
+ADDED is member ids with no row, REMOVED leftover rows, ROOT-OK
+non-nil when exactly one parent-less row holds the map title,
+SUBS ((ROW COL WIDTH TITLE)) fitting in-place renames. The vendor
+registry (mm_nodes) is ephemeral per session, so a missing id only
+routes a pair to the structural path; files stay source of truth
+and the rebuild renders every title fresh anyway. Never throws."
   (condition-case nil
-      (let ((desired (my/mm-sync-members map-file))
-            (rows (cl-remove-if (lambda (r)
-                                  (my/mm-sync-directive-line-p (nth 3 r)))
-                                (my/mm-sync-region-rows map-file)))
-            (added nil)
-            (removed nil))
-        (when (and desired rows)
+      (let* ((desired (my/mm-sync-members map-file))
+             (map-title (my/mm-sync-file-title map-file))
+             (all-rows (cl-remove-if
+                        (lambda (r)
+                          (my/mm-sync-directive-line-p (nth 3 r)))
+                        (my/mm-sync-region-rows map-file)))
+             (roots (cl-remove-if (lambda (r) (nth 4 r)) all-rows))
+             (mrows (cl-remove-if-not (lambda (r) (nth 4 r)) all-rows))
+             (root-ok (and (= (length roots) 1)
+                           (equal (my/mm-sync--base-text
+                                   (nth 3 (car roots)))
+                                  map-title)))
+             added removed subs)
+        (when (and desired mrows)
           ;; Pass 1: exact text matches pair up for free.
-          (let ((rd rows)
+          (let ((rd mrows)
                 (dd desired))
             (dolist (d dd)
               (let ((hit (cl-find (nth 2 d) rd
-                                  :key (lambda (r) (nth 3 r))
+                                  :key (lambda (r)
+                                         (my/mm-sync--base-text (nth 3 r)))
                                   :test #'equal)))
                 (when hit
                   (setq rd (delq hit rd))
                   (setq dd (delq d dd)))))
-            ;; Pass 2: leftovers zip in order; substitute fitting titles.
-            (while (and dd rd)
-              (let* ((d (pop dd))
-                     (r (pop rd))
-                     (id (nth 0 d))
-                     (title (nth 2 d))
-                     (old (nth 3 r)))
-                (when (and (not (equal title old))
-                           (<= (string-width title) (nth 2 r))
-                           (my/mm-node-live-p id))
-                  (my/mm-sync--replace-row-text
-                   map-file (nth 0 r) (nth 1 r) (nth 2 r) title))))
-            ;; Leftovers are structural business.
-            (setq removed (mapcar (lambda (r) r) rd))
-            (setq added (mapcar (lambda (d) (nth 0 d)) dd))))
-        (cons added removed))
-    (error (cons nil nil))))
+            ;; Pass 2: leftovers zip in order; fitting titles become
+            ;; SUBS, no-fit pairs split to added/removed.
+            (let (added-ids removed-rows sub-list)
+              (while (and dd rd)
+                (let* ((d (pop dd))
+                       (r (pop rd))
+                       (id (nth 0 d))
+                       (title (nth 2 d))
+                       (old (my/mm-sync--base-text (nth 3 r))))
+                  (cond ((equal title old) nil)
+                        ((and (<= (string-width title) (nth 2 r))
+                              (my/mm-node-live-p id))
+                         (push (list (nth 0 r) (nth 1 r)
+                                     (nth 2 r) title)
+                               sub-list))
+                        (t
+                         (push id added-ids)
+                         (push r removed-rows)))))
+              ;; Leftover desired ids are added, leftover rows removed.
+              ;; Leftover rows match no live member title: vanished
+              ;; nodes (directive lines never reach here: filtered).
+              (setq removed (nconc removed-rows
+                                   (mapcar (lambda (r) r) rd)))
+              (setq added (nconc added-ids
+                                 (mapcar (lambda (d) (nth 0 d)) dd)))
+              (setq subs (nreverse sub-list)))))
+        ;; With an empty region every desired id is added
+        ;; (and root-ok is nil, so the rebuild path runs).
+        (when (and desired (null mrows))
+          (setq added (mapcar (lambda (d) (nth 0 d)) desired)))
+        ;; With no members every member row is removed; a lone
+        ;; correct root stays untouched.
+        (when (null desired)
+          (setq removed mrows))
+        (list added removed root-ok subs))
+    (error (list nil nil nil nil))))
+
+(defun my/mm-sync--apply-text (map-file subs)
+  "Perform SUBS in-place title substitutions on MAP-FILE.
+Same-width replacement shifts nothing, so positions from the diff
+stay valid. Returns t when anything changed. Never throws."
+  (condition-case nil
+      (let ((changed nil))
+        (dolist (s subs)
+          (my/mm-sync--replace-row-text
+           map-file (nth 0 s) (nth 1 s) (nth 2 s) (nth 3 s))
+          (setq changed t))
+        changed)
+    (error nil)))
 
 (defun my/mm-sync--replace-row-text (map-file row col width title)
-  "Replace WIDTH chars at (ROW COL) of MAP-FILE's region with TITLE padded."
+  "Replace the title at (ROW COL) of MAP-FILE's region with TITLE.
+Deletion clamps to end-of-line: vendor node WIDTH counts visual
+padding the buffer never stores (lines are trimmed), and deleting
+past EOL would eat the newline and glue two rows together (proven
+in testing: same-width rename merged the child lines into one).
+No re-padding: parse widths recompute from content each sync, and
+the next structural rebuild re-renders everything anyway."
   (with-current-buffer (find-file-noselect map-file)
     (save-excursion
       (goto-char (point-min))
@@ -307,22 +380,30 @@ mm_nodes revalidation fourth. Never throws."
         (forward-line (1+ row))
         (move-to-column col)
         (let ((inhibit-read-only t))
-          (delete-region (point) (+ (point) width))
-          (insert title)
-          (when (< (string-width title) width)
-            (insert (make-string (- width (string-width title)) ?\s))))))))
+          (delete-region (point)
+                         (min (+ (point) width) (line-end-position)))
+          (insert title))))))
 
 (defun my/mm-sync-map (map-file)
-  "Full sync of MAP-FILE: text, structural, directives, save."
+  "Full sync of MAP-FILE: rename-only titles apply in place,
+anything structural (added/removed members, missing or wrong
+root) rebuilds the region through the vendor ops, then child-map
+directives reconcile and the buffer saves. Never throws."
   (when (and (not my/mm--syncing) (file-exists-p map-file))
     (let ((my/mm--syncing t))
       (condition-case nil
-          (let* ((diffs (my/mm-sync-text map-file))
-                 (added (car diffs))
-                 (removed (cdr diffs)))
-            (when (or added removed)
-              (let ((desired (my/mm-sync-members map-file)))
-                (my/mm-sync-structural map-file added removed desired)))
+          (let* ((diff (my/mm-sync--diff map-file))
+                 (added (nth 0 diff))
+                 (removed (nth 1 diff))
+                 (root-ok (nth 2 diff))
+                 (subs (nth 3 diff)))
+            (if (or added removed (not root-ok))
+                (my/mm-sync--rebuild
+                 map-file
+                 (my/mm-sync-members map-file)
+                 (my/mm-sync-file-title map-file))
+              (when subs
+                (my/mm-sync--apply-text map-file subs)))
             (my/mm-sync-directives map-file)
             (with-current-buffer (find-file-noselect map-file)
               (when (buffer-modified-p)
@@ -346,109 +427,75 @@ mm_nodes revalidation fourth. Never throws."
   (add-hook 'after-save-hook #'my/mm-sync-on-save))
 #+end_src
 
-** Structural sync (insert at position + align)
-New nodes get bare title rows at their declared slots; vanished
-nodes lose their rows; then the existing align path re-layouts
-(preserves text, moves rows). Runs inside my/mm-sync-map after text
-sync, under the same re-entrancy guard. Never throws.
+** Structural sync (vendor-op rebuild)
+Bare title rows are NOT structure: the vendor parser reads them as
+continuation text and the next align would merge them away (proven:
+insert "B" under bare "A", align, region collapses to one node).
+So structural change rebuilds through the vendor ops instead: drop
+directives (they would confuse the parse; reconciled after),
+wipe the region, insert-root the map title, then insert each
+member title as a sibling anchored on the root. Sibling-on-root
+delegates to insert-child, which APPENDS, so call order equals
+MM_ORDER exactly with no anchor matching at all. Failure modes
+degrade to parseable states (empty or partial region); the next
+sync retries. Never throws.
 #+begin_src emacs-lisp
-(defun my/mm-sync-structural (map-file added removed desired)
-  "Apply structural diffs to MAP-FILE. ADDED is ids, REMOVED row
-entries, DESIRED the ordered member list. Returns t when changed."
-  (let ((changed nil))
-    (when removed
-      ;; Leftover rows match no live member title: vanished nodes.
-      ;; The region is generated territory (annotate outside the
-      ;; markers); directive lines never reach here (filtered).
+(defun my/mm-sync--rebuild (map-file desired map-title)
+  "Rebuild MAP-FILE's region: root MAP-TITLE, children DESIRED
+titles in order, via the vendor insert ops. Returns t on success."
+  (condition-case nil
+      (with-current-buffer (find-file-noselect map-file)
+        (my/mm-sync--drop-directives map-file)
+        (save-excursion
+          (goto-char (point-min))
+          (when (re-search-forward "^[ \t]*#\\+begin_mindmap\\b" nil t)
+            (let ((inhibit-read-only t))
+              (forward-line 1)
+              (let ((content-start (point)))
+                (when (re-search-forward "^[ \t]*#\\+end_mindmap\\b"
+                                         nil t)
+                  (delete-region content-start
+                                 (line-beginning-position)))))
+            ;; Empty region: insert-root is the supported entry
+            ;; (get-state parses zero roots and allows it).
+            (goto-char (point-min))
+            (when (re-search-forward "^[ \t]*#\\+begin_mindmap\\b" nil t)
+              (forward-line 1)
+              (let ((org-mindmap-confirm-delete nil))
+                (org-mindmap-insert-root map-title))
+              (dolist (d desired)
+                (my/mm-sync--append-child map-file (nth 2 d))))
+            ;; Normalize through the proven-safe align path.
+            (goto-char (point-min))
+            (when (re-search-forward "^[ \t]*#\\+begin_mindmap\\b" nil t)
+              (forward-line 1)
+              (condition-case nil
+                  (org-mindmap-align)
+                (error nil)))
+            t)))
+    (error nil)))
+
+(defun my/mm-sync--append-child (map-file title)
+  "Insert TITLE as a new last child of MAP-FILE's root node.
+Re-parses per call, so earlier inserts shifting layout can never
+mis-anchor, and duplicate-looking titles cannot collide: the
+anchor is the parent-less node, never a text search."
+  (let ((rows (my/mm-sync-region-rows map-file))
+        (root nil))
+    (dolist (r rows)
+      (unless (nth 4 r)
+        (setq root r)))
+    (when root
       (with-current-buffer (find-file-noselect map-file)
         (save-excursion
           (goto-char (point-min))
           (when (re-search-forward "^[ \t]*#\\+begin_mindmap\\b" nil t)
-            (let ((base (line-number-at-pos)))
-              (dolist (r (sort (copy-sequence removed)
-                               (lambda (a b) (> (nth 0 a) (nth 0 b)))))
-                (goto-char (point-min))
-                (forward-line (+ base 1 (nth 0 r)))
-                (let ((inhibit-read-only t))
-                  (delete-region (line-beginning-position)
-                                 (min (point-max)
-                                      (1+ (line-end-position)))))
-                (setq changed t)))))))
-    (when added
-      (with-current-buffer (find-file-noselect map-file)
-        (dolist (id added)
-          (let ((tgt (cl-find id desired :key #'car :test #'equal)))
-            (when (and tgt (my/mm-node-live-p id))
-              (my/mm-sync--insert-title map-file (nth 2 tgt) desired)
-              (setq changed t))))))
-    (when (and changed (fboundp 'org-mindmap-align))
-      (with-current-buffer (find-file-noselect map-file)
-        (save-excursion
-          (goto-char (point-min))
-          (when (re-search-forward "^[ \t]*#\\+begin_mindmap\\b" nil t)
-            (forward-line 1)
-            (condition-case nil
-                (org-mindmap-align)
-              (error nil))))))
-    changed)
-
-(defun my/mm-sync--region-base (map-file)
-  "Line number of the region opener in MAP-FILE, or nil."
-  (with-current-buffer (find-file-noselect map-file)
-    (save-excursion
-      (goto-char (point-min))
-      (when (re-search-forward "^[ \t]*#\\+begin_mindmap\\b" nil t)
-        (line-number-at-pos)))))
-
-(defun my/mm-sync--row-of-title (map-file base title)
-  "Line number of TITLE row at/after BASE, or nil."
-  (with-current-buffer (find-file-noselect map-file)
-    (save-excursion
-      (goto-char (point-min))
-      (forward-line base)
-      (when (re-search-forward
-              (concat "^[ \t]*"
-                      (regexp-quote title)
-                      "[ \t]*$")
-              nil t)
-        (line-number-at-pos)))))
-
-(defun my/mm-sync--anchor-line (map-file title desired)
-  "Line number to insert after, or nil for region top."
-  (let ((pos (cl-position title desired
-                          :key (lambda (d) (nth 2 d))
-                          :test #'equal))
-        (base (my/mm-sync--region-base map-file)))
-    (when (and pos base)
-      (cl-loop for i from (1- pos) downto 0
-               for ln = (my/mm-sync--row-of-title
-                         map-file base (nth 2 (nth i desired)))
-               when ln return ln))))
-
-(defun my/mm-sync--region-top (map-file fn)
-  "Run FN (which inserts) at the top of MAP-FILE's region."
-  (with-current-buffer (find-file-noselect map-file)
-    (save-excursion
-      (goto-char (point-min))
-      (when (re-search-forward "^[ \t]*#\\+begin_mindmap\\b" nil t)
-        (forward-line 1)
-        (let ((inhibit-read-only t))
-          (funcall fn))))))
-
-(defun my/mm-sync--insert-title (map-file title desired)
-  "Insert TITLE row after the previous desired sibling that has a row."
-  (let ((anchor (my/mm-sync--anchor-line map-file title desired)))
-    (with-current-buffer (find-file-noselect map-file)
-      (save-excursion
-        (let ((inhibit-read-only t))
-          (if anchor
-              (progn
-                (goto-char (point-min))
-                (forward-line anchor)
-                (insert title "\n"))
-            (my/mm-sync--region-top
-             map-file
-             (lambda () (insert title "\n")))))))))
+            (forward-line (1+ (nth 0 root)))
+            (move-to-column (nth 1 root))
+            (let ((org-mindmap-confirm-delete nil))
+              (condition-case nil
+                  (org-mindmap-insert-sibling title)
+                (error nil)))))))))
 #+end_src
 
 ** Nested embedding (wormhole variant)
@@ -489,7 +536,7 @@ Directives live at the end of the region, sorted by child MM_ORDER."
                                           (directory-file-name k))))
                                kids)))
           (my/mm-sync--drop-directives map-file)
-          (my/mm-sync--insert-directives map-file want))))
+          (my/mm-sync--insert-directives map-file want)))))))
 
 (defun my/mm-sync--directive-lines (map-file)
   "Line numbers of wormhole directives inside the map region.
@@ -534,7 +581,7 @@ Other wormholes in the file belong to other business."
           (forward-line 0)
           (let ((inhibit-read-only t))
             (dolist (line want)
-              (insert line "\n"))))))))))
+              (insert line "\n"))))))))
 
 (defun my/mm-map-order-of (map-file)
   "MM_ORDER float of MAP-FILE, huge when absent."
