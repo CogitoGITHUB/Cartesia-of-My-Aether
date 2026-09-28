@@ -839,10 +839,15 @@ absorb into the preceding unit, never skipped."
             (cond
              ((string-match-p "^[ \t]*#\\+begin_" line) (setq insrc t))
              ((string-match-p "^[ \t]*#\\+end_" line) (setq insrc nil))
-             ((and (not insrc) (string-match "^\\* \\(.*\\)$" line))
-              (let* ((text (match-string 1 line))
-                     (tags (and (string-match "\\s-+\\(:[[:alnum:]_@]+\\(?::[[:alnum:]_@]+\\)*:\\)\\s-*$" text)
-                                (match-string 1 text)))
+              ((and (not insrc) (string-match "^\\* \\(.*\\)$" line))
+               (let* ((text (match-string 1 line))
+                      ;; Tag run allows ":" inside (org drops empty
+                      ;; segments, so :A::B: tags A and B — the old
+                      ;; pattern rejected every :: headline and such
+                      ;; files silently never loaded). Hyphen included:
+                      ;; org tags like :mm-map: are legal.
+                      (tags (and (string-match "\\s-+\\(:[[:alnum:]_@:-]*:\\)\\s-*$" text)
+                                 (match-string 1 text)))
                      (names (and tags (split-string (string-trim tags ":" ":") ":" t))))
                 (push (list :line lnum :text text
                             :tagged (and (member "EMACS_MECHANISM" names) t))
@@ -861,11 +866,12 @@ absorb into the preceding unit, never skipped."
                             :start-line (if units lnum 1)
                             :end-line nil :title nil :tags nil
                             :id nil :parent nil :order nil))
-                (plist-put current :title
-                           (string-trim
-                            (replace-regexp-in-string
-                             "\\s-+:[[:alnum:]_@]+\\(?::[[:alnum:]_@]+\\)*:\\s-*$"
-                             "" (plist-get h :text))))
+                 (plist-put current :title
+                            (string-trim
+                             (replace-regexp-in-string
+                              ;; Same org-compatible tag run as above.
+                              "\\s-+:[[:alnum:]_@:-]*:\\s-*$"
+                              "" (plist-get h :text))))
                 (save-excursion
                   (goto-char (point-min))
                   (forward-line (1- lnum))

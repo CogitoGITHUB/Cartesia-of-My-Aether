@@ -62,9 +62,12 @@ drawer, index rows, mm row. Returns the converted id list."
              ((string-match-p "^[ \t]*#\\+end_" line) (setq insrc nil))
              ((and (not insrc)
                    (string-match "^\\* \\(.*\\)$" line)
-                   (let* ((text (match-string 1 line))
-                          (m (and (string-match "\\s-+\\(:[[:alnum:]_@]+\\(?::[[:alnum:]_@]+\\)*:\\)\\s-*$" text)
-                                        (match-string 1 text))))
+                    (let* ((text (match-string 1 line))
+                           ;; Org-compatible tag run: ":" inside allowed,
+                           ;; empty segments dropped, hyphen legal
+                           ;; (see loader scan).
+                           (m (and (string-match "\\s-+\\(:[[:alnum:]_@:-]*:\\)\\s-*$" text)
+                                         (match-string 1 text))))
                      (and m (member "EMACS_MECHANISM"
                                     (split-string (string-trim m ":" ":") ":" t)))))
               (save-excursion
