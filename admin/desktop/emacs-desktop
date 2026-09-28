@@ -2,12 +2,12 @@
 ;; --------------------------------------------------------------------------
 ;; Desktop File for Emacs
 ;; --------------------------------------------------------------------------
-;; Created Mon Sep 28 16:25:22 2026
+;; Created Mon Sep 28 16:25:23 2026
 ;; Desktop file format version 208
 ;; Emacs version 30.2
 
 ;; Global section:
-(setq desktop-saved-frameset [frameset 1 (27322 27330 941778 845000) (desktop . "208") "u0_a348@localhost" nil nil ((((minibuffer . t) (tty-type . "xterm-256color") (tty . "/dev/tty") (display-type . color) (background-mode . dark) (scroll-bar-foreground) (scroll-bar-background) (menu-bar-lines . 0) (foreground-color . "#FFFFFF") (background-color . "unspecified-bg") (powerline-cache) (tab-bar-lines . 0) (height . 69) (width . 77) (modeline . t) (unsplittable) (frameset--id . "BC31-2E58-6557-E089") (frameset--mini t) (font . "tty")) ((min-height . 4) (min-width . 10) (min-height-ignore . 1) (min-width-ignore . 3) (min-height-safe . 1) (min-width-safe . 2) (min-pixel-height . 4) (min-pixel-width . 10) (min-pixel-height-ignore . 1) (min-pixel-width-ignore . 3) (min-pixel-height-safe . 1) (min-pixel-width-safe . 2)) leaf (pixel-width . 77) (pixel-height . 68) (total-width . 77) (total-height . 68) (normal-height . 1.0) (normal-width . 1.0) (buffer "*dashboard*" (selected . t) (hscroll . 0) (fringes 0 0 nil nil) (margins 1) (scroll-bars nil 0 t nil 0 t nil) (vscroll . 0) (dedicated) (point . 1) (start . 1)) (prev-buffers ("*dashboard*" 1 2) ("*Warnings*" 1 52) ("*scratch*" 1 1))))])
+(setq desktop-saved-frameset [frameset 1 (27322 27331 191173 306000) (desktop . "208") "u0_a348@localhost" nil nil ((((minibuffer . t) (tty-type . "xterm-256color") (tty . "/dev/tty") (display-type . color) (background-mode . dark) (scroll-bar-foreground) (scroll-bar-background) (menu-bar-lines . 0) (foreground-color . "#FFFFFF") (background-color . "unspecified-bg") (powerline-cache) (tab-bar-lines . 0) (height . 50) (width . 56) (modeline . t) (unsplittable) (frameset--id . "BC31-2E58-6557-E089") (frameset--mini t) (font . "tty")) ((min-height . 4) (min-width . 10) (min-height-ignore . 1) (min-width-ignore . 3) (min-height-safe . 1) (min-width-safe . 2) (min-pixel-height . 4) (min-pixel-width . 10) (min-pixel-height-ignore . 1) (min-pixel-width-ignore . 3) (min-pixel-height-safe . 1) (min-pixel-width-safe . 2)) leaf (pixel-width . 56) (pixel-height . 49) (total-width . 56) (total-height . 49) (normal-height . 1.0) (normal-width . 1.0) (buffer "*dashboard*" (selected . t) (hscroll . 0) (fringes 0 0 nil nil) (margins 1) (scroll-bars nil 0 t nil 0 t nil) (vscroll . 0) (dedicated) (point . 1) (start . 1)) (prev-buffers ("*dashboard*" 1 2) ("*Warnings*" 1 52) ("*scratch*" 1 1))))])
 (setq desktop-missing-file-warning nil)
 (setq tags-file-name nil)
 (setq tags-table-list nil)
