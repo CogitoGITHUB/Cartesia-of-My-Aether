@@ -1620,6 +1620,11 @@ Flat, independently testable steps for the find-create-note 2b
 phase. Quit becomes an ordinary return (nil or `mm-skip);
 callers decide. Never throws.
 #+begin_src emacs-lisp
+(defvar manifolding-atlas--create-target-dir nil
+  "Directory of the note currently being created, when known.
+Bound by creation flows so map defaults can probe the target.
+Declared up here (ahead of first use) so the byte-compiler stays
+quiet about ordering.")
 (defun my/mm--find-require-map (target-dir)
   "Mandatory mind-map pick for a note going to TARGET-DIR.
 Retries until a real map id; C-g returns nil (the caller aborts
@@ -1697,10 +1702,6 @@ Target-select quit goes back to kind. Never throws."
 Why: Implementation of ~manifolding-atlas-find-create-note~.
 
 #+begin_src emacs-lisp
-(defvar manifolding-atlas--create-target-dir nil
-  "Directory of the note currently being created, when known.
-Bound by creation flows so map defaults can probe the target.")
-
 (defun my/manifolding-atlas--set-drawer-line (file key val)
   "Set drawer KEY to VAL on FILE's first headline.
 KEY uses underscores (e.g. \"MIND_MAP_PLACEMENT\"), matching the
@@ -6040,8 +6041,7 @@ Returns the new map id, or nil."
 (defun my/mm-default-map-for-new-note ()
   "Map id by the default rule for a not-yet-existing note.
 Probes with a fake child path so the target directory itself counts."
-  (let ((dir (or (and (boundp 'manifolding-atlas--create-target-dir)
-                      manifolding-atlas--create-target-dir)
+  (let ((dir (or (my/mm-target-dir-or-nil)
                  (and (fboundp 'my/manifolding-atlas-root-dir)
                       (ignore-errors (my/manifolding-atlas-root-dir))))))
     (when dir
