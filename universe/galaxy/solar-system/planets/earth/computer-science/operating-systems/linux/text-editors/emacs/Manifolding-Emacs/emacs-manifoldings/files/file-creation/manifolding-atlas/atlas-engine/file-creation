@@ -1839,8 +1839,25 @@ This is the default value of `manifolding-atlas-find-default-create-fn'."
               (ignore-errors (kill-buffer (find-buffer-visiting file-path)))
               (ignore-errors (delete-file file-path))
               (user-error "Creation aborted: every note needs a mind-map parent (file removed)"))
-          (when (fboundp 'my/mm-set-map-membership)
-            (my/mm-set-map-membership file-path map-id))
+          ;; New notes sort last in their map by default (max
+          ;; member MM_ORDER + 1); placement may adjust hierarchy
+          ;; later via the db ops. Never throws.
+          (let ((next-order
+                 (condition-case nil
+                     (let ((mf (and (fboundp 'my/mm-map-file-by-id)
+                                    (my/mm-map-file-by-id map-id)))
+                           (best 0.0))
+                       (when mf
+                         (dolist (m (and (fboundp 'my/mm-sync-members)
+                                         (my/mm-sync-members mf)))
+                           (let ((o (nth 3 m)))
+                             (when (and (numberp o) (> o best))
+                               (setq best o))))
+                         (1+ best)))
+                   (error nil))))
+            (when (fboundp 'my/mm-set-map-membership)
+              (my/mm-set-map-membership file-path map-id nil nil
+                                        next-order)))
           (when (fboundp 'my/mm-assign-map)
             (my/mm-assign-map map-id note))
           (let ((placed (condition-case nil
@@ -5998,22 +6015,17 @@ Why: Implementation of ~my/manifolding-atlas-org-prompt--ask-mm-map-select~.
 
 #+begin_src emacs-lisp
 (defun my/mm-map-choices ()
-  "Alist (DISPLAY . FILE) for existing maps. DISPLAY is
+  "Alist (DISPLAY . ID) for existing maps. DISPLAY is
 \"TITLE (dirname)\" so same-titled maps stay distinguishable and
-every entry says where the map lives. Titles come from the map
-files themselves, so created maps show their given names."
-  (let ((maps (and (fboundp 'my/mm-map-files) (my/mm-map-files))))
-    (mapcar (lambda (f)
-              (cons (format "%s (%s)"
-                            (or (and (fboundp 'my/mm-sync-file-title)
-                                     (ignore-errors
-                                      (my/mm-sync-file-title f)))
-                                "Map")
+every entry says where the map lives. DB-backed: no file opens."
+  (let ((infos (and (fboundp 'my/mm-maps-info) (my/mm-maps-info))))
+    (mapcar (lambda (m)
+              (cons (format "%s (%s)" (or (nth 1 m) "Map")
                             (file-name-nondirectory
                              (directory-file-name
-                              (file-name-directory f))))
-                    f))
-            maps)))
+                              (file-name-directory (nth 2 m)))))
+                    (nth 0 m)))
+            (or infos '()))))
 
 (defun my/mm--choice-part (display which)
   "TITLE or DIR part of a \"TITLE (dir)\" DISPLAY. WHICH 1 or 2."
@@ -6022,7 +6034,7 @@ files themselves, so created maps show their given names."
     (match-string which display)))
 
 (defun my/mm--unique-choice (choices text which)
-  "FILE from CHOICES whose WHICH part (1 title, 2 dir) equals TEXT,
+  "ID from CHOICES whose WHICH part (1 title, 2 dir) equals TEXT,
 or nil unless exactly one matches. Ambiguity never resolves to a
 map — the caller retries instead of risking the wrong one."
   (let ((hits (cl-remove-if-not
@@ -6046,11 +6058,8 @@ two-mode contract for programmatic callers."
        (t "WARNING"))
     (let* ((choices (my/mm-map-choices))
            (nearest-id (my/mm-default-map-for-new-note))
-           (nearest-file (and nearest-id
-                              (fboundp 'my/mm-map-file-by-id)
-                              (my/mm-map-file-by-id nearest-id)))
-           (nearest-disp (and nearest-file
-                              (car (rassoc nearest-file choices))))
+           (nearest-disp (and nearest-id
+                              (car (rassoc nearest-id choices))))
            (prompt (format "%s [%s, new name creates]: "
                            (or label "Mind-map")
                            (or nearest-disp "no maps yet")))
@@ -6060,13 +6069,11 @@ two-mode contract for programmatic callers."
       (cond ((string-empty-p input)
              (or nearest-id "WARNING"))
             ((cdr (assoc input choices))
-             (or (my/mm-file-id (cdr (assoc input choices))) "WARNING"))
+             (or (cdr (assoc input choices)) "WARNING"))
             ((my/mm--unique-choice choices input 1)
-             (or (my/mm-file-id (my/mm--unique-choice choices input 1))
-                 "WARNING"))
+             (or (my/mm--unique-choice choices input 1) "WARNING"))
             ((my/mm--unique-choice choices input 2)
-             (or (my/mm-file-id (my/mm--unique-choice choices input 2))
-                 "WARNING"))
+             (or (my/mm--unique-choice choices input 2) "WARNING"))
             (t
              (or (my/mm-create-map-named input) "WARNING"))))))
 
@@ -6102,7 +6109,14 @@ Probes with a fake child path so the target directory itself counts."
                       (ignore-errors (my/manifolding-atlas-root-dir))))))
     (when dir
       (let ((m (my/mm-default-map (expand-file-name ".new-note" dir))))
-        (when m (my/mm-file-id m))))))
+        (when m
+          (or (let ((info (and (fboundp 'my/mm-maps-info)
+                               (cl-find m (my/mm-maps-info)
+                                        :key (lambda (x) (nth 2 x))
+                                        :test #'equal))))
+                (and info (nth 0 info)))
+              (and (fboundp 'my/mm-file-id)
+                   (my/mm-file-id m))))))))
 
 (defun my/mm-pick-map ()
   "Completing-read over existing maps plus create-new. Returns map id.
@@ -6123,8 +6137,7 @@ entry bootstraps the target directory without further prompts."
           ((equal pick "[create new map]")
            (my/mm-create-map))
           (t
-           (let ((f (cdr (assoc pick choices))))
-             (and f (my/mm-file-id f)))))))
+           (cdr (assoc pick choices))))))
 
 (defun my/mm-create-map-in-dir (dir &optional name)
   "Create a mind-map file in DIR (non-interactive). Returns the new
@@ -6154,7 +6167,8 @@ missing map instead of leaving notes mappeless."
                     "#+begin_mindmap\n"
                     "Root\n"
                     "#+end_mindmap\n"))
-          (my/mm-refresh-maps)
+          (when (fboundp 'manifolding-atlas-db-update-file)
+            (ignore-errors (manifolding-atlas-db-update-file file)))
           (my/mm-file-id file)))
     (error nil)))
 

@@ -119,6 +119,48 @@ Single function everything asks. Self-locating: renames never break it."
 (when (boundp 'manifolding-atlas-db-sync-poll-interval)
   (setq manifolding-atlas-db-sync-poll-interval 10))
 
+;; Mind-map queries read the DB, so saved files must land there:
+;; enable per-buffer autosync in every org buffer (the after-save
+;; entry itself gates by sync-directories, so non-vault files are
+;; untouched). Vault notes visit in org-mode via auto-mode-alist.
+;; Deferred past the db unit: load order must never matter here.
+(with-eval-after-load 'manifolding-atlas-db
+  (when (fboundp 'manifolding-atlas--autosync-mode)
+    (add-hook 'org-mode-hook
+              (lambda ()
+                (manifolding-atlas--autosync-mode 1)))))
+
+;; Boot backfill, idle and one-shot: historical rows predate drawer
+;; capture, so mind-map reads would miss their MM_* data. One
+;; background walk re-indexes everything; autosync plus explicit
+;; creation updates keep it fresh after that. Never throws, never
+;; blocks boot (idle 60s, silent unless it fails).
+(defvar my/manifolding-atlas--backfill-timer nil
+  "Idle timer for the one-shot boot backfill.")
+
+(defun my/manifolding-atlas--backfill-vault ()
+  "Re-index every vault file's DB row (drawers included)."
+  (setq my/manifolding-atlas--backfill-timer nil)
+  (condition-case nil
+      (when (and (fboundp 'manifolding-atlas-db-update-file)
+                 (fboundp 'my/manifolding-atlas-root-dir))
+        (let ((root (ignore-errors (my/manifolding-atlas-root-dir)))
+              (n 0))
+          (when (and root (file-directory-p root))
+            (dolist (f (directory-files-recursively root "[^./]+$"))
+              (when (and (file-regular-p f)
+                         (not (string-match-p "/\\.git/" f))
+                         (not (string-match-p "/WIP/" f)))
+                (ignore-errors
+                 (manifolding-atlas-db-update-file f)
+                 (setq n (1+ n)))))
+            (message "Atlas DB backfill: %d files re-indexed" n))))
+    (error nil)))
+
+(when (null my/manifolding-atlas--backfill-timer)
+  (setq my/manifolding-atlas--backfill-timer
+        (run-with-idle-timer 60 nil #'my/manifolding-atlas--backfill-vault)))
+
 (defvar my/manifolding-atlas-db--location-used nil
   "Endpoint identity used when the current DB connection was opened.
 A cons (BACKEND . LOCATION-OR-NIL): sqlite tracks the file path, pg

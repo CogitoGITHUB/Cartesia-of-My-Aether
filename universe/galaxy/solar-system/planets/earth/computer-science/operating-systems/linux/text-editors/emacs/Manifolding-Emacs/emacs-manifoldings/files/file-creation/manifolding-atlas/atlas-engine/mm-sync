@@ -19,11 +19,173 @@ MM_ORDER (shared float: boot order follows map order), MM_KIND
 ("map" on map files only), MM_ANCHOR (heading id the card mirrors).
 Secondary membership is derived from directory adjacency only.
 #+begin_src emacs-lisp
-(defvar my/mm--map-cache nil
-  "Cached list of map files (absolute paths). Refresh on creation.")
-
 (defvar my/mm--default-warned-files nil
   "Files already warned about default-map fallback this session.")
+
+(defun my/mm-db-ready-p ()
+  "Non-nil when the atlas DB answers mind-map queries."
+  (and (fboundp 'emacsql)
+       (fboundp 'manifolding-atlas-db)
+       (condition-case nil
+           (not (null (manifolding-atlas-db)))
+         (error nil))))
+
+(defun my/mm-db-text (v)
+  "Decode a TEXT value from the atlas DB into a string or nil.
+Stored printed form parses back on read, so strings arrive
+decoded; legacy bare tokens arrive as symbols and are coerced
+via symbol-name. Anything else becomes nil. Never throws."
+  (condition-case nil
+      (cond ((stringp v) v)
+            ((symbolp v) (symbol-name v))
+            (t nil))
+    (error nil)))
+
+(defun my/mm-db-note-rows ()
+  "Trustworthy vault note rows as (ID TITLE PATH UNFOLDINGS) plists.
+Only rows with parsed drawer data qualify: legacy bare-stored
+cells can splice extra objects into a row (shifting columns), so
+anything without unfoldings is dropped here and healed from disk
+by callers (same-directory union). UNFOLDINGS is always a list.
+One indexed query over small rows — milliseconds, no file opens.
+The DB is the index; files stay source of truth. Returns nil
+when the DB is unreachable, and callers fall back to file reads.
+Never throws."
+  (condition-case nil
+      (when (my/mm-db-ready-p)
+        (let (out)
+          (dolist (r (emacsql (manifolding-atlas-db)
+                              [:select [id title path unfoldings]
+                               :from notes]))
+            ;; Trust rule: ID is column 0 (splice-safe); the rest
+            ;; only when unfoldings parsed (proves printed storage,
+            ;; hence aligned single-object cells).
+            (let* ((unf-raw (nth 3 r))
+                   (unf (cond ((listp unf-raw) unf-raw)
+                              ((stringp unf-raw)
+                               (let ((x (ignore-errors
+                                         (car (read-from-string unf-raw)))))
+                                 (and (listp x) x)))
+                              (t nil))))
+              (when unf
+                (push (list :id (my/mm-db-text (nth 0 r))
+                            :title (my/mm-db-text (nth 1 r))
+                            :path (my/mm-db-text (nth 2 r))
+                            :unfoldings unf)
+                      out))))
+          (nreverse out)))
+    (error nil)))
+
+(defun my/mm-strip-title-tags (title)
+  "TITLE without a trailing org tag run, mirroring headline text.
+The DB stores raw headlines including tags; file reads exclude
+them. Stripping keeps both sources identical for sync compares."
+  (if (and (stringp title)
+           (string-match "\\s-+\\(:[[:alnum:]_@:-]*:\\)\\s-*$" title))
+      (string-trim (substring title 0 (match-beginning 0)))
+    title))
+
+(defun my/mm-drawer-alist (file)
+  "Drawer of FILE's first headline as an alist, or nil.
+Single-file fallback for paths the DB missed. Never throws."
+  (condition-case nil
+      (when (and file (file-exists-p file))
+        (with-temp-buffer
+          (insert-file-contents file)
+          (goto-char (point-min))
+          (when (re-search-forward "^[ \t]*:PROPERTIES:[ \t]*$" nil t)
+            (let (out)
+              (while (re-search-forward
+                      "^[ \t]*:\\([^ :\n]+\\):[ \t]*\\(.*\\)$" nil t)
+                (let ((k (match-string 1)))
+                  (if (string= k "END")
+                      (goto-char (point-max))
+                    (push (cons k (match-string 2)) out))))
+              (nreverse out)))))
+    (error nil)))
+
+(defun my/mm-maps-info ()
+  "All known maps as ((ID TITLE FILE ORDER)) from the DB.
+Falls back to a filesystem walk only when the DB is unreachable.
+Skips vanished paths. Never throws."
+  (condition-case nil
+      (let ((rows (my/mm-db-note-rows)))
+        (if (null rows)
+            (my/mm-maps-info--scan)
+          (let (out)
+            (dolist (r rows)
+              (let ((unf (plist-get r :unfoldings))
+                    (p (plist-get r :path)))
+                (when (and (equal (cdr (assoc "MM_KIND" unf)) "map")
+                           (stringp p)
+                           (file-exists-p p))
+                  (push (list (plist-get r :id)
+                              (my/mm-strip-title-tags (plist-get r :title))
+                              p
+                              (my/mm-order-of-unfoldings unf))
+                        out))))
+            (nreverse out))))
+    (error nil)))
+
+(defun my/mm-order-of-unfoldings (unf)
+  "MM_ORDER float from drawer alist UNF, huge when absent."
+  (let ((o (cdr (assoc "MM_ORDER" unf))))
+    (if (and (stringp o) (string-match-p "^-?[0-9.]+$" o))
+        (string-to-number o)
+      1e18)))
+
+(defun my/mm-maps-info--scan ()
+  "Legacy filesystem walk for map discovery (DB unreachable).
+Opens every vault file once. Never throws."
+  (condition-case nil
+      (let (out)
+        (when (fboundp 'my/manifolding-atlas-root-dir)
+          (let ((root (ignore-errors (my/manifolding-atlas-root-dir))))
+            (when (and root (file-directory-p root))
+              (dolist (f (directory-files-recursively root "[^./]+$"))
+                (when (and (file-regular-p f)
+                           (not (string-match-p "/\\.git/" f))
+                           (not (string-match-p "/WIP/" f))
+                           (equal (my/mm-file-drawer-get f "MM_KIND") "map"))
+                  (push (list (my/mm-file-id f)
+                              (my/mm-sync-file-title f)
+                              f
+                              (let ((o (my/mm-file-drawer-get f "MM_ORDER")))
+                                (if (and o (string-match-p "^-?[0-9.]+$" o))
+                                    (string-to-number o)
+                                  1e18)))
+                        out))))))
+        (nreverse out))
+    (error nil)))
+
+(defun my/mm-map-files ()
+  "List of map files (absolute paths), DB-backed."
+  (mapcar (lambda (m) (nth 2 m)) (or (my/mm-maps-info) '())))
+
+(defun my/mm-refresh-maps ()
+  "Manual rescan: update every vault file's DB row, then return
+the DB map list. For suspected staleness (external edits); normal
+flows stay fresh via autosync plus explicit updates. Never throws."
+  (condition-case nil
+      (progn
+        (when (and (fboundp 'manifolding-atlas-db-sync-full-scan)
+                   (ignore-errors (manifolding-atlas-db-sync-full-scan)))
+          t)
+        (when (and (fboundp 'manifolding-atlas-db-update-file)
+                   (fboundp 'my/manifolding-atlas-root-dir))
+          (let ((root (ignore-errors (my/manifolding-atlas-root-dir)))
+                (n 0))
+            (when (and root (file-directory-p root))
+              (dolist (f (directory-files-recursively root "[^./]+$"))
+                (when (and (file-regular-p f)
+                           (not (string-match-p "/\\.git/" f))
+                           (not (string-match-p "/WIP/" f)))
+                  (ignore-errors
+                    (manifolding-atlas-db-update-file f)
+                    (setq n (1+ n))))))
+            (message "Mind-map rescan: %d files re-indexed" n)))
+        (my/mm-map-files))
+    (error nil)))
 
 (defun my/mm-file-drawer-get (file key)
   "Drawer KEY from FILE's first headline, or nil."
@@ -42,25 +204,6 @@ Secondary membership is derived from directory adjacency only.
 (defun my/mm-file-id (file)
   "Note id of FILE from its drawer."
   (my/mm-file-drawer-get file "ID"))
-
-(defun my/mm-refresh-maps ()
-  "Rebuild the map-file cache. Returns the list."
-  (setq my/mm--map-cache nil)
-  (when (fboundp 'my/manifolding-atlas-root-dir)
-    (let ((root (ignore-errors (my/manifolding-atlas-root-dir))))
-      (when (and root (file-directory-p root))
-        (dolist (f (directory-files-recursively root "[^./]+$"))
-          (when (and (file-regular-p f)
-                     (not (string-match-p "/\\.git/" f))
-                     (not (string-match-p "/WIP/" f))
-                     (equal (my/mm-file-drawer-get f "MM_KIND") "map"))
-            (push f my/mm--map-cache))))))
-  my/mm--map-cache)
-
-(defun my/mm-map-files ()
-  "List of map files, cached per boot."
-  (or my/mm--map-cache
-      (my/mm-refresh-maps)))
 
 (defun my/mm-default-map (file)
   "Nearest ancestor directory of FILE containing a map file.
@@ -94,19 +237,34 @@ path, else the documented default-map fallback."
       (my/mm-default-map file))))
 
 (defun my/mm-map-file-by-id (id)
-  "Map file whose drawer ID is ID, or nil."
-  (cl-find-if (lambda (f) (equal (my/mm-file-id f) id))
-              (my/mm-map-files)))
+  "Map file whose drawer ID is ID, or nil. DB-backed."
+  (condition-case nil
+      (let ((hit (cl-find-if (lambda (m) (equal (nth 0 m) id))
+                             (my/mm-maps-info))))
+        (and hit (nth 2 hit)))
+    (error nil)))
 
 (defun my/mm-validate-map-dir (dir)
   "Signal an error if DIR already holds a mind-map file.
-Enforces: no two map files in one directory."
-  (let ((found (cl-remove-if-not
-                (lambda (f)
-                  (equal (file-name-directory (directory-file-name f))
-                         (file-name-directory (directory-file-name
-                                               (expand-file-name dir)))))
-                (my/mm-map-files))))
+Enforces: no two map files in one directory. DB-backed, with a
+single-directory readdir fallback so an unsynced on-disk map can
+never slip through and violate the law."
+  (let* ((ddir (file-name-directory (directory-file-name
+                                     (expand-file-name dir))))
+         (found (cl-remove-if-not
+                 (lambda (f)
+                   (equal (file-name-directory (directory-file-name f))
+                          ddir))
+                 (my/mm-map-files))))
+    (unless found
+      ;; Unsynced files on disk: check this one directory only
+      ;; (a handful of opens, not a vault walk).
+      (when (file-directory-p ddir)
+        (dolist (f (directory-files ddir t "^[^.]"))
+          (when (and (file-regular-p f)
+                     (null (file-name-extension f))
+                     (equal (my/mm-file-drawer-get f "MM_KIND") "map"))
+            (push f found)))))
     (when found
       (error "Directory already has a mind-map file: %s"
              (file-name-nondirectory (car found))))))
@@ -196,11 +354,12 @@ MM_ANCHOR, MM_PARENT, MM_ORDER. Never throws."
     (error nil)))
 
 (defun my/mm-assign-map (map-id _note)
-  "Post-apply: validate MAP-ID exists and refresh the map cache.
-NOTE is accepted for post-apply uniformity and ignored."
+  "Post-apply: validate MAP-ID exists. NOTE is accepted for
+post-apply uniformity and ignored. No cache refresh: map reads
+are DB-backed, and stamping saves flow through autosync."
   (condition-case nil
-      (when (and (stringp map-id) (my/mm-map-file-by-id map-id))
-        (my/mm-refresh-maps))
+      (and (stringp map-id)
+           (not (null (my/mm-map-file-by-id map-id))))
     (error nil)))
 #+end_src
 
@@ -263,29 +422,118 @@ renders all titles fresh. Never throws.
 
 (defun my/mm-sync-members (map-file)
   "Ordered member list for MAP-FILE: ((ID FILE TITLE ORDER)).
-Non-map files with explicit MM_MAP = map id, plus same-directory
-files falling back to it by the default rule. Sorted by MM_ORDER."
-  (let ((map-id (my/mm-file-id map-file))
-        (mapdir (file-name-directory (directory-file-name map-file)))
-        out)
-    (dolist (f (and (file-directory-p mapdir)
-                    (directory-files mapdir t "^[^.]")))
-      (when (and (file-regular-p f)
-                 (null (file-name-extension f))
-                 (not (equal (my/mm-file-drawer-get f "MM_KIND") "map")))
-        (let ((mid (my/mm-file-drawer-get f "MM_MAP")))
-          (when (or (and mid (equal mid map-id))
-                    (and (null mid)
-                         (equal (my/mm-default-map f) map-file)))
-            (let ((id (my/mm-file-id f)))
-              (when id
-                (push (list id f (my/mm-sync-node-text f)
-                            (let ((o (my/mm-file-drawer-get f "MM_ORDER")))
-                              (if (and o (string-match-p "^-?[0-9.]+$" o))
-                                  (string-to-number o)
-                                1e18)))
-                      out)))))))
-    (sort out (lambda (a b) (< (nth 3 a) (nth 3 b))))))
+DB-backed: member rows in MAP-FILE's directory with MM_MAP set,
+plus same-directory files falling back by the default rule.
+On-disk files the DB missed are read directly (self-healing);
+the DB path opens nothing. Sorted by MM_ORDER. Never throws."
+  (condition-case nil
+      (let ((rows (my/mm-db-note-rows)))
+        (if (null rows)
+            (my/mm-sync-members--scan map-file)
+          (my/mm-sync-members-from-rows map-file rows)))
+    (error (my/mm-sync-members--scan map-file))))
+
+(defun my/mm-sync-members-from-rows (map-file rows)
+  "Member list for MAP-FILE from DB ROWS (see `my/mm-db-note-rows').
+ROW entries carry :id :title :path :unfoldings. Anchored members
+still read their anchor headline from the file (headings live
+outside the notes table). Never throws."
+  (condition-case nil
+      (let* ((map-id (let ((hit (cl-find map-file rows
+                                         :key (lambda (r) (plist-get r :path))
+                                         :test #'equal)))
+                       (and hit (plist-get hit :id))))
+             (mapdir (file-name-directory (directory-file-name map-file)))
+             (by-path (make-hash-table :test 'equal))
+             out)
+        ;; Map itself unsynced (brand-new file): the directory scan
+        ;; is small and always correct — use it.
+        (if (null map-id)
+            (setq out (my/mm-sync-members--scan map-file))
+          (progn
+            (dolist (r rows)
+              (let ((p (plist-get r :path)))
+                (when (stringp p)
+                  (puthash p r by-path))))
+            ;; Self-healing union: on-disk files the DB missed — or
+            ;; whose drawer data is empty (historical rows predate
+            ;; drawer capture) — are read directly and written through
+            ;; to the DB, so each file pays this at most once until
+            ;; externally edited. Bounded to this one directory (a
+            ;; handful of opens, never a vault walk).
+            (when (file-directory-p mapdir)
+              (dolist (f (directory-files mapdir t "^[^.]"))
+                (when (and (file-regular-p f)
+                           (null (file-name-extension f)))
+                  (let ((old (gethash f by-path)))
+                    (when (or (null old)
+                              (null (plist-get old :unfoldings)))
+                      (when (fboundp 'manifolding-atlas-db-update-file)
+                        (ignore-errors
+                         (manifolding-atlas-db-update-file f)))
+                      (let ((id (or (and old (plist-get old :id))
+                                    (my/mm-file-id f))))
+                        (when id
+                          (puthash f (list :id id :path f
+                                           :title (or (and old
+                                                           (plist-get old :title))
+                                                      (my/mm-sync-file-title f))
+                                           :unfoldings (my/mm-drawer-alist f))
+                                   by-path))))))))
+        (maphash
+         (lambda (f r)
+           (when (and (file-exists-p f)
+                      (equal (file-name-directory (directory-file-name f))
+                             mapdir)
+                          (not (equal (cdr (assoc "MM_KIND"
+                                                  (plist-get r :unfoldings)))
+                                      "map")))
+                 (let ((mid (cdr (assoc "MM_MAP" (plist-get r :unfoldings)))))
+                   (when (or (and mid (equal mid map-id))
+                             (and (null mid)
+                                  (equal (my/mm-default-map f) map-file)))
+                     (let ((id (plist-get r :id)))
+                       (when id
+                         (let* ((anchor (cdr (assoc "MM_ANCHOR"
+                                                    (plist-get r :unfoldings))))
+                                (title (if (and anchor
+                                                (not (string-empty-p anchor)))
+                                           (my/mm-sync-node-text f)
+                                         (my/mm-strip-title-tags
+                                          (plist-get r :title)))))
+                           (push (list id f title
+                                       (my/mm-order-of-unfoldings
+                                        (plist-get r :unfoldings)))
+                                 out))))))))
+             by-path)))
+        (sort out (lambda (a b) (< (nth 3 a) (nth 3 b)))))
+    (error (my/mm-sync-members--scan map-file))))
+
+(defun my/mm-sync-members--scan (map-file)
+  "Legacy filesystem members scan (DB unreachable). Opens files."
+  (condition-case nil
+      (let ((map-id (my/mm-file-id map-file))
+            (mapdir (file-name-directory (directory-file-name map-file)))
+            out)
+        (dolist (f (and (file-directory-p mapdir)
+                        (directory-files mapdir t "^[^.]")))
+          (when (and (file-regular-p f)
+                     (null (file-name-extension f))
+                     (not (equal (my/mm-file-drawer-get f "MM_KIND") "map")))
+            (let ((mid (my/mm-file-drawer-get f "MM_MAP")))
+              (when (or (and mid (equal mid map-id))
+                        (and (null mid)
+                             (equal (my/mm-default-map f) map-file)))
+                (let ((id (my/mm-file-id f)))
+                  (when id
+                    (push (list id f (my/mm-sync-node-text f)
+                                (let ((o (my/mm-file-drawer-get f "MM_ORDER")))
+                                  (if (and o (string-match-p "^-?[0-9.]+$" o))
+                                      (string-to-number o)
+                                    1e18)))
+                          out)))))))
+        (sort out (lambda (a b) (< (nth 3 a) (nth 3 b)))))
+    (error nil)))
 
 (defun my/mm-sync-region-rows (map-file)
   "Node rows of MAP-FILE's mindmap region.
@@ -573,12 +821,14 @@ line obvious in source; a strip filter keeps inner directives out
 of transcluded content. Never throws.
 #+begin_src emacs-lisp
 (defun my/mm-child-maps (map-file)
-  "Map files exactly one directory level below MAP-FILE's own."
+  "Child maps as ((ID TITLE FILE ORDER)), exactly one directory
+level below MAP-FILE's own. DB-backed, no file opens."
   (let ((mapdir (file-name-directory (directory-file-name map-file)))
         out)
-    (dolist (m (my/mm-map-files))
-      (let ((mdir (file-name-directory (directory-file-name m))))
-        (when (and (not (equal m map-file))
+    (dolist (m (my/mm-maps-info))
+      (let ((mdir (file-name-directory
+                   (directory-file-name (nth 2 m)))))
+        (when (and (not (equal (nth 2 m) map-file))
                    (equal (file-name-directory (directory-file-name mdir))
                           mapdir))
           (push m out))))
@@ -595,13 +845,11 @@ Directives live at the end of the region, sorted by child MM_ORDER."
         (when (re-search-forward "^[ \t]*#\\+begin_mindmap\\b" nil t)
           (let* ((kids (sort (my/mm-child-maps map-file)
                              (lambda (a b)
-                               (< (my/mm-map-order-of a)
-                                  (my/mm-map-order-of b)))))
+                               (< (nth 3 a) (nth 3 b)))))
                  (want (mapcar (lambda (k)
                                  (format "#+wormhole: [[id:%s][\u27e6 MAP: %s \u27e7]] :level 2 :only-contents"
-                                         (or (my/mm-file-id k) "?")
-                                         (file-name-nondirectory
-                                          (directory-file-name k))))
+                                         (or (nth 0 k) "?")
+                                         (file-name-nondirectory (nth 2 k))))
                                kids)))
           (my/mm-sync--drop-directives map-file)
           (my/mm-sync--insert-directives map-file want)))))))
