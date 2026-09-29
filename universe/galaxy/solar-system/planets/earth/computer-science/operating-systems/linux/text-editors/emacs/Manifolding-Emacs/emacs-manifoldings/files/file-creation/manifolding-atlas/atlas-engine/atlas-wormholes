@@ -1868,7 +1868,7 @@ This function is the default for atlas-wormholes-type (TYPE)
       (let ((org-agenda-files nil)
             (org-inhibit-startup t))
         (insert content)
-        (let ((delay-mode-hooks t)) (org-mode))
+        (delay-mode-hooks (org-mode))
         ;; Adjust headline levels
         (atlas-wormholes-content-format-org-headlines
          type content keyword-values)
@@ -2427,7 +2427,7 @@ the buffer, stop there and add a newline."
 (defun atlas-wormholes-wrap-path-to-link (path)
   "Return Org link object for PATH string."
   (with-temp-buffer
-    (let ((delay-mode-hooks t)) (org-mode))
+    (delay-mode-hooks (org-mode))
     (insert path)
     (org-element-context)))
 
@@ -2697,7 +2697,7 @@ paragraph."
     (if (length< content 0)
         (user-error (format "Live sync cannot start here: point %d" (point)))
       (with-temp-buffer
-        (let ((delay-mode-hooks t)) (org-mode))
+        (delay-mode-hooks (org-mode))
         ;; Calibrate the start position "Move" to the beg - 1 (buffer position
         ;; with 1, not 0)
         (insert-char ?\n (1- beg))

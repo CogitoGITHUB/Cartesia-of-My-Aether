@@ -51,8 +51,8 @@ pasted quoted path can never create garbage directories.
 Keeps relative structure (unlike the file-token sanitizer) so
 multi-level picks like \"projects/foo\" survive."
   (let ((c (string-trim (or s ""))))
-    ;; Char codes, not ?\" literals (loader paren scanner limitation:
-    ;; 34 = ", 39 = ', 96 = `).
+    ;; Char codes, never question-mark-quote literals (boot scanner
+    ;; limitation: 34 doublequote, 39 squote, 96 backquote).
     (when (and (>= (length c) 2)
                (let ((f (aref c 0)) (l (aref c (1- (length c)))))
                  (and (memq f '(34 39 96)) (eq f l))))

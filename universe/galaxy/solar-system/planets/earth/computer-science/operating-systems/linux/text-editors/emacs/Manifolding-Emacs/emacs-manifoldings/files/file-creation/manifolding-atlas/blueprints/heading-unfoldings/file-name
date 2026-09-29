@@ -15,9 +15,9 @@ different language for the filename.
 A pasted absolute path (quoted or not) can never escape the chosen
 subdirectory: only the final component survives."
   (let ((c (string-trim (or s ""))))
-    ;; Char codes, not ?\" literals: the loader's paren scanner has
-    ;; no notion of character literals and would read ?\" as a
-    ;; string toggle (34 = ", 39 = ', 96 = `).
+    ;; Char codes below, never question-mark-quote literals: the boot
+    ;; scanner has no notion of character literals and would misread
+    ;; one as a string toggle (34 doublequote, 39 squote, 96 backquote).
     (when (and (>= (length c) 2)
                (let ((f (aref c 0)) (l (aref c (1- (length c)))))
                  (and (memq f '(34 39 96)) (eq f l))))

@@ -30,12 +30,11 @@ Secondary membership is derived from directory adjacency only.
   (when (and file (file-exists-p file))
     (with-temp-buffer
       (insert-file-contents file)
-      ;; Real org-mode (hooks delayed): temp buffers visit in
-      ;; fundamental-mode, where org-element refuses to work and
-      ;; every drawer read warns and degrades. `delay-mode-hooks'
-      ;; alone enables nothing — it only delays hooks while a mode
-      ;; form runs.
-      (let ((delay-mode-hooks t)) (org-mode))
+      ;; The macro form, exactly: on Emacs 30 it pre-makes
+      ;; delay-mode-hooks buffer-local before binding, so org's own
+      ;; startup makes no complaint. A bare let around org-mode
+      ;; skips that step and warns on every call.
+      (delay-mode-hooks (org-mode))
       (goto-char (point-min))
       (when (re-search-forward org-heading-regexp nil t)
         (org-entry-get (point) key)))))
@@ -238,8 +237,8 @@ renders all titles fresh. Never throws.
   (when (file-exists-p file)
     (with-temp-buffer
       (insert-file-contents file)
-      ;; Real org-mode, hooks delayed (see `my/mm-file-drawer-get').
-      (let ((delay-mode-hooks t)) (org-mode))
+      ;; Macro form (see `my/mm-file-drawer-get').
+      (delay-mode-hooks (org-mode))
       (let (out)
         (org-element-map (org-element-parse-buffer) 'headline
           (lambda (h)
