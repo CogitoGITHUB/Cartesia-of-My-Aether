@@ -10,6 +10,9 @@
 
 ** Config :config:
 #+begin_src emacs-lisp
+;; Built-in package vars; declared for compiles that run before load.
+(defvar ispell-program-name)
+(defvar ispell-extra-args)
 (setq ispell-program-name "aspell")
 (setq ispell-extra-args '("--run-together" "--lang=en_US"))
 #+end_src
@@ -23,5 +26,7 @@
 
 ** Config :config:
 #+begin_src emacs-lisp
+;; Built-in package var; declared for compiles that run before load.
+(defvar flyspell-use-meta-tab)
 (setq flyspell-use-meta-tab nil)
 #+end_src

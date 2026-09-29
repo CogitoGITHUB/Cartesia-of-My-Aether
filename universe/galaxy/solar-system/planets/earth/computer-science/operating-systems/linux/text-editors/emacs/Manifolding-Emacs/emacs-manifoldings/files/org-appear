@@ -12,6 +12,11 @@
 
 ** Config
 #+begin_src emacs-lisp
+;; Package vars (see mini-modeline note).
+(defvar org-appear-autolinks)
+(defvar org-appear-autosubmarkers)
+(defvar org-appear-autoentities)
+(defvar org-appear-autokeywords)
 (setq org-appear-autolinks     nil
       org-appear-autosubmarkers t
       org-appear-autoentities  t

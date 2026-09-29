@@ -16,6 +16,8 @@ Load dependencies and the pre-29.1 compat shim. Nothing else runs at load.
 ;;; speed-type --- vendored typing trainer -*- lexical-binding: t -*-
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 (require 'cl-lib)
+;; Forward declaration: defined near the bottom, used above.
+(defvar speed-type-pandoc-request-header)
 #+end_src
 
 #+begin_src emacs-lisp
@@ -1243,7 +1245,8 @@ speed-type files that were created using the speed-type functions."
 #+begin_src emacs-lisp
 (defun speed-type-format-stats (entries actions errors non-consecutive-errors corrections best-correct-streak seconds)
   "Format statistic data using given arguments:
-ENTRIES ACTIONS ERRORS NON-CONSECUTIVE-ERRORS CORRECTIONS BEST-CORRECT-STREAK SECONDS."
+ENTRIES ACTIONS ERRORS NON-CONSECUTIVE-ERRORS CORRECTIONS
+BEST-CORRECT-STREAK SECONDS."
   (format speed-type-stats-format
           (speed-type--skill (speed-type--net-wpm entries errors corrections seconds))
           (speed-type--net-wpm entries errors corrections seconds)

@@ -32,6 +32,7 @@ filter (see ~my/esc~) that waits ~my/esc-delay~: a key pressed within the delay
 is read as a Meta/ESC-prefix combo; otherwise it is a standalone ESC."
   :init-value nil
   :global t
+  :group 'manifolding-keyboard
   (if my/esc-mode
       (progn
         (add-hook 'after-make-frame-functions #'my/esc-init-if-tui)

@@ -7,6 +7,59 @@
 :CATEGORY: manifolding-atlas-core
 :END:
 
+** Forward declarations (must come first)
+Bare defvars, no values, no docstrings: they silence the
+byte-compiler about variables defined later in this file or in
+sibling units, without rebinding anything at load. Keep this
+section before every use.
+#+begin_src emacs-lisp
+;; Own registry, defined further down.
+(defvar my/manifolding-atlas-org-prompt--specs)
+(defvar my/manifolding-atlas-prompt-registry)
+(defvar my/manifolding-atlas-template-registry)
+(defvar my/manifolding-atlas-dashboard-key-files)
+;; Session state, defined further down.
+(defvar my/manifolding-atlas-org-prompt--session)
+(defvar my/manifolding-atlas-org-prompt--session-p)
+(defvar my/manifolding-atlas-org-prompt--this-kind)
+(defvar my/manifolding-atlas-org-prompt--pending-create)
+(defvar my/manifolding-atlas--pending-post-apply)
+(defvar my/manifolding-atlas--pending-open-after-capture)
+(defvar my/manifolding-atlas--pending-open-origin)
+(defvar my/manifolding-atlas--pending-open-note)
+(defvar my/manifolding-atlas--last-created-file)
+(defvar my/manifolding-atlas--skip-open-prompt)
+(defvar my/manifolding-atlas-prompt-template--none)
+(defvar-local manifolding-atlas--title-before-save nil
+  "Title of note before save, for change detection.")
+(defvar-local manifolding-atlas--note-id-before-save nil
+  "ID of note before save, for change detection.")
+;; Denote db variables, defined in the db units.
+(defvar manifolding-atlas-db-location)
+(defvar manifolding-atlas-db-sync--fswatch-process)
+(defvar manifolding-atlas-db-sync--poll-timer)
+(defvar manifolding-atlas-db-sync-poll-interval)
+(defvar manifolding-atlas-db-sync-directories)
+(defvar manifolding-atlas-db-sync-external-method)
+(defvar manifolding-atlas-db-autosync-mode)
+(defvar manifolding-atlas-db--extractors)
+(defvar manifolding-atlas-db-async-extraction)
+(defvar manifolding-atlas-db-parse-method)
+(defvar manifolding-atlas-db-index-heading-level)
+(defvar manifolding-atlas-db-sync-scan-on-enable)
+(defvar manifolding-atlas-db-version)
+(defvar manifolding-atlas-db-sync--queue)
+;; Org capture vars: special (defvarred by org), so lets over them
+;; stay dynamic. Declared here for compiles that run before org.
+(defvar org-capture-templates)
+(defvar org-capture-use-indirect-buffer)
+(defvar org-capture-window-setup)
+;; Wormholes unit, yasnippet.
+(defvar atlas-wormholes-mode)
+(defvar atlas-wormholes-add-all-on-activate)
+(defvar yas-verbosity)
+#+end_src
+
 ** Prompt Registry (must load first)
 Must load before any prompt file calls ~my/manifolding-atlas-register-prompt~.
 
@@ -298,13 +351,14 @@ Returns count of files changed."
       n)))
 
 (defun my/manifolding-atlas--sweep-remove-drawer-key-if-static (key)
-  "Delete `:KEY:' lines holding static sentinels from first level-1 drawers vault-wide.
-Static = value exactly TODO or WARNING (never real user content).
-Live values stay untouched. Same whole-line span mechanic as
-`my/manifolding-atlas--sweep-remove-drawer-key' (matched line plus
-its newline, no residue). Skips .git and admin/. Saves once per
-changed file. Returns (STRIPPED-FILES . LIVE-HITS) where LIVE-HITS
-is a list of (FILE . VALUE) for lines kept."
+  "Delete `:KEY:' lines holding static sentinels from first
+level-1 drawers vault-wide. Static = value exactly TODO or
+WARNING (never real user content). Live values stay untouched.
+Same whole-line span mechanic as
+`my/manifolding-atlas--sweep-remove-drawer-key' (matched line
+plus its newline, no residue). Skips .git and admin/. Saves
+once per changed file. Returns (STRIPPED-FILES . LIVE-HITS)
+where LIVE-HITS is a list of (FILE . VALUE) for lines kept."
   (when (and (stringp key) (not (string-empty-p key)))
     (let* ((root (my/manifolding-atlas-root-dir))
            (gitdir (expand-file-name ".git" root))
@@ -385,8 +439,13 @@ existing KEY. Registers the prompt when the capture finalizes."
       (when (file-exists-p path)
         (user-error "Blueprint exists: %s" path))
       (make-directory dir t)
-      (let ((id (org-id-new))
-            (org-capture-templates
+      ;; let*: the template below splices `id', so it must see the
+      ;; sibling binding (plain let evaluates inits outside, leaving
+      ;; a free-variable read). The org-capture vars are special
+      ;; (defvar'd by org), so they stay dynamically bound for the
+      ;; capture call either way.
+      (let* ((id (org-id-new))
+             (org-capture-templates
              `(("b" "Blueprint prompt" plain (file ,path)
                  ,(format "* %s :unfolding:file:heading:task:DRAWER_BLUEPRINT:\n:PROPERTIES:\n:ID: %s\n:END:\n** First option :BLUEPRINT_BODY:\n%%?"
                           key id)
@@ -537,18 +596,18 @@ anymore); yasnippet runs without a snippets dir (none exist on disk).
 :name          SYMBOL   — unique identifier (alias for :key)
 :label         STRING   — human-readable display name for Transient UI
 :prompt-fn     FUNCTION — (&optional current) -> raw value from the user
-:contexts      LIST     — '(file heading task ...)
+:contexts      LIST     — \='(file heading task ...)
 :to-plist      FUNCTION — (VAL CONTEXT) -> plist fragment
 :read-current-fn FUNCTION — () -> current value from the visited buffer
 :validate-fn   FUNCTION or nil — (VAL) -> non-nil means valid
-:merge-strategy SYMBOL  — 'replace | 'merge | 'append
+:merge-strategy SYMBOL  — \='replace | \='merge | \='append
 
 Fragment keys:
 :tags         (list of strings)      — merged by append
 :unfoldings   (alist)                — merged by append
 :body         (string)               — concatenated
 :post-apply   (list of functions)    — each called with the note
-:after        nil or 'last           — heading insert position")
+:after        nil or \='last         — heading insert position")
 
 ;; Reset on every config load so prompts don't accumulate duplicates
 (setq my/manifolding-atlas-prompt-registry nil)
@@ -1141,7 +1200,8 @@ The function allows dynamic parameter computation based on context:
                 :unfoldings (list (cons \"SOURCE\"
                                         (buffer-name))))))
 
-Parameters explicitly passed to `manifolding-atlas-create' override these defaults.
+Parameters explicitly passed to `manifolding-atlas-create'
+override these defaults.
 
 These defaults seed file-level note creation only.  When
 `manifolding-atlas-create' is called with a non-nil `:parent' (a heading-level
@@ -1158,7 +1218,8 @@ note), this function is not called and no defaults are applied."
   '(:file-name "${timestamp}_${slug}.org")
   "Default template (plist) for note creation.
 Only used when `manifolding-atlas-create-default-function' is nil.
-Parameters explicitly passed to `manifolding-atlas-create' override these defaults.
+Parameters explicitly passed to `manifolding-atlas-create'
+override these defaults.
 
 These defaults seed file-level note creation only.  When
 `manifolding-atlas-create' is called with a non-nil `:parent' (a heading-level
@@ -1490,10 +1551,10 @@ Why: Implementation of ~manifolding-atlas--expand-file-name-template~.
 
 #+begin_src emacs-lisp
 (defun manifolding-atlas--expand-file-name-template (title &optional id template context)
-  "Expand file name template with TITLE, ID, TEMPLATE, and CONTEXT.
-If TEMPLATE is nil, uses `:file-name' from `manifolding-atlas-create-default-template'.
-CONTEXT is a plist of additional template variables.
-Returns absolute file path."
+  "Expand file name template with TITLE, ID, TEMPLATE, CONTEXT.
+If TEMPLATE is nil, uses `:file-name' from
+`manifolding-atlas-create-default-template'. CONTEXT is a plist
+of additional template variables. Returns absolute file path."
   (let* ((template (or template
                        (plist-get manifolding-atlas-create-default-template :file-name)
                        "${slug}.org"))  ; Absolute fallback
@@ -1572,7 +1633,7 @@ Why: Implementation of ~my/manifolding-atlas--first-option-defaults~.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas--first-option-defaults (context)
   "Return a :unfoldings alist defaulting every registered prompt
-whose :contexts include CONTEXT (a symbol like 'file) to its first
+whose :contexts include CONTEXT (a symbol like \='file) to its first
 option. Reuses the existing per-kind fragment logic so each unfolding
 is built the same way the normal picker would build it -- just with
 the first option as the value instead of an interactive answer.
@@ -1963,7 +2024,7 @@ Dead origin reports loudly; nil origin stays silent (no promise made)."
         (message "Origin buffer no longer exists; link not inserted%s"
                  (if id "" " (no note id)"))))))
 
-(defun my/manifolding-atlas--open-offer-rename-open (f origin note open-fn)
+(defun my/manifolding-atlas--open-offer-rename-open (f _origin note open-fn)
   "Rename NOTE's title, propagate, then call OPEN-FN with the final path.
 Title applied via `manifolding-atlas-buffer-title-set'; inbound
 links and file rename handled by `manifolding-atlas-propagate-title-change'
@@ -2890,22 +2951,8 @@ schedule row exists, and syncs the first tag. Returns NOTE."
 
 
 ;;; Title Change Detection Mode
-
-
-
-#+begin_src emacs-lisp
-(defvar-local manifolding-atlas--title-before-save nil
-  "Title of note before save, for change detection.")
-
-
-#+end_src
-
-#+begin_src emacs-lisp
-(defvar-local manifolding-atlas--note-id-before-save nil
-  "ID of note before save, for change detection.")
-
-
-#+end_src
+;;; Declarations live up top in forward declarations (uses precede
+;;; this spot); nothing to define here.
 
 ** manifolding-atlas--capture-before-save
 Why: Implementation of ~manifolding-atlas--capture-before-save~.
@@ -3350,14 +3397,15 @@ Why: Implementation of ~manifolding-atlas-blueprint-fix-violation~.
 (defun manifolding-atlas-blueprint-fix-violation (violation &optional bound)
   "Fix VIOLATION in the current buffer by prompting for a corrected value.
 
-Resolves the violated field from VIOLATION's schema and prompts for a
-value the way `manifolding-atlas-blueprint-insert-fields' does - offering :one-of
-values as completion, selecting a note for `note' fields, restricting to
-:target-tags - then writes it, replacing the offending value or
-inserting the field when it was missing.  Returns the value written, or
-nil when the prompt is skipped.
+Resolves the violated field from VIOLATION's schema and prompts
+for a value the way `manifolding-atlas-blueprint-insert-fields'
+does - offering :one-of values as completion, selecting a note
+for `note' fields, restricting to :target-tags - then writes it,
+replacing the offending value or inserting the field when it was
+missing. Returns the value written, or nil when skipped.
 
-BOUND limits the scope as in `manifolding-atlas-buffer-meta-set' and defaults to
+BOUND limits the scope as in `manifolding-atlas-buffer-meta-set'
+and defaults to
 \\='heading, so the fix is written into the note at point - the heading's
 subtree when point is inside one, otherwise the file-level metadata.
 This matches how the violating note is read, so a heading-level fix does
@@ -3522,7 +3570,7 @@ Why: Implementation of ~my/manifolding-atlas-heading-to-note~.
 Uses `manifolding-atlas-create' for all standard prompts (subdir, file name,
 aliases, tags, unfoldings, todo, priority, schedule, deadline),
 then fills the body with the extracted heading content.
-Records the original heading as 'source'.
+Records the original heading as \='source'.
 Prompts for backlink — yes inserts a link, no deletes the heading."
   (interactive)
   (unless (org-at-heading-p)
@@ -3570,7 +3618,8 @@ Why: Implementation of ~my/manifolding-atlas--skip-open-prompt~.
 #+begin_src emacs-lisp
 (defvar my/manifolding-atlas--skip-open-prompt nil
   "When non-nil, skip the \"Open file?\" prompt in cleanup hook.
-Set by `my/manifolding-atlas-insert-heading' since the user is already in the file.")
+Set by `my/manifolding-atlas-insert-heading' since the user is
+already in the file.")
 #+end_src
 
 ** my/manifolding-atlas--chosen-capture
@@ -3604,8 +3653,8 @@ Why: Implementation of ~manifolding-atlas-utils-link-make-string~.
 #+begin_src emacs-lisp
 (defun manifolding-atlas-utils-link-make-string (note &optional description)
   "Make a bracket link to NOTE.
-By default `manifolding-atlas-note-title' is used as description unless DESCRIPTION
-is provided explicitly."
+By default `manifolding-atlas-note-title' is used as description
+unless DESCRIPTION is provided explicitly."
   (org-link-make-string
    (concat "id:" (manifolding-atlas-note-id note))
    (or description (manifolding-atlas-note-title note))))
@@ -3664,10 +3713,12 @@ buffer for body editing."
      (when my/manifolding-atlas--new-note
        (my/manifolding-atlas--open-capture-for-note note))))
 
-(defun manifolding-atlas-insert ()
+(defun my/manifolding-atlas-insert-link-at-point ()
   "Insert an id: link at point to a note selected with `manifolding-atlas-find'.
 Thin wrapper: -find resolves/selects the target, then
-`my/manifolding-atlas-insert-link' performs the insertion."
+`my/manifolding-atlas-insert-link' performs the insertion.
+Separate name (not `manifolding-atlas-insert', whose keyword API
+lives above) so the two never shadow each other."
   (interactive)
   (let ((origin (current-buffer))
         (pos (point-marker)))
@@ -3783,8 +3834,11 @@ Dynamic-binding compilation burns eval depth fast; the picker's
 recursive-edit stacks on an already-deep creation chain.
 #+begin_src emacs-lisp
 (require 'cl-lib)
-(setq max-lisp-eval-depth (max max-lisp-eval-depth 6000)
-      max-specpdl-size (max max-specpdl-size 6000))
+(setq max-lisp-eval-depth (max max-lisp-eval-depth 6000))
+;; max-specpdl-size is obsolete as of 29.1 but still honored; the
+;; binding stays (deep creation chains need it), warning suppressed.
+(with-no-warnings
+  (setq max-specpdl-size (max max-specpdl-size 6000)))
 #+end_src
 
 ** Declarative prompt registries
@@ -3924,7 +3978,8 @@ Why: Implementation of ~my/manifolding-atlas-prompt-template--choose~.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-prompt-template--choose ()
   "Ask for TEMPLATE. Returns \"WARNING\" if skipped, \"none\" for none.
-Plain `completing-read' with real-time preview in *Template Preview* side window."
+Plain `completing-read' with real-time preview in *Template
+Preview* side window."
   (if my/manifolding-atlas-prompt-template--deferred
       "WARNING"
     (let* ((cands (append '("WARNING" "none") (my/manifolding-atlas-prompt-template--names)))
@@ -3973,9 +4028,10 @@ Why: Live preview updating the capture buffer itself, no side window.
 
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-prompt-template--choose-with-realtime-capture-preview (capture-buf preview-start preview-end)
-  "Ask for TEMPLATE, showing a real-time preview inside CAPTURE-BUF as cursor moves.
-No window changes during the prompt -- capture-buf must already be the
-sole visible window before this is called."
+  "Ask for TEMPLATE, showing a real-time preview inside
+CAPTURE-BUF as cursor moves. No window changes during the prompt
+-- capture-buf must already be the sole visible window before
+this is called."
   (if my/manifolding-atlas-prompt-template--deferred
       "WARNING"
     (progn
@@ -6224,7 +6280,7 @@ Why: Implementation of ~my/manifolding-atlas-org-prompt--ask-minibuffer~.
 
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-org-prompt--ask-minibuffer
-    (key label kind options plist default)
+    (key label kind options _plist default)
   (pcase kind
     ('template
       (my/manifolding-atlas-prompt-template--choose))
@@ -6842,7 +6898,8 @@ Why: Implementation of ~my/manifolding-atlas-collect-prompts~.
 (defun my/manifolding-atlas-collect-prompts (context &rest extra-contexts)
   "Run all registered prompts matching CONTEXT (or any of EXTRA-CONTEXTS).
 When CONTEXT is a list, match prompts whose contexts overlap with it.
-Single-symbol callers (like `(my/manifolding-atlas-collect-prompts 'file)`) continue working.
+Single-symbol callers (like `(my/manifolding-atlas-collect-prompts
+\='file)`) continue working.
 When `my/manifolding-atlas-collect-defer' is non-nil, declarative
 buffer-UI prompts are queued on
 `my/manifolding-atlas-org-prompt--deferred' and answered later by
@@ -6918,17 +6975,17 @@ This function temporarily overrides input primitives to achieve that.
 Why: Implementation of ~my/manifolding-atlas--fast-read-string~.
 
 #+begin_src emacs-lisp
-(defun my/manifolding-atlas--fast-read-string (prompt &optional initial-input history default-value _inherit)
+(defun my/manifolding-atlas--fast-read-string (_prompt &optional initial-input _history default-value _inherit)
   "Return DEFAULT-VALUE or INITIAL-INPUT or empty — no prompt."
   (or default-value initial-input ""))
 
-(defun my/manifolding-atlas--fast-completing-read (prompt collection &optional predicate _require-match initial-input history default-value _inherit)
+(defun my/manifolding-atlas--fast-completing-read (_prompt collection &optional _predicate _require-match _initial-input _history default-value _inherit)
   "Return DEFAULT-VALUE or first candidate."
   (or default-value
       (if (and collection (not (functionp collection))) (car collection) "")
       ""))
 
-(defun my/manifolding-atlas--fast-read-char-choice (prompt chars &optional _inhibit-keyboard-quit)
+(defun my/manifolding-atlas--fast-read-char-choice (_prompt chars &optional _inhibit-keyboard-quit)
   "Return \\r or first char — maps to skip/default in all prompt functions."
   (if (memq ?\r chars) ?\r (car chars)))
 #+end_src
@@ -6958,7 +7015,7 @@ Level 4 collapses to level 1 with the chosen keys made interactive.
 Why: Implementation of ~my/manifolding-atlas-collect--selection-fast-level~.
 
 #+begin_src emacs-lisp
-(defun my/manifolding-atlas-collect--selection-fast-level (specialized-contexts general-contexts)
+(defun my/manifolding-atlas-collect--selection-fast-level (_specialized-contexts _general-contexts)
   "Return effective level (1 = interactive unfolding selection)."
   (setq my/manifolding-atlas-org-prompt--custom-set t)
   1)
@@ -7208,8 +7265,9 @@ Managed by =my/manifolding-atlas--pending-post-apply= for file-level creation.
 
 #+begin_src emacs-lisp
 (defvar my/manifolding-atlas--pending-post-apply nil
-  "Post-apply functions for current note creation.
-Set by `my/manifolding-atlas--default-create-fn', consumed by the capture functions.")
+  "Post-apply functions for current note creation. Set by
+`my/manifolding-atlas--default-create-fn', consumed by the
+capture functions.")
 #+end_src
 
 ** Buffer Manipulation
@@ -7444,8 +7502,8 @@ Why: Implementation of ~manifolding-atlas-buffer-alias-get~.
   "Get list of aliases for the note at point.
 
 Returns list of alias strings from the unfolding defined by
-`manifolding-atlas-buffer-alias-unfolding'. Handles both quoted aliases (with spaces)
-and unquoted aliases properly."
+`manifolding-atlas-buffer-alias-unfolding'. Handles both quoted
+aliases (with spaces) and unquoted aliases properly."
   (when-let* ((aliases-str (org-entry-get nil manifolding-atlas-buffer-alias-unfolding)))
     (setq aliases-str (string-trim aliases-str))
     (let ((result nil)
@@ -7470,7 +7528,12 @@ and unquoted aliases properly."
                            (length aliases-str))))
               (push (substring aliases-str pos end) result)
               (setq pos end)))))
-      (nreverse result)))))
+      ;; with-no-warnings: bytecomp flags this tail call's value
+      ;; as unused in the full-unit build (not reproducible in
+      ;; isolation; flow-analysis quirk). The value IS returned —
+      ;; alias callers depend on the ordered list.
+      (let ((ordered (with-no-warnings (nreverse result))))
+        ordered)))))
 #+end_src
 
 ** manifolding-atlas-buffer-alias-add
@@ -7480,8 +7543,9 @@ Why: Implementation of ~manifolding-atlas-buffer-alias-add~.
 (defun manifolding-atlas-buffer-alias-add (alias)
   "Add ALIAS to the note at point.
 
-ALIAS is added to the unfolding defined by `manifolding-atlas-buffer-alias-unfolding'.
-If ALIAS contains spaces, it will be quoted automatically."
+ALIAS is added to the unfolding defined by
+`manifolding-atlas-buffer-alias-unfolding'. If ALIAS contains
+spaces, it will be quoted automatically."
   (interactive "sAlias: ")
   (let* ((aliases (manifolding-atlas-buffer-alias-get))
          (alias (string-trim alias)))
@@ -7959,9 +8023,11 @@ Return plist (:file :buffer :pl :items)"
            items-all)))
     (plist-put meta :items items)))
 
-(defsubst manifolding-atlas-buffer-meta-get-list (prop &optional type bound)
+(defun manifolding-atlas-buffer-meta-get-list (prop &optional type bound)
   "Get all values of metadata UNFOLDING of TYPE as a list from buffer.
-BOUND controls the scope - see `manifolding-atlas-buffer-meta' for details."
+BOUND controls the scope - see `manifolding-atlas-buffer-meta' for details.
+Plain defun (not defsubst): callers precede the definition in this
+file, and inlining is not load-bearing for metadata reads."
   (manifolding-atlas-buffer-meta-get-list! (manifolding-atlas-buffer-meta bound) prop type))
 
 

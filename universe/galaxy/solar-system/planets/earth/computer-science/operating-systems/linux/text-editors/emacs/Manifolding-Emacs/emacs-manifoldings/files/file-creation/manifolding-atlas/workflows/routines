@@ -447,8 +447,9 @@ Dual-writes: org drawer unfoldings plus immediate routine_entries rows.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-routines--write-entries (note items)
   "Append ITEMS as entry child headings of NOTE.
-ITEMS are (id title group rx duration interval days) lists from `--prompt-details'.
-Dual-writes: org drawer unfoldings plus immediate routine_entries rows."
+ITEMS are (id title group rx duration interval days) lists from
+`--prompt-details'. Dual-writes: org drawer unfoldings plus
+immediate routine_entries rows."
   (let* ((file (manifolding-atlas-note-path note))
          (routine-id (manifolding-atlas-note-id note))
          (idx 0))
@@ -991,8 +992,8 @@ Empty input finishes. Returns (id . title) conses in pick order."
             (setq done t)
           (let ((id (cdr (assoc choice candidates))))
             (when (and id (not (member id picked)))
-              (push (cons id choice) picked)))))))
-    (nreverse picked))
+              (push (cons id choice) picked))))))
+    (nreverse picked)))
 #+end_src
 **** Collection dispatcher
 #+begin_src emacs-lisp
@@ -1123,8 +1124,8 @@ Empty input finishes; duplicates and unknown picks are ignored.
         (if (string-empty-p choice)
             (setq go nil)
           (when (and cell (not (member (cdr cell) picked)))
-            (push (cdr cell) picked))))))
-  (nreverse picked))
+            (push (cdr cell) picked)))))
+  (nreverse picked)))
 #+end_src
 **** Atomic/composite creation
 #+begin_src emacs-lisp
@@ -1634,7 +1635,7 @@ to journal the session.
 After opening a step's note, the user is asked again; returns
 'done-learn, 'done, 'skip, 'quit, or nil when there is no note.
 #+begin_src emacs-lisp
-(defun my/manifolding-atlas-routines--open-followup (snote sid due-p)
+(defun my/manifolding-atlas-routines--open-followup (snote _sid due-p)
   "Open SNOTE for SID and ask what to do next."
   (when snote
     (find-file (manifolding-atlas-note-path snote))

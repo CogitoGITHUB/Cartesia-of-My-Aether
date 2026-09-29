@@ -12,6 +12,12 @@
 
 ** Config
 #+begin_src emacs-lisp
+;; Package vars (see mini-modeline note).
+(defvar corfu-cycle)
+(defvar corfu-auto)
+(defvar corfu-auto-delay)
+(defvar corfu-auto-prefix)
+(defvar corfu-quit-no-match)
 (require 'compat-31)
 
 (setq corfu-cycle t

@@ -1534,7 +1534,7 @@ inserted when more than one space is inserted between symbols."
 #+end_src
 
 #+begin_src emacs-lisp
-(defun atlas-wormholes-add-payload (payload link keyword-plist copy)
+(defun atlas-wormholes-add-payload (payload link _keyword-plist _copy)
   "Insert wormholed content with error handling.
 
 DO NOT USE THIS FUNCTION ANY LONGER. This function is kept for backward
@@ -1548,10 +1548,10 @@ non-nil COPY, copy the wormholed content into the buffer.
 
 This function is intended to be called from within payload functions
 returned by hooks in `atlas-wormholes-add-functions'."
-  (let ((tc-type (plist-get payload :tc-type))
-        (src-buf (plist-get payload :src-buf))
-        (src-beg (plist-get payload :src-beg))
-        (src-end (plist-get payload :src-end))
+  (let ((_tc-type (plist-get payload :tc-type))
+        (_src-buf (plist-get payload :src-buf))
+        (_src-beg (plist-get payload :src-beg))
+        (_src-end (plist-get payload :src-end))
         (src-content (plist-get payload :src-content)))
     (if (or (string= src-content "")
             (eq src-content nil))

@@ -29,7 +29,9 @@ Optional topic→filename overrides fall back to =protocols-<topic>.org=.
 
 (defcustom my/manifolding-atlas-protocols-topic-file-map nil
   "Alist of (TOPIC . FILENAME) overrides for protocol file routing.
-Example: ((\"writing\" . \"protocols-writing.org\") (\"research\" . \"protocols-research.org\"))
+Example:
+((\"writing\" . \"protocols-writing.org\")
+ (\"research\" . \"protocols-research.org\"))
 Topics not present here fall back to `protocols-<topic>.org'."
   :type '(alist :key-type string :value-type string)
   :group 'my/manifolding-atlas)
@@ -214,7 +216,8 @@ Priority: OVERRIDE > topic-file-map > default."
          (re-search-forward (format "\\[\\[id:%s\\]\\[" (regexp-quote note-id)) nil t))))
 
 (defun my/manifolding-atlas-protocols--write-pointer (file note-id heading-title level-str)
-  "Append a #+wormhole: directive for NOTE-ID at LEVEL-STR into FILE, unless present."
+  "Append a #+wormhole: directive for NOTE-ID at LEVEL-STR
+into FILE, unless present."
   (unless (my/manifolding-atlas-protocols--pointer-exists-p file note-id)
     (make-directory (file-name-directory file) t)
     (with-current-buffer (find-file-noselect file)
@@ -240,7 +243,8 @@ Priority: OVERRIDE > topic-file-map > default."
 ***** Routing command
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-protocols--route-note (note)
-  "Route NOTE (a manifolding-atlas-note already marked PROTOCOL: t) to its protocol file."
+  "Route NOTE (a manifolding-atlas-note already marked PROTOCOL: t)
+to its protocol file."
   (let* ((unfoldings    (manifolding-atlas-note-unfoldings note))
          (topics   (split-string (or (cdr (assoc "PROTOCOL_TOPICS" unfoldings)) "") " " t))
          (level    (or (cdr (assoc "PROTOCOL_LEVEL" unfoldings)) "L1"))

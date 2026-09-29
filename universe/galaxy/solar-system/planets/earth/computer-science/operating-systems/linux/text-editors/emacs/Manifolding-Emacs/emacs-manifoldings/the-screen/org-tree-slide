@@ -13,6 +13,9 @@
 #+end_src
 ** Config
 #+begin_src emacs-lisp
+;; Package vars; declared for compiles that run before load.
+(defvar org-tree-slide-activate-message)
+(defvar org-tree-slide-deactivate-message)
 (setq org-tree-slide-activate-message ""
       org-tree-slide-deactivate-message "")
 #+end_src

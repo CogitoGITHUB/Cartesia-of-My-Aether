@@ -10,6 +10,18 @@
 
 ** Config
 #+begin_src emacs-lisp
+  ;; Forward declarations first: the package loads later via
+  ;; straight; bare defvars keep the byte-compiler quiet without
+  ;; rebinding anything once it does.
+  (defvar org-modern-hide-stars)
+  (defvar org-modern-fold-stars)
+  (defvar org-modern-keyword)
+  (defvar org-modern-property-drawer)
+  (defvar org-modern-links)
+  (defvar org-modern-block-fringe)
+  (defvar org-modern-table-vertical)
+  (defvar org-modern-table-horizontal)
+  (defvar org-modern-star)
   (setq org-modern-hide-stars "  "
         org-modern-fold-stars
         '(("◉" . "◯")

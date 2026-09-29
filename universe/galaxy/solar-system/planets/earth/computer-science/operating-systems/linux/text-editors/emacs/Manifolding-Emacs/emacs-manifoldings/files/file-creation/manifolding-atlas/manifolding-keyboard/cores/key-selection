@@ -205,7 +205,7 @@ When nil, punctuation chars will not be matched.
 (defcustom ks-ignored-modes '(image-mode doc-view-mode pdf-view-mode)
   "List of modes to ignore when searching for candidates.
 Typically, these modes don't use the text representation."
-  :type 'list)
+  :type '(repeat symbol))
 
 (defcustom ks-single-candidate-jump t
   "In case there is only one candidate jumps directly to it."
@@ -215,11 +215,11 @@ Typically, these modes don't use the text representation."
   "List of event types, i.e. key presses, that delete the last
 character read.  The default represents `C-h' and `DEL'.  See
 `event-convert-list'."
-  :type 'list)
+  :type '(repeat character))
 
 (defcustom ks-escape-chars '(?\e ?\C-g)
   "List of characters that quit key-selection during `read-char'."
-  :type 'list)
+  :type '(repeat character))
 
 (defvar ks-ring (make-ring 20)
   "Hold the window and point history.")
@@ -1721,8 +1721,11 @@ When BOTTOM-UP is non-nil, display ks candidates from top to bottom"
             (overlay-put ov 'linum-str str))))
       ;; Text may contain those nasty intangible properties, but that
       ;; shouldn't prevent us from counting those lines.
-      (let ((inhibit-point-motion-hooks t))
-        (forward-line))
+      ;; inhibit-point-motion-hooks is obsolete as of 25.1 but still
+      ;; honored; the binding stays, warning suppressed.
+      (with-no-warnings
+        (let ((inhibit-point-motion-hooks t))
+          (forward-line)))
       (setq line (1+ line)))
     (when (display-graphic-p)
       (setq width (ceiling

@@ -16,6 +16,9 @@
 
 ** Config
 #+begin_src emacs-lisp
+;; Package vars; declared for compiles that run before load.
+(defvar citar-bibliography)
+(defvar citar-notes-source)
 (setq citar-bibliography '("~/bib/references.bib"))
 
 (setq org-cite-global-bibliography citar-bibliography

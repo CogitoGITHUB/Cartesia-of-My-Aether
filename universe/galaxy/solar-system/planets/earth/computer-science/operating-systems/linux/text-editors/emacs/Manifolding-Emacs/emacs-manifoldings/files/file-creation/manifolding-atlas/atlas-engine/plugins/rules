@@ -153,7 +153,8 @@ nothing. Never duplicates, never touches the source heading.
          (re-search-forward (format "\\[\\[id:%s\\]\\[" (regexp-quote note-id)) nil t))))
 
 (defun my/manifolding-atlas-rules--write-pointer (file note-id heading-title)
-  "Append a #+wormhole: directive for NOTE-ID/HEADING-TITLE into FILE, unless present."
+  "Append a #+wormhole: directive for NOTE-ID/HEADING-TITLE
+into FILE, unless present."
   (unless (my/manifolding-atlas-rules--pointer-exists-p file note-id)
     (make-directory (file-name-directory file) t)
     (with-current-buffer (find-file-noselect file)
@@ -269,7 +270,8 @@ Old scope/level/drill tags are stripped before the new set lands.
 #+begin_src emacs-lisp
 ;;;###autoload
 (defun my/manifolding-atlas-rules-mark-as-rule ()
-  "Mark the heading at point (new or existing, any manifolding-atlas note) as a Rule.
+  "Mark the heading at point (new or existing, any
+manifolding-atlas note) as a Rule.
 Works as both the creation path and the retrofit path — there's no
 difference between a heading just written and one written years ago.
 Collects rule-specific prompts (topics, scope, level, file-override)

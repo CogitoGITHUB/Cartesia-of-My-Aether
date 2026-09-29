@@ -336,7 +336,7 @@ Return the location marker."
 #+end_src
 
 #+begin_src emacs-lisp
-(defun atlas-search-todo-clear-cache (&optional all)
+(defun atlas-search-todo-clear-cache (&optional _all)
   "Clear cache stored in `atlas-search-todo--cache'."
   (interactive "P")
   (setq atlas-search-todo--cache nil))

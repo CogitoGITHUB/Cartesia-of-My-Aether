@@ -21,6 +21,19 @@ in *Messages*.
 
 ** Config :config:
 #+begin_src emacs-lisp
+;; Forward declarations first: the package loads later via
+;; straight; bare defvars keep the byte-compiler quiet without
+;; rebinding anything once it does.
+(defvar mini-modeline-l-format)
+(defvar mini-modeline-r-format)
+(defvar mini-modeline-truncate-p)
+(defvar mini-modeline-update-interval)
+(defvar mini-modeline-echo-duration)
+(defvar mini-modeline-echo-position)
+(defvar mini-modeline-hide-mode-line)
+(defvar mini-modeline-enhance-visual)
+(defvar mini-modeline-right-padding)
+(defvar mini-modeline-face-attr)
 (require 'mini-modeline)
 (setq mini-modeline-l-format '((:eval (manifolding-modeline--side 'left)))
       mini-modeline-r-format '((:eval (manifolding-modeline--side 'right)))

@@ -17,6 +17,9 @@ major mode, file extension, or custom predicate. Zero dependencies.
 
 *** Config
 #+begin_src emacs-lisp
+;; Package vars; declared for compiles that run before load.
+(defvar buffer-background-opacity)
+(defvar buffer-background-color-alist)
 (setq buffer-background-opacity 0.3)
 
 ;; Automatic assignments. Keys: exact buffer name, regexp, major-mode

@@ -7,6 +7,9 @@ Direct keymap bindings plus the restore command.
 :MM_ORDER:  180.0
 :END:
 #+begin_src emacs-lisp
+;; Package vars/arounds; declared for compiles that run before load.
+(defvar git-timemachine-mode-map)
+(defvar git-timemachine-revision)
 (with-eval-after-load 'git-timemachine
   (add-hook 'git-timemachine-mode-hook
             (lambda () (manifolding-keyboard-set-state nil)))

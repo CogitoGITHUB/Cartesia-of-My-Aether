@@ -25,6 +25,8 @@ current capability vs attainment) belongs to a later phase.
 (require 'cl-lib)
 (require 'calendar)
 (require 'time-date)
+;; Forward declaration: set on drill completion below.
+(defvar my/manifolding-atlas-mastering--last-drill-stats)
 #+end_src
 
 *** Mastery Spine
@@ -129,7 +131,8 @@ lists internally, YYYYMMDD integers in the DB.
            collect (/ (round (* item 100)) 100.0)))
 
 (defun my/manifolding-atlas-mastering--fuzz-interval (interval)
-  "Apply random fuzz to INTERVAL based on `my/manifolding-atlas-mastering--interval-fuzz'."
+  "Apply random fuzz to INTERVAL based on
+`my/manifolding-atlas-mastering--interval-fuzz'."
   (if (or (<= interval 2) (zerop my/manifolding-atlas-mastering--interval-fuzz))
       interval
     (let ((fuzz (- (* 2 my/manifolding-atlas-mastering--interval-fuzz
@@ -308,10 +311,11 @@ them — first contact, not the scheduler, promotes out of UNSEEN.
 
 **** Extractor
 #+begin_src emacs-lisp
-(defun my/manifolding-atlas-mastering--extract (ctx note-data)
-  "Extract STAGE/STATUS/MASTERING_* unfoldings from NOTE-DATA into mastering_schedule.
-Initializes a default schedule when a stage is set but schedule
-unfoldings are missing, so enrolled notes are never dropped."
+(defun my/manifolding-atlas-mastering--extract (_ctx note-data)
+  "Extract STAGE/STATUS/MASTERING_* unfoldings from NOTE-DATA
+into mastering_schedule. Initializes a default schedule when a
+stage is set but schedule unfoldings are missing, so enrolled
+notes are never dropped."
   (let* ((note-id (plist-get note-data :id))
          (unfoldings (plist-get note-data :unfoldings))
          (lookup (lambda (k) (cdr (assoc k unfoldings))))
@@ -462,7 +466,7 @@ a later phase.
 CURRENT is the drawer's stage token, T-SUCCESS the lifetime success
 count before this grade, SUCCESS whether this grade succeeded.
 Returns CURRENT unless a gate fires. Never demotes."
-  (let ((idx (my/manifolding-atlas-mastering--stage-index current)))
+  (let ((_idx (my/manifolding-atlas-mastering--stage-index current)))
     (cond
      ;; First contact of any kind is recognition: UNSEEN cannot survive
      ;; a human opening a review on the note.

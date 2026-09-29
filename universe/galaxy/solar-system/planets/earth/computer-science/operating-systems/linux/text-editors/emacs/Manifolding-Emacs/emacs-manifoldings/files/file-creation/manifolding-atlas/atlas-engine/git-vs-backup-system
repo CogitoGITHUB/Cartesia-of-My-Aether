@@ -173,11 +173,11 @@ in both trees commit independently."
   "Advice for `delete-file'/`delete-directory': commit watched deletion."
   (when (my/manifolding-atlas-git--root-for file)
     (my/manifolding-atlas-git-auto-commit file)))
-
-(defun my/manifolding-atlas-git--after-rename (_file _to &optional _ok-if-already-exists)
+(defun my/manifolding-atlas-git--after-rename (file to &optional _ok-if-already-exists)
   "Advice for `rename-file': commit renames inside watched trees."
-  (let ((from (expand-file-name _file))
-        (to   (expand-file-name _to)))
+  (let
+      ((from (expand-file-name file))
+       (to (expand-file-name to)))
     (when (or (my/manifolding-atlas-git--root-for from)
               (my/manifolding-atlas-git--root-for to))
       (my/manifolding-atlas-git-auto-commit to))))

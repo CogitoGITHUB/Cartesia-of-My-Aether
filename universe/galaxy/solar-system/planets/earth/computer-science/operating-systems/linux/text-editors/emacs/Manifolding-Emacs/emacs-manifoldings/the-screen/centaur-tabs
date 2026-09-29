@@ -17,6 +17,21 @@
 
 ** Config
 #+begin_src emacs-lisp
+  ;; Forward declarations first: the package loads later via
+  ;; straight, and bare defvars keep the byte-compiler quiet
+  ;; without rebinding anything once it does.
+  (defvar centaur-tabs-style)
+  (defvar centaur-tabs-height)
+  (defvar centaur-tabs-set-icons)
+  (defvar centaur-tabs-icon-type)
+  (defvar centaur-tabs-set-modified-marker)
+  (defvar centaur-tabs-modified-marker)
+  (defvar centaur-tabs-set-bar)
+  (defvar centaur-tabs-set-close-button)
+  (defvar centaur-tabs-show-new-tab-button)
+  (defvar centaur-tabs-plain-icons)
+  (defvar centaur-tabs-buffer-list-function)
+  (defvar x-underline-at-descent-line)
   (setq centaur-tabs-style               "bar"
         centaur-tabs-height              32
         centaur-tabs-set-icons           t

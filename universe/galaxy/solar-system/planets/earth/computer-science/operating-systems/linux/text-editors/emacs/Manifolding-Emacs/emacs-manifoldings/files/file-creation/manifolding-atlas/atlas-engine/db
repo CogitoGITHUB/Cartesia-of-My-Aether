@@ -17,6 +17,17 @@ queries compose indexes; no index is authoritative over another, and
 the substrate itself stays domain-neutral (it knows graph structure,
 never what any subsystem means by it).
 
+** Forward declarations
+Bare defvars, no values: silence the byte-compiler about
+variables defined later in this file, without rebinding anything.
+#+begin_src emacs-lisp
+(defvar manifolding-atlas-db-location)
+(defvar manifolding-atlas-db-sync-directories)
+(defvar my/manifolding-atlas--notes-table-ready)
+(defvar my/manifolding-atlas--links-table-ready)
+(defvar my/manifolding-atlas--wormhole-links-table-ready)
+#+end_src
+
 ** Database Core
 #+begin_src emacs-lisp
 (provide 'manifolding-atlas-db)
@@ -178,10 +189,12 @@ Wire-format law above: TEXT cells are raw strings."
     name version priority extract-fn requires-ast))
 
 (defvar manifolding-atlas-db--extractors nil
-  "List of registered `manifolding-atlas-extractor' structs, sorted by priority.")
+  "List of registered `manifolding-atlas-extractor' structs,
+sorted by priority.")
 
 (defun manifolding-atlas--register-extractor (extractor)
-  "Register EXTRACTOR and keep `manifolding-atlas-db--extractors' sorted by :priority."
+  "Register EXTRACTOR and keep
+`manifolding-atlas-db--extractors' sorted by :priority."
   (setq manifolding-atlas-db--extractors
         (sort (cons extractor
                     (cl-remove (plist-get (list :name (manifolding-atlas-extractor-name extractor)) :name)
@@ -206,7 +219,8 @@ Wire-format law above: TEXT cells are raw strings."
               (tags :text)])]))
 
 (defun my/manifolding-atlas--row-to-note (row)
-  "Normalize DB ROW (vector or list) to plist note; tolerate nil/malformed `unfoldings'/`tags' via `ignore-errors' + `read'."
+  "Normalize DB ROW (vector or list) to plist note; tolerate
+nil/malformed `unfoldings'/`tags' via `ignore-errors' + `read'."
   (if (and (listp row) (plist-get row :id))
       row
     (let ((v (if (vectorp row) (append row nil) row)))
@@ -217,7 +231,8 @@ Wire-format law above: TEXT cells are raw strings."
             :aliases nil :primary-title nil :meta nil))))
 
 (defun my/manifolding-atlas--ensure-links-table ()
-  "Create `links' table if absent — queried by guard, may not be created by extractors."
+  "Create `links' table if absent — queried by guard, may not
+be created by extractors."
   (ignore-errors
     (emacsql (manifolding-atlas-db)
              [:create :table :if :not :exists links
@@ -233,7 +248,8 @@ Wire-format law above: TEXT cells are raw strings."
 
 (cl-defun manifolding-atlas-db--update-file (path)
   "Parse PATH, upsert its `notes' row, and run all registered extractors.
-Returns 1 if a note was indexed, 0 otherwise. Handles deletion when file missing."
+Returns 1 if a note was indexed, 0 otherwise. Handles deletion
+when file missing."
   (my/manifolding-atlas--ensure-notes-table)
   (if (not (file-exists-p path))
       (progn
@@ -250,7 +266,7 @@ Returns 1 if a note was indexed, 0 otherwise. Handles deletion when file missing
                     (insert-file-contents path)
                     (let ((ast (ignore-errors (org-element-parse-buffer))))
                       (make-manifolding-atlas-parse-ctx :path path :ast ast)))))
-           (ast (and ctx (manifolding-atlas-parse-ctx-ast ctx)))
+           (_ast (and ctx (manifolding-atlas-parse-ctx-ast ctx)))
             (id (with-temp-buffer
                   (insert-file-contents path)
                   (when (re-search-forward "^:ID:[ \t]+\\(.+\\)" nil t)
@@ -305,7 +321,9 @@ Returns 1 if a note was indexed, 0 otherwise. Handles deletion when file missing
 (defvar manifolding-atlas--autosync-mode nil)
 
 (defun manifolding-atlas--autosync-mode (&optional arg)
-  "Toggle autosync: on save under `manifolding-atlas-db-sync-directories', call `manifolding-atlas-db--update-file'."
+  "Toggle autosync: on save under
+`manifolding-atlas-db-sync-directories', call
+`manifolding-atlas-db--update-file'."
   (setq manifolding-atlas--autosync-mode
         (if (null arg) (not manifolding-atlas--autosync-mode)
           (> (prefix-numeric-value arg) 0)))
@@ -684,7 +702,8 @@ acted on: some extractors historically wrote relative paths."
       (length (ignore-errors (manifolding-atlas-db-query))))))
 
 (defun manifolding-atlas-select-from (prompt candidates &rest _args)
-  "Real select-from: completing-read over CANDIDATES titles, return existing or new plist."
+  "Real select-from: completing-read over CANDIDATES titles,
+return existing or new plist."
   (require 'seq)
   (let* ((titles (mapcar (lambda (n) (or (manifolding-atlas-note-title n) (plist-get n :title) "")) candidates))
          (choice (completing-read (cond ((string-suffix-p ": " prompt) prompt)

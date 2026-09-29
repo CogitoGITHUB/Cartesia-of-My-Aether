@@ -17,6 +17,9 @@
 
 ** Config
 #+begin_src emacs-lisp
+;; Package vars; declared for compiles that run before load.
+(defvar org-sticky-header-prefix)
+(defvar org-sticky-header-full-path)
 (setq org-sticky-header-prefix    " 🌹 "
       org-sticky-header-full-path 'full)
 

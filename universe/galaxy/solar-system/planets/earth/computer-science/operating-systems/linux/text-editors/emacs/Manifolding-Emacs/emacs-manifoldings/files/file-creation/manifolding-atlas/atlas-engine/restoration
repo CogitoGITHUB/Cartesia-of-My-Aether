@@ -11,6 +11,11 @@ Uses native =manifolding-atlas-db-query-links-to= and =manifolding-atlas-db-quer
 
 **** Path and bootstrap
 #+begin_src emacs-lisp
+;; Forward declarations: queue file names owned by file-creation,
+;; only read here. Bare defvars silence the compiler.
+(defvar my/manifolding-atlas-links--broken-unfoldings-file)
+(defvar my/manifolding-atlas-links--added-blueprints-file)
+(defvar my/manifolding-atlas-links--deleted-blueprints-file)
 (defvar my/manifolding-atlas-links--broken-links-file "admin/Missing Links"
   "Filename for the missing links repair queue.
 Lives in `my/manifolding-atlas-root-dir'. Auto-created if missing.")
@@ -203,8 +208,9 @@ All other buffers fall through to ORIG-FUN untouched."
 #+begin_src emacs-lisp
 (cl-defun my/manifolding-atlas-links--write-deleted-entry (file &optional unfoldings)
   "Append a heading for deleted FILE to ReManifold.
-UNFOLDINGS is a list of relative paths of unfolding notes deleted alongside FILE,
-recorded in the :DELETED_UNFOLDINGS: unfolding for later restore."
+UNFOLDINGS is a list of relative paths of unfolding notes
+deleted alongside FILE, recorded in the :DELETED_UNFOLDINGS:
+unfolding for later restore."
   (let ((path (my/manifolding-atlas-links--ensure-deleted-files-file))
         root rel deleted-id deleted-title heading)
     (setq root (expand-file-name (or (vc-root-dir) "")
@@ -259,7 +265,7 @@ Captured before deletion so the file can be scanned while it still exists.")
   "Return list of unfolding note IDs referenced by FILE.
 Scans FILE for [[id:ID][...]] links that resolve to a note under
 admin/unfoldings/. Returns the list of matching IDs."
-  (let ((root (my/manifolding-atlas-root-dir))
+  (let ((_root (my/manifolding-atlas-root-dir))
         unfolding-ids)
     (when (file-exists-p file)
       (with-temp-buffer
@@ -277,8 +283,9 @@ Skips DELETED-FILE itself and files under admin/unfoldings/.
 #+begin_src emacs-lisp
  (defun my/manifolding-atlas-links--unfolding-orphaned-p (unfolding-id deleted-file)
   "Non-nil when UNFOLDING-ID is referenced only by DELETED-FILE.
-For scoped unfoldings (with UNFOLDING_PARENT), checks parent ID directly;
-for legacy shared unfoldings (no UNFOLDING_PARENT), falls back to full vault scan."
+For scoped unfoldings (with UNFOLDING_PARENT), checks parent ID
+directly; for legacy shared unfoldings (no UNFOLDING_PARENT),
+falls back to full vault scan."
   (let* ((unfolding-note (ignore-errors (manifolding-atlas-db-get-by-id unfolding-id)))
          (unfolding-parent (and unfolding-note
                           (cdr (assoc "UNFOLDING_PARENT"
@@ -564,8 +571,9 @@ Lives in `my/manifolding-atlas-root-dir'. Auto-created if missing.")
    (directory-file-name (file-name-directory (expand-file-name path)))))
 
 (defun my/manifolding-atlas-links--drawer-unfolding-for (source-id deleted-id)
-  "Return the drawer KEY in SOURCE-ID's note holding the link to DELETED-ID, or nil.
-Only matches links inside a :PROPERTIES: drawer; body links return nil."
+  "Return the drawer KEY in SOURCE-ID's note holding the link
+to DELETED-ID, or nil. Only matches links inside a
+:PROPERTIES: drawer; body links return nil."
   (let ((file (my/manifolding-atlas-links--note-path-of source-id)))
     (when (and file (file-exists-p file))
       (with-temp-buffer
@@ -710,7 +718,8 @@ heading's own :PROPERTIES: drawer, when present."
           "  :END:\n"))
 
 (defun my/manifolding-atlas-links--write-deleted-blueprint (key file &optional id contexts kind)
-  "Append a heading for deleted blueprint KEY (at FILE) to Deleted Heading Blueprints."
+  "Append a heading for deleted blueprint KEY (at FILE) to
+Deleted Heading Blueprints."
   (let ((path (my/manifolding-atlas-links--ensure-deleted-blueprints-file)))
     (with-current-buffer (find-file-noselect path)
       (goto-char (point-max))

@@ -57,7 +57,7 @@ SPC o: Org tree (org/agenda/tasks/clock/edit/capture/atlas).
 (my/defhydra-state my/org-manifolding-atlas-hydra nil "Org › Manifolding Atlas" (my/org-hydra/body "org")
   "Manifolding Atlas"
   (("f" manifolding-atlas-find              "find note"    :exit t)
-   ("i" manifolding-atlas-insert            "insert link"  :exit t)
+   ("i" my/manifolding-atlas-insert-link-at-point            "insert link"  :exit t)
    ("r" my/manifolding-atlas-rename-link    "rename link"  :exit t)
    ("u" manifolding-atlas-ui-sidebar-toggle "sidebar"      :exit t)))
 #+end_src

@@ -51,11 +51,14 @@ Signals loudly on failure — never silently ignored."
      ((fboundp 'manifolding-atlas-note-id)
       (let ((id (manifolding-atlas-note-id note)))
         (if id
-            (org-id-open id)
+            (org-id-open id nil)
           (user-error "Cannot open note: no file and no ID"))))
      (t (user-error "Cannot open note: no handler available")))))
 
 (with-eval-after-load 'org
+  ;; Forward declaration: referenced below in this same block;
+  ;; quiets compiles that process uses before this definition.
+  (defvar my/org--property-link-map)
   (defvar my/org--property-link-map
     (let ((map (make-sparse-keymap)))
       (set-keymap-parent map org-mouse-map)
@@ -74,10 +77,11 @@ Signals loudly on failure — never silently ignored."
                     (let ((note (manifolding-atlas-db-get-by-id path)))
                       (if note
                           (my/manifolding-atlas--open-capture-for-note note "")
-                        (org-id-open path)))
-                  (org-id-open path)))))))
+                        (org-id-open path nil)))
+                  (org-id-open path nil)))))))
       map)
-    "Keymap for property drawer links, inheriting `org-mouse-map' and binding RET to open the property link."))
+    "Keymap for property drawer links, inheriting `org-mouse-map'
+and binding RET to open the property link."))
 
 (defun my/org--activate-property-links (limit)
   "Activate Org links inside property drawer values up to LIMIT."
@@ -87,7 +91,7 @@ Signals loudly on failure — never silently ignored."
            (visible-start (or (match-beginning 3) (match-beginning 2)))
            (visible-end (or (match-end 3) (match-end 2)))
            (target (match-string-no-properties 2))
-           (desc   (match-string-no-properties 3))
+           (_desc  (match-string-no-properties 3))
            (colon  (when (and target (string-match ":" target))
                      (match-end 0)))
            (type   (if colon (substring target 0 (1- colon)) (or target "")))

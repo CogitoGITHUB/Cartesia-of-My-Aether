@@ -76,12 +76,14 @@ may be absent).
   :group 'alarm-clock)
 
 (defcustom alarm-clock-play-sound-repeat 1
-  "Number of times to repeat the sound when an alarm rings. Use M-x alarm-clock-stop to quiet the alarm."
+  "Number of times to repeat the sound when an alarm rings.
+Use M-x alarm-clock-stop to quiet the alarm."
   :type 'integer
   :group 'alarm-clock)
 
 (defcustom alarm-clock-play-auto-view-alarms nil
-  "If non-nul, display the alarm clock list when ringing an alarm, to allow using SPACE to run alarm-clock-stop"
+  "If non-nul, display the alarm clock list when ringing an
+alarm, to allow using SPACE to run alarm-clock-stop"
   :type 'boolean
   :group 'alarm-clock)
 
@@ -102,7 +104,8 @@ may be absent).
   :group 'alarm-clock)
 
 (defcustom alarm-clock-auto-save t
-  "If true, auto-save alarm clocks when adding or removing alarms or after alarm timeout."
+  "If true, auto-save alarm clocks when adding or removing
+alarms or after alarm timeout."
   :type 'boolean
   :group 'alarm-clock)
 
@@ -113,7 +116,8 @@ may be absent).
   "Notification sender for MacOS.")
 
 (defvar alarm-clock--stopped nil
-  "If true, stop sounding the alarm. Set to t by M-x alarm-clock-stop or pressing SPACE in alarm-clock-list-view window")
+  "If true, stop sounding the alarm. Set to t by M-x
+alarm-clock-stop or pressing SPACE in alarm-clock-list-view window")
 
 (define-derived-mode alarm-clock-mode special-mode "Alarm Clock"
   "Mode for listing alarm-clocks.
@@ -271,8 +275,7 @@ MESSAGE will be shown when notifying in the status bar."
 
 (defun alarm-clock--ding ()
   "Play ding.
-In osx operating system, 'afplay' will be used to play sound,
-and 'mpg123' in linux or windows"
+On macOS, afplay plays the sound; on Linux or Windows, mpg123."
   (let ((program (cond ((eq system-type 'darwin) "afplay")
                        ((eq system-type 'gnu/linux) "mpg123")
                        ((eq system-type 'windows-nt) "mpg123")

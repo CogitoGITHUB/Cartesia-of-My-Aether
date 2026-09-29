@@ -11,6 +11,23 @@ moving those references.
 :MM_PARENT: none
 :MM_ORDER:  192.0
 :END:
+** Forward declarations
+Bare defvars for names owned elsewhere (key-selection package,
+keyboard engine, highlight state). No values, no rebinding.
+#+begin_src emacs-lisp
+(defvar my/symbol-collect-min-length)
+(defvar my/symbol-collect-sanitize)
+(defvar manifolding-keyboard-state)
+(defvar manifolding-keyboard-normal-state-keymap)
+(defvar my/hl-patterns)
+(defvar my/act-highlight-overlay)
+(defvar ks-all-windows)
+(defvar ks-goto-char-timer)
+(defvar ks--old-cands)
+(defvar ks-goto-line)
+(defvar ks-handler-function)
+(defvar ks-action)
+#+end_src
 #+begin_src emacs-lisp
 (manifolding-keyboard-define-keys
   :states '("normal" "visual" "org" "motion" "dired")
@@ -227,7 +244,8 @@ until a non-empty selection is made."
 #+end_src
 #+begin_src emacs-lisp
 (defun my/select-inside-delimiters ()
-  "Activate the INNER content of the innermost enclosing ~() [] {} <>~ around point.
+  "Activate the INNER content of the innermost enclosing
+~() [] {} <>~ around point.
 
 Finds the nearest balanced delimiter pair surrounding point, sets point and
 mark to the text strictly between the delimiters, and enters visual state."
@@ -340,7 +358,7 @@ comments to end of line). Otherwise no-op with a message."
                               (progn
                                 (re-search-forward comment-end-skip nil t)
                                 (if (and comment-end (not (equal comment-end "")))
-                                    (progn (goto-char match-beginning) (point))
+                                    (progn (goto-char (match-beginning 0)) (point))
                                   (point)))
                             (line-end-position)))
                       (error (line-end-position))))))
@@ -580,7 +598,8 @@ Cycles: last non-comment char, then last non-blank char, then true end of line."
 #+end_src
 #+begin_src emacs-lisp
 (defun my/smarter-downward (count)
-  "Move downward, to a line with the same level of indentation or less, COUNT times."
+  "Move downward, to a line with the same level of indentation
+or less, COUNT times."
   (interactive "p")
   (back-to-indentation)
   (dotimes (_number count)
@@ -997,7 +1016,8 @@ specificity (sexp, symbol, word) and deduplicated by bounds. Used by
 Embark-extracted: Embark draws an overlay over the target's bounds while acting
 and removes it on cleanup. This port toggles a highlight overlay on the thing at
 point, using the same target priority as my/act (8) / my/dwim (9) — region,
-file, URL, buffer, symbol, word — so the 'current target' is visually explicit.
+file, URL, buffer, symbol, word — so the current target is
+visually explicit.
 Re-invoking removes the overlay."
   (interactive)
   (if (and my/act-highlight-overlay

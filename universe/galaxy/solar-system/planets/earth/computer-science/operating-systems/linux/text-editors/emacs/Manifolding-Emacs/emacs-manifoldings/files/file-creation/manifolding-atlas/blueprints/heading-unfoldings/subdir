@@ -12,9 +12,10 @@ one folder, then switch.  Uses Dired-style ~read-directory-name~ to browse.
 #+begin_src emacs-lisp
 (defvar my/manifolding-atlas--active-dir nil
   "Persistent active subdirectory, set by `my/manifolding-atlas-set-active-dir'.
-When non-nil, `my/manifolding-atlas-prompt-subdir' uses this as the default instead of
-deriving it from the current buffer's file path.  The value is a directory
-name string like \"test\" or \"projects/foo\" (no trailing slash).")
+When non-nil, `my/manifolding-atlas-prompt-subdir' uses this as
+the default instead of deriving it from the current buffer's
+file path. The value is a directory name string like \"test\"
+or \"projects/foo\" (no trailing slash).")
 #+end_src
 
 ** Set Active Directory Command

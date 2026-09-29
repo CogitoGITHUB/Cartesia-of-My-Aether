@@ -46,23 +46,6 @@ init-time consumes parsed objects, not source specs."
 
 * Main hub (directory-derived submenu list)
 #+begin_src emacs-lisp
-(defun my/menus-leader-suffixes ()
-  "One parsed suffix per leader for the main hub's :setup-children.
-KEY is the SPC sub-key (manual — key assignment is inherently so);
-LABEL/CMD derive from the registry and hydra bodies. Raw specs go
-through `transient-parse-suffix': init-time consumes parsed objects."
-  (let ((out nil))
-    (dolist (entry (append my/menus-leader-map nil))
-      (let* ((key (car entry))
-             (hydra (cdr entry))
-             (title (or (cdr (assq hydra my/menus-hydra-registry))
-                        (symbol-name hydra))))
-        (push (transient-parse-suffix
-               'my/main-hydra/body
-               (list key title (intern (format "%s/body" hydra))))
-              out)))
-    out))
-
 (defvar my/menus-leader-map
   '(("v" . my/manifolding-atlas-hydra)
     ("y" . my/wormhole-hydra)
@@ -85,6 +68,23 @@ through `transient-parse-suffix': init-time consumes parsed objects."
   "SPC sub-key to leader hydra. The one hand list in the menu system:
 19 static pairs (key assignment is inherently manual), everything
 below them derived.")
+
+(defun my/menus-leader-suffixes ()
+  "One parsed suffix per leader for the main hub's :setup-children.
+KEY is the SPC sub-key (manual — key assignment is inherently so);
+LABEL/CMD derive from the registry and hydra bodies. Raw specs go
+through `transient-parse-suffix': init-time consumes parsed objects."
+  (let ((out nil))
+    (dolist (entry (append my/menus-leader-map nil))
+      (let* ((key (car entry))
+             (hydra (cdr entry))
+             (title (or (cdr (assq hydra my/menus-hydra-registry))
+                        (symbol-name hydra))))
+        (push (transient-parse-suffix
+               'my/main-hydra/body
+               (list key title (intern (format "%s/body" hydra))))
+              out)))
+    out))
 
 (defun my/menus--ghostel-or-msg ()
   "Open ghostel if available, else fallback to vterm/ansi-term."

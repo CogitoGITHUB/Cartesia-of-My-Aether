@@ -12,6 +12,12 @@
 
 ** Config
 #+begin_src emacs-lisp
+;; Package vars (see mini-modeline note).
+(defvar vertico-cycle)
+(defvar vertico-count)
+(defvar vertico-preselect)
+(defvar consult-preview-key)
+(defvar embark-indicators)
 (require 'compat nil t)
 (when (locate-library "compat-31")
   (require 'compat-31))

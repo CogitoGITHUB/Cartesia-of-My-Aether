@@ -238,7 +238,8 @@ Excludes NOTE-ID itself."
     result))
 
 (defun mm/group-of (note-id)
-  "Return Group plist for NOTE-ID: (:file manifolding-atlas-note :headings list-of-notes)."
+  "Return Group plist for NOTE-ID: (:file note
+:headings list-of-notes)."
   (list :file     (manifolding-atlas-db-get-by-id note-id)
         :headings (mapcar (lambda (row) (manifolding-atlas-db-get-by-id (car row)))
                           (mm/headings-of note-id))))
@@ -1097,9 +1098,11 @@ selection never aborts note creation.
   "Pick an existing child and reparent it under NOTE."
   (let ((note-id (manifolding-atlas-note-id note)))
     (condition-case nil
-        (let ((child (manifolding-atlas-select "Child to place under this note: "
-                                               :require-match t))
-              (child-id (manifolding-atlas-note-id child)))
+        ;; let*: child-id reads the just-selected child (plain let
+        ;; would read an outer binding instead).
+        (let* ((child (manifolding-atlas-select "Child to place under this note: "
+                                                :require-match t))
+               (child-id (manifolding-atlas-note-id child)))
           (unless (string= note-id child-id)
             (mm/reparent child-id note-id)
             (message "✓ %s is now a child of %s"
@@ -1111,9 +1114,10 @@ selection never aborts note creation.
   "Pick a parent and file NOTE under it."
   (let ((note-id (manifolding-atlas-note-id note)))
     (condition-case nil
-        (let ((parent (manifolding-atlas-select "Parent for this note: "
-                                                :require-match t))
-              (parent-id (manifolding-atlas-note-id parent)))
+        ;; let*: see above.
+        (let* ((parent (manifolding-atlas-select "Parent for this note: "
+                                                 :require-match t))
+               (parent-id (manifolding-atlas-note-id parent)))
           (unless (string= note-id parent-id)
             (mm/reparent note-id parent-id)
             (message "✓ %s → child of %s"
@@ -1125,10 +1129,11 @@ selection never aborts note creation.
   "Pick a sibling and place NOTE immediately after it."
   (let ((note-id (manifolding-atlas-note-id note)))
     (condition-case nil
-        (let ((sibling (manifolding-atlas-select "Place after: "
-                                                 :require-match t))
-              (sib-id (manifolding-atlas-note-id sibling))
-              (parent-id (mm/parent-of (manifolding-atlas-note-id sibling))))
+        ;; let*: see above.
+        (let* ((sibling (manifolding-atlas-select "Place after: "
+                                                  :require-match t))
+               (sib-id (manifolding-atlas-note-id sibling))
+               (parent-id (mm/parent-of (manifolding-atlas-note-id sibling))))
           (if parent-id
               (mm/set-parent note-id parent-id)
             (mm/make-root note-id))

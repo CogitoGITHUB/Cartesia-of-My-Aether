@@ -7,6 +7,8 @@ Direct keymap bindings for treemacs-mode.
 :MM_ORDER:  189.0
 :END:
 #+begin_src emacs-lisp
+;; Package keymap; declared for compiles that run before load.
+(defvar treemacs-mode-map)
 (with-eval-after-load 'treemacs
   (define-key treemacs-mode-map (kbd "h") #'treemacs-goto-parent-node)
   (define-key treemacs-mode-map (kbd "t") #'treemacs-next-line)

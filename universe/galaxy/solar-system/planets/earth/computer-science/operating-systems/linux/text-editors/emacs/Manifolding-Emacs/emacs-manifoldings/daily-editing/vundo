@@ -22,6 +22,8 @@ so no history is ever lost.
 
 *** Config
 #+begin_src emacs-lisp
+;; Package keymap; declared for compiles that run before load.
+(defvar vundo-mode-map)
 (with-eval-after-load 'evil
   (evil-define-key 'motion vundo-mode-map
     (kbd "h") #'vundo-backward

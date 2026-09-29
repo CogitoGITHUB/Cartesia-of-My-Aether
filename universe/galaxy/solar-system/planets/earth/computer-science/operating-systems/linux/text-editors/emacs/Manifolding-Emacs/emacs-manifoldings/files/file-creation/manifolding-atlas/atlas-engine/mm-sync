@@ -195,8 +195,9 @@ MM_ANCHOR, MM_PARENT, MM_ORDER. Never throws."
           (my/mm-set-drawer file "MM_ORDER" (number-to-string order))))
     (error nil)))
 
-(defun my/mm-assign-map (map-id note)
-  "Post-apply: validate MAP-ID exists and refresh the map cache."
+(defun my/mm-assign-map (map-id _note)
+  "Post-apply: validate MAP-ID exists and refresh the map cache.
+NOTE is accepted for post-apply uniformity and ignored."
   (condition-case nil
       (when (and (stringp map-id) (my/mm-map-file-by-id map-id))
         (my/mm-refresh-maps))
@@ -504,6 +505,9 @@ MM_ORDER exactly with no anchor matching at all. Failure modes
 degrade to parseable states (empty or partial region); the next
 sync retries. Never throws.
 #+begin_src emacs-lisp
+;; Forward declaration: vendor confirmation flag, bound dynamically
+;; below. Declared so the byte-compiler sees dynamic intent.
+(defvar org-mindmap-confirm-delete)
 (defun my/mm-sync--rebuild (map-file desired map-title)
   "Rebuild MAP-FILE's region: root MAP-TITLE, children DESIRED
 titles in order, via the vendor insert ops. Returns t on success."

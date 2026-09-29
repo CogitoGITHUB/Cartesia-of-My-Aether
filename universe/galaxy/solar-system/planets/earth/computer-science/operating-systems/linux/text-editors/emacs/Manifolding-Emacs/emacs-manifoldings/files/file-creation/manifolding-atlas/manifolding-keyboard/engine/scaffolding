@@ -92,7 +92,8 @@ those are never lazy-loading artifacts.
 ;; boot from sibling modules — covered here, not flagged.
 
 (defun manifolding-keyboard--defined-hydras ()
-  "Hydra body symbols defined in leaders/ (generated at boot by the Transient shim)."
+  "Hydra body symbols defined in leaders/ (generated at boot
+by the Transient shim)."
   (let ((out nil))
     (dolist (file (append
                    (and (file-directory-p (expand-file-name "leaders/" (manifolding-keyboard--module-dir)))
@@ -121,7 +122,8 @@ those are never lazy-loading artifacts.
              manifolding-keyboard-external-prefixes)))
 
 (defun manifolding-keyboard-validate ()
-  "Validate states/ and leaders/: mechanism tag, bindings, hydra shape, self-registration.
+  "Validate states/ and leaders/: mechanism tag, bindings,
+hydra shape, self-registration.
 Returns violation count; details go to *keyboard-validation*."
   (interactive)
   (let ((dir (manifolding-keyboard--module-dir))

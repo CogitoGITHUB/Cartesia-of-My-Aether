@@ -46,7 +46,7 @@ Self-registration: mode, keymap, and init predicate in one unit. Delete this fil
   :states '("org")
   :bind
   `(
-    ("I" . manifolding-atlas-insert)
+    ("I" . my/manifolding-atlas-insert-link-at-point)
     ("K" . org-clock-out)
     ("L" . org-latex-preview)
     ("M" . my/org-insert-level1-todo)

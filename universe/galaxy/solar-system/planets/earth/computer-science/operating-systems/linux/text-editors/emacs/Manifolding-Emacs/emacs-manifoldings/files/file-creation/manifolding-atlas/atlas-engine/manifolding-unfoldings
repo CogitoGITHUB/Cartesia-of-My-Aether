@@ -12,6 +12,19 @@ Three unfolding types: ~'closed~ (shared, deduped), ~'scoped~ (per-entity), ~nil
 ** Canonicalize Value
 
 #+begin_src emacs-lisp
+;; Forward declarations: assigned before their definitions below,
+;; or defined in sibling units. Bare defvars silence the compiler
+;; without rebinding. The org-capture lets are dynamic-intent
+;; (org reads them globally); declaring makes that explicit.
+(defvar my/manifolding-atlas--pending-unfolding-refresh)
+(defvar manifolding-atlas-find-default-filter)
+(defvar manifolding-atlas-create-default-function)
+(defvar my/manifolding-atlas-org-prompt--specs)
+(defvar org-capture-templates)
+(defvar org-capture-use-indirect-buffer)
+(defvar org-capture-window-setup)
+;; Key-selection package: read dynamically by ks-jump.
+(defvar ks-all-windows)
 (defun my/manifolding-atlas--canonicalize (value)
   "Downcase, dasherize, strip non-alphanumeric for use as a filename."
   (let ((s (downcase value)))
@@ -58,14 +71,14 @@ key conversion it owns.
 ** Ensure Unfolding Note (closed vocab)
 
 #+begin_src emacs-lisp
-(defun my/manifolding-atlas--ensure-unfolding-note (property-type value &optional _note)
+(defun my/manifolding-atlas--ensure-unfolding-note (property-type value &optional note)
   "Create or reuse an unfolding note for UNFOLDING-TYPE=VALUE.
 When a parent note can be determined (via _NOTE, session, or point),
 creates a *scoped* unique file per parent (via `create-scoped-note`);
 otherwise falls back to shared vocab file. This makes each unfolding
 unique per parent so per-file notes don't leak."
   (when (and value (not (string-equal value "WARNING")))
-    (let* ((parent-note (or _note
+    (let* ((parent-note (or note
                             (and (bound-and-true-p my/manifolding-atlas-org-prompt--session)
                                  (plist-get my/manifolding-atlas-org-prompt--session :note))
                             (ignore-errors (my/manifolding-atlas--note-at-point))
@@ -77,7 +90,7 @@ unique per parent so per-file notes don't leak."
            (parent-id (and parent-note (ignore-errors (manifolding-atlas-note-id parent-note)))))
       (if parent-id
           ;; Unique per parent — scoped file holds notes for *this* parent only
-          (my/manifolding-atlas--create-scoped-note property-type value parent-id _note)
+          (my/manifolding-atlas--create-scoped-note property-type value parent-id note)
         ;; Fallback shared (legacy / no parent context)
         (let* ((slug (my/manifolding-atlas--canonicalize value))
                (root (expand-file-name (format "admin/unfoldings/%s/" property-type) (my/manifolding-atlas-root-dir)))
@@ -406,7 +419,7 @@ Navigates by NOTE's own path, so it works from any buffer."
     (save-buffer)))
 
  (defun my/manifolding-atlas--make-unfolding-state-to-plist (property-type drawer-key)
-  (let ((pt property-type) (dk drawer-key))
+  (let ((pt property-type) (_dk drawer-key))
     (lambda (val _ctx)
       (when (and val (not (string-equal val "WARNING")))
         (let* ((parent-note (ignore-errors (my/manifolding-atlas--note-at-point)))
@@ -762,7 +775,7 @@ inserted or repaired."
                       (save-buffer)
                       t)))))))))))
 
-(defun my/manifolding-atlas--property-go-live (marker property-type key final-title)
+(defun my/manifolding-atlas--property-go-live (marker property-type _key final-title)
   "Make FINAL-TITLE live for KEY at MARKER, then open it for editing.
 Create/reuse the unfolding note, replace KEY's drawer entry with a
 live `#+wormhole:' line via `my/manifolding-atlas--refresh-property-wormhole',

@@ -13,6 +13,20 @@
 
 ** Config
 #+begin_src emacs-lisp
+;; Forward declarations first: the package loads later via
+;; straight; bare defvars keep the byte-compiler quiet without
+;; rebinding anything once it does.
+(defvar super-save-silent)
+(defvar super-save-auto-save-when-idle)
+(defvar super-save-idle-duration)
+(defvar super-save-all-buffers)
+(defvar super-save-remote-files)
+(defvar super-save-max-buffer-size)
+(defvar super-save-exclude)
+(defvar super-save-handle-org-src)
+(defvar super-save-handle-edit-indirect)
+(defvar super-save-delete-trailing-whitespace)
+(defvar super-save-in-progress)
 ;; Save silently — no echo area noise
 (setq super-save-silent t)
 

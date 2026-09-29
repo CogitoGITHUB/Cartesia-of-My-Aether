@@ -71,9 +71,10 @@ PREDICATE is a function (note) -> non-nil when the schema applies to
 the note.  FIELDS is a list of field spec plists (see Commentary for
 the supported keys).
 
-INCLUDE names another schema to inherit fields from - a schema name
-symbol, a `manifolding-atlas-blueprint' object, or a list of either.  The included
-schemas contribute their fields first (multiple includes merged
+INCLUDE names another schema to inherit fields from - a schema
+name symbol, a `manifolding-atlas-blueprint' object, or a list of
+either. The included schemas contribute their fields first
+(multiple includes merged
 left-to-right), then FIELDS.  When a :key appears more than once the
 later definition wins, so FIELDS overrides an included field and a
 later include overrides an earlier one; an overridden field keeps the
@@ -161,8 +162,9 @@ genuinely missing schemas (same message as direct resolution)."
 (defun manifolding-atlas-blueprint--resolve (schema-or-name)
   "Return a `manifolding-atlas-blueprint' from SCHEMA-OR-NAME.
 
-SCHEMA-OR-NAME is either a `manifolding-atlas-blueprint' object or the symbol name of
-a registered schema.  Signals an error when a name is not registered."
+SCHEMA-OR-NAME is either a `manifolding-atlas-blueprint' object
+or the symbol name of a registered schema. Signals an error when
+a name is not registered."
   (cond
    ((manifolding-atlas-blueprint-p schema-or-name) schema-or-name)
    ((symbolp schema-or-name)
@@ -176,9 +178,9 @@ a registered schema.  Signals an error when a name is not registered."
   "Return the value of FIELD for NOTE, read with the field's declared type.
 
 FIELD is a field spec plist or a bare metadata key string (in which
-case the type defaults to `string').  Reads from the note's
-already-extracted metadata via `manifolding-atlas-note-meta-get'.  When the field
-spec is :multiple, returns a list of values."
+case the type defaults to `string'). Reads from the note's
+already-extracted metadata via `manifolding-atlas-note-meta-get'.
+When the field spec is :multiple, returns a list of values."
   (let* ((spec (if (stringp field) (list :key field) field))
          (key (plist-get spec :key))
          (type (or (plist-get spec :type) 'string)))
@@ -191,7 +193,8 @@ spec is :multiple, returns a list of values."
 (defun manifolding-atlas-blueprint-applies-p (note schema-or-name)
   "Return non-nil when SCHEMA-OR-NAME's predicate matches NOTE.
 
-SCHEMA-OR-NAME is a `manifolding-atlas-blueprint' object or a registered schema name."
+SCHEMA-OR-NAME is a `manifolding-atlas-blueprint' object or a
+registered schema name."
   (let ((schema (manifolding-atlas-blueprint--resolve schema-or-name)))
     (funcall (manifolding-atlas-blueprint-predicate schema) note)))
 
@@ -249,8 +252,9 @@ MESSAGE describes the problem and VALUE is the offending value."
 (defun manifolding-atlas-blueprint--target-tags-violation (target id field note schema)
   "Return a violation when TARGET is missing FIELD's :target-tags, else nil.
 
-TARGET is the resolved `manifolding-atlas-note' referenced by FIELD on NOTE, and ID
-is its id (used in the message and as the offending value).  SCHEMA owns
+TARGET is the resolved `manifolding-atlas-note' referenced by FIELD
+on NOTE, and ID is its id (used in the message and as the
+offending value). SCHEMA owns
 the field.  All declared tags must be present (all-of); the missing ones
 are named in the message."
   (let* ((required (plist-get field :target-tags))
@@ -335,10 +339,12 @@ custom :validate function.  Returns the first problem found."
                       raws))))))
 
 (defun manifolding-atlas-blueprint-validate (note schema-or-name)
-  "Return the list of `manifolding-atlas-violation' for NOTE against SCHEMA-OR-NAME.
+  "Return the list of `manifolding-atlas-violation' for NOTE
+against SCHEMA-OR-NAME.
 
-SCHEMA-OR-NAME is a `manifolding-atlas-blueprint' object or a registered schema name.
-Each field is checked for the following problem types:
+SCHEMA-OR-NAME is a `manifolding-atlas-blueprint' object or a
+registered schema name. Each field is checked for the following
+problem types:
 
 - `missing-required'   a required field has no value
 - `wrong-type'         a value does not match the field's declared type
@@ -357,8 +363,9 @@ here (see `manifolding-atlas-blueprint-validate-all')."
   "Return all violations for NOTES against SCHEMA-OR-NAME.
 
 NOTES is any list of `manifolding-atlas-note' objects; every note is validated
-regardless of the schema's predicate.  To validate only the notes a
-schema applies to, filter with `manifolding-atlas-blueprint-applies-p' first, or use
+regardless of the schema's predicate. To validate only the notes
+a schema applies to, filter with
+`manifolding-atlas-blueprint-applies-p' first, or use
 `manifolding-atlas-blueprint-validate-all'."
   (let ((schema (manifolding-atlas-blueprint--resolve schema-or-name)))
     (cl-loop for note in notes
@@ -367,8 +374,9 @@ schema applies to, filter with `manifolding-atlas-blueprint-applies-p' first, or
 (defun manifolding-atlas-blueprint-validate-all (schema-or-name)
   "Return all violations for every note matched by SCHEMA-OR-NAME.
 
-Notes are selected with the schema's predicate, then validated.  This
-is sugar for `manifolding-atlas-blueprint-validate-notes' over the matching notes."
+Notes are selected with the schema's predicate, then validated.
+This is sugar for `manifolding-atlas-blueprint-validate-notes'
+over the matching notes."
   (let ((schema (manifolding-atlas-blueprint--resolve schema-or-name)))
     (manifolding-atlas-blueprint-validate-notes
      (manifolding-atlas-db-query (lambda (note) (manifolding-atlas-blueprint-applies-p note schema)))
@@ -403,11 +411,13 @@ honored.  A field counts as present when NOTE has any value for its
 (defun manifolding-atlas-blueprint-note-violations (note)
   "Return all violations of NOTE across the schemas that apply to it.
 
-Validates NOTE against each schema named by `manifolding-atlas-blueprint-applicable'
-and concatenates the results.  Returns nil when no schema applies or the
+Validates NOTE against each schema named by
+`manifolding-atlas-blueprint-applicable' and concatenates the
+results. Returns nil when no schema applies or the
 note conforms to all that do.  This is the per-note counterpart to
-`manifolding-atlas-blueprint-validate-all' and the shared entry point for surfacing a
-single note's violations (sync warnings, in-buffer linting, health
+`manifolding-atlas-blueprint-validate-all' and the shared entry
+point for surfacing a single note's violations (sync warnings,
+in-buffer linting, health
 widgets)."
   (cl-loop for name in (manifolding-atlas-blueprint-applicable note)
            append (manifolding-atlas-blueprint-validate note name)))
@@ -517,8 +527,9 @@ they only control whether the database mirrors a violating note."
 (defun manifolding-atlas-db-blueprint-validation--filter (note)
   "Validate NOTE for `manifolding-atlas-db-note-index-filter-functions'.
 
-Return non-nil to allow indexing NOTE and nil to skip it, dispatching on
-`manifolding-atlas-db-blueprint-validation-action'.  Fast-exits when validation is
+Return non-nil to allow indexing NOTE and nil to skip it,
+dispatching on `manifolding-atlas-db-blueprint-validation-action'.
+Fast-exits when validation is
 `silent' or no schemas are registered, and never affects a note that
 conforms or that no schema applies to."
   (if (or (eq manifolding-atlas-db-blueprint-validation-action 'silent)
@@ -564,8 +575,9 @@ when there is none."
     (cons (line-beginning-position) (line-end-position))))
 
 (defun manifolding-atlas-blueprint-flymake--field-region (field bound)
-  "Return (BEG . END) of FIELD's metadata line within BOUND, or nil.
-BOUND scopes the lookup to a heading subtree (see `manifolding-atlas-buffer-meta')
+  "Return (BEG . END) of FIELD's metadata line within BOUND, or
+nil. BOUND scopes the lookup to a heading subtree (see
+`manifolding-atlas-buffer-meta')
 and is nil for file-level metadata."
   (when-let* ((meta (manifolding-atlas-buffer-meta--get (manifolding-atlas-buffer-meta bound) field))
               (item (car (plist-get meta :items)))
@@ -617,7 +629,8 @@ A flymake backend; see `flymake-diagnostic-functions'."
 ;;;###autoload
 (define-minor-mode manifolding-atlas-blueprint-flymake-mode
   "Toggle real-time schema-violation linting in the current buffer.
-When enabled, register `manifolding-atlas-blueprint-flymake' as a flymake backend and
+When enabled, register `manifolding-atlas-blueprint-flymake'
+as a flymake backend and
 turn on `flymake-mode', so violations of any schema applicable to a note
 in the buffer are flagged as you edit."
   :lighter " manifolding-atlas-blueprint"
@@ -910,10 +923,12 @@ declarative schemas.")
   (interactive)
   ;; Sweeps can fire at arbitrary ambient stack depth (idle inside
   ;; recursive-edits etc). Carry an independent deep budget so ambient
-  ;; depth is irrelevant.
-  (let ((max-lisp-eval-depth 12000)
-        (max-specpdl-size 12000))
-    (condition-case err
+  ;; depth is irrelevant. max-specpdl-size is obsolete as of 29.1 but
+  ;; still honored; the binding stays, warning suppressed.
+  (with-no-warnings
+    (let ((max-lisp-eval-depth 12000)
+          (max-specpdl-size 12000))
+      (condition-case err
         (progn
           (my/manifolding-atlas-missing--rebuild-from-health)
           (setq my/manifolding-atlas-reinforce--last-sweep (float-time))
@@ -925,7 +940,7 @@ declarative schemas.")
             (when (fboundp 'my/manifolding-atlas-drawer-registry-refresh)
               (my/manifolding-atlas-drawer-registry-refresh)))
           (my/manifolding-atlas-reinforce--audit))
-      (error (message "Schema sweep failed: %s" err)))))
+      (error (message "Schema sweep failed: %s" err))))))
 (defun my/manifolding-atlas-reinforce--schedule ()
   "Debounce: re-arm the idle sweep timer."
   (when my/manifolding-atlas-reinforce--timer
@@ -1040,7 +1055,8 @@ Org-native keys live here; everything else must match a spec :key.")
 Three checks, and the third is the one that matters: a property whose
 file is gone, a blueprint with no property, and registry order that
 disagrees with the files' current :MM_ORDER: (a sync is pending).
-Passive; never writes."
+Passive; never writes. Plain defun with an if/else (no
+`return-from', so no `cl' block needed at compile time)."
   (require 'cl-lib)
   (let ((issues nil))
     (when (fboundp 'my/manifolding-atlas-drawer-registry)
@@ -1051,39 +1067,37 @@ Passive; never writes."
                         (error nil)))
              (known (condition-case nil
                        (my/manifolding-atlas-blueprint-key-files)
-                     (error nil)))
-        (when (or (null root) (null known))
-          (push "drawer registry: blueprint root or key files unavailable" issues)
-          (return-from my/manifolding-atlas-reinforce--audit-drawer-registry
-            (nreverse issues)))
-        (dolist (e entries)
-          (unless (assoc (car e) known)
-            (push (format "registry: %s names no blueprint file" (car e)) issues))
-          (unless (file-exists-p (expand-file-name (cdr e) root))
-            (push (format "registry: %s -> %s is missing" (car e) (cdr e)) issues)))
-        (dolist (pair known)
-          (unless (assoc (car pair) entries)
-            (push (format "registry: %s has no entry yet" (car pair)) issues)))
-        ;; Drift: is the registry order what the files currently say?
-        (let* ((orders nil) (i 0) (drift nil))
-          (dolist (f (mapcar #'cdr known))
-            (with-temp-buffer
-              (insert-file-contents f)
-              (goto-char (point-min))
-              (when (re-search-forward "^[ \t]*:MM_ORDER:[ \t]*\\([0-9.]+\\)" nil t)
-                (push (cons (cons 0 (file-name-nondirectory f))
-                            (string-to-number (match-string 1)))
-                      orders))))
-          (setq orders (sort orders (lambda (a b) (< (cdr a) (cdr b)))))
+                     (error nil))))
+        (if (or (null root) (null known))
+            (push "drawer registry: blueprint root or key files unavailable" issues)
           (dolist (e entries)
-            (let* ((want (assoc (car e) orders))
-                   (have (nth i orders)))
-              (when (and want have (not (equal (cdr want) (cdr have))))
-                (push (format "registry: %s is %s but should be %s (sync pending)"
-                              (car e) (cdr have) (cdr want))
-                      drift)))
-            (setq i (1+ i))))
-          (dolist (d drift) (push d issues)))))
+            (unless (assoc (car e) known)
+              (push (format "registry: %s names no blueprint file" (car e)) issues))
+            (unless (file-exists-p (expand-file-name (cdr e) root))
+              (push (format "registry: %s -> %s is missing" (car e) (cdr e)) issues)))
+          (dolist (pair known)
+            (unless (assoc (car pair) entries)
+              (push (format "registry: %s has no entry yet" (car pair)) issues)))
+          ;; Drift: is the registry order what the files currently say?
+          (let* ((orders nil) (i 0) (drift nil))
+            (dolist (f (mapcar #'cdr known))
+              (with-temp-buffer
+                (insert-file-contents f)
+                (goto-char (point-min))
+                (when (re-search-forward "^[ \t]*:MM_ORDER:[ \t]*\\([0-9.]+\\)" nil t)
+                  (push (cons (cons 0 (file-name-nondirectory f))
+                              (string-to-number (match-string 1)))
+                        orders))))
+            (setq orders (sort orders (lambda (a b) (< (cdr a) (cdr b)))))
+            (dolist (e entries)
+              (let* ((want (assoc (car e) orders))
+                     (have (nth i orders)))
+                (when (and want have (not (equal (cdr want) (cdr have))))
+                  (push (format "registry: %s is %s but should be %s (sync pending)"
+                                (car e) (cdr have) (cdr want))
+                        drift)))
+              (setq i (1+ i)))
+            (dolist (d drift) (push d issues))))))
     (nreverse issues)))
 
 (defun my/manifolding-atlas-reinforce--audit-drawer-order ()
@@ -1113,7 +1127,10 @@ or the drawer sweep; silent when clean or engine unavailable."
 generated schema is missing or drifted. Silent when clean."
   (let* ((covered (append my/manifolding-atlas-reinforce-audit-allowlist
                           (my/manifolding-atlas-reinforce--schema-field-keys)))
-         (uncovered (my/manifolding-atlas-reinforce--audit-prompts covered))
+         ;; Bound (not dropped) in case the query warms caches; the
+         ;; uncovered-prompts warn path was never wired (see docstring
+         ;; aspiration) — underscore keeps behavior identical.
+         (_uncovered (my/manifolding-atlas-reinforce--audit-prompts covered))
          (template-issues (my/manifolding-atlas-reinforce--audit-templates))
          (drawer-issues (my/manifolding-atlas-reinforce--audit-drawer-order)))
     (when template-issues
