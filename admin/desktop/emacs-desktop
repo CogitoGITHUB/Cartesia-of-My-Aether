@@ -2,12 +2,12 @@
 ;; --------------------------------------------------------------------------
 ;; Desktop File for Emacs
 ;; --------------------------------------------------------------------------
-;; Created Tue Sep 29 09:30:28 2026
+;; Created Tue Sep 29 09:31:38 2026
 ;; Desktop file format version 208
 ;; Emacs version 30.2
 
 ;; Global section:
-(setq desktop-saved-frameset [frameset 1 (27323 23300 44721 235000) (desktop . "208") "u0_a348@localhost" nil nil ((((minibuffer . t) (tty-type . "xterm-256color") (tty . "/dev/tty") (display-type . color) (background-mode . dark) (scroll-bar-foreground) (scroll-bar-background) (menu-bar-lines . 0) (foreground-color . "#FFFFFF") (background-color . "unspecified-bg") (powerline-cache) (tab-bar-lines . 0) (height . 41) (width . 67) (modeline . t) (unsplittable) (frameset--id . "BC31-2E58-6557-E089") (frameset--mini t) (font . "tty")) ((min-height . 4) (min-width . 10) (min-height-ignore . 2) (min-width-ignore . 2) (min-height-safe . 1) (min-width-safe . 2) (min-pixel-height . 4) (min-pixel-width . 10) (min-pixel-height-ignore . 2) (min-pixel-width-ignore . 2) (min-pixel-height-safe . 1) (min-pixel-width-safe . 2)) leaf (pixel-width . 67) (pixel-height . 39) (total-width . 67) (total-height . 39) (normal-height . 1.0) (normal-width . 1.0) (buffer "*Warnings*" (selected . t) (hscroll . 0) (fringes 0 0 nil nil) (margins nil) (scroll-bars nil 0 t nil 0 t nil) (vscroll . 0) (dedicated) (point . 423) (start . 1))))])
+(setq desktop-saved-frameset [frameset 1 (27323 23370 534295 86000) (desktop . "208") "u0_a348@localhost" nil nil ((((minibuffer . t) (tty-type . "xterm-256color") (tty . "/dev/tty") (display-type . color) (background-mode . dark) (scroll-bar-foreground) (scroll-bar-background) (menu-bar-lines . 0) (foreground-color . "#FFFFFF") (background-color . "unspecified-bg") (powerline-cache) (tab-bar-lines . 0) (height . 41) (width . 67) (modeline . t) (unsplittable) (frameset--id . "BC31-2E58-6557-E089") (frameset--mini t) (font . "tty")) ((min-height . 4) (min-width . 10) (min-height-ignore . 3) (min-width-ignore . 3) (min-height-safe . 1) (min-width-safe . 2) (min-pixel-height . 4) (min-pixel-width . 10) (min-pixel-height-ignore . 3) (min-pixel-width-ignore . 3) (min-pixel-height-safe . 1) (min-pixel-width-safe . 2)) leaf (pixel-width . 67) (pixel-height . 39) (total-width . 67) (total-height . 39) (normal-height . 1.0) (normal-width . 1.0) (buffer "Cartesia-of-My-Aether<home>" (selected) (hscroll . 0) (fringes 0 0 nil nil) (margins 1) (scroll-bars nil 0 t nil 0 t nil) (vscroll . 0) (dedicated) (point . 111) (start . 1)) (next-buffers "*Warnings*") (prev-buffers ("*Warnings*" 1 423))))])
 (setq desktop-missing-file-warning nil)
 (setq tags-file-name nil)
 (setq tags-table-list nil)
@@ -17,6 +17,18 @@
 (setq file-name-history '("~/Cartesia-of-My-Aether/emacs-mechanism/manifolding-emacs-agent" "~/Cartesia-of-My-Aether/Cartesia-of-My-Aether" "~/Cartesia-of-My-Aether/CAESTRIA AGENT INTEGRATION INTO ATLAS" "~/Cartesia-of-My-Aether/AGENT.md" "~/Cartesia-of-My-Aether/universe/universe" "~/Cartesia-of-My-Aether/universe/galaxy/galaxy" "~/Cartesia-of-My-Aether/universe/galaxy/solar-system/solar-system" "~/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/earth" "~/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/life/life" "~/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/life/tree-of-life/tree-of-life" "~/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/life/tree-of-life/eukarya/eukarya" "~/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/life/tree-of-life/eukarya/animalia/animalia" "~/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/life/tree-of-life/eukarya/animalia/chordata/chordata" "~/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/life/tree-of-life/eukarya/animalia/chordata/mammalia/mammalia" "~/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/life/tree-of-life/eukarya/animalia/chordata/mammalia/primates/primates" "~/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/life/tree-of-life/eukarya/animalia/chordata/mammalia/primates/hominidae/hominidae" "~/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/life/tree-of-life/eukarya/animalia/chordata/mammalia/primates/hominidae/homo/homo" "~/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/life/tree-of-life/eukarya/animalia/chordata/mammalia/primates/hominidae/homo/homo-sapiens/homo-sapiens" "~/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/life/tree-of-life/eukarya/animalia/chordata/mammalia/primates/hominidae/homo/homo-sapiens/self/self" "~/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/life/tree-of-life/eukarya/animalia/chordata/mammalia/primates/hominidae/homo/homo-sapiens/self/self-internal/self-internal" "~/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/life/tree-of-life/eukarya/animalia/chordata/mammalia/primates/hominidae/homo/homo-sapiens/self/self-external/self-external" "~/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/computer-science/computer-science" "~/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/computer-science/operating-systems/operating-systems" "~/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/computer-science/operating-systems/linux/linux" "~/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/computer-science/operating-systems/linux/text-editors/text-editors" "~/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/computer-science/operating-systems/linux/text-editors/emacs/Manifolding-Emacs/manifolding-emacs" "~/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/computer-science/operating-systems/linux/text-editors/emacs/Manifolding-Emacs/Manifolding-Emacs-Foundation" "~/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/computer-science/operating-systems/linux/text-editors/emacs/Manifolding-Emacs/mind-maps/org-mindmap" "~/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/computer-science/operating-systems/linux/text-editors/emacs/Manifolding-Emacs/mind-maps/manifolding-mind-map.org.disabled" "~/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/computer-science/operating-systems/linux/text-editors/emacs/Manifolding-Emacs/mind-maps/live-shapeshifting-mind-maps" "~/Cartesia-of-My-Aether/emacs-mechanism/manifolding-emacs-agent"))
 
 ;; Buffer section -- buffers listed in same order as in buffer list:
+(desktop-create-buffer 208
+  nil
+  "Cartesia-of-My-Aether"
+  'dired-mode
+  '(dired-hide-details-mode manifolding-keyboard-dired-state-mode visual-line-mode diff-hl-dired-mode dired-omit-mode olivetti-mode centered-cursor-mode yas-minor-mode font-lock-mode)
+  111
+  '(nil nil)
+  t
+  '("/data/data/com.termux/files/home/Cartesia-of-My-Aether/")
+  '((buffer-display-time 27323 23340 492138 545000) (truncate-lines))
+  '((mark-ring nil)))
+
 (desktop-create-buffer 208
   "/data/data/com.termux/files/home/Cartesia-of-My-Aether/emacs-mechanism/manifolding-emacs-agent"
   "manifolding-emacs-agent"
@@ -101,7 +113,7 @@
   '((tab-width . 8) (buffer-display-time) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
   '((mark-ring nil)))
 
-(desktop-create-buffer 208
+(desktop-append-buffer-args 208
   "/data/data/com.termux/files/home/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/computer-science/operating-systems/operating-systems"
   "operating-systems"
   'org-mode
@@ -375,17 +387,5 @@
   nil
   nil
   '((tab-width . 8) (buffer-display-time) (buffer-file-coding-system . undecided-unix) (truncate-lines))
-  '((mark-ring nil)))
-
-(desktop-append-buffer-args 208
-  nil
-  "Cartesia-of-My-Aether"
-  'dired-mode
-  '(manifolding-keyboard-dired-state-mode visual-line-mode diff-hl-dired-mode dired-omit-mode olivetti-mode centered-cursor-mode yas-minor-mode font-lock-mode dired-hide-details-mode)
-  111
-  '(nil nil)
-  t
-  '("/data/data/com.termux/files/home/Cartesia-of-My-Aether/")
-  '((buffer-display-time 27323 23118 552904 686000) (truncate-lines))
   '((mark-ring nil)))
 
