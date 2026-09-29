@@ -43,7 +43,21 @@ With a prefix argument, clear it."
 Implements the actual browsing/selection used by every caller (prompt-subdir,
 dictionary, recipes, routines). Returns a relative path string ending in
 "/" (or "" for ROOT itself), so callers can safely (concat prefix subdir slug).
+Free-text input is sanitized (trim, unquote, absolutize-if-inside) so a
+pasted quoted path can never create garbage directories.
 #+begin_src emacs-lisp
+(defun my/manifolding-atlas--sanitize-dir-token (s)
+  "Trim S and strip one layer of surrounding quotes/backticks.
+Keeps relative structure (unlike the file-token sanitizer) so
+multi-level picks like \"projects/foo\" survive."
+  (let ((c (string-trim (or s ""))))
+    ;; Char codes, not ?\" literals (loader paren scanner limitation:
+    ;; 34 = ", 39 = ', 96 = `).
+    (when (and (>= (length c) 2)
+               (let ((f (aref c 0)) (l (aref c (1- (length c)))))
+                 (and (memq f '(34 39 96)) (eq f l))))
+      (setq c (string-trim (substring c 1 (1- (length c))))))
+    c))
 (defun my/manifolding-atlas-choose-subdir (&optional root prompt)
   "Choose a subdirectory under ROOT via an explicit completing-read list.
 ROOT defaults to `my/manifolding-atlas-root-dir'. PROMPT overrides the
@@ -66,13 +80,26 @@ reserved for internal bookkeeping."
                           (file-name-as-directory name))))
                     (directory-files root t)))
              #'string-lessp)))
-         (cands (cons root-label subdirs))
-         (choice (completing-read (or prompt "Subdirectory: ")
-                                   cands nil nil nil nil root-label)))
-    (if (or (string-empty-p (string-trim choice))
-            (string-equal choice root-label))
-        ""
-      choice)))
+  (cands (cons root-label subdirs))
+          (raw (completing-read (or prompt "Subdirectory: ")
+                               cands nil nil nil nil root-label))
+          (choice (my/manifolding-atlas--sanitize-dir-token raw)))
+     (cond ((or (string-empty-p choice)
+                (string-equal choice root-label))
+            "")
+           ((file-name-absolute-p choice)
+            (if (string-prefix-p root (expand-file-name choice))
+                (let ((rel (file-relative-name
+                            (directory-file-name
+                             (expand-file-name choice))
+                            root)))
+                  (if (or (string-equal rel ".")
+                          (string-prefix-p ".." rel))
+                      ""
+                    (file-name-as-directory rel)))
+              (message "Outside atlas root; using root")
+              ""))
+           (t (file-name-as-directory choice)))))
 #+end_src
 
 ** Subdirectory Prompt (Dired)

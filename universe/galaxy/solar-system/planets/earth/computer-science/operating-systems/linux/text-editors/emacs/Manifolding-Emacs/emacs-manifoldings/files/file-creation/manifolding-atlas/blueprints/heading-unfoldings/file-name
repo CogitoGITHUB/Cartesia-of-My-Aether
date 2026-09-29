@@ -10,13 +10,30 @@ different language for the filename.
 
 ** Default (slug from title)
 #+begin_src emacs-lisp
+(defun my/manifolding-atlas--sanitize-file-token (s)
+  "Trim S, strip one layer of surrounding quotes/backticks, basename-only.
+A pasted absolute path (quoted or not) can never escape the chosen
+subdirectory: only the final component survives."
+  (let ((c (string-trim (or s ""))))
+    ;; Char codes, not ?\" literals: the loader's paren scanner has
+    ;; no notion of character literals and would read ?\" as a
+    ;; string toggle (34 = ", 39 = ', 96 = `).
+    (when (and (>= (length c) 2)
+               (let ((f (aref c 0)) (l (aref c (1- (length c)))))
+                 (and (memq f '(34 39 96)) (eq f l))))
+      (setq c (string-trim (substring c 1 (1- (length c))))))
+    (file-name-nondirectory c)))
+
 (defun my/manifolding-atlas-prompt-file-name (title &optional subdir)
   "Prompt for a file name, defaulting to a slug of TITLE under SUBDIR.
-Returns the relative file path (e.g. \"subdir/my-note\")."
+Returns the relative file path (e.g. \"subdir/my-note\"). Blank (or
+quote-only garbage) falls back to the slug; absolute input is
+reduced to its basename so it cannot escape SUBDIR."
   (let* ((raw-name (read-string
                     (format "File name for \"%s\" (blank = slug): " title)))
-         (base (if (string-empty-p (string-trim raw-name))
+         (clean (my/manifolding-atlas--sanitize-file-token raw-name))
+         (base (if (string-empty-p clean)
                    (manifolding-atlas-title-to-slug title)
-                 (file-name-sans-extension (string-trim raw-name)))))
+                 (file-name-sans-extension clean))))
     (concat (or subdir "") base)))
 #+end_src

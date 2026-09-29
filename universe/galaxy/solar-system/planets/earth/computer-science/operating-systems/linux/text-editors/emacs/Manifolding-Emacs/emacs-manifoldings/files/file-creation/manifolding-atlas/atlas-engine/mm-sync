@@ -30,7 +30,12 @@ Secondary membership is derived from directory adjacency only.
   (when (and file (file-exists-p file))
     (with-temp-buffer
       (insert-file-contents file)
-      (delay-mode-hooks (org-mode))
+      ;; Real org-mode (hooks delayed): temp buffers visit in
+      ;; fundamental-mode, where org-element refuses to work and
+      ;; every drawer read warns and degrades. `delay-mode-hooks'
+      ;; alone enables nothing — it only delays hooks while a mode
+      ;; form runs.
+      (let ((delay-mode-hooks t)) (org-mode))
       (goto-char (point-min))
       (when (re-search-forward org-heading-regexp nil t)
         (org-entry-get (point) key)))))
@@ -108,13 +113,71 @@ Enforces: no two map files in one directory."
              (file-name-nondirectory (car found))))))
 #+end_src
 
-(defun my/mm-set-drawer (file key val)
-  "Set drawer KEY to VAL on FILE's first headline. Never throws."
+** Map membership stamping
+Drawer writers used by creation flows and placement post-apply.
+Outliving any single sync: files stay source of truth.
+#+begin_src emacs-lisp
+(defun my/mm-heal-drawer (file)
+  "Normalize FILE's first headline to one valid property drawer.
+Merges every :PROPERTIES: block, keeping proper `:KEY: VAL' lines
+(first wins on duplicates) and dropping anything else: bare
+`KEY VAL' lines and spaced keys blind `org-entry-get' for the
+whole drawer (proven), and writes then pile up duplicate drawers.
+Bare lines match no spec key (all specs are spaceless) and are
+readable by nothing, so dropping them loses no machine state.
+Only touches the first headline. Never throws."
   (condition-case nil
       (with-current-buffer (find-file-noselect file)
         (save-excursion
           (goto-char (point-min))
           (when (re-search-forward org-heading-regexp nil t)
+            (org-back-to-heading t)
+            (let ((end (save-excursion (org-end-of-subtree t t)))
+                  props seen ranges)
+              (save-excursion
+                (while (re-search-forward "^[ \t]*:PROPERTIES:[ \t]*$"
+                                          end t)
+                  (let ((dbeg (line-beginning-position))
+                        (dend nil))
+                    (forward-line 1)
+                    (while (and (< (point) end)
+                                (not (looking-at-p "^[ \t]*:END:[ \t]*$")))
+                      (when (looking-at
+                             "^[ \t]*:\\([^ :\n]+\\):[ \t]*\\(.*\\)$")
+                        (let ((k (match-string 1)))
+                          (unless (member k seen)
+                            (push k seen)
+                            (push (cons k (match-string 2)) props))))
+                      (forward-line 1))
+                    (when (looking-at-p "^[ \t]*:END:[ \t]*$")
+                      (forward-line 1)
+                      (setq dend (point)))
+                    (when dend
+                      (push (cons dbeg dend) ranges)))))
+              (dolist (r (sort ranges (lambda (a b) (> (car a) (car b)))))
+                (delete-region (car r) (min (cdr r) (point-max))))
+              (when props
+                (org-back-to-heading t)
+                (end-of-line)
+                (insert "\n:PROPERTIES:")
+                (dolist (kv (nreverse props))
+                  (insert (format "\n:%s: %s" (car kv) (cdr kv))))
+                (insert "\n:END:")))))
+        (save-buffer))
+    (error nil)))
+
+(defun my/mm-set-drawer (file key val)
+  "Set drawer KEY to VAL on FILE's first headline. Never throws.
+Heals the drawer first so the write lands in one valid block."
+  (condition-case nil
+      (with-current-buffer (find-file-noselect file)
+        (save-excursion
+          (goto-char (point-min))
+          (when (re-search-forward org-heading-regexp nil t)
+            (when (fboundp 'my/mm-heal-drawer)
+              (my/mm-heal-drawer file))
+            (goto-char (point-min))
+            (re-search-forward org-heading-regexp nil t)
             (org-entry-put (point) key val))
           (save-buffer)))
     (error nil)))
@@ -139,6 +202,7 @@ MM_ANCHOR, MM_PARENT, MM_ORDER. Never throws."
       (when (and (stringp map-id) (my/mm-map-file-by-id map-id))
         (my/mm-refresh-maps))
     (error nil)))
+#+end_src
 
 ** Text sync (pure diff + in-place renames)
 The map model: region root row holds the MAP title (structural,
@@ -174,7 +238,8 @@ renders all titles fresh. Never throws.
   (when (file-exists-p file)
     (with-temp-buffer
       (insert-file-contents file)
-      (delay-mode-hooks (org-mode))
+      ;; Real org-mode, hooks delayed (see `my/mm-file-drawer-get').
+      (let ((delay-mode-hooks t)) (org-mode))
       (let (out)
         (org-element-map (org-element-parse-buffer) 'headline
           (lambda (h)

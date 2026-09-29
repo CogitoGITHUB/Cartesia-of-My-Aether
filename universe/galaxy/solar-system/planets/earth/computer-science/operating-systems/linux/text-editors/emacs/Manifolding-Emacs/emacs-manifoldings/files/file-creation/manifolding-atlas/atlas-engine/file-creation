@@ -1619,10 +1619,50 @@ Why: Implementation of ~my/manifolding-atlas--get-template-content~.
 Why: Implementation of ~manifolding-atlas-find-create-note~.
 
 #+begin_src emacs-lisp
+(defvar manifolding-atlas--create-target-dir nil
+  "Directory of the note currently being created, when known.
+Bound by creation flows so map defaults can probe the target.")
+
+(defun my/manifolding-atlas--set-drawer-line (file key val)
+  "Set drawer KEY to VAL on FILE's first headline.
+KEY uses underscores (e.g. \"MIND_MAP_PLACEMENT\"), matching the
+vault convention of proper `:KEY: VAL' properties, which
+`org-entry-get' can read back (spaced keys and bare `KEY VAL'
+lines blind it — proven). Any bare spaced twin line present
+(e.g. from an aborted preview save) is deleted as poison.
+Note buffers visit in org-mode via auto-mode-alist, where
+`org-entry-put' writes unconditionally. Heals first via
+`my/mm-heal-drawer' when available, so the write never piles a
+second drawer onto a poisoned one. Never throws."
+  (condition-case nil
+      (with-current-buffer (find-file-noselect file)
+        (when (fboundp 'my/mm-heal-drawer)
+          (my/mm-heal-drawer file))
+        (save-excursion
+          (goto-char (point-min))
+          (when (re-search-forward org-heading-regexp nil t)
+            (org-entry-put (point) key val)
+            (org-back-to-heading t)
+            (let ((end (save-excursion (org-end-of-subtree t t))))
+              (goto-char (point-min))
+              (when (re-search-forward
+                     (format "^[ \t]*%s[ \t]+.*$"
+                             (regexp-quote
+                              (replace-regexp-in-string "_" " " key)))
+                     end t)
+                (delete-region (line-beginning-position)
+                               (min (point-max)
+                                    (1+ (line-end-position))))))))
+        (save-buffer))
+    (error nil)))
+
 (defun manifolding-atlas-find-create-note (title &optional _props)
   "Create a new note with TITLE selected in `manifolding-atlas-find'.
 
-Prompts for slug, subdir. Creates file and opens in org-capture.
+Prompts for slug, subdir, mind-map (MANDATORY — quitting aborts
+and removes the fresh file, so no note survives mappeless), and
+manual placement (forced choice, no silent default). Creates the
+file, stamps MM_* drawers, syncs the map, and opens org-capture.
 Then prompts for alias, tags. Finally shows real-time template preview
 in the capture buffer as you navigate options - finalize to keep
 working in the buffer.
@@ -1640,7 +1680,109 @@ This is the default value of `manifolding-atlas-find-default-create-fn'."
          (default-unfoldings (my/manifolding-atlas--first-option-defaults 'file))
          (note (manifolding-atlas-create title (concat subdir fname)
                            :unfoldings default-unfoldings))
-         (file-path (manifolding-atlas-note-path note)))
+          (file-path (manifolding-atlas-note-path note)))
+      ;; 2b. Mind-map ownership: map first, then placement (forced order).
+      ;; HARD INVARIANT: no note survives mappeless. The map loop
+      ;; retries until a real map id (bootstrap covers empty dirs);
+      ;; C-g aborts the whole creation and the fresh file is removed
+      ;; below. Placement is manually selected (no silent default);
+      ;; C-g there keeps the mapped file with WARNING and continues.
+      ;; Machine truth lands in MM_* drawers (mm-sync reads those).
+      (let ((mm-aborted nil))
+        (condition-case nil
+            (setq mm-aborted
+                  (catch 'mm-quit
+                    (let ((manifolding-atlas--create-target-dir
+                           (file-name-directory file-path))
+                          (map-id nil))
+                      (unless (or (fboundp 'my/manifolding-atlas-org-prompt--ask-mm-map-select)
+                                  (fboundp 'my/mm-create-map-in-dir))
+                        (throw 'mm-quit t))
+                      ;; MANDATORY map loop.
+                      (while (not (and (stringp map-id)
+                                       (not (string-equal map-id "WARNING"))))
+                        (setq map-id
+                              (condition-case nil
+                                  (my/manifolding-atlas-org-prompt--ask-mm-map-select
+                                   nil "Mind-map")
+                                (quit (throw 'mm-quit t))
+                                (error nil)))
+                        (when (or (null map-id)
+                                  (string-equal map-id "WARNING"))
+                          (setq map-id
+                                (my/mm-create-map-in-dir
+                                 manifolding-atlas--create-target-dir))
+                          (if (stringp map-id)
+                              (message "Created mind-map in %s"
+                                       (file-name-nondirectory
+                                        (directory-file-name
+                                         manifolding-atlas--create-target-dir)))
+                            (message "A mind-map is required — pick one or create it."))))
+                      (when (fboundp 'my/mm-set-map-membership)
+                        (my/mm-set-map-membership file-path map-id))
+                      (when (fboundp 'my/mm-assign-map)
+                        (my/mm-assign-map map-id note))
+                      ;; MANDATORY manual placement: forced choice, no
+                      ;; default. Target-select quit goes back to kind;
+                      ;; kind quit keeps the mapped file and continues.
+                      (let ((placed nil))
+                        (while (not placed)
+                          (let ((kind (condition-case nil
+                                          (if (fboundp 'my/manifolding-atlas-org-prompt--ask-mindmap)
+                                              (completing-read
+                                               "Placement (parent/child/sibling/node/root): "
+                                               '("parent" "child" "sibling" "node" "root")
+                                               nil t)
+                                            'mm-skip)
+                                        (quit 'mm-skip)
+                                        (error nil))))
+                            (cond ((eq kind 'mm-skip)
+                                   (setq placed 'mm-skip))
+                                  ((null kind)
+                                   (message "Placement failed — choose again."))
+                                  (t
+                                   (setq placed
+                                         (condition-case nil
+                                             (my/manifolding-atlas-org-prompt--ask-mindmap
+                                              kind)
+                                           (quit nil)
+                                           (error nil)))
+                                   (unless (listp placed)
+                                     (setq placed nil)
+                                     (message "Placement failed — choose again.")))))))
+                      (unless (eq placed 'mm-skip)
+                        (let ((frag (and (fboundp 'my/manifolding-atlas-org-prompt--fragment-mindmap)
+                                         (condition-case nil
+                                             (my/manifolding-atlas-org-prompt--fragment-mindmap
+                                              "MIND_MAP_PLACEMENT" placed)
+                                           (error nil)))))
+                          ;; Database truth first: it must never depend
+                          ;; on drawer cosmetics.
+                          (when (and frag
+                                     (plist-get frag :post-apply)
+                                     (fboundp 'my/manifolding-atlas-org-prompt--run-post-apply))
+                            (my/manifolding-atlas-org-prompt--run-post-apply
+                             (plist-get frag :post-apply) note))
+                          (let ((disp (or (and frag
+                                               (cdr (assoc "MIND_MAP_PLACEMENT"
+                                                           (plist-get frag :unfoldings))))
+                                          "WARNING")))
+                            (my/manifolding-atlas--set-drawer-line
+                             file-path "MIND_MAP_PLACEMENT" disp))))
+                      ;; Initial sync so the map shows the note right
+                      ;; away; later saves keep it fresh.
+                      (when (and (fboundp 'my/mm-map-file-by-id)
+                                 (fboundp 'my/mm-sync-map))
+                        (let ((mf (my/mm-map-file-by-id map-id)))
+                          (when (and mf (file-exists-p mf))
+                            (my/mm-sync-map mf))))
+                      nil)))
+          (quit (setq mm-aborted t))
+          (error (setq mm-aborted t)))
+        (when mm-aborted
+          (ignore-errors (kill-buffer (find-buffer-visiting file-path)))
+          (ignore-errors (delete-file file-path))
+          (user-error "Creation aborted: every note needs a mind-map parent (file removed)")))
      ;; 3. org-capture opens THE CAPTURE BUFFER — visible, title already in it.
      ;; Stamp the heading keyword from the same TODO default that went
      ;; into the drawer, so heading and option stay synchronized.
@@ -5798,48 +5940,78 @@ Probes with a fake child path so the target directory itself counts."
         (when m (my/mm-file-id m))))))
 
 (defun my/mm-pick-map ()
-  "Completing-read over existing maps plus create-new. Returns map id."
+  "Completing-read over existing maps plus create-new. Returns map id.
+Inside a creation flow (target dir bound) an explicit create-here
+entry bootstraps the target directory without further prompts."
   (let* ((maps (and (fboundp 'my/mm-map-files) (my/mm-map-files)))
          (names (mapcar (lambda (f)
                           (cons (file-name-nondirectory
                                  (directory-file-name f))
                                 f))
                         maps))
+         (here (and (boundp 'manifolding-atlas--create-target-dir)
+                    (stringp manifolding-atlas--create-target-dir)
+                    (file-directory-p manifolding-atlas--create-target-dir)
+                    "[create new map here]"))
          (pick (completing-read
                 "Mind-map: "
                 (append (mapcar #'car names)
-                        '("[create new map]"))
+                        (delq nil (list here "[create new map]")))
                 nil t)))
-    (if (equal pick "[create new map]")
-        (my/mm-create-map)
-      (let ((f (cdr (assoc pick names))))
-        (and f (my/mm-file-id f))))))
+    (cond ((and here (equal pick here))
+           (and (fboundp 'my/mm-create-map-in-dir)
+                (my/mm-create-map-in-dir
+                 manifolding-atlas--create-target-dir)))
+          ((equal pick "[create new map]")
+           (my/mm-create-map))
+          (t
+           (let ((f (cdr (assoc pick names))))
+             (and f (my/mm-file-id f)))))))
+
+(defun my/mm-create-map-in-dir (dir)
+  "Create a mind-map file in DIR (non-interactive). Returns the new
+map id, or nil when DIR is unusable or already holds a map (the
+one-map-per-directory validator signals, caught here). The locked
+law says every file is a node, so creation flows call this to
+bootstrap a missing map instead of leaving notes mappeless."
+  (condition-case nil
+      (when (and (stringp dir) (file-directory-p dir))
+        (my/mm-validate-map-dir dir)
+        (let ((file (expand-file-name "mindmap" dir)))
+          (when (file-exists-p file)
+            (error "map file exists"))
+          (with-temp-file file
+            (insert "#+title: Mind Map\n\n"
+                    "* Mind Map :EMACS_MECHANISM:\n"
+                    ":PROPERTIES:\n"
+                    ":ID:       " (my/mm-new-id) "\n"
+                    ":MM_PARENT: none\n"
+                    ":MM_ORDER:  0.0\n"
+                    ":MM_KIND:   map\n"
+                    ":END:\n\n"
+                    "#+begin_mindmap\n"
+                    "Root\n"
+                    "#+end_mindmap\n"))
+          (my/mm-refresh-maps)
+          (my/mm-file-id file)))
+    (error nil)))
 
 (defun my/mm-create-map ()
-  "Create a mind-map file (dir picked, validator enforced). Returns id."
+  "Create a mind-map file (dir picked, validator enforced). Returns id.
+Inside a creation flow the target directory is the default, so RET
+creates where the note is going."
   (let* ((root (and (fboundp 'my/manifolding-atlas-root-dir)
                     (ignore-errors (my/manifolding-atlas-root-dir))))
+         (defdir (or (and (boundp 'manifolding-atlas--create-target-dir)
+                          (stringp manifolding-atlas--create-target-dir)
+                          (file-directory-p
+                           manifolding-atlas--create-target-dir)
+                          manifolding-atlas--create-target-dir)
+                     (and root (expand-file-name root))))
          (dir (and root
                    (completing-read
-                    "New map directory: " nil nil nil
-                    (expand-file-name root)))))
-    (when (and dir (file-directory-p dir))
-      (my/mm-validate-map-dir dir)
-      (let ((file (expand-file-name "mindmap" dir)))
-        (with-temp-file file
-          (insert "#+title: Mind Map\n\n"
-                  "* Mind Map :EMACS_MECHANISM:\n"
-                  ":PROPERTIES:\n"
-                  ":ID:       " (my/mm-new-id) "\n"
-                  ":MM_PARENT: none\n"
-                  ":MM_ORDER:  0.0\n"
-                  ":MM_KIND:   map\n"
-                  ":END:\n\n"
-                  "#+begin_mindmap\n"
-                  "Root\n"
-                  "#+end_mindmap\n"))
-        (my/mm-refresh-maps)
-        (my/mm-file-id file)))))
+                    "New map directory: " nil nil nil nil nil defdir))))
+    (and dir (my/mm-create-map-in-dir dir))))
 
 (defun my/mm-new-id ()
   "Fresh UUID string for created files."
