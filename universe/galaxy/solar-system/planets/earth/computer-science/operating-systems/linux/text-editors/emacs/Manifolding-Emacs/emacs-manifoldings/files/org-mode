@@ -12,6 +12,9 @@ derives `org-todo-keywords' from the Atlas TODO blueprint; editing the
 keyword list here would be silently overwritten. See
 `my/cartesia-todo-states'.
 #+begin_src emacs-lisp
+;; Forward declaration: defined inside with-eval-after-load below;
+;; top-level bare defvar so compiles see it first.
+(defvar my/org--property-link-map)
 (setq org-tags-column 0)
 #+end_src
 
@@ -56,9 +59,6 @@ Signals loudly on failure — never silently ignored."
      (t (user-error "Cannot open note: no handler available")))))
 
 (with-eval-after-load 'org
-  ;; Forward declaration: referenced below in this same block;
-  ;; quiets compiles that process uses before this definition.
-  (defvar my/org--property-link-map)
   (defvar my/org--property-link-map
     (let ((map (make-sparse-keymap)))
       (set-keymap-parent map org-mouse-map)
