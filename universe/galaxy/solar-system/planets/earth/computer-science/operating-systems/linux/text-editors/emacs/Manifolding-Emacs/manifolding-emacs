@@ -1122,8 +1122,8 @@ churn inside keyboard dirs.
 NEXT UP after the dashboard: custom modeline.  (TODO)
 
 #+begin_src emacs-lisp
-(defvar manifolding-emacs--bootstrap-first-paths '("manifolding-keyboard/"
-                                                   "manifolding-dashboard/")
+(defvar manifolding-emacs--bootstrap-first-paths '("cyberdeck-keyboard/"
+                                                   "cyberdeck-dashboard/")
   "Path fragments whose units load before everything else, group by
 group in listed order (keyboard, then dashboard). Matched with
 `regexp-quote' against the unit's :file. Relative order inside each
@@ -1139,7 +1139,7 @@ boot order. The dashboard opens only once its own units are all
 loaded (full render, never staged). Set per boot by
 `manifolding-emacs-compile-directory'; nil means unknown.")
 
-(defvar manifolding-emacs--always-recompile-paths '("manifolding-dashboard/")
+(defvar manifolding-emacs--always-recompile-paths '("cyberdeck-dashboard/")
   "Path fragments whose units recompile fresh every boot, skipping
 every cache. Active-development escape hatch while the dashboard is
 being reworked: edits are live the moment a unit loads. Empty in
@@ -2408,8 +2408,8 @@ compiled, in completion order."
           (let ((i 0) (last nil))
             (dolist (u units)
               (setq i (1+ i))
-              (when (string-match-p "manifolding-dashboard/"
-                                    (or (plist-get u :file) ""))
+              (when (string-match-p "cyberdeck-dashboard/"
+                                     (or (plist-get u :file) ""))
                 (setq last i)))
             last))
     ;; *Warnings* must not steal the dashboard frame mid-loop: bury it

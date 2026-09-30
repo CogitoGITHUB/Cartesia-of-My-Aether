@@ -127,8 +127,8 @@ say whose stock; `setup` and `macros` say nothing at all; and `dashboard` in
 1. **A filename says what it orders or configures, not which module reads it.**
    `admin/order/dashboard widgets`, `admin/order/modeline widgets`,
    `admin/order/headings blueprints drawer`. Never `order`, never `drawer`.
-2. **Directories say which module owns them.** `manifolding-dashboard/`,
-   `manifolding-keyboard/`, `manifolding-atlas/`. Never a bare `engine/`,
+2. **Directories say which module owns them.** `cyberdeck-dashboard/`,
+   `cyberdeck-keyboard/`, `cyberdeck/`. Never a bare `engine/`,
    `core/`, or `blueprints/` at a shared level.
 3. **Function and variable names carry their module.** `manifolding-dashboard--…`,
    `my/manifolding-atlas--…`, `manifolding-modeline--…`. A name that could
@@ -182,7 +182,7 @@ minutes each. See §7 for the loop that finds them in seconds.
    `',name` splices the *symbol as datum* (right for an `assq` key). And
    `add-hook` wants a variable's **name**, so it needs `',hook` — a bare `,hook`
    passes the value, usually `nil`, giving `Attempt to set a constant symbol`.
-   Reference: `manifolding-dashboard/engine/macros`.
+   Reference: `cyberdeck-dashboard/engine/macros`.
 2. **Nested quasiquotes.** Choosing inside the template (`` `(add-hook (if ,slow
    …)) ``) escapes `,slow` to the wrong depth and splices the *unexpanded* form
    in as data. Compute the value in the macro body and interpolate it.
@@ -254,7 +254,7 @@ All paths relative to `Manifolding-Emacs/emacs-manifoldings/`.
 | `entering-the-machine/manifolding-dashboard/` | 78.3–78.5 | dashboard: `engine/`, `cores/` (vendored emacs-dashboard), `widgets/`, `banner/`, `faces`. Its order file lives in `admin/`. |
 | `the-screen/modeline/` | 80.1–80.11 | multi-row mode line: `engine/`, `cores/stock`, `faces`, `widgets/`, `header`. Its order file lives in `admin/`. |
 | `files/file-creation/manifolding-atlas/` | 100+ | the Cyberdeck — see §5 |
-| `…/manifolding-atlas/manifolding-keyboard/` | 2.x–4.x | modal key system: `engine/` (state machine, macros, scaffolding), `states/` (15), `leaders/` (19) |
+| `…/cyberdeck/cyberdeck-keyboard/` | 2.x–4.x | modal key system: `engine/` (state machine, macros, scaffolding), `states/` (15), `leaders/` (19) |
 | `the-screen/display/06-screen` | — | raw Emacs-manual prose, parked. Still holds display/windows/frames/Imenu/font-lock |
 | `org-manual/*` | — | raw Emacs-manual prose, parked |
 
@@ -342,7 +342,7 @@ Three exceptions, all real:
 1. **Chainless units reorder by path.** Give anything you move an `:MM_ORDER:`.
    `leaders/tools` currently has none — that is the one to fix first.
 2. **`manifolding-keyboard-validate` scans two hard-coded directories**
-   (`manifolding-keyboard/engine/scaffolding:132-134`): `states/` and `leaders/`,
+   (`cyberdeck-keyboard/engine/scaffolding:132-134`): `states/` and `leaders/`,
    non-recursively. Move a state out and the validator silently stops checking
    it. Silence means "not looked at", not "fine".
 3. **A dot in the new filename makes the file vanish.** §2A.1.

@@ -744,7 +744,7 @@ walks the tree proper. A leaf reports instead of guessing."
               (t (mm/goto-child)))))))
 #+end_src
 **** Traverse-mode entry
-The AIU Subnet keyboard state (defined in manifolding-keyboard/states/mindmap.org)
+The AIU Subnet keyboard state (defined in cyberdeck-keyboard/states/mindmap.org)
 turns single keys into topology moves. Entry is explicit — never by
 major-mode hook — so traverse mode can't hijack help, dired, or
 minibuffer flows. Entering over the current AIU also raises the map
