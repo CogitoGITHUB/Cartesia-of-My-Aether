@@ -744,13 +744,13 @@ walks the tree proper. A leaf reports instead of guessing."
               (t (mm/goto-child)))))))
 #+end_src
 **** Traverse-mode entry
-The AIU Subnet keyboard state (defined in cyberdeck-keyboard/states/mindmap.org)
+The AIU Subnet keyboard state (defined in cyberdeck-keyboard/states/aiu-subnet)
 turns single keys into topology moves. Entry is explicit — never by
 major-mode hook — so traverse mode can't hijack help, dired, or
 minibuffer flows. Entering over the current AIU also raises the map
 beside the vault so you see where you stand.
 #+begin_src emacs-lisp
-(defun my/mindmap-traverse-enter ()
+(defun my/aiu-subnet-traverse-enter ()
   "Enter mindmap traverse state over the current note.
 Shows the map beside the vault when it isn't already visible."
   (interactive)
@@ -761,7 +761,7 @@ Shows the map beside the vault when it isn't already visible."
   (cyberdeck-keyboard-set-state "AIU Subnet")
   (message "MAP traverse: s/n vertical · h/t horizontal · B branch review · q quit"))
 
-(defun my/mindmap-traverse-quit ()
+(defun my/aiu-subnet-traverse-quit ()
   "Leave traverse state back to the org state."
   (interactive)
   (cyberdeck-keyboard-set-state "org"))

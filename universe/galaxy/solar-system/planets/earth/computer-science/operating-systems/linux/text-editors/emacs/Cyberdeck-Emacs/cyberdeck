@@ -845,7 +845,7 @@ absorb into the preceding unit, never skipped."
                       ;; segments, so :A::B: tags A and B — the old
                       ;; pattern rejected every :: headline and such
                       ;; files silently never loaded). Hyphen included:
-                      ;; org tags like :mm-map: are legal.
+                      ;; org tags like :aiu-subnet: are legal.
                       (tags (and (string-match "\\s-+\\(:[[:alnum:]_@:-]*:\\)\\s-*$" text)
                                  (match-string 1 text)))
                      (names (and tags (split-string (string-trim tags ":" ":") ":" t))))

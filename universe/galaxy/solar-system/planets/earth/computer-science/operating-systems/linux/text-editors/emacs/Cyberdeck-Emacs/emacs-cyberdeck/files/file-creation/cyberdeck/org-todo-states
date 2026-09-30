@@ -15,7 +15,7 @@ follows on the next reload — nothing else needs editing.
 #+begin_src emacs-lisp
 (defconst my/subnet-todo-blueprint
   (expand-file-name
-   "emacs-cyberdeck/files/file-creation/cyberdeck/blueprints/heading-unfoldings/todo"
+   "emacs-cyberdeck/files/file-creation/cyberdeck/blueprints/heading-aiu-contexts/todo"
    cyberdeck-emacs-loader-dir)
   "Canonical TODO vocabulary: the Atlas TODO blueprint.
 The one place TODO states are defined. Adding, removing or

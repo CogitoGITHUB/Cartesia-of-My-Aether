@@ -1693,7 +1693,7 @@ and removes the fresh file, so no note survives mappeless).
 File-creation style: existing maps listed, blank takes nearest,
 a new name creates on the spot; empty dirs bootstrap. Never throws."
   (condition-case nil
-      (when (or (fboundp 'my/cyberdeck-org-prompt--ask-mm-map-select)
+      (when (or (fboundp 'my/cyberdeck-org-prompt--ask-aiu-subnet-select)
                 (fboundp 'my/aiu-subnet-create-map-in-dir))
         (let ((map-id nil)
               (quitp nil))
@@ -1704,7 +1704,7 @@ a new name creates on the spot; empty dirs bootstrap. Never throws."
                   (condition-case nil
                       (let ((cyberdeck--create-target-dir
                              target-dir))
-                        (my/cyberdeck-org-prompt--ask-mm-map-select
+                        (my/cyberdeck-org-prompt--ask-aiu-subnet-select
                          nil "AIU Subnet"))
                     (quit (setq quitp t) nil)
                     (error nil)))
@@ -6010,8 +6010,8 @@ Why: Implementation of ~my/cyberdeck-org-prompt--ask-aiu-subnet~.
 ** AIU Subnet file picker
 Same search-and-create pattern as files: pick an existing map, or
 create one (validator rejects a second map per directory).
-** my/cyberdeck-org-prompt--ask-mm-map-select
-Why: Implementation of ~my/cyberdeck-org-prompt--ask-mm-map-select~.
+** my/cyberdeck-org-prompt--ask-aiu-subnet-select
+Why: Implementation of ~my/cyberdeck-org-prompt--ask-aiu-subnet-select~.
 
 #+begin_src emacs-lisp
 (defun my/aiu-subnet-map-choices ()
@@ -6043,7 +6043,7 @@ map — the caller retries instead of risking the wrong one."
     (when (= (length hits) 1)
       (cdar hits))))
 
-(defun my/cyberdeck-org-prompt--ask-mm-map-select (&optional choice label)
+(defun my/cyberdeck-org-prompt--ask-aiu-subnet-select (&optional choice label)
   "Pick a mind-map like file creation works: existing maps are listed,
 RET takes the nearest (the subdir's own map when it has one), and
 typing a new name creates a map of that name on the spot. Returns
@@ -6310,8 +6310,8 @@ Why: Implementation of ~my/cyberdeck-org-prompt--ask-minibuffer~.
         (completing-read (format "%s: " label)
                          (cons sentinel options)
                          nil t nil nil sentinel)))
-    ('mm-map
-     (my/cyberdeck-org-prompt--ask-mm-map-select nil label))
+    ('aiu-subnet
+     (my/cyberdeck-org-prompt--ask-aiu-subnet-select nil label))
     (_
       (my/cyberdeck-org-prompt--ask-options
        label options default))))
@@ -6496,11 +6496,11 @@ Why: Implementation of ~my/cyberdeck-org-prompt--fragment-aiu-subnet~.
 ** Map-select fragment
 Stores the chosen map id as MM_MAP (plain id string, not a link)
 with a post-apply that validates the map and refreshes the cache.
-** my/cyberdeck-org-prompt--fragment-mm-map-select
-Why: Implementation of ~my/cyberdeck-org-prompt--fragment-mm-map-select~.
+** my/cyberdeck-org-prompt--fragment-aiu-subnet-select
+Why: Implementation of ~my/cyberdeck-org-prompt--fragment-aiu-subnet-select~.
 
 #+begin_src emacs-lisp
-(defun my/cyberdeck-org-prompt--fragment-mm-map-select (key val)
+(defun my/cyberdeck-org-prompt--fragment-aiu-subnet-select (key val)
   (if (and (stringp val) (not (string-equal val "WARNING")))
       `(:unfoldings ((,key . ,val))
         :post-apply (,(apply-partially #'my/aiu-subnet-assign-map val)))
@@ -6553,7 +6553,7 @@ Why: Implementation of ~my/cyberdeck-org-prompt--fragment~.
     ('multi (my/cyberdeck-org-prompt--fragment-multi key val))
     ('mindmap (my/cyberdeck-org-prompt--fragment-aiu-subnet
                key val))
-    ('mm-map (my/cyberdeck-org-prompt--fragment-mm-map-select
+    ('aiu-subnet (my/cyberdeck-org-prompt--fragment-aiu-subnet-select
               key val))
     ('unfolding (my/cyberdeck-org-prompt--fragment-aiu-context
             key plist val))

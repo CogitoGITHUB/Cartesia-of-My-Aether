@@ -49,7 +49,7 @@ init-time consumes parsed objects, not source specs."
 (defvar my/menus-leader-map
   '(("v" . my/cyberdeck-hydra)
     ("y" . my/aiu-proxy-hydra)
-    ("m" . my/mindmap-hydra)
+    ("m" . my/aiu-subnet-hydra)
     ("S" . my/cyberdeck-search-hydra)
     ("a" . my/ks-hydra)
     ("o" . my/org-hydra)

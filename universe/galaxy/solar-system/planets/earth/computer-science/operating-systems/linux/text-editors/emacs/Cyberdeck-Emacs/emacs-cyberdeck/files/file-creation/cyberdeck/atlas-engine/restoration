@@ -594,7 +594,7 @@ to DELETED-ID, or nil. Only matches links inside a
 #+end_src
 
 *** Added/Deleted Heading Blueprints
-Log heading-unfoldings/ blueprint adds/removes to vault admin files,
+Log heading-aiu-contexts/ blueprint adds/removes to vault admin files,
 same heading + drawer shape as the other queues. No restore links
 (Option H): recovery is git log/checkout in the config repo.
 
