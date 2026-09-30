@@ -86,19 +86,29 @@ reads. Never throws."
 (defun my/mm-db-absolute-path (path)
   "PATH absolutized against the vault root when relative.
 Historical rows store vault-relative paths; consumers need
-absolute ones for existence and directory compares. Absolute
-paths, nil, and non-strings pass through (non-strings as nil).
-Never throws."
+absolute ones for existence and directory compares. A value
+wrapped in literal quotes (double-printed artifact or quoted
+paste) is unwrapped first: without this, expand-file-name reads
+it as relative and nests the whole absolute path under the root
+— the `ROOT/\"...\"' garbage-tree failure. Absolute paths, nil,
+and non-strings pass through (non-strings as nil). Never throws."
   (condition-case nil
       (when (stringp path)
-        (if (file-name-absolute-p path)
-            path
-          (let ((root (and (fboundp 'my/manifolding-atlas-root-dir)
-                           (ignore-errors
-                            (my/manifolding-atlas-root-dir)))))
-            (if (and (stringp root) (file-directory-p root))
-                (expand-file-name path root)
-              path))))
+        (let ((c (string-trim path)))
+          ;; Strip surrounding quote layers (34 dq, 39 sq, 96 bq):
+          ;; char codes, never literals (boot scanner limitation).
+          (while (and (>= (length c) 2)
+                      (let ((f (aref c 0)) (l (aref c (1- (length c)))))
+                        (and (memq f '(34 39 96)) (eq f l))))
+            (setq c (string-trim (substring c 1 (1- (length c))))))
+          (if (file-name-absolute-p c)
+              c
+            (let ((root (and (fboundp 'my/manifolding-atlas-root-dir)
+                             (ignore-errors
+                              (my/manifolding-atlas-root-dir)))))
+              (if (and (stringp root) (file-directory-p root))
+                  (expand-file-name c root)
+                c)))))
     (error nil)))
 
 (defun my/mm-strip-title-tags (title)
