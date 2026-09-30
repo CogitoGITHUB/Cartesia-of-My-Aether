@@ -87,7 +87,7 @@ Migrates older schemas by adding recurrence columns when missing."
 
 *** DB Extractor
 Records protocol bookkeeping (topics, order, level, routed files) for
-AIUs carrying a PROTOCOL unfolding.
+AIUs carrying a PROTOCOL AIU Context.
 
 **** Extractor
 #+begin_src emacs-lisp
@@ -132,7 +132,7 @@ AIUs carrying a PROTOCOL unfolding.
 
 *** Schema
 Requires PROTOCOL_TOPICS, PROTOCOL_ORDER and PROTOCOL_LEVEL on AIUs
-with a PROTOCOL unfolding.
+with a PROTOCOL AIU Context.
 #+begin_src emacs-lisp
 (manifolding-atlas-blueprint-define
  'protocol
@@ -319,7 +319,7 @@ Preserves existing :RULE: t if set (dual-mark)."
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-protocols-unmark-step ()
   "Remove PROTOCOL status from the heading at point.
-Only strips protocol-specific unfoldings; preserves :RULE: t if set."
+Only strips protocol-specific AIU Contexts; preserves :RULE: t if set."
   (interactive)
   (unless (org-at-heading-p) (org-back-to-heading t))
   (let* ((note-id (org-id-get))
@@ -390,7 +390,7 @@ Only strips protocol-specific unfoldings; preserves :RULE: t if set."
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-protocols--create-parent (file title topics-str &optional interval days)
   "Create the TODO parent heading for a new protocol in FILE; return its ID.
-INTERVAL/DAYS are optional recurrence cadence, stored as unfoldings."
+INTERVAL/DAYS are optional recurrence cadence, stored as AIU Contexts."
   (with-current-buffer (find-file-noselect file)
     (goto-char (point-max))
     (unless (bolp) (insert "\n"))
@@ -413,7 +413,7 @@ INTERVAL/DAYS are optional recurrence cadence, stored as unfoldings."
 #+end_src
 
 **** Step installation
-Tags the source heading with its protocol unfoldings and writes the
+Tags the source heading with its protocol AIU Contexts and writes the
 wormhole pointer under the parent in the protocol file.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-protocols--install-step

@@ -414,7 +414,7 @@ is applied, so callers never see stale/deleted entries."
   (let ((db (manifolding-atlas-db)))
     (if db
         (mapcar #'my/manifolding-atlas--row-to-note (emacsql db [:select * :from notes :where (= unfoldings $s1)] (format "\"%s\":\"%s\"" unfolding val)))
-      ;; Fallback: scan vault and filter by unfolding (uses same vault-scan as db-query)
+      ;; Fallback: scan vault and filter by AIU Context (uses same vault-scan as db-query)
       (seq-filter (lambda (n)
                     (let ((unfoldings (manifolding-atlas-note-unfoldings n)))
                       (equal (cdr (assoc (upcase unfolding) unfoldings)) val)))

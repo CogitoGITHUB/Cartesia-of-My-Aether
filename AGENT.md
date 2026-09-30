@@ -221,7 +221,7 @@ src block — those are **not** implementations.
 |---|---|---|
 | **AIU factory** | WORKING | `atlas-engine/file-creation` — 8040 lines, 252 src blocks, the largest real implementation. `manifolding-atlas-create/-find/-insert/-visit`, prompt registry, `${var}` / `%(elisp)` template expansion, blueprint add/edit/nest. |
 | **Blueprints** | WORKING | `blueprints/heading-unfoldings/` — ~45 files. Most are **pure vocabulary**: a `:DRAWER_BLUEPRINT:` heading plus `** VALUE :BLUEPRINT_BODY:` children, zero src blocks. `todo` defines 22 TODO states, `mastery` the stage spine, `status` the lifecycle. |
-| **Database** | WORKING | `atlas-engine/db` — 371 src blocks. emacsql. `notes` (id, title, path, level, pos, unfoldings, tags) + `links`. Extractor registry with priority. Traversal: `db--bfs`, `db-ancestors`, `db-component`, `db-shortest-path`, `db-isolated`. |
+| **Database** | WORKING | `atlas-engine/db` — 371 src blocks. emacsql. `notes` (id, title, path, level, pos, AIU Contexts, tags) + `links`. Extractor registry with priority. Traversal: `db--bfs`, `db-ancestors`, `db-component`, `db-shortest-path`, `db-isolated`. |
 | **Search** | WORKING | `atlas-engine/search-center` (827 lines) — the real surface. `my/atlas-search` is one `consult--multi` over Text (rg, async), DB, Org-ql (7 presets) and Files. **Extensible**: `my/atlas-search-register-provider`, with the candidate contract asserted in code. |
 | **Keyword scan** | WORKING | `atlas-engine/search` — vendored `consult-todo`, deliberately not `rgrep` or `hl-todo--search`. |
 | **Query language** | WORKING, narrow | `atlas-engine/query-language` — and/or/not, tag, title-match, recent-days, before/after, sort/limit. **No full-text operator.** |

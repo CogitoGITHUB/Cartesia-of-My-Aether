@@ -1,6 +1,6 @@
 Manual recipe AIUs in the atlas. Recipes are authored by hand — no URL
-fetch, no source-url unfolding. They are stored under `recipes/` in the vault,
-carry recipe-specific unfoldings (SERVINGS, PREP_TIME, COOK_TIME,
+fetch, no source-url AIU Context. They are stored under `recipes/` in the vault,
+carry recipe-specific AIU Contexts (SERVINGS, PREP_TIME, COOK_TIME,
 READY_IN) via the `recipes` body template, and can have their ingredient
 quantities rescaled to a new serving count.
 
@@ -46,7 +46,7 @@ Commands:
       "unknown"))
 
 (defun my/manifolding-atlas-recipes--store-template (note)
-  "Store TEMPLATE and TEMPLATE_HASH unfoldings on AIU."
+  "Store TEMPLATE and TEMPLATE_HASH AIU Contexts on AIU."
   (my/manifolding-atlas--unfolding-put note "TEMPLATE" "recipes")
   (my/manifolding-atlas--unfolding-put note "TEMPLATE_HASH"
                             (my/manifolding-atlas-recipes--template-hash)))
@@ -103,7 +103,7 @@ opens the `recipes' body template for editing."
 #+end_src
 
 * Edit Servings
-Rescales ingredient quantities by finding the SERVINGS unfolding,
+Rescales ingredient quantities by finding the SERVINGS AIU Context,
 computing a multiplier, and rewriting all numeric quantities (fractions,
 decimals, unicode fractions) in the Ingredients section.
 
@@ -166,7 +166,7 @@ the quantities in the Ingredients list to match."
   (let* ((current (my/manifolding-atlas-recipes--current-servings))
          (desired-n (string-to-number desired)))
     (unless current
-      (user-error "Could not find a recipe with a SERVINGS unfolding"))
+      (user-error "Could not find a recipe with a SERVINGS AIU Context"))
     (let ((mult (/ (float desired-n) (float current))))
       (save-excursion
         (org-back-to-heading t)

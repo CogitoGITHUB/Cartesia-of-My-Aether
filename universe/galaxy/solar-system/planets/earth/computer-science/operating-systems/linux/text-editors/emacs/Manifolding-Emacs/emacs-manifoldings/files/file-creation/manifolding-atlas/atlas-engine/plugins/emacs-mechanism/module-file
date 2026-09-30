@@ -21,7 +21,7 @@
 ** DB Extractor
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-emacs-mechanism--extract (_ctx note-data)
-  "Index PACKAGE unfolding of mechanism module AIUs."
+  "Index PACKAGE AIU Context of mechanism module AIUs."
   (let* ((note-id (plist-get note-data :id))
          (tags (plist-get note-data :tags))
          (unfoldings (plist-get note-data :unfoldings)))

@@ -210,7 +210,7 @@ All other buffers fall through to ORIG-FUN untouched."
   "Append a heading for deleted FILE to ReManifold.
 UNFOLDINGS is a list of relative paths of unfolding notes
 deleted alongside FILE, recorded in the :DELETED_UNFOLDINGS:
-unfolding for later restore."
+AIU Context for later restore."
   (let ((path (my/manifolding-atlas-links--ensure-deleted-files-file))
         root rel deleted-id deleted-title heading)
     (setq root (expand-file-name (or (vc-root-dir) "")
@@ -240,9 +240,9 @@ unfolding for later restore."
   "Relative paths of unfolding notes deleted alongside the current note.
 Captured before deletion so the file can be scanned while it still exists.")
 #+end_src
-*** Unfolding Cleanup on Delete
+*** AIU Context Cleanup on Delete
 
-**** Unfolding id detection
+**** AIU Context id detection
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-links--unfolding-id-in-file-p (id file)
   "Non-nil when FILE contains an [[id:ID][...]] link."
@@ -253,7 +253,7 @@ Captured before deletion so the file can be scanned while it still exists.")
       (re-search-forward re nil t))))
 
 (defun my/manifolding-atlas-links--unfolding-id-p (id)
-  "Non-nil when ID names an unfolding AIU under admin/unfoldings/."
+  "Non-nil when ID names an AIU Context AIU under admin/unfoldings/."
   (when-let ((note (manifolding-atlas-db-get-by-id id)))
     (let ((path (manifolding-atlas-note-path note)))
       (and path
@@ -316,7 +316,7 @@ falls back to full vault scan."
         orphaned))))
 
 (defun my/manifolding-atlas-links--unfolding-rel-path (unfolding-id)
-  "Return relative path (from vault root) of the unfolding AIU UNFOLDING-ID."
+  "Return relative path (from vault root) of the AIU Context AIU UNFOLDING-ID."
   (when-let ((note (manifolding-atlas-db-get-by-id unfolding-id)))
     (let ((path (manifolding-atlas-note-path note)))
       (and path
@@ -324,11 +324,11 @@ falls back to full vault scan."
 #+end_src
 
 **** Orphan collection for a file
-Used to delete unfoldings alongside a deleted AIU without breaking other
-notes that share the same closed-vocab unfolding.
+Used to delete AIU Contexts alongside a deleted AIU without breaking other
+notes that share the same closed-vocab AIU Context.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-links--orphaned-unfoldings-for (file)
-  "Return relative paths of unfoldings that only FILE references."
+  "Return relative paths of AIU Contexts that only FILE references."
   (let ((deleted-file (expand-file-name file))
         (unfoldings (my/manifolding-atlas-links--note-unfolding-ids file))
         orphans)
@@ -446,7 +446,7 @@ Warns and asks for confirmation if any remain unresolved."
     (deleted-id deleted-title links peer-key direction)
   "Write a Missing Links TODO per LINK; PEER-KEY picks the other end.
 Links originating from drawer unfolding entries, or touching notes
-under admin/unfoldings/, route to Broken Unfoldings instead."
+under admin/unfoldings/, route to Broken AIU Contexts instead."
   (let ((deleted-path (my/manifolding-atlas-links--note-path-of deleted-id)))
     (dolist (link links)
       (let* ((peer-id (plist-get link peer-key))
@@ -485,33 +485,33 @@ under admin/unfoldings/, route to Broken Unfoldings instead."
                     deleted-id deleted-title peer-title peer-id direction))))))))))
 #+end_src
 
-*** Broken Unfoldings File
+*** Broken AIU Contexts File
 Live-property ref-note breaks log here instead of Missing Links: when
-a broken link originates from a drawer unfolding entry, or either end
+a broken link originates from a drawer AIU Context entry, or either end
 lives under admin/unfoldings/, the TODO lands in this queue.
 
 **** Path and bootstrap
 #+begin_src emacs-lisp
-(defvar my/manifolding-atlas-links--broken-unfoldings-file "admin/Broken Unfoldings"
+(defvar my/manifolding-atlas-links--broken-unfoldings-file "admin/Broken AIU Contexts"
   "Filename for the broken live-property unfolding repair queue.
 Lives in `my/manifolding-atlas-root-dir'. Auto-created if missing.")
-(setq my/manifolding-atlas-links--broken-unfoldings-file "admin/Broken Unfoldings")
+(setq my/manifolding-atlas-links--broken-unfoldings-file "admin/Broken AIU Contexts")
 
 (defun my/manifolding-atlas-links--broken-unfoldings-path ()
-  "Return full path to Broken Unfoldings in the vault root."
+  "Return full path to Broken AIU Contexts in the vault root."
   (expand-file-name my/manifolding-atlas-links--broken-unfoldings-file
                     (my/manifolding-atlas-root-dir)))
 
 (defun my/manifolding-atlas-links--ensure-broken-unfoldings-file ()
-  "Create Broken Unfoldings if it does not exist."
+  "Create Broken AIU Contexts if it does not exist."
   (let ((path (my/manifolding-atlas-links--broken-unfoldings-path)))
     (make-directory (file-name-directory path) t)
     (unless (file-exists-p path)
       (with-temp-file path
-        (insert "#+TITLE: Broken Unfoldings\n")
+        (insert "#+TITLE: Broken AIU Contexts\n")
         (insert "#+AUTHOR: Manifolding Atlas Git VC System\n")
         (insert "#+DESCRIPTION: Auto-generated repair queue.")
-        (insert " Broken live-property unfolding links.\n")
+        (insert " Broken live-property AIU Context links.\n")
         (insert "#+STARTUP: overview\n\n")))
     path))
 #+end_src
@@ -519,7 +519,7 @@ Lives in `my/manifolding-atlas-root-dir'. Auto-created if missing.")
 **** Entry writer
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-links--broken-unfolding-entry-props (direction unfolding source-title deleted-title deleted-id)
-  "Return drawer + restore line for a Broken Unfoldings entry."
+  "Return drawer + restore line for a Broken AIU Contexts entry."
   (concat "  :PROPERTIES:\n"
           (format "  :CREATED:       %s\n"
                   (format-time-string "<%Y-%m-%d %a>"))
@@ -532,7 +532,7 @@ Lives in `my/manifolding-atlas-root-dir'. Auto-created if missing.")
           "  [[elisp:(my/manifolding-atlas-links-restore)][Restore from Git]]\n"))
 
 (defun my/manifolding-atlas-links--write-broken-unfolding-todo (source-id source-title unfolding deleted-title deleted-id direction)
-  "Append a TODO entry to Broken Unfoldings."
+  "Append a TODO entry to Broken AIU Contexts."
   (let* ((path (my/manifolding-atlas-links--ensure-broken-unfoldings-file))
          (src-path (when-let ((note (manifolding-atlas-db-get-by-id source-id)))
                      (manifolding-atlas-note-path note)))
@@ -541,7 +541,7 @@ Lives in `my/manifolding-atlas-root-dir'. Auto-created if missing.")
                  (format "[[id:%s][%s]]" source-id source-title))))
     (with-current-buffer (find-file-noselect path)
       (goto-char (point-max))
-      (insert (format "\n* TODO Fix broken unfolding in %s\n" link))
+      (insert (format "\n* TODO Fix broken AIU Context in %s\n" link))
       (insert (my/manifolding-atlas-links--broken-unfolding-entry-props
                direction unfolding source-title deleted-title deleted-id))
       (save-buffer)
@@ -551,7 +551,7 @@ Lives in `my/manifolding-atlas-root-dir'. Auto-created if missing.")
 **** Classification helpers
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-links--unfoldings-dir ()
-  "Absolute path of the unfolding ref-notes directory."
+  "Absolute path of the AIU Context ref-notes directory."
   (expand-file-name "admin/unfoldings/" (my/manifolding-atlas-root-dir)))
 
 (defun my/manifolding-atlas-links--in-unfoldings-dir-p (path)
@@ -566,7 +566,7 @@ Lives in `my/manifolding-atlas-root-dir'. Auto-created if missing.")
     (ignore-errors (manifolding-atlas-note-path note))))
 
 (defun my/manifolding-atlas-links--family-of-path (path)
-  "Return the unfolding family (parent dir name) for a ref-note PATH."
+  "Return the AIU Context family (parent dir name) for a ref-note PATH."
   (file-name-nondirectory
    (directory-file-name (file-name-directory (expand-file-name path)))))
 
@@ -1184,7 +1184,7 @@ recording TODO entries for broken links. n — cancels deletion.
 *** Pre-Delete Capture: File
 
 **** Eligibility predicate
-Skips admin files, unfolding files, and non-org files.
+Skips admin files, AIU Context files, and non-org files.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-links--deletion-guardable-p (expanded)
   "Non-nil when EXPANDED is a deletable vault AIU file."
@@ -1204,7 +1204,7 @@ Skips admin files, unfolding files, and non-org files.
 
 **** Before-file-delete advice
 Guards the queue file, reads ID/title, runs the link guard, captures
-orphaned unfoldings while the file still exists, then records the entry.
+orphaned AIU Contexts while the file still exists, then records the entry.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-links--before-file-delete (file &rest _)
   "Before FILE is deleted: guard, capture state, record."
@@ -1228,7 +1228,7 @@ orphaned unfoldings while the file still exists, then records the entry.
             (my/manifolding-atlas-links--guard-deletion
              id
              my/manifolding-atlas-links--deleted-title)))
-        ;; Capture unfoldings orphaned by this deletion while the file exists
+        ;; Capture AIU Contexts orphaned by this deletion while the file exists
         (setq my/manifolding-atlas-links--deleted-unfoldings
               (my/manifolding-atlas-links--orphaned-unfoldings-for expanded))
         ;; Record in ReManifold even without ID
@@ -1238,7 +1238,7 @@ orphaned unfoldings while the file still exists, then records the entry.
 (defun my/manifolding-atlas-links--after-file-delete (&rest _)
   "After file deletion: delete orphaned unfoldings and clear captured state.
 Unfoldings are captured into a local first so the delete-file advice firing
-again for each unfolding cannot re-enter with stale state."
+again for each AIU Context cannot re-enter with stale state."
   (let ((unfoldings my/manifolding-atlas-links--deleted-unfoldings))
     (setq my/manifolding-atlas-links--deleted-id    nil
           my/manifolding-atlas-links--deleted-title nil
@@ -1252,7 +1252,7 @@ again for each unfolding cannot re-enter with stale state."
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-links--before-heading-delete (&rest _)
   "Before a heading is cut or archived: capture ID and title,
-then run the guard. Only fires for headings with an :ID: unfolding."
+then run the guard. Only fires for headings with an :ID: AIU Context."
   (when (org-at-heading-p)
     (when-let* ((id    (org-id-get))
                 (title (nth 4 (org-heading-components))))

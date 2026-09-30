@@ -267,8 +267,8 @@ since the last commit so unrelated dotfiles never get swept in."
     (= 0 (magit-call-git "checkout" commit "--" file-path))))
 #+end_src
 
-*** Unfolding restoration
-Falls back to COMMIT's parent if an unfolding is absent at COMMIT.
+*** AIU Context restoration
+Falls back to COMMIT's parent if an AIU Context is absent at COMMIT.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-links--restore-unfoldings (unfoldings commit)
   "Restore each relative path in UNFOLDINGS from COMMIT using git checkout.
@@ -276,7 +276,7 @@ UNFOLDINGS is a space-separated string of relative paths (as stored in the
 :DELETED_UNFOLDINGS: unfolding) or a list. Returns count of unfoldings restored."
   (let ((rel-list (if (listp unfoldings) unfoldings
                     (when (and unfoldings (not (string-empty-p unfoldings)))
-                      (split-string unfoldings "[ \t]+" t))))
+                      (split-string AIU Contexts "[ \t]+" t))))
         (count 0))
     (dolist (rel rel-list count)
       (let ((revs (list commit (format "%s^" commit))))
@@ -346,7 +346,7 @@ Removes both the file-match and id-match entries after a successful restore.
 
 *** Restore command
 Searches history for the commit carrying the AIU's :ID:, restores
-it plus its orphaned unfoldings, then cleans up the queue entries.
+it plus its orphaned AIU Contexts, then cleans up the queue entries.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-links-restore ()
   "Restore a deleted AIU from Git history."

@@ -726,7 +726,7 @@ When REQUIRED is non-nil, the field is mandatory."
       :validate ,(apply-partially #'my/manifolding-atlas-blueprint--validate choices))))
 
 (defun my/manifolding-atlas-blueprint--drawer-keys-in-file (file)
-  "Return unfolding keys declared in FILE's drawer template."
+  "Return AIU Context keys declared in FILE's drawer template."
   (let (keys)
     (with-temp-buffer
       (insert-file-contents file)
@@ -746,7 +746,7 @@ When REQUIRED is non-nil, the field is mandatory."
    (downcase (if (string-prefix-p "BODY_" key) (substring key 5) key))))
 
 (defun my/manifolding-atlas-blueprint--template-unfolding-keys ()
-  "Return list of unfolding keys defined in registered template files."
+  "Return list of AIU Context keys defined in registered template files."
   (let (keys)
     (dolist (entry my/manifolding-atlas-template-registry)
       (setq keys (append (my/manifolding-atlas-blueprint--drawer-keys-in-file
@@ -757,7 +757,7 @@ When REQUIRED is non-nil, the field is mandatory."
 (defun my/manifolding-atlas-blueprint--template-unfoldings ()
   "Return alist of (template-name . (unfolding-key ...)) from the registry.
 Names stay in stored form (e.g. \"recipes\") so existing TEMPLATE
-unfoldings keep matching their schemas."
+AIU Contexts keep matching their schemas."
   (let (result)
     (dolist (entry my/manifolding-atlas-template-registry)
       (let* ((name (my/manifolding-atlas-blueprint--template-display-name
@@ -854,7 +854,7 @@ unfoldings keep matching their schemas."
     count))
 
 (defun my/manifolding-atlas-blueprint--migrate-file-warnings (file notes)
-  "Delete WARNING-valued unfoldings for AIUS in FILE; return count."
+  "Delete WARNING-valued AIU Contexts for AIUS in FILE; return count."
   (let ((count 0))
     (with-current-buffer (find-file-noselect file)
       (dolist (info notes)
@@ -877,7 +877,7 @@ Deleting the WARNING sentinel lets the description-list metadata
 (eg - STATE_WORK :: ACTIVE) become the canonical value."
   (interactive)
   (unless (yes-or-no-p
-           "Delete all \"WARNING\" unfolding values throughout the vault? ")
+           "Delete all \"WARNING\" AIU Context values throughout the vault? ")
     (user-error "Aborted"))
   (let ((count 0)
         (files (make-hash-table :test #'equal)))
@@ -894,7 +894,7 @@ Deleting the WARNING sentinel lets the description-list metadata
              (+ count (my/manifolding-atlas-blueprint--migrate-file-warnings
                        file notes))))
      files)
-     (message "Migration complete: deleted %d WARNING unfolding values (existing metadata preserved)." count)))
+     (message "Migration complete: deleted %d WARNING AIU Context values (existing metadata preserved)." count)))
 (require 'manifolding-atlas nil t)
 (require 'manifolding-atlas-db nil t)
 (require 'manifolding-atlas-blueprint nil t)
@@ -1006,7 +1006,7 @@ the DB and we grade fresh data, not pre-save state."
 
 (add-hook 'org-mode-hook #'my/manifolding-atlas-reinforce--enable-in-vault)
 (defun my/manifolding-atlas-reinforce--schema-field-keys ()
-  "Return all unfolding keys covered by registered schemas."
+  "Return all AIU Context keys covered by registered schemas."
   (let ((keys nil))
     (dolist (name (manifolding-atlas-blueprint-list))
       (dolist (field (manifolding-atlas-blueprint-effective-fields

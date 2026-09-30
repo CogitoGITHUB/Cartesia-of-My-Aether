@@ -3068,9 +3068,9 @@ the current heading:
         (atlas-wormholes-mode 1)))
     (atlas-wormholes-add)))
 
-;; Wormholed unfolding AIUs show as collapsed headings — do NOT auto-unfold
-;; them, so the unfolding's property drawer / ID stays hidden and you just see
-;; "* Unfolding" closed at point.
+;; Wormholed AIU Context AIUs show as collapsed headings — do NOT auto-unfold
+;; them, so the AIU Context's property drawer / ID stays hidden and you just see
+;; "* AIU Context" closed at point.
 (remove-hook 'atlas-wormholes-after-add-functions
              #'my/atlas-wormholes-show-subtree)
 
@@ -3078,7 +3078,7 @@ the current heading:
 ;; Safe now — org-agenda-files is scoped to AIUs directory only,
 ;; so org-id-find never scans straight build symlinks.
 (setq atlas-wormholes-add-all-on-activate t)
-;; Hide unfolding property drawers inside wormholed headings so an unfolding
+;; Hide AIU Context property drawers inside wormholed headings so an AIU Context
 ;; (e.g. STATE WORK: ACTIVE) renders as a single closed heading.
 ;; Property drawers now included in wormholes (previously excluded).
 (setq atlas-wormholes-exclude-elements nil)
@@ -3087,7 +3087,7 @@ the current heading:
 ;; Re-add wormholes after revert (e.g. auto-revert triggered by git ops).
 (add-hook 'after-revert-hook #'atlas-wormholes-add-all)
 
-;; RET on a wormhole opens its source.  Unfolding AIUs (admin/unfoldings/*) open
+;; RET on a wormhole opens its source.  AIU Context AIUs (admin/unfoldings/*) open
 ;; in an org-capture edit buffer for fast metadata edits; anything else
 ;; falls back to atlas-wormholes's own source opener.
 ;; atlas-wormholes.el reads `atlas-wormholes-indent-mode' as a
@@ -3130,7 +3130,7 @@ is an internal pairing UUID, so the real source id is parsed from
   (define-key atlas-wormholes-map (kbd "<mouse-2>")
     #'my/atlas-wormholes-open))
 
-;; In-drawer wormhole support.  A `:property' wormhole encodes an unfolding
+;; In-drawer wormhole support.  A `:property' wormhole encodes an AIU Context
 ;; as a `#+wormhole:' line INSIDE a :PROPERTIES: drawer.  Rendering
 ;; a source headline (`* X') inside a drawer breaks org's drawer parsing, so
 ;; this keyword strips the leading asterisk, turning the wormholed content
@@ -3171,7 +3171,7 @@ is an internal pairing UUID, so the real source id is parsed from
       (goto-char (point-min))
       (while (re-search-forward "^[ \t]*:\\(PROPERTIES\\|END\\):[ \t]*\n?" nil t)
         (replace-match "" nil nil))
-      ;; No gap between unfolding title (first line) and body text: the
+      ;; No gap between AIU Context title (first line) and body text: the
       ;; capture template leaves a blank line after :END:.
       (goto-char (point-min))
       (forward-line 1)

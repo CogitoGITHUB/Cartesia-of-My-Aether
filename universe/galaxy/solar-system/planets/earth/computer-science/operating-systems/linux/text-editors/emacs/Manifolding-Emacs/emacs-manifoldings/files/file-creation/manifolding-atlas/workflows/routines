@@ -1,7 +1,7 @@
 Modular routines system for the atlas, modeled on the mastering plugin.
 A routine is an AIU tagged =routine= whose child headings are
 routine entries referencing sources via =SOURCE=, =ROUTINE_ID= and
-=ROUTINE_ORDER= unfoldings. Every mutation dual-writes the org drawer
+=ROUTINE_ORDER= AIU Contexts. Every mutation dual-writes the org drawer
 and the SQLite index, so queries run against the DB without re-parsing
 org. Chains are routines whose sources are themselves routines.
 
@@ -170,7 +170,7 @@ portable ALTER, errors swallowed.
 #+end_src
 
 *** DB Extractor
-Indexes ROUTINE_* unfoldings from NOTE-DATA. Routine AIUs land in
+Indexes ROUTINE_* AIU Contexts from NOTE-DATA. Routine AIUs land in
 =routines=; entry headings carrying ROUTINE_ID, SOURCE and
 ROUTINE_ORDER land in =routine_entries=. Session AIUs with SESSION_OF
 and SESSION_DATE land in =routine_sessions=.
@@ -266,7 +266,7 @@ SOURCE and ROUTINE_ORDER land in `routine_entries'."
 *** Schema
 Two schemas: =routine= requires ROUTINE_TYPE/DOMAIN/TEMPORAL on AIUs
 tagged =routine= (but not =session=); =routines-session= requires the
-SESSION_* unfoldings on AIUs tagged =session=.
+SESSION_* AIU Contexts on AIUs tagged =session=.
 
 **** Validator factories
 Every field validates as required, optionally constrained to a
@@ -337,9 +337,9 @@ vocabulary — one factory per shape keeps both schemas terse.
 
 *** Entry Writing
 Entries are appended as child headings with SOURCE, ROUTINE_ID and
-ROUTINE_ORDER unfoldings. Optional group labels (Warm-Up through
+ROUTINE_ORDER AIU Contexts. Optional group labels (Warm-Up through
 Recovery) and workout prescriptions (=3x10 @20kg /180s=) are parsed
-into WORKOUT_* unfoldings.
+into WORKOUT_* AIU Contexts.
 
 **** Prescription format
 #+begin_src emacs-lisp
@@ -351,7 +351,7 @@ into WORKOUT_* unfoldings.
 #+end_src
 
 **** Entry insertion
-Dual-writes: org drawer unfoldings plus immediate routine_entries rows.
+Dual-writes: org drawer AIU Contexts plus immediate routine_entries rows.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-routines--entry-insert-row (eid rid source order group duration interval days)
   "Insert one routine_entries row immediately; tolerate FK timing."
@@ -443,7 +443,7 @@ Builds the full drawer for one entry heading.
      ":END:\n")))
 #+end_src
 **** Entry writer
-Dual-writes: org drawer unfoldings plus immediate routine_entries rows.
+Dual-writes: org drawer AIU Contexts plus immediate routine_entries rows.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-routines--write-entries (note items)
   "Append ITEMS as entry child headings of NOTE.
@@ -554,8 +554,8 @@ interval days anchor next) lists."
           (lambda (a b) (< (nth 2 a) (nth 2 b))))))
 #+end_src
 **** Live workout detail
-Workout unfoldings always come from the file, never the stale index.
-Timer and reschedule unfoldings ride the same live reader, so the run
+Workout AIU Contexts always come from the file, never the stale index.
+Timer and reschedule AIU Contexts ride the same live reader, so the run
 loop never acts on a stale duration or anchor.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-routines--entry-extras (routine)
@@ -684,7 +684,7 @@ Replaces all previous entry child headings with the fresh results.
   "Delete old entry headings and insert RESULTS as fresh ones.
 RESULTS are (source-id title result elapsed planned grade); the
 journal line carries timing and learn-grade, and raw seconds land in
-STEP_ELAPSED and STEP_PLANNED unfoldings for queries."
+STEP_ELAPSED and STEP_PLANNED AIU Contexts for queries."
   (org-with-point-at 1
     (org-back-to-heading t)
     (while (re-search-forward "^\\*\\* " nil t)
@@ -793,7 +793,7 @@ newest first."
 
 *** Streaks
 Temporal-aware streak counting: the period unit derives from the
-routine's TEMPORAL unfolding. A streak survives if the current or
+routine's TEMPORAL AIU Context. A streak survives if the current or
 previous period has a session.
 
 **** Period mapping and bucketing
@@ -1096,11 +1096,11 @@ Creates an atomic or composite routine from interactively selected
 headings. Entry source: b = key selection over the current buffer,
 v = vault-wide selection via completing-read.
 
-**** Context unfoldings assembly
+**** Context AIU Contexts assembly
 WARNING answers are simply omitted rather than stored.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-routines--context-unfoldings (rtype domain temporal)
-  "Return ROUTINE_* unfoldings for RTYPE, skipping WARNING domain/temporal."
+  "Return ROUTINE_* AIU Contexts for RTYPE, skipping WARNING domain/temporal."
   (let ((unfoldings `(("ROUTINE_TYPE" . ,rtype))))
     (unless (equal domain "WARNING")
       (setq unfoldings (append unfoldings `(("ROUTINE_DOMAIN" . ,domain)))))
@@ -1516,7 +1516,7 @@ means the next listed weekday after TODAY. Neither means nil."
 
 **** Advance writer
 Sole writer of entry next-dates. Writes three facets at once: the
-RESCHEDULE_ANCHOR and NEXT_DATE drawer unfoldings (machine truth the
+RESCHEDULE_ANCHOR and NEXT_DATE drawer AIU Contexts (machine truth the
 extractor indexes) and the SCHEDULED planning line (the org/agenda
 facet). No org-schedule call, no hooks — a plain planning-line edit,
 so org can only ever display these dates, never decide them.

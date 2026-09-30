@@ -1,4 +1,4 @@
-* Unfoldings :EMACS_MECHANISM:
+* AIU Contexts :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       52e2269f-9ad9-4b15-9abe-74c57c506b62
 :MM_PARENT: none
@@ -6,8 +6,8 @@
 :CATEGORY: editing
 :END:
 
-Replaces static property values with Org links to canonical or scoped unfolding AIUs.
-Three unfolding types: ~'closed~ (shared, deduped), ~'scoped~ (per-entity), ~nil~ (plain string).
+Replaces static property values with Org links to canonical or scoped AIU Context AIUs.
+Three AIU Context types: ~'closed~ (shared, deduped), ~'scoped~ (per-entity), ~nil~ (plain string).
 
 ** Canonicalize Value
 
@@ -68,7 +68,7 @@ key conversion it owns.
                             property-type))))
 #+end_src
 
-** Ensure Unfolding AIU (closed vocab)
+** Ensure AIU Context AIU (closed vocab)
 
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas--ensure-unfolding-note (property-type value &optional note)
@@ -111,10 +111,10 @@ unique per parent so per-file AIUs don't leak."
 
 ** Scoped To-Plist Factory
 
-*** Cross-buffer unfolding writer
+*** Cross-buffer AIU Context writer
 AIU may reside in a different buffer than the one being edited:
 locate its heading by file, level, and pos first.
-Uses drawer-put directly for unfoldings domain's wormhole handling.
+Uses drawer-put directly for AIU Contexts domain's wormhole handling.
 #+begin_src emacs-lisp
 (require 'cl-lib)
 
@@ -174,7 +174,7 @@ Uses drawer-put directly for unfoldings domain's wormhole handling.
                          #'my/manifolding-atlas--apply-aliases-post labels)))))))
 #+end_src
 
-** Wormhole unfoldings into the owning file
+** Wormhole AIU Contexts into the owning file
 
 *** Link and anchor helpers
 #+begin_src emacs-lisp
@@ -333,7 +333,7 @@ clears legacy wormholes of this type."
     removed))
 #+end_src
 
-*** Unfolding usage checks and orphan sweep
+*** AIU Context usage checks and orphan sweep
 #+begin_src emacs-lisp :lexical t
 (defun my/manifolding-atlas--unfolding-in-use-p (id)
   (let* ((root (my/manifolding-atlas-root-dir))
@@ -357,7 +357,7 @@ clears legacy wormholes of this type."
                  (file-in-directory-p
                   path
                   (expand-file-name "admin/unfoldings/" (my/manifolding-atlas-root-dir))))
-        (message "my/manifolding-atlas: deleting unused unfolding %s" path)
+        (message "my/manifolding-atlas: deleting unused AIU Context %s" path)
         (delete-file path)))))
 
 (defun my/manifolding-atlas--sweep-orphaned-unfoldings ()
@@ -374,10 +374,10 @@ clears legacy wormholes of this type."
           (when (re-search-forward "^:ID:[[:blank:]]+\\(.+\\)" nil t)
             (let ((id (string-trim (match-string-no-properties 1))))
               (unless (my/manifolding-atlas--unfolding-in-use-p id)
-                (message "my/manifolding-atlas: deleting unused unfolding %s" f)
+                (message "my/manifolding-atlas: deleting unused AIU Context %s" f)
                 (delete-file f)
                 (setq count (1+ (or count 0)))))))))
-    (message "my/manifolding-atlas: swept %d orphaned unfolding%s"
+    (message "my/manifolding-atlas: swept %d orphaned AIU Context%s"
              (or count 0) (if (and count (= count 1)) "" "s"))))
 #+end_src
 
@@ -451,7 +451,7 @@ Navigates by AIU's own path, so it works from any buffer."
              (my/manifolding-atlas--make-id-link (manifolding-atlas-note-id note) value)))))))
 #+end_src
 
-** Default Filter — Hide unfolding AIUs from manifolding-atlas-find
+** Default Filter — Hide AIU Context AIUs from manifolding-atlas-find
 
 *** Hidden-path predicate
 #+begin_src emacs-lisp
@@ -485,7 +485,7 @@ replacing it.
 (advice-add 'manifolding-atlas-select :around #'my/manifolding-atlas--select-filter-advice)
 #+end_src
 
-** Open unfolding AIUs in capture by default
+** Open AIU Context AIUs in capture by default
 
 *** Capture-style file editor
 #+begin_src emacs-lisp
@@ -510,7 +510,7 @@ replacing it.
 #+end_src
 
 *** org-id-open advice
-Clicking an id: link that lives in a property drawer opens the unfolding
+Clicking an id: link that lives in a property drawer opens the AIU Context
 in capture instead of plain visit.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas--open-unfolding-link (orig-fun id &optional path)
@@ -613,8 +613,8 @@ Puts the raw wormhole lines back exactly where they were.
 Press RET on a property line inside a :PROPERTIES: drawer. The
 registered declarative spec for that key opens as a picking session
 (letters jump+mark, RET advances); on finish, the picked value is
-linked as an unfolding AIU and its file opens directly so writing
-can start immediately. If the property already holds an unfolding
+linked as an AIU Context AIU and its file opens directly so writing
+can start immediately. If the property already holds an AIU Context
 link, choose to update the linked AIU directly or change to a
 different option. Missing spec is a loud error naming the key --
 never a silent empty picker. Everywhere else, RET behaves normally.
@@ -634,7 +634,7 @@ which already sets :kill-buffer and org-capture-use-indirect-buffer
 correctly so C-c C-c restores the original window."
   (let ((file (ignore-errors (org-id-find-id-file unfolding-id))))
     (unless (and file (file-exists-p file))
-      (user-error "Could not find the unfolding file for %s" unfolding-id))
+      (user-error "Could not find the AIU Context file for %s" unfolding-id))
     (my/manifolding-atlas--edit-file-in-capture file)))
 
 (defun my/manifolding-atlas--property-pick-live (key property-type)
@@ -692,7 +692,7 @@ modus-vivendi without hardcoded single-theme colors."
      (2 'my/manifolding-atlas-context-value-face)))
   "Font-lock rules highlighting live-property wormhole lines
 (\"KEY > :tag:\"), wherever they render -- including inside an
-origin AIU's transclusion, not just unfolding AIU files.")
+origin AIU's transclusion, not just AIU Context AIU files.")
 
 (defun my/manifolding-atlas--context-line-fontify ()
   "Enable live-property line highlighting in any org buffer."
@@ -779,7 +779,7 @@ inserted or repaired."
   "Make FINAL-TITLE live for KEY at MARKER, then open it for editing.
 Create/reuse the unfolding note, replace KEY's drawer entry with a
 live `#+wormhole:' line via `my/manifolding-atlas--refresh-property-wormhole',
-save the origin, and open the unfolding AIU in a capture."
+save the origin, and open the AIU Context AIU in a capture."
   (let ((buf (marker-buffer marker)))
     (unless (buffer-live-p buf)
       (user-error "Origin buffer gone"))
@@ -839,7 +839,7 @@ such a capture just finalized. Fully error-isolated."
                   (with-current-buffer (find-file-noselect ofile)
                     (when (buffer-modified-p) (save-buffer)))
                   (message "Origin link updated to \"%s\"" new-title)))))
-        (error (lwarn 'manifolding-atlas :warning "Unfolding origin sync: %s" err)))
+        (error (lwarn 'manifolding-atlas :warning "AIU Context origin sync: %s" err)))
       (let ((obuf (and (stringp ofile) (get-file-buffer ofile))))
         (when (buffer-live-p obuf)
           (with-current-buffer obuf
@@ -865,7 +865,7 @@ AIU directly or change to a different option."
     (unless key
       (user-error "Not on a property line"))
     (when (member key '("ID"))
-      (user-error "Cannot make the ID property an unfolding"))
+      (user-error "Cannot make the ID property an AIU Context"))
     (when (zerop (hash-table-count my/manifolding-atlas-org-prompt--specs))
       (my/manifolding-atlas-org-prompt--register-all))
     (let* ((property-type (intern (downcase (string-replace "_" "-" key))))

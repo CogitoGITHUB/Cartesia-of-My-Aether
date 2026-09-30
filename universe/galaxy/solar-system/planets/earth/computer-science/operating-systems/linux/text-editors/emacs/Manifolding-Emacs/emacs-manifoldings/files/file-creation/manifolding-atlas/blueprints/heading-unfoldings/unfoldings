@@ -1,4 +1,4 @@
-* Extra Unfoldings :EMACS_MECHANISM::DRAWER_BLUEPRINT:
+* Extra AIU Contexts :EMACS_MECHANISM::DRAWER_BLUEPRINT:
 :PROPERTIES:
 :ID:       15251b14-086b-4808-a42f-3b2fa1cb4b00
 :MM_PARENT: none
@@ -6,7 +6,7 @@
 :END:
 Why: Store arbitrary key-value metadata on AIUs. Used by manifolding-atlas queries,
 org queries, and custom workflows. Press blank key to stop adding more.
-Unfoldings become queryable in the manifolding-atlas DB.
+AIU Contexts become queryable in the manifolding-atlas DB.
 
 ** Default (loop until blank key)
 #+begin_src emacs-lisp
@@ -16,7 +16,7 @@ Returns an alist of (key . value).  Press blank key to finish."
   (let (unfoldings)
     (catch 'done
       (while t
-        (let ((k (read-string "Unfolding key (blank to stop): ")))
+        (let ((k (read-string "AIU Context key (blank to stop): ")))
           (if (string-empty-p k)
               (throw 'done unfoldings)
             (push (cons k (read-string (format "Value for %s: " k)))
@@ -29,7 +29,7 @@ Returns an alist of (key . value).  Press blank key to finish."
 (my/manifolding-atlas-register-prompt
   :key 'unfoldings
   :name 'unfoldings
-  :label "Extra Unfoldings"
+  :label "Extra AIU Contexts"
   :prompt-fn #'my/manifolding-atlas-prompt-unfoldings
   :contexts '(file heading)
   :read-current-fn nil

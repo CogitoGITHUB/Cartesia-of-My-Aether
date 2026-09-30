@@ -24,7 +24,7 @@ Ordering: ORDER_KEY real float per node → O(1) insert-between, zero cascade.
 Scale: All queries hit =mm_nodes= via indexed SQL. No Elisp-side sorting.
 ON DELETE CASCADE auto-removes map entries when AIUs are deleted.
 
-Status: the unified STATUS unfolding — ACTIVE | SUSPENDED | ARCHIVED
+Status: the unified STATUS AIU Context — ACTIVE | SUSPENDED | ARCHIVED
 | DORMANT — owned semantically by mastering's lifecycle, read here
 for display. A leftover MM_STATUS drawer translates one-way
 (active→ACTIVE, deprecated→DORMANT, archived→ARCHIVED); no writer
@@ -528,7 +528,7 @@ Assigns 1.0, 2.0, 3.0, ... in current sorted order."
 #+end_src
 
 *** Status Management
-Unified STATUS unfolding, shared with mastering: ACTIVE | SUSPENDED
+Unified STATUS AIU Context, shared with mastering: ACTIVE | SUSPENDED
 | ARCHIVED | DORMANT. This subsystem reads it for display and writes
 it on explicit user action — the drawer value is shared data, while
 review behavior stays mastering-owned. A leftover MM_STATUS drawer

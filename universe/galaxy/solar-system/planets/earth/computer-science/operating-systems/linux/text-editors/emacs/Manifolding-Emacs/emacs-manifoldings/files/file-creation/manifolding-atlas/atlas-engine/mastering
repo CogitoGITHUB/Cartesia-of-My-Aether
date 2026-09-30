@@ -1,7 +1,7 @@
 Spaced-repetition review for AIUs, built on a
 10-state mastery spine (UNSEEN → CONTRIBUTING) with STATUS kept
 orthogonal (ACTIVE / SUSPENDED / ARCHIVED / DORMANT). Each AIU is a
-reviewable card; its position lives in org unfoldings (=STAGE=,
+reviewable card; its position lives in org AIU Contexts (=STAGE=,
 =STATUS=, =MASTERING_*= schedule state) and is indexed into a
 =mastering_schedule= table by a DB extractor for fast due-queries.
 
@@ -300,12 +300,12 @@ Migrates older schemas by adding stage/status columns when missing."
 #+end_src
 
 *** DB Extractor
-Indexes STAGE/STATUS/MASTERING_* unfoldings from NOTE-DATA into
-mastering_schedule. A retired MASTERING unfolding is translated
+Indexes STAGE/STATUS/MASTERING_* AIU Contexts from NOTE-DATA into
+mastering_schedule. A retired MASTERING AIU Context is translated
 one-way when STAGE is absent (REVIEW/TODO → AWARE+ACTIVE, SUSPEND →
 AWARE+SUSPENDED, WARNING → unenrolled); no writer emits those values
 anymore. Initializes a default schedule when a stage is set but
-schedule unfoldings are missing, so enrolled AIUs are never dropped.
+schedule AIU Contexts are missing, so enrolled AIUs are never dropped.
 UNSEEN AIUs get a row (schedule stays warm) but due queries exclude
 them — first contact, not the scheduler, promotes out of UNSEEN.
 
@@ -366,15 +366,15 @@ previously indexed rows must be re-extracted once after upgrade.
     :extract-fn #'my/manifolding-atlas-mastering--extract)))
 #+end_src
 
-*** Schedule Unfolding Write
-Writes schedule unfoldings for NOTE-ID back to its org drawer after
+*** Schedule AIU Context Write
+Writes schedule AIU Contexts for NOTE-ID back to its org drawer after
 each review, keeping the file-level state in sync with the DB.
 
 **** Drawer writer
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-mastering--write-schedule-unfoldings
     (note-id next-rev-int n success c-succ c-fails t-succ t-fails score)
-  "Write schedule unfoldings for NOTE-ID back to its org drawer."
+  "Write schedule AIU Contexts for NOTE-ID back to its org drawer."
   (let ((note (manifolding-atlas-db-get-by-id note-id)))
     (when note
       (let ((file (manifolding-atlas-note-path note))

@@ -30,7 +30,7 @@
 ** Store template
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-emacs-mechanism--store-template (note kind)
-  "Stamp TEMPLATE + TEMPLATE_HASH unfoldings on AIU."
+  "Stamp TEMPLATE + TEMPLATE_HASH AIU Contexts on AIU."
   (my/manifolding-atlas--unfolding-put note "TEMPLATE" kind)
   (my/manifolding-atlas--unfolding-put note "TEMPLATE_HASH"
     (my/manifolding-atlas-emacs-mechanism--template-hash kind)))

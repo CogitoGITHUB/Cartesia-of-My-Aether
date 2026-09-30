@@ -688,8 +688,8 @@ If :key is missing, copies :name into :key for backward compat."
 ;;
 ;; Key features:
 ;; - Fast AIU lookup via SQLite database with automatic sync
-;; - Rich AIU structure: titles, aliases, tags, links, unfoldings, metadata
-;; - Flexible querying by tags, links, unfoldings, dates, and more
+;; - Rich AIU structure: titles, aliases, tags, links, AIU Contexts, metadata
+;; - Flexible querying by tags, links, AIU Contexts, dates, and more
 ;; - Metadata system using Org description lists
 ;; - AIU creation with customizable templates
 ;; - Selection interface with filtering and alias expansion
@@ -970,7 +970,7 @@ Why: Implementation of ~manifolding-atlas-doctor--issues~.
      ((and notes (zerop notes))
       (push (concat "Database exists but contains no AIUs. Run"
                     " M-x manifolding-atlas-db-sync-full-scan; if it stays empty,"
-                    " check that your AIUs have ID unfoldings and live"
+                    " check that your AIUs have ID AIU Contexts and live"
                     " under `manifolding-atlas-db-sync-directories'.")
             issues)))
     ;; Extractor plugins
@@ -2289,7 +2289,7 @@ selected note. When the link cannot be found in the buffer (e.g.
 the file changed since the last sync), point stays at the AIU."
   (interactive)
   (let* ((id (or (org-entry-get nil "ID" t)
-                 (user-error "Current location has no ID unfolding")))
+                 (user-error "Current location has no ID AIU Context")))
          (_ (unless (manifolding-atlas-db-get-by-id id)
               (user-error
                "%s is not a known AIU" id)))
@@ -2358,7 +2358,7 @@ If OTHER-WINDOW, visit the AIU in another window."
       (if (= (manifolding-atlas-note-level note) 0)
           ;; File-level note: go to beginning
           (goto-char (point-min))
-        ;; Heading-level note: search for the ID unfolding
+        ;; Heading-level note: search for the ID AIU Context
         (goto-char (point-min))
         (unless (re-search-forward
                  (format "^[ \t]*:ID:[ \t]+%s[ \t]*$" (regexp-quote id))
@@ -3835,11 +3835,11 @@ Turns plain org outlines into registered prompts. A declarative file has
 a level-1 heading shaped like a PROPERTY_KEY with plain org tags for
 kind and contexts, whose level-2 headings are the allowed options —
 no elisp. Editing headings edits the prompt; adding a file adds an
-unfolding; deleting a file removes it. Files that contain src blocks
+AIU Context; deleting a file removes it. Files that contain src blocks
 are treated as legacy elisp prompts and skipped.
 
 Tag vocabulary on the level-1 heading, e.g. ~* MY_KEY :unfolding:file:heading:~:
-KIND (first match wins): unfolding|inline|todo|multi|tags|tagopt|template|free|scoped|mastering|mindmap|body   (default: unfolding)
+KIND (first match wins): AIU Context|inline|todo|multi|tags|tagopt|template|free|scoped|mastering|mindmap|body   (default: AIU Context)
 CONTEXTS (all matches, space-joined): file|heading|task|routine|dictionary|contact|recipe|rule   (default: file heading)
 Unknown tags are ignored. No #+ file keywords; no :LABEL: (KEY is the label).
 A :PROPERTIES: drawer holding only :ID: may follow the heading.
@@ -4770,7 +4770,7 @@ Why: Implementation of ~my/manifolding-atlas-org-prompt--register~.
                                (replace-regexp-in-string "_" "-" key)))))
          (unfolding key)
          (kind (intern (downcase
-                        (or (plist-get plist :kind) "unfolding"))))
+                        (or (plist-get plist :kind) "AIU Context"))))
          (contexts (mapcar #'intern
                            (split-string
                             (or (plist-get plist :contexts)
@@ -4885,7 +4885,7 @@ m key: apply or un-apply the option at point, immediately to disk.
 
 *** Collection kinds toggle
 Multi/tags accumulate marks; clearing the last mark removes the
-unfolding from the AIU entirely.
+AIU Context from the AIU entirely.
 ** my/manifolding-atlas-org-prompt--toggle-collection
 Why: Implementation of ~my/manifolding-atlas-org-prompt--toggle-collection~.
 
@@ -4948,25 +4948,25 @@ shows in the AIU window immediately."
       (my/manifolding-atlas-org-prompt--toggle-scalar title))))
 
 #+end_src
-** Unfolding finalized hook
-Continues the session after unfolding capture finalizes.
+** AIU Context finalized hook
+Continues the session after AIU Context capture finalizes.
 ** my/manifolding-atlas-org-prompt--unfolding-finalized
 Why: Implementation of ~my/manifolding-atlas-org-prompt--unfolding-finalized~.
 
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-org-prompt--unfolding-finalized ()
-  "After the unfolding capture finalizes, continue remaining prompts."
+  "After the AIU Context capture finalizes, continue remaining prompts."
   (remove-hook 'org-capture-after-finalize-hook
                #'my/manifolding-atlas-org-prompt--unfolding-finalized)
   (when (plist-get my/manifolding-atlas-org-prompt--session :note)
     (my/manifolding-atlas-org-prompt--session-next)))
 
 #+end_src
-** Make unfolding
-Upgrades a pick into an unfolding and opens its capture.
+** Make AIU Context
+Upgrades a pick into an AIU Context and opens its capture.
 
-*** Unfolding path resolution
-When the DB has no row for the unfolding yet, a minimal AIU file is
+*** AIU Context path resolution
+When the DB has no row for the AIU Context yet, a minimal AIU file is
 created on the spot so the capture target always exists.
 ** my/manifolding-atlas-org-prompt--unfolding-path
 Why: Implementation of ~my/manifolding-atlas-org-prompt--unfolding-path~.
@@ -4986,19 +4986,19 @@ Why: Implementation of ~my/manifolding-atlas-org-prompt--unfolding-path~.
           (org-id-add-location unfolding-id p))
         p)))
 #+end_src
-*** Unfolding capture continuation
-Hooks the session continuation and opens the unfolding content capture;
+*** AIU Context capture continuation
+Hooks the session continuation and opens the AIU Context content capture;
 C-c C-c there resumes the remaining prompts.
 ** my/manifolding-atlas-org-prompt--capture-unfolding-content
 Why: Implementation of ~my/manifolding-atlas-org-prompt--capture-unfolding-content~.
 
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-org-prompt--capture-unfolding-content (unfolding-path)
-  "Open UNFOLDING-PATH capture-style so the unfolding AIU gets its content."
+  "Open UNFOLDING-PATH capture-style so the AIU Context AIU gets its content."
   (add-hook 'org-capture-after-finalize-hook
             #'my/manifolding-atlas-org-prompt--unfolding-finalized)
   (let ((org-capture-templates
-         `(("l" "Unfolding AIU" plain
+         `(("l" "AIU Context AIU" plain
             (file+function ,unfolding-path
                            (lambda () (goto-char (point-max))))
             "\n%?\n" :kill-buffer t :unnarrowed t)))
@@ -5007,8 +5007,8 @@ Why: Implementation of ~my/manifolding-atlas-org-prompt--capture-unfolding-conte
     (org-capture nil "l")))
 #+end_src
 *** Upgrade command
-Resolves family/link/note, rewrites the unfolding as an id link,
-records the answer, then hands off to the unfolding capture.
+Resolves family/link/note, rewrites the AIU Context as an id link,
+records the answer, then hands off to the AIU Context capture.
 ** my/manifolding-atlas-org-prompt--make-unfolding
 Why: Implementation of ~my/manifolding-atlas-org-prompt--make-unfolding~.
 
@@ -5044,14 +5044,14 @@ the rest of the prompts."
     (let ((my/manifolding-atlas--quiet t))
       (my/manifolding-atlas-org-prompt--apply-to-note
        note (list (cons key link)) nil nil))
-    ;; Record the pick, close the picker, then capture unfolding content.
+    ;; Record the pick, close the picker, then capture AIU Context content.
     (my/manifolding-atlas-org-prompt--session-record-answer)
     (my/manifolding-atlas-org-prompt--buffer-finish)
     (my/manifolding-atlas-org-prompt--capture-unfolding-content unfolding-path)))
 
 #+end_src
-** Edit unfolding file
-C-e: the picker buffer IS the unfolding file (file-backed). C-e drops
+** Edit AIU Context file
+C-e: the picker buffer IS the AIU Context file (file-backed). C-e drops
 the modal pick state so you can edit it in place; C-x C-s commits.
 ** my/manifolding-atlas-org-prompt--edit-unfolding-file
 Why: Implementation of ~my/manifolding-atlas-org-prompt--edit-unfolding-file~.
@@ -5065,7 +5065,7 @@ saving with C-x C-s writes the file itself."
   (setq buffer-read-only nil)
   (when (fboundp 'modaled-set-state)
     (modaled-set-state nil))
-  (message "Editing unfolding file in place — C-x C-s to save"))
+  (message "Editing AIU Context file in place — C-x C-s to save"))
 #+end_src
 ** Key selection to option
 Manual one-shot jump: pick an option with key selection and the cursor
@@ -5099,7 +5099,7 @@ jump you can press another option's letter to jump and mark that too
 be marked.
 Control keys (never letters): RET advances ONLY when something is
 marked (else inert); SPC steps back; C-q quits; C-l makes the marked
-option live; C-e edits the unfolding file in place; C-g aborts all.
+option live; C-e edits the AIU Context file in place; C-g aborts all.
 ** my/manifolding-atlas-org-prompt--ks-mark-loop
 Why: Implementation of ~my/manifolding-atlas-org-prompt--ks-mark-loop~.
 
@@ -5109,7 +5109,7 @@ Why: Implementation of ~my/manifolding-atlas-org-prompt--ks-mark-loop~.
 The selector stays armed the whole time the picker is open: typing
 letters jumps to an option and applies it immediately; you can keep jumping
 and re-mark to change the selection. RET advances only when something
-is marked; C-q quits, C-l makes live, C-e edits the unfolding file."
+is marked; C-q quits, C-l makes live, C-e edits the AIU Context file."
   (let ((exit-loop nil))
     (while (and (not exit-loop) (buffer-live-p buf))
       (when-let ((win (get-buffer-window buf)))
@@ -5122,7 +5122,7 @@ is marked; C-q quits, C-l makes live, C-e edits the unfolding file."
                          (my/manifolding-atlas-org-prompt--buffer-mark)))
               (user-error nil)
               (error nil)))))
-      (let ((key (read-key "jump to mark · RET advance · SPC back · C-q quit · C-l unfolding · C-e edit")))
+      (let ((key (read-key "jump to mark · RET advance · SPC back · C-q quit · C-l AIU Context · C-e edit")))
         (cond
          ((eq key 32)
           (if (or my/manifolding-atlas-org-prompt--applied
@@ -5672,7 +5672,7 @@ Why: Implementation of ~my/manifolding-atlas-org-prompt--session-open~.
     (when-let ((win (get-buffer-window buf)))
       (with-selected-window win
         (ignore-errors (recenter-top-bottom))))
-    (message "%s — letters jump+mark · RET advance · C-q quit · C-l unfolding · C-e edit"
+    (message "%s — letters jump+mark · RET advance · C-q quit · C-l AIU Context · C-e edit"
              (plist-get spec :label))
     ;; Arm the key-selection-first marking loop: letters jump and mark
     ;; by default, only RET advances, C-q/C-l/C-e are the controls.
@@ -5716,7 +5716,7 @@ Why: Implementation of ~my/manifolding-atlas-org-prompt--write-at-heading~.
 (defun my/manifolding-atlas-org-prompt--write-at-heading
     (pos level unfoldings tags todo remove-unfoldings)
   "Write PROPS/TAGS/TODO at the heading anchor; return park position.
-REMOVE-PROPS lists unfolding keys to delete instead."
+REMOVE-PROPS lists AIU Context keys to delete instead."
   (save-excursion
     (cond ((and level (> level 0) pos)
            (goto-char pos)
@@ -5779,7 +5779,7 @@ Why: Implementation of ~my/manifolding-atlas-org-prompt--apply-to-note~.
       (set-window-start win (max (point-min) (- (or view-target (point-min)) 200)) t))))
 #+end_src
 ** Session remove
-Inverse of a pick: delete unfolding / clear tags / drop TODO.
+Inverse of a pick: delete AIU Context / clear tags / drop TODO.
 ** my/manifolding-atlas-org-prompt--session-remove
 Why: Implementation of ~my/manifolding-atlas-org-prompt--session-remove~.
 
@@ -6440,7 +6440,7 @@ Why: Implementation of ~my/manifolding-atlas-org-prompt--fragment-mastering~.
                      #'my/manifolding-atlas-mastering--init-schedule nil))))))
 #+end_src
 ** Status fragment
-STATUS picks write the unfolding and immediately mirror the suspend
+STATUS picks write the AIU Context and immediately mirror the suspend
 flag into the schedule row, so a capture-time SUSPENDED takes effect
 without waiting for the next index pass. The flag-sync helper lives
 in the mastering engine next to its siblings.
@@ -6454,7 +6454,7 @@ Why: Implementation of ~my/manifolding-atlas-org-prompt--fragment-status~.
       :post-apply (,#'my/manifolding-atlas-mastering--sync-status-flag))))
 #+end_src
 ** Scoped and multi fragments
-Scoped values trigger their family post-apply; multi is a plain unfolding.
+Scoped values trigger their family post-apply; multi is a plain AIU Context.
 ** my/manifolding-atlas-org-prompt--fragment-scoped
 Why: Implementation of ~my/manifolding-atlas-org-prompt--fragment-scoped~.
 
@@ -6474,7 +6474,7 @@ Why: Implementation of ~my/manifolding-atlas-org-prompt--fragment-scoped~.
 #+end_src
 ** Mindmap fragment
 Root placement stores WARNING (nothing to link); real placements get
-an unfolding AIU and a post-apply that moves the AIU into place.
+an AIU Context AIU and a post-apply that moves the AIU into place.
 ** my/manifolding-atlas-org-prompt--fragment-mindmap
 Why: Implementation of ~my/manifolding-atlas-org-prompt--fragment-mindmap~.
 
@@ -6506,9 +6506,9 @@ Why: Implementation of ~my/manifolding-atlas-org-prompt--fragment-mm-map-select~
         :post-apply (,(apply-partially #'my/mm-assign-map val)))
     `(:unfoldings ((,key . "WARNING")))))
 #+end_src
-** Unfolding fragment
+** AIU Context fragment
 Skips clear outstanding state transcriptions; real picks resolve to
-unfolding AIUs and apply through the state post hook.
+AIU Context AIUs and apply through the state post hook.
 ** my/manifolding-atlas-org-prompt--fragment-unfolding
 Why: Implementation of ~my/manifolding-atlas-org-prompt--fragment-unfolding~.
 
@@ -6741,7 +6741,7 @@ async session instead of blocking during collection.")
 
 **** Fragment merger
 Merges a single prompt's output fragment into the accumulating result
-plist across all channels: tags, unfoldings, body, post-apply hooks,
+plist across all channels: tags, AIU Contexts, body, post-apply hooks,
 advice, file-name, and TODO state.
 
 ***** List channels
@@ -6763,7 +6763,7 @@ Why: Implementation of ~my/manifolding-atlas-collect--merge-list-channels~.
 #+end_src
 
 ***** Merger dispatch
-Empty unfolding values are dropped; :todo also feeds the creation
+Empty AIU Context values are dropped; :todo also feeds the creation
 carrier consumed by heading-format.
 
 ** my/manifolding-atlas-collect--merge-fragment
@@ -7030,12 +7030,12 @@ Why: Implementation of ~my/manifolding-atlas-collect--selection-fast-level~.
 
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-collect--selection-fast-level (_specialized-contexts _general-contexts)
-  "Return effective level (1 = interactive unfolding selection)."
+  "Return effective level (1 = interactive AIU Context selection)."
   (setq my/manifolding-atlas-org-prompt--custom-set t)
   1)
 #+end_src
 
-**** Unfolding merge dedup
+**** AIU Context merge dedup
 Specialized and general sweeps can cover the same contexts (file
 captures pass '(file) twice), so every prompt may contribute a
 fragment on both sides. Later duplicates are dropped, first wins.
@@ -7103,14 +7103,14 @@ sites (this numeric contract) working now that the speed menu is gone."
 *** Static Blueprints Management
 Manages Static Blueprints — an auto-generated file tracking AIUs
 holding static default values (or missing them) that want proper
-unfolding use: answer the prompt, or press ~l~ to make the value a
-live unfolding link.
+AIU Context use: answer the prompt, or press ~l~ to make the value a
+live AIU Context link.
 
 **** Path and file bootstrap
 
 #+begin_src emacs-lisp
 (defvar my/manifolding-atlas-missing--file "admin/Static Blueprints"
-  "Filename for tracking AIUs with static unfolding values.")
+  "Filename for tracking AIUs with static AIU Context values.")
 (setq my/manifolding-atlas-missing--file "admin/Static Blueprints")
 
 (defun my/manifolding-atlas-missing--path ()
@@ -7126,7 +7126,7 @@ live unfolding link.
       (with-temp-file path
         (insert "#+TITLE: Static Blueprints\n")
         (insert "#+AUTHOR: Manifolding Atlas Git VC System\n")
-        (insert "#+DESCRIPTION: Auto-generated - AIUs holding static defaults that want unfolding links.\n")
+        (insert "#+DESCRIPTION: Auto-generated - AIUs holding static defaults that want AIU Context links.\n")
         (insert "#+STARTUP: overview\n\n")))
     path))
 #+end_src
@@ -7192,7 +7192,7 @@ Why: Implementation of ~my/manifolding-atlas-missing--write-entries~.
       (with-temp-file path
         (insert "#+TITLE: Static Blueprints\n")
         (insert "#+AUTHOR: Manifolding Atlas Git VC System\n")
-        (insert "#+DESCRIPTION: Auto-generated - AIUs holding static defaults that want unfolding links.\n")
+        (insert "#+DESCRIPTION: Auto-generated - AIUs holding static defaults that want AIU Context links.\n")
         (insert "#+STARTUP: overview\n\n")
         (dolist (entry entries)
           (insert (format "* TODO [[id:%s][%s]]\n"
@@ -7318,10 +7318,10 @@ capture functions.")
 ;;
 ;;; Commentary:
 ;;
-;; Various utilities to modify `org-mode' buffer, namely unfoldings
+;; Various utilities to modify `org-mode' buffer, namely AIU Contexts
 ;; and metadata.
 ;;
-;; Unfoldings are buffer-wide key-values defined as #+KEY: VALUE in
+;; AIU Contexts are buffer-wide key-values defined as #+KEY: VALUE in
 ;; the header of file.
 ;;
 ;; Metadata is defined by the first description list in the file, e.g.
@@ -7622,7 +7622,7 @@ If ALIAS is nil, prompt for an alias to remove from available aliases."
                                a))
                            aliases)))
               (org-entry-put nil manifolding-atlas-buffer-alias-unfolding (string-join formatted-aliases " ")))
-          ;; No aliases left, remove the unfolding entirely
+          ;; No aliases left, remove the AIU Context entirely
           (org-entry-delete nil manifolding-atlas-buffer-alias-unfolding))))))
 
 
@@ -7638,7 +7638,7 @@ Why: Implementation of ~manifolding-atlas-buffer-unfolding-set~.
 If the unfolding is already set, replace its value.  A matching line
 inside a verbatim block (source, example, export, comment) is block
 content rather than a real keyword: it is left untouched, and when
-only such lines exist a fresh unfolding line is inserted."
+only such lines exist a fresh AIU Context line is inserted."
   (setq name (downcase name))
   (org-with-point-at 1
     (let ((case-fold-search t)
@@ -7681,7 +7681,7 @@ matching text that separates, but is not part of, the substrings.
 If nil it defaults to `split-string-default-separators', normally
 \"[ \\f\\t\\n\\r\\v]+\", and OMIT-NULLS is forced to t.
 
-If the unfolding is already set, replace its value."
+If the AIU Context is already set, replace its value."
   (manifolding-atlas-buffer-unfolding-set
    name (combine-and-quote-strings values separators)))
 
@@ -7725,7 +7725,7 @@ A line matching #+NAME: that lives inside a verbatim block (source,
 example, export, comment) is ignored, since it is block content
 rather than a real document keyword."
   (org-with-point-at 1
-    ;; Bind `case-fold-search' (like the sibling readers) so the unfolding
+    ;; Bind `case-fold-search' (like the sibling readers) so the AIU Context
     ;; is found regardless of the caller's setting, and quote NAME so a
     ;; regexp-special character in it is matched literally.
     (let ((case-fold-search t)
