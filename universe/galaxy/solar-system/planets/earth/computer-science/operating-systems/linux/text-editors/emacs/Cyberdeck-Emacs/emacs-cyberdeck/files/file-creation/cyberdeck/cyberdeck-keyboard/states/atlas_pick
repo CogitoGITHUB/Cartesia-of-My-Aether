@@ -1,0 +1,50 @@
+Whole block, all external prompt functions.
+* State definition :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       b0be1ce7-ce14-4e6e-b39e-146331c406f8
+:MM_PARENT: none
+:MM_ORDER:  178.0
+:END:
+Self-registration: mode and keymap in one unit (manual activation only). Delete this file and the state unregisters on next boot.
+#+begin_src emacs-lisp
+(cyberdeck-keyboard-define-state "cyberdeck-pick"
+  :sparse t
+  :lighter "[PCK]"
+  :cursor-type 'box)
+#+end_src
+** Cyberdeck Pick
+Flow: session pickers open with an auto-armed key-selection loop
+(org-prompts.org) that owns letters for jumps+marking and takes
+SPC/RET/C-q/C-l/C-e. This
+keymap mirrors the control keys so they work there and in standalone
+pickers too; the letter binds below apply only when the loop is not
+armed.
+#+begin_src emacs-lisp
+(cyberdeck-keyboard-define-keys
+  :states '("cyberdeck-pick")
+  :bind
+  `(;; Selection
+    ("RET"     . my/cyberdeck-org-prompt--buffer-accept)
+    ("<return>" . my/cyberdeck-org-prompt--buffer-accept)
+    ("C-c C-c" . my/cyberdeck-org-prompt--buffer-accept)
+    ("a"       . my/cyberdeck-org-prompt--ks-to-option)
+    ("m"       . my/cyberdeck-org-prompt--buffer-mark)
+    ("C-l"     . my/cyberdeck-org-prompt--make-aiu-context)
+    ("C-e"     . my/cyberdeck-org-prompt--edit-aiu-context-file)
+    ;; Session navigation
+    ("SPC"     . my/cyberdeck-org-prompt--session-back)
+    ("b"       . my/cyberdeck-org-prompt--session-back)
+    ("B"       . my/cyberdeck-org-prompt--session-revisit)
+    ;; Cancellation
+    ("q"       . my/cyberdeck-org-prompt--buffer-abort)
+    ("C-q"     . my/cyberdeck-org-prompt--buffer-abort)
+    ("C-c C-k" . my/cyberdeck-org-prompt--buffer-abort)
+    ("Q"       . my/cyberdeck-org-prompt--quit-all)
+    ("C-g"     . my/cyberdeck-org-prompt--quit-all)
+    ;; Org outline navigation
+    ("h"       . org-previous-visible-heading)
+    ("H"       . org-backward-heading-same-level)
+    ("t"       . org-next-visible-heading)
+    ("T"       . org-forward-heading-same-level)
+    ("n"       . org-cycle)))
+#+end_src

@@ -1,0 +1,410 @@
+Search TODO/FIXME/BUG/HACK keywords scoped to the cyberdeck only. Vendored
+engine: the consult-todo package is embedded below as loader-managed
+source (no straight) with all symbols renamed `consult-todo-*` →
+`cyberdeck-search-todo-*` so the original straight `consult-todo` module is
+untouched. Search scope is the AIUs directory `(my/cyberdeck-root-dir)`.
+
+Depends on `hl-todo` (still a straight package, provides
+`hl-todo--search`, `hl-todo--regexp`, `hl-todo-keyword-faces`) and `consult`.
+
+Commands:
+- `cyberdeck-search-todo-all` — scan buffers visiting files in the AIUs directory
+- `cyberdeck-search-todo-dir` — scan TODO keywords in the AIUs directory
+- `cyberdeck-search-todo` — current buffer
+- `cyberdeck-search-todo-clear-cache` — clear the dir search cache
+
+AIU: vault AIUs are EXTENSIONLESS (no `.org`). `cyberdeck-search-todo--dir-files`
+accepts extensionless files AND `.org`, and skips `.git`/`admin`/`.cache`.
+Scanning is pure-Lisp (`re-search-forward` on `hl-todo--regexp`) — do NOT use
+`rgrep`, whose shell pipeline chokes on the hl-todo regexp (`expected operator`),
+and do NOT use `hl-todo--search` for file scanning (it only matches comments/
+strings or text-derived modes, returning nil in a plain temp buffer).
+
+* Engine :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       0def1366-f0e0-44f2-8a25-5e3be9a752f3
+:MM_PARENT: none
+:MM_ORDER:  136.0
+:END:
+#+begin_src emacs-lisp
+(eval-when-compile
+  (require 'cl-lib)
+  (require 'pcase)
+  (require 'subr-x))
+
+(require 'seq)
+(require 'compile)
+(require 'grep)
+(require 'consult)
+(require 'hl-todo)
+(require 'cl-lib)
+(require 'cl-lib)
+
+(declare-function project-root "project")
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defgroup cyberdeck-search-todo nil
+  "Search hl-todo keywords in consult."
+  :group 'cyberdeck-search-todo)
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defcustom cyberdeck-search-todo-narrow nil
+  "Alist of (NARROW . KEYWORD) to display."
+  :type '(repeat (cons (character :tag "Narrow")
+                       (string :tag "Keyword")))
+  :group 'cyberdeck-search-todo)
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defcustom cyberdeck-search-todo-other (cons ?. "OTHER")
+  "Cons mapping for narrow and missing keywords."
+  :type '(cons character string)
+  :group 'cyberdeck-search-todo)
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defcustom cyberdeck-search-todo-only-comment nil
+  "If non-nil, only search todo keywords in comments.
+Only effective on buffers."
+  :type 'boolean
+  :group 'cyberdeck-search-todo)
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defcustom cyberdeck-search-todo-dir-preview-key nil
+  "Preview trigger keys for `cyberdeck-search-todo-dir' related command.
+Value can be nil, `any', a single key or a list of keys."
+  :type '(choice (const :tag "Any key" any)
+                 (list :tag "Debounced"
+                       (const :debounce)
+                       (float :tag "Seconds" 0.1)
+                       (const any))
+                 (const :tag "No preview" nil)
+                 (key :tag "Key")
+                 (repeat :tag "List of keys" key))
+  :group 'cyberdeck-search-todo)
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defcustom cyberdeck-search-todo-cache-threshold 3
+  "The time threshold in seconds for using cache when grepping is time-consuming."
+  :type 'number
+  :group 'cyberdeck-search-todo)
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defcustom cyberdeck-search-todo-dir-function #'cyberdeck-search-todo--scan-dir
+  "The function used to scan keywords in directory.
+Accept one argument: the directory to search in."
+  :type 'function
+  :group 'cyberdeck-search-todo)
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defconst cyberdeck-search-todo--narrow
+  '((?t . "TODO")
+    (?f . "FIXME")
+    (?b . "BUG")
+    (?h . "HACK"))
+  "Default mapping of narrow and keywords.")
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defvar cyberdeck-search-todo--narrow-extend nil
+  "Default mapping of narrow and keywords include OTHER if exists.")
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun cyberdeck-search-todo--narrow ()
+  "Return narrow alist."
+  (or cyberdeck-search-todo-narrow cyberdeck-search-todo--narrow))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun cyberdeck-search-todo--narrow-extend ()
+  "Return narrow alist include `cyberdeck-search-todo-other' if it's non-nil."
+  (or cyberdeck-search-todo--narrow-extend
+      (if-let* (((consp cyberdeck-search-todo-other))
+                (narrow (car cyberdeck-search-todo-other))
+                (group (cdr cyberdeck-search-todo-other))
+                ((and (characterp narrow)
+                      (not (assoc narrow (cyberdeck-search-todo--narrow)))))
+                ((and (stringp group) (not (rassoc group (cyberdeck-search-todo--narrow))))))
+          (setq cyberdeck-search-todo--narrow-extend
+                (cons cyberdeck-search-todo-other (cyberdeck-search-todo--narrow)))
+        (user-error
+         "Atlas-search-todo-other: format error or conflicts with cyberdeck-search-todo-narrow")
+        (setq cyberdeck-search-todo--narrow-extend nil))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun cyberdeck-search-todo--format (candidates)
+  "Return formatted string according to CANDIDATES."
+  (if candidates
+      (mapcar
+       (pcase-lambda (`(,name ,line ,type ,pos ,narrow ,text))
+         (propertize
+          (format (apply #'format "%%-%ds %%-%ds %%-%ds %%s"
+                         (cl-loop for i to 2
+                                  collect (seq-max (mapcar
+                                                    (lambda(x) (length (nth i x)))
+                                                    candidates))))
+                  (propertize name 'face 'consult-file)
+                  (propertize line 'face 'consult-line-number)
+                  ;; WONTFIX don't support regexp keywords face
+                  (propertize type 'face (hl-todo--combine-face
+                                          (cdr (assoc type hl-todo-keyword-faces))))
+                  text)
+          'consult-location (cons pos line)
+          'consult--type narrow))
+       candidates)
+    (user-error "No hl-todo keywords")))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun cyberdeck-search-todo-grep-state ()
+  "Lookup SELECTED in CANDIDATES list of `consult-location' category.
+Return the location marker."
+  (lexical-let ((open (consult--temporary-files))
+                (jump (consult--jump-state)))
+    (lambda (action cand)
+      (unless cand (funcall open))
+      (when cand
+        (setq cand (car (get-text-property 0 'consult-location cand)))
+        (funcall jump action (consult--marker-from-line-column
+                              (ignore-errors
+                                (funcall (or (and (not (eq action 'return)) open)
+                                             #'find-file-noselect)
+                                         (nth 0 cand)))
+                              (nth 1 cand) (nth 2 cand)))))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun cyberdeck-search-todo--parse-bufs (buffers)
+  "Return list of hl-todo keywords in BUFFERS."
+  (cl-loop for buf in (ensure-list (or buffers (current-buffer)))
+           append
+           (with-current-buffer buf
+             (save-excursion
+               (save-restriction
+                 (widen)
+                 (goto-char (point-min))
+                 (cl-loop while (hl-todo--search)
+                          when (or (null cyberdeck-search-todo-only-comment)
+                                   (nth 4 (syntax-ppss)))
+                          collect
+                          ;; HACK when buffer is too large, match-string return nil
+                          ;; in one match, use thing-at-point to get the match-string
+                          ;; as type. At this failed match, point is still accurate,
+                          ;; match-begin and match-end is limit to accessible portion
+                          ;; of buffer
+                          (let ((type (or (match-string-no-properties 2)
+                                          (save-excursion
+                                            (backward-to-word)
+                                            (substring-no-properties
+                                             (save-match-data
+                                               (thing-at-point 'word)))))))
+                            (list (buffer-name)
+                                  (number-to-string (line-number-at-pos))
+                                  type
+                                  (copy-marker (point))
+                                  (car (or (rassoc type (cyberdeck-search-todo--narrow))
+                                           cyberdeck-search-todo-other))
+                                  (string-trim (buffer-substring-no-properties
+                                                (point)
+                                                (line-end-position)))))))))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun cyberdeck-search-todo--aius-directory ()
+  "Return the AIUs directory (with trailing slash)."
+  (file-name-as-directory (my/cyberdeck-root-dir)))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defvar cyberdeck-search-todo--skip-dirs
+  '(".git" ".cache" "admin" "WIP")
+  "Directories under the AIUs directory to skip when scanning.")
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun cyberdeck-search-todo--dir-files (dir)
+  "Return AIU files under DIR, skipping `cyberdeck-search-todo--skip-dirs'."
+  (cl-remove-if
+   (lambda (file)
+     (or (cl-some (lambda (sub)
+                    (string-match-p (concat "\\(?:^\\|/\\)" (regexp-quote sub) "/")
+                                    (file-relative-name file dir)))
+                  cyberdeck-search-todo--skip-dirs)
+         (unless (or (null (file-name-extension file))
+                     (string-match-p "\\.org\\'" file))
+           file)))
+   (directory-files-recursively dir "^[^.]" nil nil)))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun cyberdeck-search-todo--parse-file (file)
+  "Return list of hl-todo matches in FILE."
+  (with-temp-buffer
+    (insert-file-contents file)
+    (goto-char (point-min))
+    (let (found)
+      (while (re-search-forward (hl-todo--regexp) nil t)
+        (push
+         (let ((type (or (match-string-no-properties 2)
+                         (save-excursion
+                           (backward-to-word)
+                           (substring-no-properties
+                            (save-match-data
+                              (thing-at-point 'word)))))))
+           (list (file-name-nondirectory file)
+                 (number-to-string (line-number-at-pos))
+                 type
+                 (list file (1- (line-number-at-pos)) 0)
+                 (car (or (rassoc type (cyberdeck-search-todo--narrow))
+                          cyberdeck-search-todo-other))
+                 (string-trim (buffer-substring-no-properties
+                               (point)
+                               (line-end-position)))))
+         found))
+      (nreverse found))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun cyberdeck-search-todo--dir (formatted-candidates)
+  "Jump to hl-todo keywords with FORMATTED-CANDIDATES."
+  (consult--forbid-minibuffer)
+  (consult--read
+   formatted-candidates
+   :prompt "Cyberdeck todo in dir: "
+   :category 'consult-location
+   :require-match t
+   :sort nil
+   :preview-key cyberdeck-search-todo-dir-preview-key
+   :group (consult--type-group (cyberdeck-search-todo--narrow-extend))
+   :narrow (consult--type-narrow (cyberdeck-search-todo--narrow-extend))
+   :lookup #'consult--lookup-member
+   :state (cyberdeck-search-todo-grep-state)))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defvar cyberdeck-search-todo--cache nil)
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun cyberdeck-search-todo-clear-cache (&optional _all)
+  "Clear cache stored in `cyberdeck-search-todo--cache'."
+  (interactive "P")
+  (setq cyberdeck-search-todo--cache nil))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun cyberdeck-search-todo--scan-dir (dir)
+  "Return raw hl-todo matches from all non-skipped files under DIR."
+  (cl-loop for file in (cyberdeck-search-todo--dir-files dir)
+           append (cyberdeck-search-todo--parse-file file)))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun cyberdeck-search-todo-dir (&optional directory)
+  "Jump to hl-todo keywords in the AIUs DIRECTORY."
+  (interactive)
+  (let ((dir (or directory (cyberdeck-search-todo--aius-directory))))
+    (cyberdeck-search-todo--dir
+     (cyberdeck-search-todo--format
+      (cyberdeck-search-todo--scan-dir dir)))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun cyberdeck-search-todo (&optional buffers)
+  "Jump to hl-todo keywords in BUFFERS.
+If BUFFERS is nil, use current buffer instead."
+  (interactive "P")
+  (consult--forbid-minibuffer)
+  (consult--read
+   (cyberdeck-search-todo--format
+    (cyberdeck-search-todo--parse-bufs (or buffers (current-buffer))))
+   :prompt "Cyberdeck todo: "
+   :category 'consult-location
+   :require-match t
+   :sort nil
+   :group (consult--type-group (cyberdeck-search-todo--narrow-extend))
+   :narrow (consult--type-narrow (cyberdeck-search-todo--narrow-extend))
+   :lookup #'consult--lookup-location
+   :state (consult--jump-state)))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+(defun cyberdeck-search-todo-all ()
+  "Jump to hl-todo keywords in all aius-directory buffers."
+  (interactive)
+  (cyberdeck-search-todo
+   (seq-filter (lambda (x)
+                 (and (buffer-local-value 'hl-todo-mode x)
+                      (string-prefix-p (cyberdeck-search-todo--aius-directory)
+                                       (or (buffer-file-name x) ""))))
+               (buffer-list))))
+
+#+end_src
+
+** Config
+#+begin_src emacs-lisp
+(setq cyberdeck-search-todo-narrow
+      '((?t . "TODO")
+        (?f . "FIXME")
+        (?b . "BUG")
+        (?h . "HACK")
+        (?n . "AIU")))
+#+end_src

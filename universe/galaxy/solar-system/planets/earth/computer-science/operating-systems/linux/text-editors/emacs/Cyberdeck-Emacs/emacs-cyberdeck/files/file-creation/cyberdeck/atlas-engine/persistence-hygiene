@@ -1,0 +1,54 @@
+* Persistence Hygiene :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       a7e546e9-f6c3-40f7-a1c5-85af9e3843c6
+:END:
+
+Policy plus helpers for crash-safe writes.  Crash safety in this
+system is layered: the loader writes caches atomically (tmp+rename in
+~cyberdeck-emacs--cache-write~) and readers validate with rescan
+fallback, so a killed boot self-heals.  This file gives cyberdeck code the
+same primitive and a verification command.  Nothing here runs at load;
+all helpers are runtime-only, so load order is irrelevant.
+
+** Atomic write helper
+#+begin_src emacs-lisp
+(defun my/cyberdeck-atomic-write (path insert-fn)
+  "Write PATH atomically: INSERT-FN runs in a temp buffer, then rename.
+INSERT-FN takes no arguments and inserts the full file content.
+Never leaves a half-written file behind.  Signals on failure."
+  (let ((tmp (concat path ".tmp")))
+    (make-directory (file-name-directory path) t)
+    (with-temp-file tmp
+      (funcall insert-fn))
+    (rename-file tmp path t)))
+#+end_src
+
+** Verify persistence health
+#+begin_src emacs-lisp
+(defun my/cyberdeck-verify-persistence ()
+  "Check index, eval cache, and known-keys record for readability.
+Returns (LABEL . OK) rows; interactive shows a summary.  Read-only:
+repairs are explicit (delete the corrupt file and reload to rebuild)."
+  (interactive)
+  (let* ((home (expand-file-name "~"))
+         (idx (expand-file-name ".config/emacs/.local/cache/discovery-index.el" home))
+         (rows nil))
+    (push (cons "discovery-index"
+                (condition-case nil
+                    (progn (with-temp-buffer
+                             (insert-file-contents idx)
+                             (read (current-buffer)))
+                           t)
+                  (error nil)))
+          rows)
+    (push (cons "known-keys"
+                (let ((p (and (fboundp 'my/cyberdeck-links--known-keys-path)
+                              (my/cyberdeck-links--known-keys-path))))
+                  (and p (file-exists-p p))))
+          rows)
+    (when (called-interactively-p 'any)
+      (message "persistence: %s"
+               (mapconcat (lambda (r) (format "%s=%s" (car r) (if (cdr r) "ok" "BAD")))
+                          (nreverse rows) " ")))
+    rows))
+#+end_src

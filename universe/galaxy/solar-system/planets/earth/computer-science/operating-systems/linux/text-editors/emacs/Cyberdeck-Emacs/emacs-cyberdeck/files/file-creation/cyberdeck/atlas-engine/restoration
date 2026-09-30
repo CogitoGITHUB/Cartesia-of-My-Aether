@@ -1,0 +1,1329 @@
+Guards file and heading deletion when incoming or outgoing =id:= links exist.
+Guards deletion of untracked files and missing links.
+Provides restore command via Git history.
+Uses native =cyberdeck-db-query-links-to= and =cyberdeck-db-query-links-from= API (v2.1+).
+* Missing Links File :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       ac007417-f901-4778-9dd4-751495acb5a9
+:MM_PARENT: none
+:MM_ORDER:  135.0
+:END:
+
+**** Path and bootstrap
+#+begin_src emacs-lisp
+;; Forward declarations: queue file names owned by file-creation,
+;; only read here. Bare defvars silence the compiler.
+(defvar my/cyberdeck-links--broken-aiu-contexts-file)
+(defvar my/cyberdeck-links--added-blueprints-file)
+(defvar my/cyberdeck-links--deleted-blueprints-file)
+(defvar my/cyberdeck-links--broken-links-file "admin/Missing Links"
+  "Filename for the missing links repair queue.
+Lives in `my/cyberdeck-root-dir'. Auto-created if missing.")
+(setq my/cyberdeck-links--broken-links-file "admin/Missing Links")
+
+(defun my/cyberdeck-links--broken-links-path ()
+  "Return full path to Missing Links in the vault root."
+  (expand-file-name my/cyberdeck-links--broken-links-file
+                    (my/cyberdeck-root-dir)))
+
+(defun my/cyberdeck-links--ensure-broken-links-file ()
+  "Create Missing Links if it does not exist.
+Creates the file and commits to Git."
+  (let ((path (my/cyberdeck-links--broken-links-path)))
+    (make-directory (file-name-directory path) t)
+    (unless (file-exists-p path)
+      (with-temp-file path
+        (insert "#+TITLE: Missing Links\n")
+        (insert "#+AUTHOR: AIU Cyberdeck Git VC System\n")
+        (insert "#+DESCRIPTION: Auto-generated repair queue.")
+        (insert " Broken id: links after deletion.\n")
+        (insert "#+STARTUP: overview\n\n")))
+    path))
+#+end_src
+*** ReManifold File
+#+begin_src emacs-lisp
+(defvar my/cyberdeck-links--deleted-files-file "admin/ReManifold"
+  "Filename for tracking all deleted .org files.
+Lives in `my/cyberdeck-root-dir'. Auto-created if missing.")
+(setq my/cyberdeck-links--deleted-files-file "admin/ReManifold")
+
+(defun my/cyberdeck-links--deleted-files-path ()
+  "Return full path to ReManifold in the vault root."
+  (expand-file-name my/cyberdeck-links--deleted-files-file
+                    (my/cyberdeck-root-dir)))
+
+(defun my/cyberdeck-links--ensure-deleted-files-file ()
+  "Create ReManifold if it does not exist."
+  (let ((path (my/cyberdeck-links--deleted-files-path)))
+    (make-directory (file-name-directory path) t)
+    (unless (file-exists-p path)
+      (with-temp-file path
+        (insert "#+TITLE: ReManifold\n")
+        (insert "#+AUTHOR: AIU Cyberdeck Git VC System\n")
+        (insert "#+DESCRIPTION: Auto-generated log of deleted .org files.\n")
+        (insert "#+STARTUP: overview\n\n")))
+    path))
+#+end_src
+*** Jump to First Heading on Open
+
+**** Admin file inventory and empty cleanup
+#+begin_src emacs-lisp
+;; `my/cyberdeck-missing--file' is owned by file-creation
+;; (defined + set there); this file only reads it at runtime.
+(defun my/cyberdeck-links--admin-file-paths ()
+  "Absolute paths of all managed admin queue files."
+  (mapcar (lambda (f) (expand-file-name f (my/cyberdeck-root-dir)))
+          (list my/cyberdeck-links--broken-links-file
+                my/cyberdeck-links--broken-aiu-contexts-file
+                my/cyberdeck-links--deleted-files-file
+                my/cyberdeck-links--added-blueprints-file
+                my/cyberdeck-links--deleted-blueprints-file
+                my/cyberdeck-missing--file)))
+
+(defun my/cyberdeck-links--delete-if-empty (path)
+  "Delete PATH if it contains no org headings."
+  (when (and path (file-exists-p path))
+    (with-temp-buffer
+      (insert-file-contents path)
+      (goto-char (point-min))
+      (unless (re-search-forward "^\\*+ " nil t)
+        (when (file-exists-p path)
+          (delete-file path))))))
+
+(defun my/cyberdeck-links--cleanup-empty-admin-files ()
+  "Delete all admin files that have no headings."
+  (dolist (p (my/cyberdeck-links--admin-file-paths))
+    (my/cyberdeck-links--delete-if-empty p)))
+
+(defun my/cyberdeck-links--cleanup-on-save ()
+  "After saving an admin file, delete ALL empty admin files."
+  (when (and buffer-file-name
+             (member (buffer-file-name)
+                     (my/cyberdeck-links--admin-file-paths)))
+    (my/cyberdeck-links--cleanup-empty-admin-files)))
+#+end_src
+
+**** Admin buffer setup
+RET follows links; saves trigger the cleanup sweep.
+#+begin_src emacs-lisp
+(defun my/cyberdeck-links--setup-admin-buffer ()
+  "Configure admin files: jump to first heading, RET follows link."
+  (when (member (buffer-file-name)
+                (my/cyberdeck-links--admin-file-paths))
+    (setq-local org-return-follows-link t)
+    (add-hook 'after-save-hook #'my/cyberdeck-links--cleanup-on-save nil t)
+    (when (string= (buffer-name) "Static Blueprints")
+      (setq-local my/cyberdeck-missing--active t))
+    (goto-char (point-min))
+    (when (re-search-forward "^\\*+ " nil t)
+      (goto-char (match-end 0))
+      (when (re-search-forward "\\[\\[" (line-end-position) t)
+        (goto-char (match-beginning 0))))))
+(add-hook 'find-file-hook #'my/cyberdeck-links--setup-admin-buffer)
+
+(require 'cl-lib)
+
+(defun my/cyberdeck-missing--around-open (orig-fun &rest args)
+  "Wrap org-open-at-point: from Static Blueprints, open link then show update menu."
+  (let ((active (bound-and-true-p my/cyberdeck-missing--active)))
+    (if active
+        (progn
+          (delete-other-windows)
+          (apply orig-fun args)
+          (delete-other-windows))
+      (apply orig-fun args))))
+(advice-add 'org-open-at-point :around #'my/cyberdeck-missing--around-open)
+#+end_src
+
+**** Added-entry jump to property in capture
+RET on an Added Heading Blueprints entry opens the AIU in an
+org-capture buffer positioned on the added :KEY: line (widened,
+point on the value). The admin TODO is left untouched — mark DONE
+manually. Deleted Heading Blueprints keeps plain file-open.
+#+begin_src emacs-lisp
+(defun my/cyberdeck-links--added-property-at-point ()
+  "Return (KEY . NOTE-FILE) from the Added entry heading at point, or nil.
+Reads :BLUEPRINT_KEY: and :NOTE_FILE: from the current heading drawer."
+  (when (org-at-heading-p)
+    (let ((key (org-entry-get nil "BLUEPRINT_KEY"))
+          (file (org-entry-get nil "NOTE_FILE")))
+      (when (and key file (not (string-empty-p key)) (file-exists-p file))
+        (cons key file)))))
+
+(defun my/cyberdeck-links--capture-at-property (key file)
+  "Open FILE in an org-capture buffer positioned after the :KEY: colon.
+Widened buffer (`:unnarrowed t'), point lands on the value for editing.
+The admin TODO is left alone — mark it DONE manually."
+  (let ((org-capture-templates
+         `(("p" "Edit added property"
+            plain
+            (file+function
+             ,file
+             (lambda ()
+               (goto-char (point-min))
+               (if (re-search-forward
+                    (format "^[ \t]*:%s:[ \t]*" (regexp-quote ,key))
+                    nil t)
+                   (goto-char (match-end 0))
+                 (goto-char (point-min)))))
+            "%?"
+            :kill-buffer t :unnarrowed t :empty-lines 0))))
+    (org-capture nil "p")))
+
+(defun my/cyberdeck-added--around-open (orig-fun &rest args)
+  "Wrap org-open-at-point: from Added Heading Blueprints, RET opens the
+note in an org-capture buffer on the added :KEY: line.
+All other buffers fall through to ORIG-FUN untouched."
+  (let ((added-path (ignore-errors
+                      (expand-file-name my/cyberdeck-links--added-blueprints-file
+                                       (my/cyberdeck-root-dir)))))
+    (if (and buffer-file-name added-path
+             (string= (expand-file-name buffer-file-name) added-path)
+             (my/cyberdeck-links--added-property-at-point))
+        (let ((kv (my/cyberdeck-links--added-property-at-point)))
+          (delete-other-windows)
+          (my/cyberdeck-links--capture-at-property (car kv) (cdr kv)))
+      (apply orig-fun args))))
+(advice-add 'org-open-at-point :around #'my/cyberdeck-added--around-open)
+#+end_src
+*** Deleted Entry Writer
+
+**** Entry drawer text
+#+begin_src emacs-lisp
+(defun my/cyberdeck-links--deleted-entry-props (rel deleted-id unfoldings)
+  "Return the :PROPERTIES: drawer text for a ReManifold entry."
+  (concat "  :PROPERTIES:\n"
+          (format "  :CREATED:       %s\n"
+                  (format-time-string "<%Y-%m-%d %a>"))
+          (format "  :DELETED_FILE:  %s\n" rel)
+          (when deleted-id
+            (format "  :DELETED_ID:    %s\n" deleted-id))
+          (when unfoldings
+            (format "  :DELETED_UNFOLDINGS:  %s\n"
+                    (mapconcat #'identity unfoldings " ")))
+          "  :END:\n"))
+#+end_src
+
+**** Entry writer command
+#+begin_src emacs-lisp
+(cl-defun my/cyberdeck-links--write-deleted-entry (file &optional unfoldings)
+  "Append a heading for deleted FILE to ReManifold.
+UNFOLDINGS is a list of relative paths of unfolding notes
+deleted alongside FILE, recorded in the :DELETED_UNFOLDINGS:
+AIU Context for later restore."
+  (let ((path (my/cyberdeck-links--ensure-deleted-files-file))
+        root rel deleted-id deleted-title heading)
+    (setq root (expand-file-name (or (vc-root-dir) "")
+                                 (my/cyberdeck-root-dir)))
+    (setq rel (file-relative-name (expand-file-name file) root))
+    (when (string-prefix-p ".." rel) (cl-return-from my/cyberdeck-links--write-deleted-entry nil))
+    (setq deleted-id (org-entry-get (point-min) "ID"))
+    (setq deleted-title (cadr (assoc "TITLE"
+                                     (org-collect-keywords (list "TITLE")))))
+    (setq heading (or deleted-title (file-name-base file)))
+    (with-current-buffer (find-file-noselect path)
+      (goto-char (point-max))
+      (insert (format "\n* TODO [[restore:][%s]]\n" heading))
+      (insert (my/cyberdeck-links--deleted-entry-props rel deleted-id unfoldings))
+      (save-buffer)
+      (kill-buffer (current-buffer)))))
+#+end_src
+*** Internal State
+#+begin_src emacs-lisp
+(defvar my/cyberdeck-links--deleted-id nil
+  "ID of the AIU being deleted. Captured before deletion.")
+
+(defvar my/cyberdeck-links--deleted-title nil
+  "Title of the AIU being deleted. Captured before deletion.")
+
+(defvar my/cyberdeck-links--deleted-aiu-contexts nil
+  "Relative paths of unfolding notes deleted alongside the current note.
+Captured before deletion so the file can be scanned while it still exists.")
+#+end_src
+*** AIU Context Cleanup on Delete
+
+**** AIU Context id detection
+#+begin_src emacs-lisp
+(defun my/cyberdeck-links--aiu-context-id-in-file-p (id file)
+  "Non-nil when FILE contains an [[id:ID][...]] link."
+  (let ((re (format "\\[\\[id:%s\\]\\[" (regexp-quote id))))
+    (with-temp-buffer
+      (insert-file-contents file)
+      (goto-char (point-min))
+      (re-search-forward re nil t))))
+
+(defun my/cyberdeck-links--aiu-context-id-p (id)
+  "Non-nil when ID names an AIU Context AIU under admin/unfoldings/."
+  (when-let ((note (cyberdeck-db-get-by-id id)))
+    (let ((path (cyberdeck-aiu-path note)))
+      (and path
+           (file-in-directory-p path
+                                (expand-file-name "admin/unfoldings/"
+                                                  (my/cyberdeck-root-dir)))))))
+
+(defun my/cyberdeck-links--aiu-aiu-context-ids (file)
+  "Return list of unfolding note IDs referenced by FILE.
+Scans FILE for [[id:ID][...]] links that resolve to a note under
+admin/unfoldings/. Returns the list of matching IDs."
+  (let ((_root (my/cyberdeck-root-dir))
+        aiu-context-ids)
+    (when (file-exists-p file)
+      (with-temp-buffer
+        (insert-file-contents file)
+        (goto-char (point-min))
+        (while (re-search-forward "\\[\\[id:\\([^]]+\\)\\]\\[" nil t)
+          (let ((id (match-string-no-properties 1)))
+            (when (my/cyberdeck-links--aiu-context-id-p id)
+              (push id aiu-context-ids))))))
+    (delete-dups aiu-context-ids)))
+#+end_src
+
+**** Orphan detection
+Skips DELETED-FILE itself and files under admin/unfoldings/.
+#+begin_src emacs-lisp
+ (defun my/cyberdeck-links--aiu-context-orphaned-p (aiu-context-id deleted-file)
+  "Non-nil when UNFOLDING-ID is referenced only by DELETED-FILE.
+For scoped unfoldings (with UNFOLDING_PARENT), checks parent ID
+directly; for legacy shared unfoldings (no UNFOLDING_PARENT),
+falls back to full vault scan."
+  (let* ((aiu-context-aiu (ignore-errors (cyberdeck-db-get-by-id aiu-context-id)))
+         (aiu-context-parent (and aiu-context-aiu
+                          (cdr (assoc "UNFOLDING_PARENT"
+                                      (cyberdeck-aiu-aiu-contexts aiu-context-aiu))))))
+    (if aiu-context-parent
+        ;; Scoped unique per parent — orphaned iff parent is the deleted file
+        (let ((deleted-id (or my/cyberdeck-links--deleted-id
+                              (ignore-errors
+                                (with-temp-buffer
+                                  (insert-file-contents deleted-file)
+                                  (when (re-search-forward "^:ID:[ \t]+\\(.+\\)" nil t)
+                                    (string-trim (match-string 1))))))))
+          (and deleted-id (string= aiu-context-parent deleted-id)))
+      ;; Legacy shared — full scan
+      (let* ((root (my/cyberdeck-root-dir))
+            (deleted-exp (expand-file-name deleted-file))
+            (aiu-contexts-dir (expand-file-name "admin/unfoldings/" (my/cyberdeck-root-dir)))
+            (files (nconc (directory-files-recursively root "\\.org\\'")
+                          (directory-files-recursively root "[^./]+\\'")))
+            (orphaned t))
+        (dolist (f files)
+          (let ((exp (expand-file-name f)))
+            (when (and (not (string-equal exp deleted-exp))
+                       (not (file-in-directory-p exp aiu-contexts-dir))
+                       (not (string-match-p "/WIP/" exp)))
+              (when (my/cyberdeck-links--aiu-context-id-in-file-p aiu-context-id exp)
+                (setq orphaned nil)))))
+        orphaned))))
+
+(defun my/cyberdeck-links--aiu-context-rel-path (aiu-context-id)
+  "Return relative path (from vault root) of the AIU Context AIU UNFOLDING-ID."
+  (when-let ((note (cyberdeck-db-get-by-id aiu-context-id)))
+    (let ((path (cyberdeck-aiu-path note)))
+      (and path
+           (file-relative-name path (my/cyberdeck-root-dir))))))
+#+end_src
+
+**** Orphan collection for a file
+Used to delete AIU Contexts alongside a deleted AIU without breaking other
+notes that share the same closed-vocab AIU Context.
+#+begin_src emacs-lisp
+(defun my/cyberdeck-links--orphaned-aiu-contexts-for (file)
+  "Return relative paths of AIU Contexts that only FILE references."
+  (let ((deleted-file (expand-file-name file))
+        (unfoldings (my/cyberdeck-links--aiu-aiu-context-ids file))
+        orphans)
+    (dolist (aiu-context-id unfoldings)
+      (when (my/cyberdeck-links--aiu-context-orphaned-p aiu-context-id deleted-file)
+        (when-let ((rel (my/cyberdeck-links--aiu-context-rel-path aiu-context-id)))
+          (push rel orphans))))
+    (delete-dups orphans)))
+#+end_src
+*** TODO Entry Writer
+
+**** Broken-link entry text
+#+begin_src emacs-lisp
+(defun my/cyberdeck-links--todo-entry-props (direction deleted-title deleted-id)
+  "Return the :PROPERTIES: drawer and restore line for a Missing Links entry."
+  (concat "  :PROPERTIES:\n"
+          (format "  :CREATED:       %s\n"
+                  (format-time-string "<%Y-%m-%d %a>"))
+          (format "  :DIRECTION:     %s\n" direction)
+          (format "  :DELETED_NOTE:  %s\n" deleted-title)
+          (format "  :DELETED_ID:    %s\n" deleted-id)
+          "  :END:\n"
+          "  [[elisp:(my/cyberdeck-links-restore)][Restore from Git]]\n"))
+#+end_src
+
+**** TODO writer command
+#+begin_src emacs-lisp
+(defun my/cyberdeck-links--write-todo (source-id
+                                    source-title
+                                    deleted-title
+                                    deleted-id
+                                    direction)
+  "Append a TODO entry to Missing Links.
+DIRECTION is either incoming or outgoing — recorded in the entry."
+  (let* ((path (my/cyberdeck-links--ensure-broken-links-file))
+         (src-path (when-let ((note (cyberdeck-db-get-by-id source-id)))
+                     (cyberdeck-aiu-path note)))
+         (link (if src-path
+                   (format "[[file:%s::*%s][%s]]" src-path source-title source-title)
+                 (format "[[id:%s][%s]]" source-id source-title))))
+    (with-current-buffer (find-file-noselect path)
+      (goto-char (point-max))
+      (insert (format "\n* TODO Fix broken link in %s\n" link))
+      (insert (my/cyberdeck-links--todo-entry-props
+               direction deleted-title deleted-id))
+      (save-buffer)
+      (kill-buffer (current-buffer)))))
+#+end_src
+
+*** Missing-Links Guard
+
+**** Open TODO counter
+#+begin_src emacs-lisp
+(defun my/cyberdeck-links--broken-links-open-count ()
+  "Return count of open TODO entries in Missing Links.
+Returns 0 if the file does not exist."
+  (let ((path (my/cyberdeck-links--broken-links-path)))
+    (if (not (file-exists-p path))
+        0
+      (with-temp-buffer
+        (insert-file-contents path)
+        (org-mode)
+        (let ((count 0))
+          (org-element-map (org-element-parse-buffer) 'headline
+            (lambda (h)
+              (when (equal (org-element-aiu-context :todo-keyword h) "TODO")
+                (setq count (1+ count)))))
+          count)))))
+#+end_src
+
+**** Deletion guard for the queue file itself
+#+begin_src emacs-lisp
+(defun my/cyberdeck-links--guard-broken-links-file (file &rest _)
+  "Before Missing Links is deleted: check for open TODO entries.
+Warns and asks for confirmation if any remain unresolved."
+  (let ((expanded (expand-file-name file)))
+    (when (string= expanded (my/cyberdeck-links--broken-links-path))
+      (let ((count (my/cyberdeck-links--broken-links-open-count)))
+        (when (> count 0)
+          (unless (y-or-n-p
+                   (format "Missing Links has %d unresolved TODO%s. Delete anyway? "
+                           count
+                           (if (= count 1) "" "s")))
+            (user-error "Deletion cancelled: %d unresolved broken link%s remain"
+                        count
+                        (if (= count 1) "" "s"))))))))
+#+end_src
+*** Core: Guard Before Deletion
+
+**** Peer title resolution
+#+begin_src emacs-lisp
+(defun my/cyberdeck-links--peer-title (link key)
+  "Title of LINK's peer under KEY (:source or :dest), or its raw id."
+  (let* ((peer-id (plist-get link key))
+         (note (cyberdeck-db-get-by-id peer-id)))
+    (if note
+        (cyberdeck-aiu-title note)
+      peer-id)))
+#+end_src
+
+**** Incoming AIU Proxy sources
+#+begin_src emacs-lisp
+(defun my/cyberdeck-links--aiu-proxy-sources (deleted-id)
+  "Distinct source ids wormholing DELETED-ID."
+  (delete-dups
+   (append
+    (when (fboundp 'my/cyberdeck-db-query-aiu-proxy-links-to)
+      (my/cyberdeck-db-query-aiu-proxy-links-to deleted-id))
+    (my/cyberdeck-links--find-aiu-proxy-aiu-contexts deleted-id))))
+#+end_src
+
+**** TODO recording for one direction
+#+begin_src emacs-lisp
+(defun my/cyberdeck-links--write-direction-todos
+    (deleted-id deleted-title links peer-key direction)
+  "Write a Missing Links TODO per LINK; PEER-KEY picks the other end.
+Links originating from drawer unfolding entries, or touching notes
+under admin/unfoldings/, route to Broken AIU Contexts instead."
+  (let ((deleted-path (my/cyberdeck-links--aiu-path-of deleted-id)))
+    (dolist (link links)
+      (let* ((peer-id (plist-get link peer-key))
+             (peer-aiu (cyberdeck-db-get-by-id peer-id))
+             (peer-title (if peer-aiu
+                             (cyberdeck-aiu-title peer-aiu)
+                           peer-id)))
+        (cond
+         ((eq peer-key :source)
+          (let ((key (my/cyberdeck-links--drawer-aiu-context-for
+                      peer-id deleted-id)))
+            (cond (key
+                   (my/cyberdeck-links--write-broken-aiu-context-todo
+                    peer-id peer-title key deleted-title deleted-id direction))
+                  ((my/cyberdeck-links--in-aiu-contexts-dir-p deleted-path)
+                   (my/cyberdeck-links--write-broken-aiu-context-todo
+                    peer-id peer-title
+                    (my/cyberdeck-links--family-of-path deleted-path)
+                    deleted-title deleted-id direction))
+                  (t
+                   (my/cyberdeck-links--write-todo
+                    peer-id peer-title deleted-title deleted-id direction)))))
+         (t
+          (let ((key (my/cyberdeck-links--drawer-aiu-context-for
+                      deleted-id peer-id)))
+            (cond ((my/cyberdeck-links--in-aiu-contexts-dir-p deleted-path)
+                   (my/cyberdeck-links--write-broken-aiu-context-todo
+                    deleted-id deleted-title
+                    (my/cyberdeck-links--family-of-path deleted-path)
+                    peer-title peer-id direction))
+                  (key
+                   (my/cyberdeck-links--write-broken-aiu-context-todo
+                    deleted-id deleted-title key peer-title peer-id direction))
+                  (t
+                   (my/cyberdeck-links--write-todo
+                    deleted-id deleted-title peer-title peer-id direction))))))))))
+#+end_src
+
+*** Broken AIU Contexts File
+Live-property ref-aiu breaks log here instead of Missing Links: when
+a broken link originates from a drawer AIU Context entry, or either end
+lives under admin/unfoldings/, the TODO lands in this queue.
+
+**** Path and bootstrap
+#+begin_src emacs-lisp
+(defvar my/cyberdeck-links--broken-aiu-contexts-file "admin/Broken AIU Contexts"
+  "Filename for the broken live-property unfolding repair queue.
+Lives in `my/cyberdeck-root-dir'. Auto-created if missing.")
+(setq my/cyberdeck-links--broken-aiu-contexts-file "admin/Broken AIU Contexts")
+
+(defun my/cyberdeck-links--broken-aiu-contexts-path ()
+  "Return full path to Broken AIU Contexts in the vault root."
+  (expand-file-name my/cyberdeck-links--broken-aiu-contexts-file
+                    (my/cyberdeck-root-dir)))
+
+(defun my/cyberdeck-links--ensure-broken-aiu-contexts-file ()
+  "Create Broken AIU Contexts if it does not exist."
+  (let ((path (my/cyberdeck-links--broken-aiu-contexts-path)))
+    (make-directory (file-name-directory path) t)
+    (unless (file-exists-p path)
+      (with-temp-file path
+        (insert "#+TITLE: Broken AIU Contexts\n")
+        (insert "#+AUTHOR: AIU Cyberdeck Git VC System\n")
+        (insert "#+DESCRIPTION: Auto-generated repair queue.")
+        (insert " Broken live-property AIU Context links.\n")
+        (insert "#+STARTUP: overview\n\n")))
+    path))
+#+end_src
+
+**** Entry writer
+#+begin_src emacs-lisp
+(defun my/cyberdeck-links--broken-aiu-context-entry-props (direction unfolding source-title deleted-title deleted-id)
+  "Return drawer + restore line for a Broken AIU Contexts entry."
+  (concat "  :PROPERTIES:\n"
+          (format "  :CREATED:       %s\n"
+                  (format-time-string "<%Y-%m-%d %a>"))
+          (format "  :DIRECTION:     %s\n" direction)
+          (format "  :UNFOLDING:     %s\n" unfolding)
+          (format "  :SOURCE_NOTE:   %s\n" source-title)
+          (format "  :DELETED_NOTE:  %s\n" deleted-title)
+          (format "  :DELETED_ID:    %s\n" deleted-id)
+          "  :END:\n"
+          "  [[elisp:(my/cyberdeck-links-restore)][Restore from Git]]\n"))
+
+(defun my/cyberdeck-links--write-broken-aiu-context-todo (source-id source-title unfolding deleted-title deleted-id direction)
+  "Append a TODO entry to Broken AIU Contexts."
+  (let* ((path (my/cyberdeck-links--ensure-broken-aiu-contexts-file))
+         (src-path (when-let ((note (cyberdeck-db-get-by-id source-id)))
+                     (cyberdeck-aiu-path note)))
+         (link (if src-path
+                   (format "[[file:%s::*%s][%s]]" src-path source-title source-title)
+                 (format "[[id:%s][%s]]" source-id source-title))))
+    (with-current-buffer (find-file-noselect path)
+      (goto-char (point-max))
+      (insert (format "\n* TODO Fix broken AIU Context in %s\n" link))
+      (insert (my/cyberdeck-links--broken-aiu-context-entry-props
+               direction unfolding source-title deleted-title deleted-id))
+      (save-buffer)
+      (kill-buffer (current-buffer)))))
+#+end_src
+
+**** Classification helpers
+#+begin_src emacs-lisp
+(defun my/cyberdeck-links--aiu-contexts-dir ()
+  "Absolute path of the AIU Context ref-aius directory."
+  (expand-file-name "admin/unfoldings/" (my/cyberdeck-root-dir)))
+
+(defun my/cyberdeck-links--in-aiu-contexts-dir-p (path)
+  "Non-nil when PATH (a string) lives under admin/unfoldings/."
+  (and (stringp path)
+       (file-in-directory-p (expand-file-name path)
+                            (my/cyberdeck-links--aiu-contexts-dir))))
+
+(defun my/cyberdeck-links--aiu-path-of (id)
+  "Return vault path for AIU ID, or nil."
+  (when-let ((note (ignore-errors (cyberdeck-db-get-by-id id))))
+    (ignore-errors (cyberdeck-aiu-path note))))
+
+(defun my/cyberdeck-links--family-of-path (path)
+  "Return the AIU Context family (parent dir name) for a ref-aiu PATH."
+  (file-name-nondirectory
+   (directory-file-name (file-name-directory (expand-file-name path)))))
+
+(defun my/cyberdeck-links--drawer-aiu-context-for (source-id deleted-id)
+  "Return the drawer KEY in SOURCE-ID's note holding the link
+to DELETED-ID, or nil. Only matches links inside a
+:PROPERTIES: drawer; body links return nil."
+  (let ((file (my/cyberdeck-links--aiu-path-of source-id)))
+    (when (and file (file-exists-p file))
+      (with-temp-buffer
+        (insert-file-contents file)
+        (goto-char (point-min))
+        (let ((re (format "^[ \t]*:\\([A-Za-z0-9_-]+\\):[ \t]*.*\\[\\[id:%s\\]"
+                          (regexp-quote deleted-id)))
+              found)
+          (while (and (not found) (re-search-forward re nil t))
+            (let ((key (match-string 1))
+                  (lb (line-beginning-position)))
+              (save-excursion
+                (goto-char lb)
+                (when (and (re-search-backward "^\\*+ \\|^[ \t]*:END:[ \t]*$" nil t)
+                           (looking-at-p "^[ \t]*:PROPERTIES:"))
+                  (setq found key)))))
+          found)))))
+#+end_src
+
+*** Added/Deleted Heading Blueprints
+Log heading-unfoldings/ blueprint adds/removes to vault admin files,
+same heading + drawer shape as the other queues. No restore links
+(Option H): recovery is git log/checkout in the config repo.
+
+**** Paths and bootstrap
+#+begin_src emacs-lisp
+(defvar my/cyberdeck-links--added-blueprints-file "admin/Added Heading Blueprints"
+  "Filename for the added-blueprints log.
+Lives in `my/cyberdeck-root-dir'. Auto-created if missing.")
+(setq my/cyberdeck-links--added-blueprints-file "admin/Added Heading Blueprints")
+
+(defun my/cyberdeck-links--added-blueprints-path ()
+  "Return full path to Added Heading Blueprints in the vault root."
+  (expand-file-name my/cyberdeck-links--added-blueprints-file
+                    (my/cyberdeck-root-dir)))
+
+(defun my/cyberdeck-links--ensure-added-blueprints-file ()
+  "Create Added Heading Blueprints if it does not exist."
+  (let ((path (my/cyberdeck-links--added-blueprints-path)))
+    (make-directory (file-name-directory path) t)
+    (unless (file-exists-p path)
+      (with-temp-file path
+        (insert "#+TITLE: Added Heading Blueprints\n")
+        (insert "#+AUTHOR: AIU Cyberdeck Git VC System\n")
+        (insert "#+DESCRIPTION: Auto-generated log of added heading blueprints.\n")
+        (insert "#+STARTUP: overview\n\n")))
+    path))
+
+(defvar my/cyberdeck-links--deleted-blueprints-file "admin/Deleted Heading Blueprints"
+  "Filename for the deleted-blueprints log.
+Lives in `my/cyberdeck-root-dir'. Auto-created if missing.")
+(setq my/cyberdeck-links--deleted-blueprints-file "admin/Deleted Heading Blueprints")
+
+(defun my/cyberdeck-links--deleted-blueprints-path ()
+  "Return full path to Deleted Heading Blueprints in the vault root."
+  (expand-file-name my/cyberdeck-links--deleted-blueprints-file
+                    (my/cyberdeck-root-dir)))
+
+(defun my/cyberdeck-links--ensure-deleted-blueprints-file ()
+  "Create Deleted Heading Blueprints if it does not exist."
+  (let ((path (my/cyberdeck-links--deleted-blueprints-path)))
+    (make-directory (file-name-directory path) t)
+    (unless (file-exists-p path)
+      (with-temp-file path
+        (insert "#+TITLE: Deleted Heading Blueprints\n")
+        (insert "#+AUTHOR: AIU Cyberdeck Git VC System\n")
+        (insert "#+DESCRIPTION: Auto-generated log of deleted heading blueprints.\n")
+        (insert "#+STARTUP: overview\n\n")))
+    path))
+#+end_src
+
+**** Blueprint metadata reader
+#+begin_src emacs-lisp
+(defun my/cyberdeck-links--read-blueprint-meta (file)
+  "Return (KEY ID CONTEXTS KIND) from blueprint FILE, or nil without a KEY heading.
+KEY matching is case-sensitive: only UPPER_SNAKE level-1 headings count.
+CONTEXTS/KIND are read from plain tags on the KEY heading, e.g.
+`* MY_KEY :unfolding:file:heading:'; ID still comes from the
+heading's own :PROPERTIES: drawer, when present."
+  (when (and file (file-exists-p file))
+    (with-temp-buffer
+      (insert-file-contents file)
+      (org-mode)
+      (goto-char (point-min))
+      (let ((case-fold-search nil))
+        (when (re-search-forward "^\\* \\([A-Z][A-Z0-9_]*\\)\\([ \t]+\\(:[A-Za-z0-9_:@]+:\\)\\)?[ \t]*$" nil t)
+          (let* ((key (match-string-no-properties 1))
+                 (tags (split-string (or (match-string-no-properties 3) "") ":" t))
+                 (down (mapcar #'downcase tags))
+                 (kind (car (cl-intersection
+                             down
+                             (mapcar #'symbol-name my/cyberdeck-blueprint-kinds)
+                             :test #'string=)))
+                 (contexts (string-join
+                            (cl-intersection
+                             down
+                             (mapcar #'symbol-name my/cyberdeck-blueprint-contexts)
+                             :test #'string=)
+                            " ")))
+            (goto-char (match-beginning 0))
+            (list key
+                  (org-entry-get nil "ID")
+                  (unless (string-empty-p contexts) contexts)
+                  kind)))))))
+#+end_src
+
+**** Entry writers
+#+begin_src emacs-lisp
+(defun my/cyberdeck-links--added-blueprint-entry-props (key file id contexts kind)
+  "Return the :PROPERTIES: drawer text for an Added Heading Blueprints entry."
+  (concat "  :PROPERTIES:\n"
+          (format "  :CREATED:        %s\n"
+                  (format-time-string "<%Y-%m-%d %a>"))
+          (format "  :BLUEPRINT_KEY:  %s\n" key)
+          (format "  :BLUEPRINT_FILE: %s\n" file)
+          (when id (format "  :BLUEPRINT_ID:   %s\n" id))
+          (when contexts (format "  :CONTEXTS:        %s\n" contexts))
+          (when kind (format "  :KIND:           %s\n" kind))
+          "  :END:\n"))
+
+(defun my/cyberdeck-links--write-added-blueprint (key file &optional id contexts kind)
+  "Append a heading for added blueprint KEY (at FILE) to Added Heading Blueprints."
+  (let ((path (my/cyberdeck-links--ensure-added-blueprints-file)))
+    (with-current-buffer (find-file-noselect path)
+      (goto-char (point-max))
+      (insert (format "\n* TODO Added blueprint [[file:%s][%s]]\n" file key))
+      (insert (my/cyberdeck-links--added-blueprint-entry-props
+               key file id contexts kind))
+      (save-buffer)
+      (kill-buffer (current-buffer)))))
+
+(defun my/cyberdeck-links--deleted-blueprint-entry-props (key file id contexts kind)
+  "Return the :PROPERTIES: drawer text for a Deleted Heading Blueprints entry."
+  (concat "  :PROPERTIES:\n"
+          (format "  :CREATED:        %s\n"
+                  (format-time-string "<%Y-%m-%d %a>"))
+          (format "  :BLUEPRINT_KEY:  %s\n" key)
+          (format "  :BLUEPRINT_FILE: %s\n" file)
+          (when id (format "  :BLUEPRINT_ID:   %s\n" id))
+          (when contexts (format "  :CONTEXTS:        %s\n" contexts))
+          (when kind (format "  :KIND:           %s\n" kind))
+          "  :END:\n"))
+
+(defun my/cyberdeck-links--write-deleted-blueprint (key file &optional id contexts kind)
+  "Append a heading for deleted blueprint KEY (at FILE) to
+Deleted Heading Blueprints."
+  (let ((path (my/cyberdeck-links--ensure-deleted-blueprints-file)))
+    (with-current-buffer (find-file-noselect path)
+      (goto-char (point-max))
+      (insert (format "\n* TODO Deleted blueprint %s\n" key))
+      (insert (my/cyberdeck-links--deleted-blueprint-entry-props
+               key file id contexts kind))
+      (save-buffer)
+      (kill-buffer (current-buffer)))))
+#+end_src
+
+**** Deleted live leftovers log
+Live values surviving a blueprint deletion are recorded here so kept
+context stays findable after the property file is gone.
+#+begin_src emacs-lisp
+(defvar my/cyberdeck-links--deleted-live-blueprints-file "admin/Deleted Live Headings Blueprints"
+  "Filename for the deleted-live leftovers log.
+Lives in `my/cyberdeck-root-dir'. Auto-created if missing.")
+(setq my/cyberdeck-links--deleted-live-blueprints-file "admin/Deleted Live Headings Blueprints")
+
+(defun my/cyberdeck-links--deleted-live-blueprints-path ()
+  "Return full path to Deleted Live Headings Blueprints in the vault root."
+  (expand-file-name my/cyberdeck-links--deleted-live-blueprints-file
+                    (my/cyberdeck-root-dir)))
+
+(defun my/cyberdeck-links--ensure-deleted-live-blueprints-file ()
+  "Create Deleted Live Headings Blueprints if it does not exist."
+  (let ((path (my/cyberdeck-links--deleted-live-blueprints-path)))
+    (make-directory (file-name-directory path) t)
+    (unless (file-exists-p path)
+      (with-temp-file path
+        (insert "#+TITLE: Deleted Live Headings Blueprints\n")
+        (insert "#+AUTHOR: AIU Cyberdeck Git VC System\n")
+        (insert "#+DESCRIPTION: Auto-generated log of live values kept when their blueprint was deleted.\n")
+        (insert "#+STARTUP: overview\n\n")))
+    path))
+
+(defun my/cyberdeck-links--write-deleted-live-property (key file value)
+  "Append a `Live KEY remains in FILE' heading holding VALUE."
+  (when (and (stringp key) (not (string-empty-p key))
+             (stringp file) (not (string-empty-p file)))
+    (let ((path (my/cyberdeck-links--ensure-deleted-live-blueprints-file)))
+      (with-current-buffer (find-file-noselect path)
+        (goto-char (point-max))
+        (insert (format "\n* TODO Live %s remains in %s\n"
+                        key (file-name-nondirectory file)))
+        (insert "  :PROPERTIES:\n"
+                (format "  :CREATED:        %s\n"
+                        (format-time-string "<%Y-%m-%d %a>"))
+                (format "  :BLUEPRINT_KEY:  %s\n" key)
+                (format "  :NOTE_FILE:      %s\n" (expand-file-name file))
+                (format "  :LIVE_VALUE:     %s\n" (or value ""))
+                "  :END:\n")
+        (save-buffer)
+        (kill-buffer (current-buffer))))))
+#+end_src
+
+**** Swept property logging
+#+begin_src emacs-lisp
+(defun my/cyberdeck-links--aiu-title-of (file)
+  "Return FILE's first heading text without TODO keyword or tags, or nil."
+  (when (and file (file-exists-p file))
+    (with-temp-buffer
+      (insert-file-contents file)
+      (goto-char (point-min))
+      (when (re-search-forward "^\\*+ \\(.*?\\)[ \t]*$" nil t)
+        (let ((raw (match-string-no-properties 1)))
+          (setq raw (replace-regexp-in-string
+                     "^[A-Z][A-Z-]+ " "" raw))
+          (setq raw (replace-regexp-in-string
+                     " +:[A-Za-z0-9_@#:]+:[ \t]*$" "" raw))
+          (let ((s (string-trim raw)))
+            (unless (string-empty-p s) s)))))))
+
+(defun my/cyberdeck-links--aiu-id-of (file)
+  "Return FILE's first :ID: drawer value, or nil."
+  (when (and file (file-exists-p file))
+    (with-temp-buffer
+      (insert-file-contents file)
+      (goto-char (point-min))
+      (when (re-search-forward "^:ID:[ \t]+\\(.+\\)$" nil t)
+        (let ((s (string-trim (match-string-no-properties 1))))
+          (unless (string-empty-p s) s))))))
+
+(defun my/cyberdeck-links--added-property-logged-p (key file)
+  "Non-nil when Added file already has an open TODO for KEY in FILE."
+  (let ((path (expand-file-name my/cyberdeck-links--added-blueprints-file
+                                (my/cyberdeck-root-dir))))
+    (when (file-exists-p path)
+      (with-temp-buffer
+        (insert-file-contents path)
+        (goto-char (point-min))
+        (catch 'found
+          (while (re-search-forward "^\\* TODO Added property \\(\\S-+\\) to " nil t)
+            (when (string= (match-string-no-properties 1) key)
+              (let ((end (save-excursion
+                           (if (re-search-forward "^\\* " nil t)
+                               (match-beginning 0)
+                             (point-max)))))
+                (when (re-search-forward
+                       (format "^  :NOTE_FILE:  %s$" (regexp-quote (expand-file-name file)))
+                       end t)
+                  (throw 'found t)))))
+          nil)))))
+
+(defun my/cyberdeck-links--write-added-property-to-aiu (key file value)
+  "Append `Added property KEY to AIU' heading (deduped by logged-p)."
+  (unless (my/cyberdeck-links--added-property-logged-p key file)
+    (let* ((path (my/cyberdeck-links--ensure-added-blueprints-file))
+           (abs (expand-file-name file))
+           (title (or (my/cyberdeck-links--aiu-title-of abs)
+                      (file-name-base abs)))
+           (id (my/cyberdeck-links--aiu-id-of abs)))
+      (with-current-buffer (find-file-noselect path)
+        (goto-char (point-max))
+        (insert (format "\n* TODO Added property %s to [[file:%s::*%s][%s]]\n" key abs key title))
+        (insert "  :PROPERTIES:\n"
+                (format "  :CREATED:        %s\n"
+                        (format-time-string "<%Y-%m-%d %a>"))
+                (format "  :BLUEPRINT_KEY:  %s\n" key)
+                (format "  :NOTE_FILE:      %s\n" abs)
+                (when id (format "  :NOTE_ID:       %s\n" id))
+                (format "  :DEFAULT_VALUE:  %s\n" value)
+                "  :END:\n")
+        (save-buffer)
+        (kill-buffer (current-buffer))))))
+
+(defun my/cyberdeck-links--log-added-properties (file pairs)
+  "Write one Added heading per (KEY . VALUE) in PAIRS for AIU FILE."
+  (let ((abs (and (stringp file) (expand-file-name file))))
+    (when abs
+      (dolist (kv pairs)
+        (when (and (consp kv) (stringp (car kv)))
+          (my/cyberdeck-links--write-added-property-to-aiu
+           (car kv) abs (cdr kv)))))))
+
+(defun my/cyberdeck-links--removed-property-logged-p (key file)
+  "Non-nil when Deleted file already has an open TODO for KEY in FILE."
+  (let ((path (expand-file-name my/cyberdeck-links--deleted-blueprints-file
+                                (my/cyberdeck-root-dir))))
+    (when (file-exists-p path)
+      (with-temp-buffer
+        (insert-file-contents path)
+        (goto-char (point-min))
+        (catch 'found
+          (while (re-search-forward "^\\* TODO Deleted property \\(\\S-+\\) from " nil t)
+            (when (string= (match-string-no-properties 1) key)
+              (let ((end (save-excursion
+                           (if (re-search-forward "^\\* " nil t)
+                               (match-beginning 0)
+                             (point-max)))))
+                (when (re-search-forward
+                       (format "^  :NOTE_FILE:  %s$" (regexp-quote (expand-file-name file)))
+                       end t)
+                  (throw 'found t)))))
+          nil)))))
+
+(defun my/cyberdeck-links--write-removed-property-from-aiu (key file)
+  "Append `Deleted property KEY from NOTE' heading (deduped by logged-p)."
+  (unless (my/cyberdeck-links--removed-property-logged-p key file)
+    (let* ((path (my/cyberdeck-links--ensure-deleted-blueprints-file))
+           (abs (expand-file-name file))
+           (title (or (my/cyberdeck-links--aiu-title-of abs)
+                      (file-name-base abs)))
+           (id (my/cyberdeck-links--aiu-id-of abs)))
+      (with-current-buffer (find-file-noselect path)
+        (goto-char (point-max))
+        (insert (format "\n* TODO Deleted property %s from [[file:%s][%s]]\n" key abs title))
+        (insert "  :PROPERTIES:\n"
+                (format "  :CREATED:        %s\n"
+                        (format-time-string "<%Y-%m-%d %a>"))
+                (format "  :BLUEPRINT_KEY:  %s\n" key)
+                (format "  :NOTE_FILE:      %s\n" abs)
+                (when id (format "  :NOTE_ID:       %s\n" id))
+                "  :END:\n")
+        (save-buffer)
+        (kill-buffer (current-buffer))))))
+
+(defun my/cyberdeck-links--log-removed-property (file key)
+  "Write one Deleted heading for KEY removed from note FILE."
+  (let ((abs (and (stringp file) (expand-file-name file))))
+    (when (and abs (stringp key) (not (string-empty-p key)))
+      (my/cyberdeck-links--write-removed-property-from-aiu key abs))))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/cyberdeck-links--blueprint-trackable-p (file)
+  "Non-nil when FILE holds a :DRAWER_BLUEPRINT: KEY heading with a kind.
+Body-only template files (kind-less KEYs) are not prompts."
+  (and (stringp file) (file-exists-p file)
+       (cl-some (lambda (spec) (plist-get (nth 2 spec) :kind))
+                (ignore-errors
+                  (my/cyberdeck-org-prompt--parse file)))))
+#+end_src
+
+**** Boot reconcile (state comparison)
+No event hooks: add/delete detection is a boot diff of on-disk keys
+vs `.known-keys` (last boot's record), so shell rm, manual moves,
+git checkouts, and future paths all reconcile on next boot.
+Vault drawers keep live values — only static-sentinel lines for gone
+keys are stripped (live leftovers are logged, never deleted).
+#+begin_src emacs-lisp
+(defun my/cyberdeck-links--known-keys-path ()
+  "Absolute path of the last-known prompt-key record.
+Lives in admin/ next to sibling Cyberdeck state — never in module dirs."
+  (expand-file-name "admin/.known-keys" (my/cyberdeck-root-dir)))
+
+(defun my/cyberdeck-links--known-keys-read ()
+  "Last-known prompt-key set (sorted), or nil when never recorded."
+  (let ((p (my/cyberdeck-links--known-keys-path)))
+    (when (file-exists-p p)
+      (with-temp-buffer
+        (insert-file-contents p)
+        (let ((case-fold-search nil)
+              keys)
+          (goto-char (point-min))
+          (while (re-search-forward "^\\([A-Z][A-Z0-9_]*\\)[ \t]*$" nil t)
+            (push (match-string-no-properties 1) keys))
+          (sort (delete-dups keys) #'string<))))))
+
+(defun my/cyberdeck-links--known-keys-write (keys)
+  "Persist KEYS (sorted, one per line) as the last-known record.
+Atomic tmp+rename: a killed Emacs never leaves a half-written record."
+  (let ((p (my/cyberdeck-links--known-keys-path))
+        (tmp nil))
+    (make-directory (file-name-directory p) t)
+    (setq tmp (concat p ".tmp"))
+    (with-temp-file tmp
+      (dolist (k (sort (copy-sequence keys) #'string<))
+        (insert k "\n")))
+    (rename-file tmp p t)))
+
+(defun my/cyberdeck-links--scan-current-keys ()
+  "Sorted prompt KEY strings from tag-discovered files. File truth only —
+ignores the specs registry so load order cannot skew the diff."
+  (let (keys)
+    (dolist (f (mapcar #'cdr (my/cyberdeck-blueprint-key-files)))
+      (when (my/cyberdeck-links--blueprint-trackable-p f)
+        (let ((meta (ignore-errors
+                      (my/cyberdeck-links--read-blueprint-meta f))))
+          (when (and meta (stringp (car meta))
+                     (not (string-empty-p (car meta))))
+            (push (car meta) keys)))))
+    (sort (delete-dups keys) #'string<)))
+
+(defun my/cyberdeck-links--vault-aiu-files ()
+  "Vault note files for sweeps: .org + extensionless, minus .git/admin.
+Computed once per reconcile and shared, so N gone keys cost one scan."
+  (let* ((root (my/cyberdeck-root-dir))
+         (gitdir (expand-file-name ".git" root))
+         (admindir (expand-file-name "admin/" root))
+         (wipdir (expand-file-name "WIP/" root)))
+    (cl-remove-if (lambda (f) (or (file-in-directory-p f gitdir)
+                                  (file-in-directory-p f admindir)
+                                  (file-in-directory-p f wipdir)))
+                  (append (directory-files-recursively root "\\.org\\'")
+                          (directory-files-recursively root "[^./]+\\'")))))
+
+(defun my/cyberdeck-links--gone-key-holders (key &optional files)
+  "Vault note files whose first level-1 drawer still holds :KEY:.
+Log-only scan — never modifies. FILES reuses a precomputed
+`my/cyberdeck-links--vault-aiu-files' list when given."
+  (when (and (stringp key) (not (string-empty-p key)))
+    (let ((files (or files (my/cyberdeck-links--vault-aiu-files)))
+          (re (format "^[ \t]*:%s:[ \t]*.*$" (regexp-quote key)))
+          holders)
+      (dolist (f files)
+          (when (and f (file-exists-p f))
+            (when (with-temp-buffer
+                    (insert-file-contents f)
+                    (goto-char (point-min))
+                    (when (re-search-forward "^\\* " nil t)
+                      (let ((sub-end
+                             (save-excursion
+                               (if (re-search-forward "^\\* " nil t)
+                                   (match-beginning 0)
+                                 (point-max)))))
+                        (when (re-search-forward
+                               "^[ \t]*:PROPERTIES:[ \t]*$" sub-end t)
+                          (let ((drawer-end
+                                 (save-excursion
+                                   (when (re-search-forward
+                                          "^[ \t]*:END:[ \t]*$" sub-end t)
+                                     (point)))))
+                            (and drawer-end
+                                 (re-search-forward re drawer-end t)))))))
+              (push f holders))))
+      (nreverse holders))))
+
+(defun my/cyberdeck-links--ensure-drawer-order-keys (keys)
+  "Append missing KEYS as `** KEY' lines to drawer-order.org, then apply.
+Returns the appended list. Never reorders or prunes existing headings."
+  (let ((missing (and keys
+                      (fboundp 'my/cyberdeck-drawer-order-from-file)
+                      (let ((order (my/cyberdeck-drawer-order-from-file)))
+                        (cl-remove-if (lambda (k) (member k order)) keys))))
+        (f (and (fboundp 'my/cyberdeck-drawer-order-file)
+                (my/cyberdeck-drawer-order-file))))
+    (when (and missing f (file-exists-p f))
+      (with-temp-file f
+        (insert-file-contents f)
+        (goto-char (point-max))
+        (unless (bolp) (insert "\n"))
+        (dolist (k missing)
+          (insert (format "** %s\n" k))))
+      (when (fboundp 'my/cyberdeck--apply-drawer-order-file)
+        (my/cyberdeck--apply-drawer-order-file)))
+    missing))
+
+(defun my/cyberdeck-links--prune-drawer-order-stale ()
+  "Remove drawer-order.org `**' headings matching no prompt key.
+Compares against spec :keys plus the reinforce extra-keys allowlist
+\(e.g. ID). Skips entirely when the specs registry is empty — a
+failed registration must never eat the order file. Applies
+\(setq + vault sweep) when anything was removed. Returns removed list."
+  (let ((removed nil))
+    (unless (and (boundp 'my/cyberdeck-org-prompt--specs)
+                 (hash-table-p my/cyberdeck-org-prompt--specs)
+                 (> (hash-table-count my/cyberdeck-org-prompt--specs) 0))
+      (message "drawer-order: prune skipped (prompt registry unavailable)"))
+    (when (and (fboundp 'my/cyberdeck-drawer-order-from-file)
+               (fboundp 'my/cyberdeck-drawer-order-file)
+               (boundp 'my/cyberdeck-org-prompt--specs)
+               (hash-table-p my/cyberdeck-org-prompt--specs)
+               (> (hash-table-count my/cyberdeck-org-prompt--specs) 0))
+      (let ((known nil)
+            (extra (and (boundp 'my/cyberdeck-reinforce--drawer-order-extra-keys)
+                        my/cyberdeck-reinforce--drawer-order-extra-keys))
+            (f (my/cyberdeck-drawer-order-file)))
+        (maphash (lambda (_k spec)
+                   (let ((key (plist-get spec :key)))
+                     (when (and (stringp key) (not (string-empty-p key)))
+                       (push key known))))
+                 my/cyberdeck-org-prompt--specs)
+        (let ((order (my/cyberdeck-drawer-order-from-file)))
+          (setq removed (cl-remove-if
+                         (lambda (k) (or (member k known) (member k extra)))
+                         order)))
+        (when (and removed (file-exists-p f))
+          (with-temp-file f
+            (insert-file-contents f)
+            (dolist (k removed)
+              (goto-char (point-min))
+              (when (re-search-forward
+                     (format "^\\*\\* +%s[ \t]*$" (regexp-quote k)) nil t)
+                (delete-region (line-beginning-position)
+                               (min (1+ (line-end-position)) (point-max))))))
+          (when (fboundp 'my/cyberdeck--apply-drawer-order-file)
+            (my/cyberdeck--apply-drawer-order-file))
+          (message "drawer-order: pruned %d stale keys (%s)"
+                   (length removed) (string-join removed ", ")))))
+    removed))
+
+(defun my/cyberdeck-links--reconcile-on-boot ()
+  "Diff on-disk prompt keys vs `.known-keys' and reconcile.
+New keys: drawer-order append + stub sweep (Added log per file).
+Gone keys: Deleted log per holder file, static-sentinel drawer lines
+stripped (live values kept + logged to Deleted Live Headings
+Blueprints), Static Blueprints rebuilt. Stale drawer-order headings
+(no prompt key) are pruned.
+Updates `.known-keys' to current reality. Idempotent —
+a second boot with no changes is a no-op. Returns (NEW . GONE)."
+  (let ((current (my/cyberdeck-links--scan-current-keys))
+        (last-known (my/cyberdeck-links--known-keys-read)))
+    (if (null last-known)
+        (progn
+          (my/cyberdeck-links--known-keys-write current)
+          (message "known-keys: seeded %d keys (no diff on first record)"
+                   (length current))
+          (cons nil nil))
+      (let ((new (sort (cl-set-difference current last-known :test #'string=)
+                       #'string<))
+            (gone (sort (cl-set-difference last-known current :test #'string=)
+                        #'string<))
+            (vault-files (my/cyberdeck-links--vault-aiu-files))
+            (cleanup-stripped 0)
+            (cleanup-live 0))
+        (when new
+          (my/cyberdeck-links--ensure-drawer-order-keys new)
+          (when (fboundp 'my/cyberdeck--sweep-sync-drawer-keys)
+            (let ((specs (and (boundp 'my/cyberdeck-org-prompt--specs)
+                              my/cyberdeck-org-prompt--specs)))
+              (my/cyberdeck--sweep-sync-drawer-keys
+               (mapcar (lambda (k)
+                         (let ((spec (and (hash-table-p specs)
+                                          (gethash (intern (downcase k)) specs))))
+                           (cons k (if (and spec
+                                            (fboundp 'my/cyberdeck-org-prompt--default-for-spec))
+                                       (my/cyberdeck-org-prompt--default-for-spec spec)
+                                     "TODO"))))
+                       new)))))
+        (dolist (k gone)
+          ;; One bad key must never abort prune + known-keys rewrite below.
+          (condition-case err
+              (progn
+                (dolist (f (my/cyberdeck-links--gone-key-holders
+                            k vault-files))
+                  (my/cyberdeck-links--log-removed-property f k))
+                (when (fboundp 'my/cyberdeck--sweep-remove-drawer-key-if-static)
+                  (let ((res (my/cyberdeck--sweep-remove-drawer-key-if-static k)))
+                    (setq cleanup-stripped (+ cleanup-stripped (car res)))
+                    (dolist (lv (cdr res))
+                      (my/cyberdeck-links--write-deleted-live-property
+                       k (car lv) (cdr lv)))
+                    (setq cleanup-live (+ cleanup-live (length (cdr res)))))))
+            (error (lwarn 'cyberdeck :warning
+                          "known-keys: gone-key %s cleanup failed: %s"
+                          k err))))
+        (my/cyberdeck-links--prune-drawer-order-stale)
+        (when gone
+          (when (fboundp 'my/cyberdeck-missing--rebuild-from-health)
+            (my/cyberdeck-missing--rebuild-from-health))
+          (when (or (> cleanup-stripped 0) (> cleanup-live 0))
+            (message "drawer cleanup: stripped %d static, preserved %d live (see Deleted Live Headings Blueprints)"
+                     cleanup-stripped cleanup-live)))
+        (my/cyberdeck-links--known-keys-write current)
+        (when (or new gone)
+          (message "known-keys: +%d -%d (%s / %s)"
+                   (length new) (length gone)
+                   (string-join new ", ") (string-join gone ", ")))
+        (cons new gone)))))
+#+end_src
+#+begin_src emacs-lisp
+(defun my/cyberdeck-links--check-direction
+    (deleted-id deleted-title links verb peer-key direction)
+  "Ask about DELETED-TITLE's LINKS (VERB phrase); record TODOs if confirmed."
+  (let ((count (length links))
+        (plural (if (= (length links) 1) "" "s")))
+    (when (> count 0)
+      (let ((names (mapcar (lambda (link)
+                             (my/cyberdeck-links--peer-title link peer-key))
+                           links)))
+        (if (y-or-n-p
+             (format "%s %s %d AIU%s: %s. Delete anyway? "
+                     deleted-title verb count plural
+                     (string-join names ", ")))
+            (my/cyberdeck-links--write-direction-todos
+             deleted-id deleted-title links peer-key direction)
+          (user-error "Deletion cancelled: %s %s %d AIU%s"
+                      deleted-title verb count plural))))))
+#+end_src
+
+**** Guard dispatcher
+Two checks, each prompting separately with y-or-n-p. y — proceeds,
+recording TODO entries for broken links. n — cancels deletion.
+#+begin_src emacs-lisp
+(defun my/cyberdeck-links--guard-deletion (deleted-id deleted-title)
+  "Guard deletion of DELETED-ID / DELETED-TITLE.
+1. Incoming: notes that link TO this note (incl. wormholes).
+2. Outgoing: notes that this AIU Proxies TO."
+  (when (and deleted-id deleted-title)
+    ;; Check 1: incoming links and AIU Proxies
+    (let ((incoming (cyberdeck-db-query-links-to deleted-id)))
+      (dolist (id (my/cyberdeck-links--aiu-proxy-sources deleted-id))
+        (push (list :source id) incoming))
+      (my/cyberdeck-links--check-direction
+       deleted-id deleted-title incoming "is linked from" :source "incoming"))
+    ;; Check 2: outgoing links
+    (let ((outgoing (cyberdeck-db-query-links-from deleted-id)))
+      (my/cyberdeck-links--check-direction
+       deleted-id deleted-title outgoing "links to" :dest "outgoing"))))
+#+end_src
+
+*** Pre-Delete Capture: File
+
+**** Eligibility predicate
+Skips admin files, AIU Context files, and non-org files.
+#+begin_src emacs-lisp
+(defun my/cyberdeck-links--deletion-guardable-p (expanded)
+  "Non-nil when EXPANDED is a deletable vault AIU file."
+  (and (file-exists-p expanded)
+       (file-in-directory-p expanded (my/cyberdeck-root-dir))
+       (not (file-in-directory-p
+             expanded
+             (expand-file-name "admin/unfoldings/" (my/cyberdeck-root-dir))))
+       (or (string-suffix-p ".org" expanded)
+            (not (string-match-p "\\." (file-name-nondirectory expanded))))
+       ;; Compare full paths: the admin vars hold "admin/..." relative
+       ;; paths, so basename comparison never matched and admin files
+       ;; (e.g. Missing Links deleted when empty) got logged as junk.
+       (not (member (expand-file-name expanded)
+                    (my/cyberdeck-links--admin-file-paths)))))
+#+end_src
+
+**** Before-file-delete advice
+Guards the queue file, reads ID/title, runs the link guard, captures
+orphaned AIU Contexts while the file still exists, then records the entry.
+#+begin_src emacs-lisp
+(defun my/cyberdeck-links--before-file-delete (file &rest _)
+  "Before FILE is deleted: guard, capture state, record."
+  (let ((expanded (expand-file-name file)))
+    (when (my/cyberdeck-links--deletion-guardable-p expanded)
+      ;; Guard broken-links specifically
+      (my/cyberdeck-links--guard-broken-links-file expanded)
+      ;; Read ID and title then run link guard
+      (with-temp-buffer
+        (insert-file-contents expanded)
+        (org-mode)
+        (let (id title)
+          (setq id    (org-entry-get (point-min) "ID"))
+          (setq title (cadr (assoc "TITLE"
+                                   (org-collect-keywords
+                                    (list "TITLE")))))
+          (when id
+            (setq my/cyberdeck-links--deleted-id    id
+                  my/cyberdeck-links--deleted-title
+                  (or title (file-name-base expanded)))
+            (my/cyberdeck-links--guard-deletion
+             id
+             my/cyberdeck-links--deleted-title)))
+        ;; Capture AIU Contexts orphaned by this deletion while the file exists
+        (setq my/cyberdeck-links--deleted-aiu-contexts
+              (my/cyberdeck-links--orphaned-aiu-contexts-for expanded))
+        ;; Record in ReManifold even without ID
+        (my/cyberdeck-links--write-deleted-entry
+         expanded my/cyberdeck-links--deleted-aiu-contexts)))))
+
+(defun my/cyberdeck-links--after-file-delete (&rest _)
+  "After file deletion: delete orphaned unfoldings and clear captured state.
+Unfoldings are captured into a local first so the delete-file advice firing
+again for each AIU Context cannot re-enter with stale state."
+  (let ((unfoldings my/cyberdeck-links--deleted-aiu-contexts))
+    (setq my/cyberdeck-links--deleted-id    nil
+          my/cyberdeck-links--deleted-title nil
+          my/cyberdeck-links--deleted-aiu-contexts  nil)
+    (dolist (rel unfoldings)
+      (let ((path (expand-file-name rel (my/cyberdeck-root-dir))))
+        (when (file-exists-p path)
+          (delete-file path))))))
+#+end_src
+*** Pre-Delete Capture: Heading
+#+begin_src emacs-lisp
+(defun my/cyberdeck-links--before-heading-delete (&rest _)
+  "Before a heading is cut or archived: capture ID and title,
+then run the guard. Only fires for headings with an :ID: AIU Context."
+  (when (org-at-heading-p)
+    (when-let* ((id    (org-id-get))
+                (title (nth 4 (org-heading-components))))
+      (setq my/cyberdeck-links--deleted-id    id
+            my/cyberdeck-links--deleted-title
+            (or title "untitled heading"))
+      (my/cyberdeck-links--guard-deletion
+       id
+       my/cyberdeck-links--deleted-title))))
+
+(defun my/cyberdeck-links--after-heading-delete (&rest _)
+  "After heading cut/archive: clear captured state."
+  (setq my/cyberdeck-links--deleted-id    nil
+        my/cyberdeck-links--deleted-title nil))
+#+end_src
+*** Hook Registration
+
+**** Advice setup
+#+begin_src emacs-lisp
+(defun my/cyberdeck-links-setup ()
+  "Register all advice hooks for the links guard.
+Call once after cyberdeck has loaded."
+  ;; File deletion
+  (advice-add 'delete-file
+              :before #'my/cyberdeck-links--before-file-delete)
+  (advice-add 'delete-file
+              :after  #'my/cyberdeck-links--after-file-delete)
+  ;; Dired delete — dired-delete-file calls delete-file internally,
+  ;; so the delete-file advice covers dired deletions too.
+  ;; Skipping dired-delete-file advice to avoid double-firing.
+  ;; Heading cut
+  (advice-add 'org-cut-subtree
+              :before #'my/cyberdeck-links--before-heading-delete)
+  (advice-add 'org-cut-subtree
+              :after  #'my/cyberdeck-links--after-heading-delete)
+  ;; Heading archive
+  (advice-add 'org-archive-subtree
+              :before #'my/cyberdeck-links--before-heading-delete)
+  (advice-add 'org-archive-subtree
+              :after  #'my/cyberdeck-links--after-heading-delete))
+
+(my/cyberdeck-links-setup)
+#+end_src
+*** Startup Cleanup
+#+begin_src emacs-lisp
+(add-hook 'emacs-startup-hook
+          (lambda ()
+            (dolist (buf (buffer-list))
+              (with-current-buffer buf
+                (when (string-match-p
+                       "\\`CAPTURE-\\|\\`PREVIEW ::"
+                       (buffer-name))
+                  (kill-buffer buf))))))
+#+end_src
+
+*** Manual Audit Command
+#+begin_src emacs-lisp
+(defun my/cyberdeck-links-audit ()
+  "Scan entire vault for dead id: links using cyberdeck native API.
+Produces *cyberdeck-dead-links* buffer. Run after bulk operations."
+  (interactive)
+  (let ((dead (cyberdeck-db-query-dead-links)))
+    (if (not dead)
+        (message "No dead links found in vault.")
+      (with-current-buffer (get-buffer-create "*cyberdeck-dead-links*")
+        (erase-buffer)
+        (insert (format "Dead links: %d\n\n" (length dead)))
+        (pcase-dolist (`(,note . ,dest-id) dead)
+          (insert (format "  [%s]  %s  ->  missing id: %s\n"
+                          (cyberdeck-aiu-id note)
+                          (cyberdeck-aiu-title note)
+                          dest-id)))
+        (display-buffer (current-buffer))))))
+#+end_src

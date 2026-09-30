@@ -1,0 +1,1533 @@
+* Display Minibuffer :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       330aa8ce-2cfc-4cc9-be4f-5c83b1457aca
+:END:
+
+The minibuffer is a special-purpose buffer that Emacs uses to read complex arguments — such as file names, buffer names, command names (like those entered with M-x), or even full Lisp expressions. It appears at the bottom of the frame, sharing space with the echo area, and becomes visible only when Emacs is awaiting such input. Though small in screen space, the minibuffer is a fully functional editing environment: you can use all the usual Emacs editing commands within it to refine or correct the argument text. In essence, it is a focused window where Emacs momentarily turns its attention inward, asking you to speak its language precisely.
+
+*** Introduction to Minibuffers
+
+In most ways, a minibuffer is a normal Emacs buffer. Most operations within a buffer, such as editing commands, work normally in a minibuffer. However, many operations for managing buffers do not apply to minibuffers. The name of a minibuffer always has the form ‘ *Minibuf-number*’, and it cannot be changed. Minibuffers are displayed only in special windows used only for minibuffers; these windows always appear at the bottom of a frame. (Sometimes frames have no minibuffer window, and sometimes a special kind of frame contains nothing but a minibuffer window; see Minibuffers and Frames.)
+
+The text in the minibuffer always starts with the prompt string, the text that was specified by the program that is using the minibuffer to tell the user what sort of input to type. This text is marked read-only so you won’t accidentally delete or change it. It is also marked as a field (see Defining and Using Fields), so that certain motion functions, including beginning-of-line, forward-word, forward-sentence, and forward-paragraph, stop at the boundary between the prompt and the actual text.
+
+The minibuffer’s window is normally a single line; it grows automatically if the contents require more space. Whilst the minibuffer is active, you can explicitly resize its window temporarily with the window sizing commands; the window reverts to its normal size when the minibuffer is exited. When the minibuffer is not active, you can resize its window permanently by using the window sizing commands in the frame’s other window, or dragging the mode line with the mouse. (Due to details of the current implementation, for this to work resize-mini-windows must be nil.) If the frame contains just a minibuffer window, you can change its size by changing the frame’s size.
+
+Use of the minibuffer reads input events, and that alters the values of variables such as this-command and last-command (see Information from the Command Loop). Your program should bind them around the code that uses the minibuffer, if you do not want that to change them.
+
+Under some circumstances, a command can use a minibuffer even if there is an active minibuffer; such a minibuffer is called a recursive minibuffer. The first minibuffer is named ‘ *Minibuf-1*’. Recursive minibuffers are named by incrementing the number at the end of the name. (The names begin with a space so that they won’t show up in normal buffer lists.) Of several recursive minibuffers, the innermost (or most recently entered) is the active minibuffer–it is the one you can terminate by typing RET (exit-minibuffer) in. We usually call this the minibuffer. You can permit or forbid recursive minibuffers by setting the variable enable-recursive-minibuffers, or by putting properties of that name on command symbols (See Recursive Minibuffers.)
+
+Like other buffers, a minibuffer uses a local keymap (see Keymaps) to specify special key bindings. The function that invokes the minibuffer also sets up its local map according to the job to be done. See Reading Text Strings with the Minibuffer, for the non-completion minibuffer local maps. See Minibuffer Commands that Do Completion, for the minibuffer local maps for completion.
+
+An active minibuffer usually has major mode minibuffer-mode. This is an Emacs internal mode without any special features. To customize the setup of minibuffers, we suggest you use minibuffer-setup-hook (see Minibuffer Miscellany) rather than minibuffer-mode-hook, since the former is run later, after the minibuffer has been fully initialized.
+
+When a minibuffer is inactive, its major mode is minibuffer-inactive-mode, with keymap minibuffer-inactive-mode-map. This is only really useful if the minibuffer is in a separate frame. See Minibuffers and Frames.
+
+When Emacs is running in batch mode, any request to read from the minibuffer actually reads a line from the standard input descriptor that was supplied when Emacs was started. This supports only basic input: none of the special minibuffer features (history, completion, etc.) are available in batch mode.
+
+
+*** Using the Minibuffer
+
+When the minibuffer is in use, it appears in the echo area, with a cursor. The minibuffer starts with a prompt, usually ending with a colon. The prompt states what kind of input is expected, and how it will be used. The prompt is highlighted using the minibuffer-prompt face (see Text Faces).
+
+The simplest way to enter a minibuffer argument is to type the text, then RET to submit the argument and exit the minibuffer. Alternatively, you can type C-g to exit the minibuffer by canceling the command asking for the argument (see Quitting and Aborting).
+
+Sometimes, the prompt shows a default argument, inside parentheses before the colon. This default will be used as the argument if you just type RET. For example, commands that read buffer names usually show a buffer name as the default; you can type RET to operate on that default buffer. You can customize how the default argument is shown with the user option minibuffer-default-prompt-format.
+
+If you enable Minibuffer Electric Default mode, a global minor mode, Emacs hides the default argument as soon as you modify the contents of the minibuffer (since typing RET would no longer submit that default). If you ever bring back the original minibuffer text, the prompt again shows the default. To enable this minor mode, type M-x minibuffer-electric-default-mode.
+
+Since the minibuffer appears in the echo area, it can conflict with other uses of the echo area. If an error message or an informative message is emitted while the minibuffer is active, the message is displayed in brackets after the minibuffer text for a few seconds, or until you type something; then the message disappears. While the minibuffer is in use, Emacs does not echo keystrokes.
+
+While using the minibuffer, you can switch to a different frame, perhaps to AIU text you need to enter (see Frame Commands). By default, the active minibuffer moves to this new frame. If you set the user option minibuffer-follows-selected-frame to nil, then the minibuffer stays in the frame where you opened it, and you must switch back to that frame in order to complete (or abort) the current command. If you set that option to a value which is neither nil nor t, the minibuffer moves frame only after a recursive minibuffer has been opened in the current command (see (elisp)Recursive Mini). This option is mainly to retain (approximately) the behavior prior to Emacs 28.1. Note that the effect of the command, when you finally finish using the minibuffer, always takes place in the frame where you first opened it. The sole exception is that when that frame no longer exists, the action takes place in the currently selected frame.
+
+
+
+*** Minibuffers for File Names
+
+Commands such as C-x C-f (find-file) use the minibuffer to read a file name argument (see Files). When the minibuffer is used to read a file name, it typically starts out with some initial text ending in a slash. This is the default directory. For example, it may start out like this:
+
+Find file: /u2/emacs/src/
+Here, ‘Find file: ’ is the prompt and ‘/u2/emacs/src/’ is the default directory. If you now type buffer.c as input, that specifies the file /u2/emacs/src/buffer.c. See File Names, for information about the default directory.
+
+Alternative defaults for the file name you may want are available by typing M-n, see Minibuffer History.
+
+You can specify a file in the parent directory with ..: /a/b/../foo.el is equivalent to /a/foo.el. Alternatively, you can use M-DEL to kill directory names backwards (see Words).
+
+To specify a file in a completely different directory, you can kill the entire default with C-a C-k (see Editing in the Minibuffer). Alternatively, you can ignore the default, and enter an absolute file name starting with a slash or a tilde after the default directory. For example, you can specify /etc/termcap as follows:
+
+Find file: /u2/emacs/src//etc/termcap
+A double slash causes Emacs to ignore everything before the second slash in the pair. In the example above, /u2/emacs/src/ is ignored, so the argument you supplied is /etc/termcap. The ignored part of the file name is dimmed if the terminal allows it. (To disable this dimming, turn off File Name Shadow mode with the command M-x file-name-shadow-mode.)
+
+When completing remote file names (see Remote Files), a double slash behaves slightly differently: it causes Emacs to ignore only the file-name part, leaving the rest (method, host and username, etc.) intact. Typing three slashes in a row ignores everything in remote file names. See File name completion in The Tramp Manual.
+
+Emacs interprets ~/ as your home directory. Thus, ~/foo/bar.txt specifies a file named bar.txt, inside a directory named foo, which is in turn located in your home directory. In addition, ~user-id/ means the home directory of a user whose login name is user-id. Any leading directory name in front of the ~ is ignored: thus, /u2/emacs/~/foo/bar.txt is equivalent to ~/foo/bar.txt.
+
+On MS-Windows and MS-DOS systems, where a user doesn’t always have a home directory, Emacs uses several alternatives. For MS-Windows, see HOME and Startup Directories on MS-Windows; for MS-DOS, see File Names on MS-DOS. On these systems, the ~user-id/ construct is supported only for the current user, i.e., only if user-id is the current user’s login name.
+
+To prevent Emacs from inserting the default directory when reading file names, change the variable insert-default-directory to nil. In that case, the minibuffer starts out empty. Nonetheless, relative file name arguments are still interpreted based on the same default directory.
+
+You can also enter remote file names in the minibuffer. See Remote Files.
+
+
+*** Editing in the Minibuffer
+
+The minibuffer is an Emacs buffer, albeit a peculiar one, and the usual Emacs commands are available for editing the argument text. (The prompt, however, is read-only, and cannot be changed.)
+
+Since RET in the minibuffer submits the argument, you can’t use it to insert a newline. You can do that with C-q C-j, which inserts a C-j control character, which is formally equivalent to a newline character (see Inserting Text). Alternatively, you can use the C-o (open-line) command (see Blank Lines).
+
+Inside a minibuffer, the keys TAB, SPC, and ? are often bound to completion commands, which allow you to easily fill in the desired text without typing all of it. See Completion. As with RET, you can use C-q to insert a TAB, SPC, or ‘?’ character. If you want to make SPC and ? insert normally instead of starting completion, you can put the following in your init file:
+
+(keymap-unset minibuffer-local-completion-map "SPC")
+(keymap-unset minibuffer-local-completion-map "?")
+For convenience, C-a (move-beginning-of-line) in a minibuffer moves point to the beginning of the argument text, not the beginning of the prompt. For example, this allows you to erase the entire argument with C-a C-k.
+
+When the minibuffer is active, the echo area is treated much like an ordinary Emacs window. For instance, you can switch to another window (with C-x o), edit text there, then return to the minibuffer window to finish the argument. You can even kill text in another window, return to the minibuffer window, and yank the text into the argument. There are some restrictions on the minibuffer window, however: for instance, you cannot split it. See Multiple Windows.
+
+Normally, the minibuffer window occupies a single screen line. However, if you add two or more lines’ worth of text into the minibuffer, it expands automatically to accommodate the text. The variable resize-mini-windows controls the resizing of the minibuffer. The default value is grow-only, which means the behavior we have just described. If the value is t, the minibuffer window will also shrink automatically if you remove some lines of text from the minibuffer, down to a minimum of one screen line. If the value is nil, the minibuffer window never changes size automatically, but you can use the usual window-resizing commands on it (see Multiple Windows).
+
+The variable max-mini-window-height controls the maximum height for resizing the minibuffer window. A floating-point number specifies a fraction of the frame’s height; an integer specifies the maximum number of lines; nil means do not resize the minibuffer window automatically. The default value is 0.25.
+
+The C-M-v command in the minibuffer scrolls the help text from commands that display help text of any sort in another window. You can also scroll the help text with M-PageUp and M-PageDown (or, equivalently, M-prior and M-next). This is especially useful with long lists of possible completions. See Using Other Windows.
+
+Emacs normally disallows most commands that use the minibuffer while the minibuffer is active. To allow such commands in the minibuffer, set the variable enable-recursive-minibuffers to t. You might need also to enable minibuffer-depth-indicate-mode to show the current recursion depth in the minibuffer prompt on recursive use of the minibuffer.
+
+When active, the minibuffer is usually in minibuffer-mode. This is an internal Emacs mode without any special features.
+
+When not active, the minibuffer is in minibuffer-inactive-mode, and clicking mouse-1 there shows the *Messages* buffer. If you use a dedicated frame for minibuffers, Emacs also recognizes certain keys there, for example, n to make a new frame.
+
+
+
+*** Reading Text Strings with the Minibuffer
+
+The most basic primitive for minibuffer input is read-from-minibuffer, which can be used to read either a string or a Lisp object in textual form. The function read-regexp is used for reading regular expressions (see Regular Expressions), which are a special kind of string. There are also specialized functions for reading commands, variables, file names, etc. (see Completion).
+
+In most cases, you should not call minibuffer input functions in the middle of a Lisp function. Instead, do all minibuffer input as part of reading the arguments for a command, in the interactive specification. See Defining Commands.
+
+Function: read-from-minibuffer prompt &optional initial keymap read history default inherit-input-method ¶
+This function is the most general way to get input from the minibuffer. By default, it accepts arbitrary text and returns it as a string; however, if read is non-nil, then it uses read to convert the text into a Lisp object (see Input Functions).
+
+The first thing this function does is to activate a minibuffer and display it with prompt (which must be a string) as the prompt. Then the user can edit text in the minibuffer.
+
+When the user types a command to exit the minibuffer, read-from-minibuffer constructs the return value from the text in the minibuffer. Normally it returns a string containing that text. However, if read is non-nil, read-from-minibuffer reads the text and returns the resulting Lisp object, unevaluated. (See Input Functions, for information about reading.)
+
+The argument default specifies default values to make available through the history commands. It should be a string, a list of strings, or nil. The string or strings become the minibuffer’s “future history”, available to the user with M-n. In addition, if the call provides completion (e.g., via the keymap argument), the completion candidates are added to the “future history” when the values in default are exhausted by M-n; see minibuffer-default-add-function.
+
+If read is non-nil, then default is also used as the input to read, if the user enters empty input. If default is a list of strings, the first string is used as the input. If default is nil, empty input results in an end-of-file error. However, in the usual case (where read is nil), read-from-minibuffer ignores default when the user enters empty input and returns an empty string, "". In this respect, it differs from all the other minibuffer input functions in this chapter.
+
+If keymap is non-nil, that keymap is the local keymap to use in the minibuffer. If keymap is omitted or nil, the value of minibuffer-local-map is used as the keymap. Specifying a keymap is the most important way to customize the minibuffer for various applications such as completion.
+
+The argument history specifies a history list variable to use for saving the input and for history commands used in the minibuffer. It defaults to minibuffer-history. If history is the symbol t, history is not recorded. You can optionally specify a starting position in the history list as well. See Minibuffer History.
+
+If the variable minibuffer-allow-text-properties is non-nil, then the string that is returned includes whatever text properties were present in the minibuffer. Otherwise all the text properties are stripped when the value is returned.
+
+The text properties in minibuffer-prompt-properties are applied to the prompt. By default, this property list defines a face to use for the prompt. This face, if present, is applied to the end of the face list and merged before display.
+
+If the user wants to completely control the look of the prompt, the most convenient way to do that is to specify the default face at the end of all face lists. For instance:
+
+(read-from-minibuffer
+ (concat
+  (propertize "Bold" 'face '(bold default))
+  (propertize " and normal: " 'face '(default))))
+If the argument inherit-input-method is non-nil, then the minibuffer inherits the current input method (see Input Methods) and the setting of enable-multibyte-characters (see Text Representations) from whichever buffer was current before entering the minibuffer.
+
+Use of initial is mostly deprecated; we recommend using a non-nil value only in conjunction with specifying a cons cell for history. See Initial Input.
+
+Function: read-string prompt &optional initial history default inherit-input-method ¶
+This function reads a string from the minibuffer and returns it. The arguments prompt, initial, history and inherit-input-method are used as in read-from-minibuffer. The keymap used is minibuffer-local-map.
+
+The optional argument default is used as in read-from-minibuffer, except that, if non-nil, it also specifies a default value to return if the user enters null input. As in read-from-minibuffer it should be a string, a list of strings, or nil, which is equivalent to an empty string. When default is a string, that string is the default value. When it is a list of strings, the first string is the default value. (All these strings are available to the user in the “future minibuffer history”.)
+
+This function works by calling the read-from-minibuffer function:
+
+(read-string prompt initial history default inherit)
+≡
+(let ((value
+       (read-from-minibuffer prompt initial nil nil
+                             history default inherit)))
+  (if (and (equal value "") default)
+      (if (consp default) (car default) default)
+    value))
+If you have a long string (for instance, one that is several lines long) that you wish to edit, using read-string may not be ideal. In that case, popping to a new, normal buffer where the user can edit the string may be more convenient, and you can use the read-string-from-buffer function to do that.
+
+Function: read-regexp prompt &optional defaults history ¶
+This function reads a regular expression as a string from the minibuffer and returns it. If the minibuffer prompt string prompt does not end in ‘:’ (followed by optional whitespace), the function adds ‘: ’ to the end, preceded by the default return value (see below), if that is non-empty.
+
+The optional argument defaults controls the default value to return if the user enters null input, and should be one of: a string; nil, which is equivalent to an empty string; a list of strings; or a symbol.
+
+If defaults is a symbol, read-regexp consults the value of the variable read-regexp-defaults-function (see below), and if that is non-nil uses it in preference to defaults. The value in this case should be either:
+
+regexp-history-last, which means to use the first element of the appropriate minibuffer history list (see below).
+A function of no arguments, whose return value (which should be nil, a string, or a list of strings) becomes the value of defaults.
+read-regexp now ensures that the result of processing defaults is a list (i.e., if the value is nil or a string, it converts it to a list of one element). To this list, read-regexp then appends a few potentially useful candidates for input. These are:
+
+The word or symbol at point.
+The last regexp used in an incremental search.
+The last string used in an incremental search.
+The last string or pattern used in query-replace commands.
+The function now has a list of regular expressions that it passes to read-from-minibuffer to obtain the user’s input. The first element of the list is the default result in case of empty input. All elements of the list are available to the user as the “future minibuffer history” list (see future list in The GNU Emacs Manual).
+
+The optional argument history, if non-nil, is a symbol specifying a minibuffer history list to use (see Minibuffer History). If it is omitted or nil, the history list defaults to regexp-history.
+
+The user can use the M-s c command to indicate whether case folding should be on or off. If the user has used this command, the returned string will have the text property case-fold set to either fold or inhibit-fold. It is up to the caller of read-regexp to actually use this value, and the convenience function read-regexp-case-fold-search is provided for that. A typical usage pattern here might look like:
+
+(let* ((regexp (read-regexp "Search for: "))
+       (case-fold-search (read-regexp-case-fold-search regexp)))
+  (re-search-forward regexp))
+User Option: read-regexp-defaults-function ¶
+The function read-regexp may use the value of this variable to determine its list of default regular expressions. If non-nil, the value of this variable should be either:
+
+The symbol regexp-history-last.
+A function of no arguments that returns either nil, a string, or a list of strings.
+See read-regexp above for details of how these values are used.
+
+Variable: minibuffer-allow-text-properties ¶
+If this variable is nil, then read-from-minibuffer and read-string strip all text properties from the minibuffer input before returning it. However, read-no-blanks-input (see below), as well as read-minibuffer and related functions (see Reading Lisp Objects With the Minibuffer), and all functions that do minibuffer input with completion, remove the face property unconditionally, regardless of the value of this variable.
+
+If this variable is non-nil, most text properties on strings from the completion table are preserved—but only on the part of the strings that were completed.
+
+(let ((minibuffer-allow-text-properties t))
+  (completing-read "String: " (list (propertize "foobar" 'data 'zot))))
+=> #("foobar" 3 6 (data zot))
+In this example, the user typed ‘foo’ and then hit the TAB key, so the text properties are only preserved on the last three characters.
+
+Variable: minibuffer-local-map ¶
+This is the default local keymap for reading from the minibuffer. By default, it makes the following bindings:
+
+C-j
+exit-minibuffer
+
+RET
+exit-minibuffer
+
+M-<
+minibuffer-beginning-of-buffer
+
+C-g
+abort-recursive-edit
+
+M-n
+DOWN
+next-history-element
+
+M-p
+UP
+previous-history-element
+
+M-s
+next-matching-history-element
+
+M-r
+previous-matching-history-element
+
+The variable minibuffer-mode-map is an alias for this variable.
+
+Function: read-no-blanks-input prompt &optional initial inherit-input-method ¶
+This function reads a string from the minibuffer, but does not allow whitespace characters as part of the input: instead, those characters terminate the input. The arguments prompt, initial, and inherit-input-method are used as in read-from-minibuffer.
+
+This is a simplified interface to the read-from-minibuffer function, and passes the value of the minibuffer-local-ns-map keymap as the keymap argument for that function. Since the keymap minibuffer-local-ns-map does not rebind C-q, it is possible to put a space into the string, by quoting it.
+
+This function discards text properties, regardless of the value of minibuffer-allow-text-properties.
+
+(read-no-blanks-input prompt initial)
+≡
+(let (minibuffer-allow-text-properties)
+  (read-from-minibuffer prompt initial minibuffer-local-ns-map))
+Variable: minibuffer-local-ns-map ¶
+This built-in variable is the keymap used as the minibuffer local keymap in the function read-no-blanks-input. By default, it makes the following bindings, in addition to those of minibuffer-local-map:
+
+SPC ¶
+exit-minibuffer
+
+TAB ¶
+exit-minibuffer
+
+? ¶
+self-insert-and-exit
+
+Function: format-prompt prompt default &rest format-args ¶
+Format prompt with default value default according to the minibuffer-default-prompt-format variable.
+
+minibuffer-default-prompt-format is a format string (defaulting to ‘" (default %s)"’ that says how the “default” bit in prompts like ‘"Local filename (default somefile): "’ are to be formatted.
+
+To allow the users to customize how this is displayed, code that prompts the user for a value (and has a default) should look something along the lines of this code snippet:
+
+(read-file-name
+ (format-prompt "Local filename" file)
+ nil file)
+If format-args is nil, prompt is used as a literal string. If format-args is non-nil, prompt is used as a format control string, and prompt and format-args are passed to format (see Formatting Strings).
+
+minibuffer-default-prompt-format can be ‘""’, in which case no default values are displayed.
+
+If default is nil, there is no default value, and therefore no “default value” string is included in the result value. If default is a non-nil list, the first element of the list is used in the prompt.
+
+Both prompt and minibuffer-default-prompt-format are run through substitute-command-keys (see Substituting Key Bindings in Documentation).
+
+Variable: read-minibuffer-restore-windows ¶
+If this option is non-nil (the default), getting input from the minibuffer will restore, on exit, the window configurations of the frame where the minibuffer was entered from and, if it is different, the frame that owns the minibuffer window. This means that if, for example, a user splits a window while getting input from the minibuffer on the same frame, that split will be undone when exiting the minibuffer.
+
+If this option is nil, no such restorations are done. Hence, the window split mentioned above will persist after exiting the minibuffer.
+
+
+*** Reading Lisp Objects with the Minibuffer
+
+This section describes functions for reading Lisp objects with the minibuffer.
+
+Function: read-minibuffer prompt &optional initial ¶
+This function reads a Lisp object using the minibuffer, and returns it without evaluating it. The arguments prompt and initial are used as in read-from-minibuffer.
+
+This is a simplified interface to the read-from-minibuffer function:
+
+(read-minibuffer prompt initial)
+≡
+(let (minibuffer-allow-text-properties)
+  (read-from-minibuffer prompt initial nil t))
+Here is an example in which we supply the string "(testing)" as initial input:
+
+(read-minibuffer
+ "Enter an expression: " (format "%s" '(testing)))
+
+;; Here is how the minibuffer is displayed:
+
+---------- Buffer: Minibuffer ----------
+Enter an expression: (testing)∗
+---------- Buffer: Minibuffer ----------
+The user can type RET immediately to use the initial input as a default, or can edit the input.
+
+Function: eval-minibuffer prompt &optional initial ¶
+This function reads a Lisp expression using the minibuffer, evaluates it, then returns the result. The arguments prompt and initial are used as in read-from-minibuffer.
+
+This function simply evaluates the result of a call to read-minibuffer:
+
+(eval-minibuffer prompt initial)
+≡
+(eval (read-minibuffer prompt initial))
+Function: edit-and-eval-command prompt form ¶
+This function reads a Lisp expression in the minibuffer, evaluates it, then returns the result. The difference between this command and eval-minibuffer is that here the initial form is not optional and it is treated as a Lisp object to be converted to printed representation rather than as a string of text. It is printed with prin1, so if it is a string, double-quote characters (‘"’) appear in the initial text. See Output Functions.
+
+In the following example, we offer the user an expression with initial text that is already a valid form:
+
+(edit-and-eval-command "Please edit: " '(forward-word 1))
+
+;; After evaluation of the preceding expression,
+;;   the following appears in the minibuffer:
+
+---------- Buffer: Minibuffer ----------
+Please edit: (forward-word 1)∗
+---------- Buffer: Minibuffer ----------
+Typing RET right away would exit the minibuffer and evaluate the expression, thus moving point forward one word.
+
+
+*** Minibuffer History
+
+A minibuffer history list records previous minibuffer inputs so the user can reuse them conveniently. It is a variable whose value is a list of strings (previous inputs), most recent first.
+
+There are many separate minibuffer history lists, used for different kinds of inputs. It’s the Lisp programmer’s job to specify the right history list for each use of the minibuffer.
+
+You specify a minibuffer history list with the optional history argument to read-from-minibuffer or completing-read. Here are the possible values for it:
+
+variable
+Use variable (a symbol) as the history list.
+
+(variable . startpos)
+Use variable (a symbol) as the history list, and assume that the initial history position is startpos (a nonnegative integer).
+
+Specifying 0 for startpos is equivalent to just specifying the symbol variable. previous-history-element will display the most recent element of the history list in the minibuffer. If you specify a positive startpos, the minibuffer history functions behave as if (elt variable (1- startpos)) were the history element currently shown in the minibuffer.
+
+For consistency, you should also specify that element of the history as the initial minibuffer contents, using the initial argument to the minibuffer input function (see Initial Input).
+
+If you don’t specify history, then the default history list minibuffer-history is used. For other standard history lists, see below. You can also create your own history list variable; just initialize it to nil before the first use. If the variable is buffer local, then each buffer will have its own input history list.
+
+Both read-from-minibuffer and completing-read add new elements to the history list automatically, and provide commands to allow the user to reuse items on the list (see Minibuffer Commands). The only thing your program needs to do to use a history list is to initialize it and to pass its name to the input functions when you wish. But it is safe to modify the list by hand when the minibuffer input functions are not using it.
+
+By default, when M-n (next-history-element, see next-history-element) reaches the end of the list of default values provided by the command which initiated reading input from the minibuffer, M-n adds all of the completion candidates, as specified by minibuffer-completion-table (see Minibuffer Commands that Do Completion), to the list of defaults, so that all those candidates are available as “future history”. Your program can control that via the variable minibuffer-default-add-function: if its value is not a function, this automatic addition is disabled, and you can also set this variable to your own function which adds only some candidates, or some other values, to the “future history”.
+
+Emacs functions that add a new element to a history list can also delete old elements if the list gets too long. The variable history-length specifies the maximum length for most history lists. To specify a different maximum length for a particular history list, put the length in the history-length property of the history list symbol. The variable history-delete-duplicates specifies whether to delete duplicates in history.
+
+Function: add-to-history history-var newelt &optional maxelt keep-all ¶
+This function adds a new element newelt, if it isn’t the empty string, to the history list stored in the variable history-var, and returns the updated history list. It limits the list length to the value of maxelt (if non-nil) or history-length (described below). The possible values of maxelt have the same meaning as the values of history-length. history-var cannot refer to a lexical variable.
+
+Normally, add-to-history removes duplicate members from the history list if history-delete-duplicates is non-nil. However, if keep-all is non-nil, that says not to remove duplicates, and to add newelt to the list even if it is empty.
+
+Variable: history-add-new-input ¶
+If the value of this variable is nil, standard functions that read from the minibuffer don’t add new elements to the history list. This lets Lisp programs explicitly manage input history by using add-to-history. The default value is t.
+
+User Option: history-length ¶
+The value of this variable specifies the maximum length for all history lists that don’t specify their own maximum lengths. If the value is t, that means there is no maximum (don’t delete old elements). If a history list variable’s symbol has a non-nil history-length property, it overrides this variable for that particular history list.
+
+User Option: history-delete-duplicates ¶
+If the value of this variable is t, that means when adding a new history element, all previous identical elements are deleted.
+
+Here are some of the standard minibuffer history list variables:
+
+Variable: minibuffer-history ¶
+The default history list for minibuffer history input.
+
+Variable: query-replace-history ¶
+A history list for arguments to query-replace (and similar arguments to other commands).
+
+Variable: file-name-history ¶
+A history list for file-name arguments.
+
+Variable: buffer-name-history ¶
+A history list for buffer-name arguments.
+
+Variable: regexp-history ¶
+A history list for regular expression arguments.
+
+Variable: extended-command-history ¶
+A history list for arguments that are names of extended commands.
+
+Variable: shell-command-history ¶
+A history list for arguments that are shell commands.
+
+Variable: read-expression-history ¶
+A history list for arguments that are Lisp expressions to evaluate.
+
+Variable: face-name-history ¶
+A history list for arguments that are faces.
+
+Variable: custom-variable-history ¶
+A history list for variable-name arguments read by read-variable.
+
+Variable: read-number-history ¶
+A history list for numbers read by read-number.
+
+Variable: goto-line-history ¶
+A history list for arguments to goto-line. This variable can be made local in every buffer by customizing the user option goto-line-history-local.
+
+
+*** Initial Input
+
+Several of the functions for minibuffer input have an argument called initial. This is a mostly-deprecated feature for specifying that the minibuffer should start out with certain text, instead of empty as usual.
+
+If initial is a string, the minibuffer starts out containing the text of the string, with point at the end, when the user starts to edit the text. If the user simply types RET to exit the minibuffer, it will use the initial input string to determine the value to return.
+
+We discourage use of a non-nil value for initial, because initial input is an intrusive interface. History lists and default values provide a much more convenient method to offer useful default inputs to the user.
+
+There is just one situation where you should specify a string for an initial argument. This is when you specify a cons cell for the history argument. See Minibuffer History.
+
+initial can also be a cons cell of the form (string . position). This means to insert string in the minibuffer but put point at position within the string’s text.
+
+As a historical accident, position was implemented inconsistently in different functions. In completing-read, position’s value is interpreted as origin-zero; that is, a value of 0 means the beginning of the string, 1 means after the first character, etc. In read-minibuffer, and the other non-completion minibuffer input functions that support this argument, 1 means the beginning of the string, 2 means after the first character, etc.
+
+Use of a cons cell as the value for initial arguments is deprecated.
+
+
+*** Completion
+Completion is Emacs’s way of meeting you halfway — a feature that helps you enter arguments, such as file names, buffer names, symbols, or command names, without typing them in full. After you type part of an argument, Emacs compares what you’ve entered against a known set of valid names and fills in the rest, or as much as it can determine uniquely.
+
+When completion is available, certain keys — most commonly TAB, RET, and SPC — are temporarily rebound in the minibuffer to special completion commands. These commands attempt to complete the text you’ve begun, using the list of possible alternatives supplied by the command requesting the argument. You can usually type ? to see all available completions.
+
+Completion is most often performed in the minibuffer, but many ordinary buffers also support it, such as when completing symbol names in Lisp code or buffer names during a switch command. For example, when you invoke C-x b (switch-to-buffer) and begin typing a buffer name, pressing TAB (minibuffer-complete) extends the name as far as it can based on existing buffers.
+
+Beneath this convenience lies a deeper structure: the function try-completion is the primitive mechanism, returning the longest possible match for a given initial string and a list of potential completions. On top of it, the higher-level function completing-read opens the minibuffer with an appropriate keymap and logic for selecting among alternatives. Most standard Emacs commands use these mechanisms internally, and you can do the same to implement completion for your own kinds of names.
+**** Completion Example
+
+A simple example may help here. M-x uses the minibuffer to read the name of a command, so completion works by matching the minibuffer text against the names of existing Emacs commands. Suppose you wish to run the command auto-fill-mode. You can do that by typing M-x auto-fill-mode RET, but it is easier to use completion.
+
+If you type M-x a u TAB, the TAB looks for completion alternatives (in this case, command names) that start with ‘au’. There are several, including auto-fill-mode and autoconf-mode, but they all begin with auto, so the ‘au’ in the minibuffer completes to ‘auto’. (More commands may be defined in your Emacs session. For example, if a command called authorize-me was defined, Emacs could only complete as far as ‘aut’.)
+
+If you type TAB again immediately, it cannot determine the next character; it could be ‘-’, ‘a’, or ‘c’. So it does not add any characters; instead, TAB displays a list of all possible completions in another window.
+
+Next, type -f. The minibuffer now contains ‘auto-f’, and the only command name that starts with this is auto-fill-mode. If you now type TAB, completion fills in the rest of the argument ‘auto-fill-mode’ into the minibuffer.
+
+Hence, typing just a u TAB - f TAB allows you to enter ‘auto-fill-mode’.
+
+TAB also works while point is not at the end of the minibuffer. In that case, it will fill in text both at point and at the end of the minibuffer. If you type M-x autocm, then press C-b to move point before the ‘m’, you can type TAB to insert the text ‘onf-’ at point and ‘ode’ at the end of the minibuffer, so that the minibuffer contains ‘autoconf-mode’.
+
+
+**** Completion Commands
+
+Here is a list of the completion commands defined in the minibuffer when completion is allowed.
+
+***** TAB
+Complete the text in the minibuffer as much as possible; if unable to complete, display a list of possible completions (minibuffer-complete).
+
+***** SPC
+Complete up to one word from the minibuffer text before point (minibuffer-complete-word). This command is not available for arguments that often include spaces, such as file names.
+
+***** RET
+Submit the text in the minibuffer as the argument, possibly completing first (minibuffer-complete-and-exit). See Completion Exit.
+
+***** ?
+Display a list of completions (minibuffer-completion-help).
+
+***** TAB (minibuffer-complete)
+is the most fundamental completion command. It searches for all possible completions that match the existing minibuffer text, and attempts to complete as much as it can. See How Completion Alternatives Are Chosen, for how completion alternatives are chosen.
+
+***** SPC (minibuffer-complete-word)
+completes like TAB, but only up to the next hyphen or space. If you have ‘auto-f’ in the minibuffer and type SPC, it finds that the completion is ‘auto-fill-mode’, but it only inserts ‘ill-’, giving ‘auto-fill-’. Another SPC at this point completes all the way to ‘auto-fill-mode’.
+
+If TAB or SPC is unable to complete, it displays a list of matching completion alternatives (if there are any) in another window. You can display the same list with ? (minibuffer-completion-help). The following commands can be used with the completion list:
+
+***** M-DOWN / M-UP
+While in the minibuffer, M-DOWN (minibuffer-next-completion and M-UP (minibuffer-previous-completion) navigate through the completions and displayed in the completions buffer. When minibuffer-completion-auto-choose is non-nil (which is the default), using these commands also inserts the current completion candidate into the minibuffer. If minibuffer-completion-auto-choose is nil, you can use the M-RET command (minibuffer-choose-completion) to insert the completion candidates into the minibuffer. By default, that exits the minibuffer, but with a prefix argument, C-u M-RET inserts the currently active candidate without exiting the minibuffer.
+
+***** M-v / PageUp
+prior
+Typing M-v, while in the minibuffer, selects the window showing the completion list (switch-to-completions). This paves the way for using the commands below. PageUp, prior and M-g M-c do the same. You can also select the window in other ways (see Multiple Windows).
+
+***** RET / mouse-1 / mouse-2
+While in the completion list buffer, this chooses the completion at point (choose-completion). With a prefix argument, C-u RET inserts the completion at point into the minibuffer, but doesn’t exit the minibuffer—thus, you can change your mind and choose another candidate.
+
+***** TAB RIGHT n
+While in the completion list buffer, these keys move point to the following completion alternative (next-completion).
+
+***** S-TAB LEFT p
+While in the completion list buffer, these keys move point to the previous completion alternative (previous-completion).
+
+***** q
+While in the completion list buffer, this quits the window showing it and selects the window showing the minibuffer (quit-window).
+
+***** z
+While in the completion list buffer, kill it and delete the window showing it (kill-current-buffer).
+
+
+**** Completion Exit
+
+When a command reads an argument using the minibuffer with completion, it also controls what happens when you type RET (minibuffer-complete-and-exit) to submit the argument. There are four types of behavior:
+
+Strict completion accepts only exact completion matches. Typing RET exits the minibuffer only if the minibuffer text is an exact match, or completes to one. Otherwise, Emacs refuses to exit the minibuffer; instead it tries to complete, and if no completion can be done it momentarily displays ‘[No match]’ after the minibuffer text. (You can still leave the minibuffer by typing C-g to cancel the command.)
+An example of a command that uses this behavior is M-x, since it is meaningless for it to accept a non-existent command name.
+
+Cautious completion is like strict completion, except RET exits only if the text is already an exact match. If the text completes to an exact match, RET performs that completion but does not exit yet; you must type a second RET to exit.
+Cautious completion is used for reading file names for files that must already exist, for example.
+
+Permissive completion allows any input; the completion candidates are just suggestions. Typing RET does not complete, it just submits the argument as you have entered it.
+Permissive completion with confirmation is like permissive completion, with an exception: if you typed TAB and this completed the text up to some intermediate state (i.e., one that is not yet an exact completion match), typing RET right afterward does not submit the argument. Instead, Emacs asks for confirmation by momentarily displaying ‘[Confirm]’ after the text; type RET again to confirm and submit the text. This catches a common mistake, in which one types RET before realizing that TAB did not complete as far as desired.
+You can tweak the confirmation behavior by customizing the variable confirm-nonexistent-file-or-buffer. The default value, after-completion, gives the behavior we have just described. If you change it to nil, Emacs does not ask for confirmation, falling back on permissive completion. If you change it to any other non-nil value, Emacs asks for confirmation whether or not the preceding command was TAB.
+
+This behavior is used by most commands that read file names, like C-x C-f, and commands that read buffer names, like C-x b.
+
+
+**** How Completion Alternatives Are Chosen
+
+Completion commands work by narrowing a large list of possible completion alternatives to a smaller subset that matches what you have typed in the minibuffer. In Completion Example, we gave a simple example of such matching. The procedure of determining what constitutes a match is quite intricate. Emacs attempts to offer plausible completions under most circumstances.
+
+Emacs performs completion using one or more completion styles—sets of criteria for matching minibuffer text to completion alternatives. During completion, Emacs tries each completion style in turn. If a style yields one or more matches, that is used as the list of completion alternatives. If a style produces no matches, Emacs falls back on the next style.
+
+The list variable completion-styles specifies the completion styles to use. Each list element is the name of a completion style (a Lisp symbol). The available style symbols are stored in the variable completion-styles-alist (see Completion Variables in The Emacs Lisp Reference Manual). The default completion styles are (in order):
+
+****** basic ¶
+A matching completion alternative must have the same beginning as the text in the minibuffer before point. Furthermore, if there is any text in the minibuffer after point, the rest of the completion alternative must contain that text as a substring.
+
+****** partial-completion
+This aggressive completion style divides the minibuffer text into words separated by hyphens or spaces, and completes each word separately. (For example, when completing command names, ‘em-l-m’ completes to ‘emacs-lisp-mode’.)
+
+****** Furthermore, a ‘*’ in the minibuffer text
+is treated as a wildcard—it matches any string of characters at the corresponding position in the completion alternative.
+
+****** emacs22 ¶
+This completion style is similar to basic, except that it ignores the text in the minibuffer after point. It is so-named because it corresponds to the completion behavior in Emacs 22.
+
+The following additional completion styles are also defined, and you can add them to completion-styles if you wish (see Customization):
+
+****** substring ¶
+A matching completion alternative must contain the text in the minibuffer before point, and the text in the minibuffer after point, as substrings (in that same order).
+
+Thus, if the text in the minibuffer is ‘foobar’, with point between ‘foo’ and ‘bar’, that matches ‘afoobbarc’, where a, b, and c can be any string including the empty string.
+
+****** flex ¶
+This aggressive completion style, also known as flx or fuzzy or scatter completion, attempts to complete using in-order substrings. For example, it can consider ‘foo’ to match ‘frodo’ or ‘fbarbazoo’.
+
+****** initials ¶
+This very aggressive completion style attempts to complete acronyms and initialisms. For example, when completing command names, it matches ‘lch’ to ‘list-command-history’.
+
+There is also a very simple completion style called emacs21. In this style, if the text in the minibuffer is ‘foobar’, only matches starting with ‘foobar’ are considered.
+
+You can use different completion styles in different situations, by setting the variable completion-category-overrides. For example, the default setting says to use only basic and substring completion for buffer names.
+
+
+**** Completion Options
+
+Case is significant when completing case-sensitive arguments, such as command names. For example, when completing command names, ‘AU’ does not complete to ‘auto-fill-mode’. Case differences are ignored when completing arguments in which case does not matter.
+
+When completing file names, case differences are ignored if the variable read-file-name-completion-ignore-case is non-nil. The default value is nil on systems that have case-sensitive file-names, such as GNU/Linux; it is non-nil on systems that have case-insensitive file-names, such as Microsoft Windows. When completing buffer names, case differences are ignored if the variable read-buffer-completion-ignore-case is non-nil; the default is nil.
+
+When completing file names, Emacs usually omits certain alternatives that are considered unlikely to be chosen, as determined by the list variable completion-ignored-extensions. Each element in the list should be a string; any file name ending in such a string is ignored as a completion alternative. Any element ending in a slash (/) represents a subdirectory name. The standard value of completion-ignored-extensions has several elements including ".o", ".elc", and "~". For example, if a directory contains ‘foo.c’ and ‘foo.elc’, ‘foo’ completes to ‘foo.c’. However, if all possible completions end in otherwise-ignored strings, they are not ignored: in the previous example, ‘foo.e’ completes to ‘foo.elc’. Emacs disregards completion-ignored-extensions when showing completion alternatives in the completion list.
+
+Shell completion is an extended version of filename completion, see Shell Mode Options.
+
+If completion-auto-help is set to nil, the completion commands never display the completion list buffer; you must type ? to display the list. If the value is lazy, Emacs only shows the completion list buffer on the second attempt to complete. In other words, if there is nothing to complete, the first TAB echoes ‘Next char not unique’; the second TAB shows the completion list buffer. If the value is always, the completion list buffer is always shown when completion is attempted.
+
+The display of the completion list buffer after it is shown for the first time is also controlled by completion-auto-help. If the value is t or lazy, the window showing the completions pops down when Emacs is able to complete (and may pop up again if Emacs is again unable to complete after you type some more text); if the value is always, the window pops down only when you exit the completion. The value visible is a hybrid: it behaves like t when it decides whether to pop up the window showing the completion list buffer, and like always when it decides whether to pop it down.
+
+Emacs can optionally select the window showing the completions when it shows that window. To enable this behavior, customize the user option completion-auto-select to t, which changes the behavior of TAB when Emacs pops up the completions: pressing TAB will switch to the completion list buffer, and you can then move to a candidate by cursor motion commands and select it with RET. If the value of completion-auto-select is second-tab, then the first TAB will pop up the completions list buffer, and the second one will switch to it.
+
+If completion-cycle-threshold is non-nil, completion commands can cycle through completion alternatives. Normally, if there is more than one completion alternative for the text in the minibuffer, a completion command completes up to the longest common substring. If you change completion-cycle-threshold to t, the completion command instead completes to the first of those completion alternatives; each subsequent invocation of the completion command replaces that with the next completion alternative, in a cyclic manner. If you give completion-cycle-threshold a numeric value n, completion commands switch to this cycling behavior only when there are n or fewer alternatives.
+
+When displaying completions, Emacs will normally pop up a new buffer to display the completions. The completions will by default be sorted horizontally, using as many columns as will fit in the window-width, but this can be changed by customizing the completions-format user option. If its value is vertical, Emacs will sort the completions vertically instead, and if it’s one-column, Emacs will use just one column.
+
+The completions-sort user option controls the order in which the completions are sorted in the ‘*Completions*’ buffer. The default is alphabetical, which sorts in alphabetical order. The value nil disables sorting. The value can also be a function, which will be called with the list of completions, and should return the list in the desired order.
+
+When completions-max-height is non-nil, it limits the size of the completions window. It is specified in lines and include mode, header line and a bottom divider, if any. For a more complex control of the Completion window display properties, you can use display-buffer-alist (see Action Alists for Buffer Display in The Emacs Lisp Reference Manual).
+
+The variable completions-header-format is a format spec string to control the informative line shown before the completions list of candidates. If it contains a ‘%s’ construct, that get replaced by the number of completions shown in the completion list buffer. To suppress the display of the heading line, customize this variable to nil. The string that is the value of this variable can have text properties to change the visual appearance of the heading line; some useful properties face or cursor-intangible (see Properties with Special Meanings in The Emacs Lisp Reference Manual).
+
+When completions-highlight-face names a face, the current completion candidate, the one that will be selected by typing RET or clicking the mouse, will be highlighted using that face. The default value of this variable is completions-highlight; the value is nil disables this highlighting. This feature uses the special text property cursor-face.
+
+
+****  Minibuffer History
+
+Everything you type in the minibuffer is saved in a minibuffer history list so you can easily use it again later. This includes completion candidates (such as file names, buffer names, command names, etc.) and any other kind of minibuffer input. You can use the following commands to quickly fetch an earlier or alternative response into the minibuffer:
+
+***** M-p
+Move to the previous item in the minibuffer history, an earlier argument (previous-history-element).
+
+***** M-n
+Move to the next item in the minibuffer history (next-history-element).
+
+***** UP / DOWN
+Like M-p and M-n, but move to the previous or next line of a multi-line item before going to the previous history item (previous-line-or-history-element and next-line-or-history-element) .
+
+***** M-r regexp RET
+Move to an earlier item in the minibuffer history that matches regexp (previous-matching-history-element).
+
+***** M-s regexp RET
+Move to a later item in the minibuffer history that matches regexp (next-matching-history-element).
+
+
+**** Continuation for minibuffer history
+While in the minibuffer, M-p (previous-history-element) moves through the minibuffer history list, one item at a time. Each M-p fetches an earlier item from the history list into the minibuffer, replacing its existing contents. Typing M-n (next-history-element) moves through the minibuffer history list in the opposite direction, fetching later entries into the minibuffer.
+
+If you type M-n in the minibuffer when there are no later entries in the minibuffer history (e.g., if you haven’t previously typed M-p), Emacs tries fetching from a list of default arguments: values that you are likely to enter. You can think of this as moving through the “future history”.
+
+The “future history” for file names includes several possible alternatives you may find useful, such as the file name or the URL at point in the current buffer. The defaults put into the “future history” in this case are controlled by the functions mentioned in the value of the option file-name-at-point-functions. By default, its value invokes the ffap package (see Finding Files and URLs at Point), which tries to guess the default file or URL from the text around point. To disable this guessing, customize the option to a nil value, then the “future history” of file names will include only the file, if any, visited by the current buffer, and the default directory.
+
+The arrow keys UP and DOWN work like M-p and M-n, but if the current history item is longer than a single line, they allow you to move to the previous or next line of the current history item before going to the previous or next history item.
+
+If you edit the text inserted by the M-p or M-n minibuffer history commands, this does not change its entry in the history list. However, the edited argument does go at the end of the history list when you submit it.
+
+You can use M-r (previous-matching-history-element) to search through older elements in the history list, and M-s (next-matching-history-element) to search through newer entries. Each of these commands asks for a regular expression as an argument, and fetches the first matching entry into the minibuffer. See Syntax of Regular Expressions, for an explanation of regular expressions. A numeric prefix argument n means to fetch the nth matching entry. These commands are unusual, in that they use the minibuffer to read the regular expression argument, even though they are invoked from the minibuffer. An upper-case letter in the regular expression makes the search case-sensitive (see Lax Matching During Searching).
+
+You can also search through the history using an incremental search. See Searching the Minibuffer.
+
+Emacs keeps separate history lists for several different kinds of arguments. For example, there is a list for file names, used by all the commands that read file names. Other history lists include buffer names, command names (used by M-x), and command arguments (used by commands like query-replace).
+
+The variable history-length specifies the maximum length of a minibuffer history list; adding a new element deletes the oldest element if the list gets too long. If the value is t, there is no maximum length.
+
+The variable history-delete-duplicates specifies whether to delete duplicates in history. If it is non-nil, adding a new element deletes from the list all other elements that are equal to it. The default is nil.
+
+**** Repeating Minibuffer Commands
+
+Every command that uses the minibuffer once is recorded on a special history list, the command history, together with the values of its arguments, so that you can repeat the entire command. In particular, every use of M-x is recorded there, since M-x uses the minibuffer to read the command name.
+
+C-x ESC ESC
+Re-execute a recent minibuffer command from the command history (repeat-complex-command).
+
+M-x list-command-history
+Display the entire command history, showing all the commands C-x ESC ESC can repeat, most recent first.
+
+C-x ESC ESC re-executes a recent command that used the minibuffer. With no argument, it repeats the last such command. A numeric argument specifies which command to repeat; 1 means the last one, 2 the previous, and so on.
+
+C-x ESC ESC works by turning the previous command into a Lisp expression and then entering a minibuffer initialized with the text for that expression. Even if you don’t know Lisp, it will probably be obvious which command is displayed for repetition. If you type just RET, that repeats the command unchanged. You can also change the command by editing the Lisp expression before you execute it. The executed command is added to the front of the command history unless it is identical to the most recent item.
+
+Once inside the minibuffer for C-x ESC ESC, you can use the usual minibuffer history commands (see Minibuffer History) to move through the history list. After finding the desired previous command, you can edit its expression as usual and then execute it by typing RET.
+
+Incremental search does not, strictly speaking, use the minibuffer. Therefore, although it behaves like a complex command, it normally does not appear in the history list for C-x ESC ESC. You can make incremental search commands appear in the history by setting isearch-resume-in-command-history to a non-nil value. See Incremental Search.
+
+The list of previous minibuffer-using commands is stored as a Lisp list in the variable command-history. Each element is a Lisp expression that describes one command and its arguments. Lisp programs can re-execute a command by calling eval with the command-history element.
+
+
+**** Entering passwords
+
+Sometimes, you may need to enter a password into Emacs. For instance, when you tell Emacs to visit a file on another machine via a network protocol such as FTP, you often need to supply a password to gain access to the machine (see Remote Files).
+
+Entering a password is similar to using a minibuffer. Emacs displays a prompt in the echo area (such as ‘Password: ’); after you type the required password, press RET to submit it. To prevent others from seeing your password, every character you type is displayed as an asterisk (‘*’) instead of its usual form.
+
+Most of the features and commands associated with the minibuffer cannot be used when entering a password. There is no history or completion, and you cannot change windows or perform any other action with Emacs until you have submitted the password.
+
+While you are typing the password, you may press DEL to delete backwards, removing the last character entered. C-u deletes everything you have typed so far. C-g quits the password prompt (see Quitting and Aborting). C-y inserts the current kill into the password (see Killing and Moving Text). You may type either RET or ESC to submit the password. Any other self-inserting character key inserts the associated character into the password, and all other input is ignored.
+
+
+**** Yes or No Prompts
+
+An Emacs command may require you to answer a yes-or-no question during the course of its execution. Such queries come in two main varieties.
+
+For the first type of yes-or-no query, the prompt ends with ‘(y or n)’. You answer the query by typing a single key, either ‘y’ or ‘n’, which immediately exits the minibuffer and delivers the response. For example, if you type C-x C-w (write-file) to save a buffer, and enter the name of an existing file, Emacs issues a prompt like this:
+
+File ‘foo.el’ exists; overwrite? (y or n)
+The second type of yes-or-no query is typically employed if giving the wrong answer would have serious consequences; it thus features a longer prompt ending with ‘(yes or no)’. For example, if you invoke C-x k (kill-buffer) on a file-visiting buffer with unsaved changes, Emacs activates the minibuffer with a prompt like this:
+
+Buffer foo.el modified; kill anyway? (yes or no)
+To answer, you must type ‘yes’ or ‘no’ into the minibuffer, followed by RET.
+
+With both types of yes-or-no query the minibuffer behaves as described in the previous sections; you can recenter the selected window with C-l, scroll that window (C-v or PageDown scrolls forward, M-v or PageUp scrolls backward), switch to another window with C-x o, use the history commands M-p and M-n, etc. Type C-g to dismiss the query, and quit the minibuffer and the querying command (see Quitting and Aborting).
+
+
+
+
+
+**** Running Commands by Name
+
+Every Emacs command has a name that you can use to run it. For convenience, many commands also have key bindings. You can run those commands by typing the keys, or run them by name. Most Emacs commands have no key bindings, so the only way to run them is by name. (See Customizing Key Bindings, for how to set up key bindings.)
+
+By convention, a command name consists of one or more words, separated by hyphens; for example, auto-fill-mode or manual-entry. Command names mostly use complete English words to make them easier to remember.
+
+To run a command by name, start with M-x, type the command name, then terminate it with RET. M-x uses the minibuffer to read the command name. The string ‘M-x’ appears at the beginning of the minibuffer as a prompt to remind you to enter a command name to be run. RET exits the minibuffer and runs the command. See The Minibuffer, for more information on the minibuffer.
+
+You can use completion to enter the command name. For example, to invoke the command forward-char, you can type
+
+M-x forward-char RET
+or
+
+M-x forw TAB c RET
+Note that forward-char is the same command that you invoke with the key C-f. The existence of a key binding does not stop you from running the command by name.
+
+When M-x completes on commands, it ignores the commands that were declared obsolete in any previous major version of Emacs; for these, you will have to type their full name. Commands that were marked obsolete in the current version of Emacs are listed. (Obsolete commands are those for which newer, better alternatives exist, and which are slated for removal in some future Emacs release.)
+
+In addition, M-x completion can exclude commands that are not relevant to, and generally cannot work with, the current buffer’s major mode (see Major Modes) and minor modes (see Minor Modes). By default, no commands are excluded, but you can customize the option read-extended-command-predicate to exclude those irrelevant commands from completion results.
+
+Conversely, Emacs can exclude all commands except those that are particularly relevant to the current buffer. The M-S-x (that’s “meta shift x”) command works just like M-x, but instead of listing all (or most) of the commands Emacs knows about, it will only list the commands that have been marked as “belonging” to the current major mode, or any enabled minor modes.
+
+To cancel the M-x and not run a command, type C-g instead of entering the command name. This takes you back to command level.
+
+To pass a numeric argument to the command you are invoking with M-x, specify the numeric argument before M-x. The argument value appears in the prompt while the command name is being read, and finally M-x passes the argument to that command. For example, to pass the numeric argument of 42 to the command forward-char you can type C-u 42 M-x forward-char RET.
+
+When the command you run with M-x has a key binding, Emacs mentions this in the echo area after running the command. For example, if you type M-x forward-word, the message says that you can run the same command by typing M-f. You can turn off these messages by setting the variable suggest-key-bindings to nil. The value of suggest-key-bindings can also be a number, in which case Emacs will show the binding for that many seconds before removing it from display. The default behavior is to display the binding for 2 seconds.
+
+Additionally, when suggest-key-bindings is non-nil, the completion list of M-x shows equivalent key bindings for all commands that have them.
+
+Commands that don’t have key bindings, can still be invoked after typing less than their full name at the ‘M-x’ prompt. Emacs mentions such shorthands in the echo area if they are significantly shorter than the full command name, and extended-command-suggest-shorter is non-nil. The setting of suggest-key-bindings affects these hints as well.
+
+In this manual, when we speak of running a command by name, we often omit the RET that terminates the name. Thus we might say M-x auto-fill-mode rather than M-x auto-fill-mode RET. We mention the RET only for emphasis, such as when the command is followed by arguments.
+
+M-x works by running the command execute-extended-command, which is responsible for reading the name of another command and invoking it.
+
+
+
+**** Basic Completion Functions
+
+The following completion functions have nothing in themselves to do with minibuffers. We describe them here to keep them near the higher-level completion features that do use the minibuffer.
+
+Function: try-completion string collection &optional predicate ¶
+This function returns the longest common substring of all possible completions of string in collection.
+
+collection is called the completion table. Its value must be a list of strings or cons cells, an obarray, a hash table, or a completion function.
+
+try-completion compares string against each of the permissible completions specified by the completion table. If no permissible completions match, it returns nil. If there is just one matching completion, and the match is exact, it returns t. Otherwise, it returns the longest initial sequence common to all possible matching completions.
+
+If collection is a list, the permissible completions are specified by the elements of the list, each of which should be either a string, or a cons cell whose CAR is either a string or a symbol (a symbol is converted to a string using symbol-name). If the list contains elements of any other type, those are ignored.
+
+If collection is an obarray (see Creating and Interning Symbols), the names of all symbols in the obarray form the set of permissible completions.
+
+If collection is a hash table, then the keys that are strings or symbols are the possible completions. Other keys are ignored.
+
+You can also use a function as collection. Then the function is solely responsible for performing completion; try-completion returns whatever this function returns. The function is called with three arguments: string, predicate and nil (the third argument is so that the same function can be used in all-completions and do the appropriate thing in either case). See Programmed Completion.
+
+If the argument predicate is non-nil, then it must be a function of one argument, unless collection is a hash table, in which case it should be a function of two arguments. It is used to test each possible match, and the match is accepted only if predicate returns non-nil. The argument given to predicate is either a string or a cons cell (the CAR of which is a string) from the alist, or a symbol (not a symbol name) from the obarray. If collection is a hash table, predicate is called with two arguments, the string key and the associated value.
+
+In addition, to be acceptable, a completion must also match all the regular expressions in completion-regexp-list. (Unless collection is a function, in which case that function has to handle completion-regexp-list itself.)
+
+In the first of the following examples, the string ‘foo’ is matched by three of the alist CARs. All of the matches begin with the characters ‘fooba’, so that is the result. In the second example, there is only one possible match, and it is exact, so the return value is t.
+
+(try-completion
+ "foo"
+ '(("foobar1" 1) ("barfoo" 2) ("foobaz" 3) ("foobar2" 4)))
+     ⇒ "fooba"
+
+(try-completion "foo" '(("barfoo" 2) ("foo" 3)))
+     ⇒ t
+In the following example, numerous symbols begin with the characters ‘forw’, and all of them begin with the word ‘forward’. In most of the symbols, this is followed with a ‘-’, but not in all, so no more than ‘forward’ can be completed.
+
+(try-completion "forw" obarray)
+     ⇒ "forward"
+Finally, in the following example, only two of the three possible matches pass the predicate test (the string ‘foobaz’ is too short). Both of those begin with the string ‘foobar’.
+
+(defun test (s)
+  (> (length (car s)) 6))
+     ⇒ test
+(try-completion
+ "foo"
+ '(("foobar1" 1) ("barfoo" 2) ("foobaz" 3) ("foobar2" 4))
+ 'test)
+     ⇒ "foobar"
+Function: all-completions string collection &optional predicate ¶
+This function returns a list of all possible completions of string. The arguments to this function are the same as those of try-completion, and it uses completion-regexp-list in the same way that try-completion does.
+
+If collection is a function, it is called with three arguments: string, predicate and t; then all-completions returns whatever the function returns. See Programmed Completion.
+
+Here is an example, using the function test shown in the example for try-completion:
+
+(defun test (s)
+  (> (length (car s)) 6))
+     ⇒ test
+
+(all-completions
+ "foo"
+ '(("foobar1" 1) ("barfoo" 2) ("foobaz" 3) ("foobar2" 4))
+ 'test)
+     ⇒ ("foobar1" "foobar2")
+Function: test-completion string collection &optional predicate ¶
+This function returns non-nil if string is a valid completion alternative specified by collection and predicate. The arguments are the same as in try-completion. For instance, if collection is a list of strings, this is true if string appears in the list and predicate is satisfied.
+
+This function uses completion-regexp-list in the same way that try-completion does.
+
+If predicate is non-nil and if collection contains several strings that are equal to each other, as determined by compare-strings according to completion-ignore-case, then predicate should accept either all or none of them. Otherwise, the return value of test-completion is essentially unpredictable.
+
+If collection is a function, it is called with three arguments, the values string, predicate and lambda; whatever it returns, test-completion returns in turn.
+
+Function: completion-boundaries string collection predicate suffix ¶
+This function returns the boundaries of the field on which collection will operate, assuming that string holds the text before point and suffix holds the text after point.
+
+Normally completion operates on the whole string, so for all normal collections, this will always return (0 . (length suffix)). But more complex completion, such as completion on files, is done one field at a time. For example, completion of "/usr/sh" will include "/usr/share/" but not "/usr/share/doc" even if "/usr/share/doc" exists. Also all-completions on "/usr/sh" will not include "/usr/share/" but only "share/". So if string is "/usr/sh" and suffix is "e/doc", completion-boundaries will return (5 . 1) which tells us that the collection will only return completion information that pertains to the area after "/usr/" and before "/doc". try-completion is not affected by nontrivial boundaries; e.g., try-completion on "/usr/sh" might still return "/usr/share/", not "share/".
+
+If you store a completion alist in a variable, you should mark the variable as risky by giving it a non-nil risky-local-variable property. See File Local Variables.
+
+Variable: completion-ignore-case ¶
+If the value of this variable is non-nil, case is not considered significant in completion. Within read-file-name, this variable is overridden by read-file-name-completion-ignore-case (see Reading File Names); within read-buffer, it is overridden by read-buffer-completion-ignore-case (see High-Level Completion Functions).
+
+Variable: completion-regexp-list ¶
+This is a list of regular expressions. The completion functions only consider a completion acceptable if it matches all regular expressions in this list, with case-fold-search (see Searching and Case) bound to the value of completion-ignore-case.
+
+Do not set this variable to a non-nil value globally, as that is not safe and will probably cause errors in completion commands. This variable should be only let-bound to non-nil values around calls to basic completion functions: try-completion, test-completion, and all-completions.
+
+Macro: lazy-completion-table var fun ¶
+This macro provides a way to initialize the variable var as a collection for completion in a lazy way, not computing its actual contents until they are first needed. You use this macro to produce a value that you store in var. The actual computation of the proper value is done the first time you do completion using var. It is done by calling fun with no arguments. The value fun returns becomes the permanent value of var.
+
+Here is an example:
+
+(defvar foo (lazy-completion-table foo make-my-alist))
+There are several functions that take an existing completion table and return a modified version. completion-table-case-fold returns a case-insensitive table. completion-table-in-turn and completion-table-merge combine multiple input tables in different ways. completion-table-subvert alters a table to use a different initial prefix. completion-table-with-quoting returns a table suitable for operating on quoted text. completion-table-with-predicate filters a table with a predicate function. completion-table-with-terminator adds a terminating string.
+
+
+**** Completion and the Minibuffer
+
+This section describes the basic interface for reading from the minibuffer with completion.
+
+Function: completing-read prompt collection &optional predicate require-match initial history default inherit-input-method ¶
+This function reads a string in the minibuffer, assisting the user by providing completion. It activates the minibuffer with prompt prompt, which must be a string.
+
+The actual completion is done by passing the completion table collection and the completion predicate predicate to the function try-completion (see Basic Completion Functions). This happens in certain commands bound in the local keymaps used for completion. Some of these commands also call test-completion. Thus, if predicate is non-nil, it should be compatible with collection and completion-ignore-case. See Definition of test-completion.
+
+See Programmed Completion, for detailed requirements when collection is a function.
+
+The value of the optional argument require-match determines how the user may exit the minibuffer:
+
+If nil, the usual minibuffer exit commands work regardless of the input in the minibuffer.
+If t, the usual minibuffer exit commands won’t exit unless the input completes to an element of collection.
+If confirm, the user can exit with any input, but is asked for confirmation if the input is not an element of collection.
+If confirm-after-completion, the user can exit with any input, but is asked for confirmation if the preceding command was a completion command (i.e., one of the commands in minibuffer-confirm-exit-commands) and the resulting input is not an element of collection. See Minibuffer Commands that Do Completion.
+If a function, it is called with the input as the only argument. The function should return a non-nil value if the input is acceptable.
+Any other value of require-match behaves like t, except that the exit commands won’t exit if it performs completion.
+However, empty input is always permitted, regardless of the value of require-match; in that case, completing-read returns the first element of default, if it is a list; "", if default is nil; or default. The string or strings in default are also available to the user through the history commands (see Minibuffer Commands). In addition, the completion candidates are added to the “future history” when the values in default are exhausted by M-n; see minibuffer-default-add-function.
+
+The function completing-read uses minibuffer-local-completion-map as the keymap if require-match is nil, and uses minibuffer-local-must-match-map if require-match is non-nil. See Minibuffer Commands that Do Completion.
+
+The argument history specifies which history list variable to use for saving the input and for minibuffer history commands. It defaults to minibuffer-history. If history is the symbol t, history is not recorded. See Minibuffer History.
+
+The argument initial is mostly deprecated; we recommend using a non-nil value only in conjunction with specifying a cons cell for history. See Initial Input. For default input, use default instead.
+
+If the argument inherit-input-method is non-nil, then the minibuffer inherits the current input method (see Input Methods) and the setting of enable-multibyte-characters (see Text Representations) from whichever buffer was current before entering the minibuffer.
+
+If the variable completion-ignore-case is non-nil, completion ignores case when comparing the input against the possible matches. See Basic Completion Functions. In this mode of operation, predicate must also ignore case, or you will get surprising results.
+
+Here’s an example of using completing-read:
+
+(completing-read
+ "Complete a foo: "
+ '(("foobar1" 1) ("barfoo" 2) ("foobaz" 3) ("foobar2" 4))
+ nil t "fo")
+
+;; After evaluation of the preceding expression,
+;;   the following appears in the minibuffer:
+
+---------- Buffer: Minibuffer ----------
+Complete a foo: fo∗
+---------- Buffer: Minibuffer ----------
+If the user then types DEL DEL b RET, completing-read returns barfoo.
+
+The completing-read function binds variables to pass information to the commands that actually do completion. They are described in the following section.
+
+Variable: completing-read-function ¶
+The value of this variable must be a function, which is called by completing-read to actually do its work. It should accept the same arguments as completing-read. This can be bound to a different function to completely override the normal behavior of completing-read.
+
+
+**** Minibuffer Commands that Do Completion
+
+This section describes the keymaps, commands and user options used in the minibuffer to do completion.
+
+Variable: minibuffer-completion-table ¶
+The value of this variable is the completion table (see Basic Completion Functions) used for completion in the minibuffer. This is the buffer-local variable that contains what completing-read passes to try-completion. It is used by minibuffer completion commands such as minibuffer-complete.
+
+Variable: minibuffer-completion-predicate ¶
+This variable’s value is the predicate that completing-read passes to try-completion. The variable is also used by the other minibuffer completion functions.
+
+Variable: minibuffer-completion-confirm ¶
+This variable determines whether Emacs asks for confirmation before exiting the minibuffer; completing-read sets this variable, and the function minibuffer-complete-and-exit checks the value before exiting. If the value is nil, confirmation is not required. If the value is confirm, the user may exit with an input that is not a valid completion alternative, but Emacs asks for confirmation. If the value is confirm-after-completion, the user may exit with an input that is not a valid completion alternative, but Emacs asks for confirmation if the user submitted the input right after any of the completion commands in minibuffer-confirm-exit-commands.
+
+Variable: minibuffer-confirm-exit-commands ¶
+This variable holds a list of commands that cause Emacs to ask for confirmation before exiting the minibuffer, if the require-match argument to completing-read is confirm-after-completion. The confirmation is requested if the user attempts to exit the minibuffer immediately after calling any command in this list.
+
+Command: minibuffer-complete-word ¶
+This function completes the minibuffer contents by at most a single word. Even if the minibuffer contents have only one completion, minibuffer-complete-word does not add any characters beyond the first character that is not a word constituent. See Syntax Tables.
+
+Command: minibuffer-complete ¶
+This function completes the minibuffer contents as far as possible.
+
+Command: minibuffer-complete-and-exit ¶
+This function completes the minibuffer contents, and exits if confirmation is not required, i.e., if minibuffer-completion-confirm is nil. If confirmation is required, it is given by repeating this command immediately—the command is programmed to work without confirmation when run twice in succession.
+
+Command: minibuffer-completion-help ¶
+This function creates a list of the possible completions of the current minibuffer contents. It works by calling all-completions using the value of the variable minibuffer-completion-table as the collection argument, and the value of minibuffer-completion-predicate as the predicate argument. The list of completions is displayed as text in a buffer named *Completions*.
+
+Function: display-completion-list completions ¶
+This function displays completions to the stream in standard-output, usually a buffer. (See Reading and Printing Lisp Objects, for more information about streams.) The argument completions is normally a list of completions just returned by all-completions, but it does not have to be. Each element may be a symbol or a string, either of which is simply printed. It can also be a list of two strings, which is printed as if the strings were concatenated. The first of the two strings is the actual completion, the second string serves as annotation.
+
+This function is called by minibuffer-completion-help. A common way to use it is together with with-output-to-temp-buffer, like this:
+
+(with-output-to-temp-buffer "*Completions*"
+  (display-completion-list
+    (all-completions (buffer-string) my-alist)))
+User Option: completion-auto-help ¶
+If this variable is non-nil, the completion commands automatically display a list of possible completions whenever nothing can be completed because the next character is not uniquely determined.
+
+Variable: minibuffer-local-completion-map ¶
+completing-read uses this value as the local keymap when an exact match of one of the completions is not required. By default, this keymap makes the following bindings:
+
+?
+minibuffer-completion-help
+
+SPC
+minibuffer-complete-word
+
+TAB
+minibuffer-complete
+
+and uses minibuffer-local-map as its parent keymap (see Definition of minibuffer-local-map).
+
+Variable: minibuffer-local-must-match-map ¶
+completing-read uses this value as the local keymap when an exact match of one of the completions is required. Therefore, no keys are bound to exit-minibuffer, the command that exits the minibuffer unconditionally. By default, this keymap makes the following bindings:
+
+C-j
+minibuffer-complete-and-exit
+
+RET
+minibuffer-complete-and-exit
+
+and uses minibuffer-local-completion-map as its parent keymap.
+
+Variable: minibuffer-local-filename-completion-map ¶
+This is a sparse keymap that simply unbinds SPC; because filenames can contain spaces. The function read-file-name combines this keymap with either minibuffer-local-completion-map or minibuffer-local-must-match-map.
+
+Variable: minibuffer-beginning-of-buffer-movement ¶
+If non-nil, the M-< command will move to the end of the prompt if point is after the end of the prompt. If point is at or before the end of the prompt, move to the start of the buffer. If this variable is nil, the command behaves like beginning-of-buffer.
+
+
+**** High-Level Completion Functions
+
+This section describes the higher-level convenience functions for reading certain sorts of names with completion.
+
+In most cases, you should not call these functions in the middle of a Lisp function. When possible, do all minibuffer input as part of reading the arguments for a command, in the interactive specification. See Defining Commands.
+
+Function: read-buffer prompt &optional default require-match predicate ¶
+This function reads the name of a buffer and returns it as a string. It prompts with prompt. The argument default is the default name to use, the value to return if the user exits with an empty minibuffer. If non-nil, it should be a string, a list of strings, or a buffer. If it is a list, the default value is the first element of this list. It is mentioned in the prompt, but is not inserted in the minibuffer as initial input.
+
+The argument prompt should be a string ending with a colon and a space. If default is non-nil, the function inserts it in prompt before the colon to follow the convention for reading from the minibuffer with a default value (see Emacs Programming Tips).
+
+The optional argument require-match has the same meaning as in completing-read. See Completion and the Minibuffer.
+
+The optional argument predicate, if non-nil, specifies a function to filter the buffers that should be considered: the function will be called with every potential candidate as its argument, and should return nil to reject the candidate, non-nil to accept it.
+
+In the following example, the user enters ‘minibuffer.t’, and then types RET. The argument require-match is t, and the only buffer name starting with the given input is ‘minibuffer.texi’, so that name is the value.
+
+(read-buffer "Buffer name: " "foo" t)
+;; After evaluation of the preceding expression,
+;;   the following prompt appears,
+;;   with an empty minibuffer:
+
+---------- Buffer: Minibuffer ----------
+Buffer name (default foo): ∗
+---------- Buffer: Minibuffer ----------
+
+;; The user types minibuffer.t RET.
+     ⇒ "minibuffer.texi"
+User Option: read-buffer-function ¶
+This variable, if non-nil, specifies a function for reading buffer names. read-buffer calls this function instead of doing its usual work, with the same arguments passed to read-buffer.
+
+User Option: read-buffer-completion-ignore-case ¶
+If this variable is non-nil, read-buffer ignores case when performing completion while reading the buffer name.
+
+Function: read-command prompt &optional default ¶
+This function reads the name of a command and returns it as a Lisp symbol. The argument prompt is used as in read-from-minibuffer. Recall that a command is anything for which commandp returns t, and a command name is a symbol for which commandp returns t. See Interactive Call.
+
+The argument default specifies what to return if the user enters null input. It can be a symbol, a string or a list of strings. If it is a string, read-command interns it before returning it. If it is a list, read-command interns the first element of this list. If default is nil, that means no default has been specified; then if the user enters null input, the return value is (intern ""), that is, a symbol whose name is an empty string, and whose printed representation is ## (see Symbol Type).
+
+(read-command "Command name? ")
+
+;; After evaluation of the preceding expression,
+;;   the following prompt appears with an empty minibuffer:
+
+---------- Buffer: Minibuffer ----------
+Command name?
+---------- Buffer: Minibuffer ----------
+If the user types forward-c RET, then this function returns forward-char.
+
+The read-command function is a simplified interface to completing-read. It uses the variable obarray so as to complete in the set of extant Lisp symbols, and it uses the commandp predicate so as to accept only command names:
+
+(read-command prompt)
+≡
+(intern (completing-read prompt obarray
+                         'commandp t nil))
+Function: read-variable prompt &optional default ¶
+This function reads the name of a customizable variable and returns it as a symbol. Its arguments have the same form as those of read-command. It behaves just like read-command, except that it uses the predicate custom-variable-p instead of commandp.
+
+Command: read-color &optional prompt convert allow-empty display ¶
+This function reads a string that is a color specification, either the color’s name or an RGB hex value such as #RRRGGGBBB. It prompts with prompt (default: "Color (name or #RGB triplet):") and provides completion for color names, but not for hex RGB values. In addition to names of standard colors, completion candidates include the foreground and background colors at point.
+
+Valid RGB values are described in Color Names.
+
+The function’s return value is the string typed by the user in the minibuffer. However, when called interactively or if the optional argument convert is non-nil, it converts any input color name into the corresponding RGB value string and instead returns that. This function requires a valid color specification to be input. Empty color names are allowed when allow-empty is non-nil and the user enters null input.
+
+Interactively, or when display is non-nil, the return value is also displayed in the echo area.
+
+See also the functions read-coding-system and read-non-nil-coding-system, in User-Chosen Coding Systems, and read-input-method-name, in Input Methods.
+
+
+**** Reading File Names
+
+The high-level completion functions read-file-name, read-directory-name, and read-shell-command are designed to read file names, directory names, and shell commands, respectively. They provide special features, including automatic insertion of the default directory.
+
+Function: read-file-name prompt &optional directory default require-match initial predicate ¶
+This function reads a file name, prompting with prompt and providing completion.
+
+As an exception, this function reads a file name using a graphical file dialog instead of the minibuffer, if all of the following are true:
+
+It is invoked via a mouse command.
+The selected frame is on a graphical display supporting such dialogs.
+The variable use-dialog-box is non-nil. See Dialog Boxes in The GNU Emacs Manual.
+The directory argument, described below, does not specify a remote file. See Remote Files in The GNU Emacs Manual.
+The exact behavior when using a graphical file dialog is platform-dependent. Here, we simply document the behavior when using the minibuffer.
+
+read-file-name does not automatically expand the returned file name. You can call expand-file-name yourself if an absolute file name is required.
+
+The optional argument require-match has the same meaning as in completing-read. See Completion and the Minibuffer.
+
+The argument directory specifies the directory to use for completing relative file names. It should be an absolute directory name. If the variable insert-default-directory is non-nil, directory is also inserted in the minibuffer as initial input. It defaults to the current buffer’s value of default-directory.
+
+If you specify initial, that is an initial file name to insert in the buffer (after directory, if that is inserted). In this case, point goes at the beginning of initial. The default for initial is nil—don’t insert any file name. To see what initial does, try the command C-x C-v in a buffer visiting a file. Please note: we recommend using default rather than initial in most cases.
+
+If default is non-nil, then the function returns default if the user exits the minibuffer with the same non-empty contents that read-file-name inserted initially. The initial minibuffer contents are always non-empty if insert-default-directory is non-nil, as it is by default. default is not checked for validity, regardless of the value of require-match. However, if require-match is non-nil, the initial minibuffer contents should be a valid file (or directory) name. Otherwise read-file-name attempts completion if the user exits without any editing, and does not return default. default is also available through the history commands.
+
+If default is nil, read-file-name tries to find a substitute default to use in its place, which it treats in exactly the same way as if it had been specified explicitly. If default is nil, but initial is non-nil, then the default is the absolute file name obtained from directory and initial. If both default and initial are nil and the buffer is visiting a file, read-file-name uses the absolute file name of that file as default. If the buffer is not visiting a file, then there is no default. In that case, if the user types RET without any editing, read-file-name simply returns the pre-inserted contents of the minibuffer.
+
+If the user types RET in an empty minibuffer, this function returns an empty string, regardless of the value of require-match. This is, for instance, how the user can make the current buffer visit no file using M-x set-visited-file-name.
+
+If predicate is non-nil, it specifies a function of one argument that decides which file names are acceptable completion alternatives. A file name is an acceptable value if predicate returns non-nil for it.
+
+Here is an example of using read-file-name:
+
+(read-file-name "The file is ")
+
+;; After evaluation of the preceding expression,
+;;   the following appears in the minibuffer:
+
+---------- Buffer: Minibuffer ----------
+The file is /gp/gnu/elisp/∗
+---------- Buffer: Minibuffer ----------
+Typing manual TAB results in the following:
+
+---------- Buffer: Minibuffer ----------
+The file is /gp/gnu/elisp/manual.texi∗
+---------- Buffer: Minibuffer ----------
+If the user types RET, read-file-name returns the file name as the string "/gp/gnu/elisp/manual.texi".
+
+Variable: read-file-name-function ¶
+If non-nil, this should be a function that accepts the same arguments as read-file-name. When read-file-name is called, it calls this function with the supplied arguments instead of doing its usual work.
+
+User Option: read-file-name-completion-ignore-case ¶
+If this variable is non-nil, read-file-name ignores case when performing completion.
+
+Function: read-directory-name prompt &optional directory default require-match initial ¶
+This function is like read-file-name but allows only directory names as completion alternatives.
+
+If default is nil and initial is non-nil, read-directory-name constructs a substitute default by combining directory (or the current buffer’s default directory if directory is nil) and initial. If both default and initial are nil, this function uses directory as substitute default, or the current buffer’s default directory if directory is nil.
+
+User Option: insert-default-directory ¶
+This variable is used by read-file-name, and thus, indirectly, by most commands reading file names. (This includes all commands that use the code letters ‘f’ or ‘F’ in their interactive form. See Code Characters for interactive.) Its value controls whether read-file-name starts by placing the name of the default directory in the minibuffer, plus the initial file name, if any. If the value of this variable is nil, then read-file-name does not place any initial input in the minibuffer (unless you specify initial input with the initial argument). In that case, the default directory is still used for completion of relative file names, but is not displayed.
+
+If this variable is nil and the initial minibuffer contents are empty, the user may have to explicitly fetch the next history element to access a default value. If the variable is non-nil, the initial minibuffer contents are always non-empty and the user can always request a default value by immediately typing RET in an unedited minibuffer. (See above.)
+
+For example:
+
+;; Here the minibuffer starts out with the default directory.
+(let ((insert-default-directory t))
+  (read-file-name "The file is "))
+
+---------- Buffer: Minibuffer ----------
+The file is ~lewis/manual/∗
+---------- Buffer: Minibuffer ----------
+
+;; Here the minibuffer is empty and only the prompt
+;;   appears on its line.
+(let ((insert-default-directory nil))
+  (read-file-name "The file is "))
+
+---------- Buffer: Minibuffer ----------
+The file is ∗
+---------- Buffer: Minibuffer ----------
+Function: read-shell-command prompt &optional initial history &rest args ¶
+This function reads a shell command from the minibuffer, prompting with prompt and providing intelligent completion. It completes the first word of the command using candidates that are appropriate for command names, and the rest of the command words as file names.
+
+This function uses minibuffer-local-shell-command-map as the keymap for minibuffer input. The history argument specifies the history list to use; if is omitted or nil, it defaults to shell-command-history (see shell-command-history). The optional argument initial specifies the initial content of the minibuffer (see Initial Input). The rest of args, if present, are used as the default and inherit-input-method arguments in read-from-minibuffer (see Reading Text Strings with the Minibuffer).
+
+Variable: minibuffer-local-shell-command-map ¶
+This keymap is used by read-shell-command for completing command and file names that are part of a shell command. It uses minibuffer-local-map as its parent keymap, and binds TAB to completion-at-point.
+
+
+**** Completion Variables
+
+Here are some variables that can be used to alter the default completion behavior.
+
+User Option: completion-styles ¶
+The value of this variable is a list of completion style (symbols) to use for performing completion. A completion style is a set of rules for generating completions. Each symbol occurring this list must have a corresponding entry in completion-styles-alist.
+
+Variable: completion-styles-alist ¶
+This variable stores a list of available completion styles. Each element in the list has the form
+
+(style try-completion all-completions doc)
+Here, style is the name of the completion style (a symbol), which may be used in the completion-styles variable to refer to this style; try-completion is the function that does the completion; all-completions is the function that lists the completions; and doc is a string describing the completion style.
+
+The try-completion and all-completions functions should each accept four arguments: string, collection, predicate, and point. The string, collection, and predicate arguments have the same meanings as in try-completion (see Basic Completion Functions), and the point argument is the position of point within string. Each function should return a non-nil value if it performed its job, and nil if it did not (e.g., if there is no way to complete string according to the completion style).
+
+When the user calls a completion command like minibuffer-complete (see Minibuffer Commands that Do Completion), Emacs looks for the first style listed in completion-styles and calls its try-completion function. If this function returns nil, Emacs moves to the next listed completion style and calls its try-completion function, and so on until one of the try-completion functions successfully performs completion and returns a non-nil value. A similar procedure is used for listing completions, via the all-completions functions.
+
+See Completion Styles in The GNU Emacs Manual, for a description of the available completion styles.
+
+User Option: completion-category-overrides ¶
+This variable specifies special completion styles and other completion behaviors to use when completing certain types of text. Its value should be an alist with elements of the form (category . alist). category is a symbol describing what is being completed; currently, the buffer, file, and unicode-name categories are defined, but others can be defined via specialized completion functions (see Programmed Completion). alist is an association list describing how completion should behave for the corresponding category. The following alist keys are supported:
+
+styles
+The value should be a list of completion styles (symbols).
+
+cycle
+The value should be a value for completion-cycle-threshold (see Completion Options in The GNU Emacs Manual) for this category.
+
+Additional alist entries may be defined in the future.
+
+Variable: completion-extra-properties ¶
+This variable is used to specify extra properties of the current completion command. It is intended to be let-bound by specialized completion commands. Its value should be a list of property and value pairs. The following properties are supported:
+
+:annotation-function
+The value should be a function to add annotations in the completions buffer. This function must accept one argument, a completion, and should either return nil or a string to be displayed next to the completion. Unless this function puts own face on the annotation suffix string, the completions-annotations face is added by default to that string.
+
+:affixation-function
+The value should be a function to add prefixes and suffixes to completions. This function must accept one argument, a list of completions, and should return a list of annotated completions. Each element of the returned list must be a three-element list, the completion, a prefix string, and a suffix string. This function takes priority over :annotation-function.
+
+:exit-function
+The value should be a function to run after performing completion. The function should accept two arguments, string and status, where string is the text to which the field was completed, and status indicates what kind of operation happened: finished if text is now complete, sole if the text cannot be further completed but completion is not finished, or exact if the text is a valid completion but may be further completed.
+
+
+**** Programmed Completion
+
+Sometimes it is not possible or convenient to create an alist or an obarray containing all the intended possible completions ahead of time. In such a case, you can supply your own function to compute the completion of a given string. This is called programmed completion. Emacs uses programmed completion when completing file names (see File Name Completion), among many other cases.
+
+To use this feature, pass a function as the collection argument to completing-read. The function completing-read arranges to pass your completion function along to try-completion, all-completions, and other basic completion functions, which will then let your function do all the work.
+
+The completion function should accept three arguments:
+
+The string to be completed.
+A predicate function with which to filter possible matches, or nil if none. The function should call the predicate for each possible match, and ignore the match if the predicate returns nil.
+A flag specifying the type of completion operation to perform; see Basic Completion Functions, for the details of those operations. This flag may be one of the following values.
+nil
+This specifies a try-completion operation. The function should return nil if there are no matches; it should return t if the specified string is a unique and exact match; and it should return the longest common prefix substring of all matches otherwise.
+
+t
+This specifies an all-completions operation. The function should return a list of all possible completions of the specified string.
+
+lambda
+This specifies a test-completion operation. The function should return t if the specified string is an exact match for some completion alternative; nil otherwise.
+
+(boundaries . suffix)
+This specifies a completion-boundaries operation. The function should return (boundaries start . end), where start is the position of the beginning boundary in the specified string, and end is the position of the end boundary in suffix.
+
+If a Lisp program returns nontrivial boundaries, it should make sure that the all-completions operation is consistent with them. The completions returned by all-completions should only pertain to the piece of the prefix and suffix covered by the completion boundaries. See Basic Completion Functions, for the precise expected semantics of completion boundaries.
+
+metadata
+This specifies a request for information about the state of the current completion. The return value should have the form (metadata . alist), where alist is an alist whose elements are described below.
+
+If the flag has any other value, the completion function should return nil.
+
+The following is a list of metadata entries that a completion function may return in response to a metadata flag argument:
+
+category
+The value should be a symbol describing what kind of text the completion function is trying to complete. If the symbol matches one of the keys in completion-category-overrides, the usual completion behavior is overridden. See Completion Variables.
+
+annotation-function
+The value should be a function for annotating completions. The function should take one argument, string, which is a possible completion. It should return a string, which is displayed after the completion string in the *Completions* buffer. Unless this function puts own face on the annotation suffix string, the completions-annotations face is added by default to that string.
+
+affixation-function
+The value should be a function for adding prefixes and suffixes to completions. The function should take one argument, completions, which is a list of possible completions. It should return such a list of completions where each element contains a list of three elements: a completion, a prefix which is displayed before the completion string in the *Completions* buffer, and a suffix displayed after the completion string. This function takes priority over annotation-function.
+
+group-function
+The value should be a function for grouping the completion candidates. The function must take two arguments, completion, which is a completion candidate and transform, which is a boolean flag. If transform is nil, the function must return the group title of the group to which the candidate belongs. The returned title can also be nil. Otherwise the function must return the transformed candidate. The transformation can for example remove a redundant prefix, which is displayed in the group title.
+
+display-sort-function
+The value should be a function for sorting completions. The function should take one argument, a list of completion strings, and return a sorted list of completion strings. It is allowed to alter the input list destructively.
+
+cycle-sort-function
+The value should be a function for sorting completions, when completion-cycle-threshold is non-nil and the user is cycling through completion alternatives. See Completion Options in The GNU Emacs Manual. Its argument list and return value are the same as for display-sort-function.
+
+Function: completion-table-dynamic function &optional switch-buffer ¶
+This function is a convenient way to write a function that can act as a programmed completion function. The argument function should be a function that takes one argument, a string, and returns a completion table (see Basic Completion Functions) containing all the possible completions. The table returned by function can also include elements that don’t match the string argument; they are automatically filtered out by completion-table-dynamic. In particular, function can ignore its argument and return a full list of all possible completions. You can think of completion-table-dynamic as a transducer between function and the interface for programmed completion functions.
+
+If the optional argument switch-buffer is non-nil, and completion is performed in the minibuffer, function will be called with current buffer set to the buffer from which the minibuffer was entered.
+
+The return value of completion-table-dynamic is a function that can be used as the 2nd argument to try-completion and all-completions. Note that this function will always return empty metadata and trivial boundaries.
+
+Function: completion-table-with-cache function &optional ignore-case ¶
+This is a wrapper for completion-table-dynamic that saves the last argument-result pair. This means that multiple lookups with the same argument only need to call function once. This can be useful when a slow operation is involved, such as calling an external process.
+
+
+**** Completion in Ordinary Buffers
+
+Although completion is usually done in the minibuffer, the completion facility can also be used on the text in ordinary Emacs buffers. In many major modes, in-buffer completion is performed by the C-M-i or M-TAB command, bound to completion-at-point. See Symbol Completion in The GNU Emacs Manual. This command uses the abnormal hook variable completion-at-point-functions:
+
+Variable: completion-at-point-functions ¶
+The value of this abnormal hook should be a list of functions, which are used to compute a completion table (see Basic Completion Functions) for completing the text at point. It can be used by major modes to provide mode-specific completion tables (see Major Mode Conventions).
+
+When the command completion-at-point runs, it calls the functions in the list one by one, without any argument. Each function should return nil unless it can and wants to take responsibility for the completion data for the text at point. Otherwise it should return a list of the following form:
+
+(start end collection . props)
+start and end delimit the text to complete (which should enclose point). collection is a completion table for completing that text, in a form suitable for passing as the second argument to try-completion (see Basic Completion Functions); completion alternatives will be generated from this completion table in the usual way, via the completion styles defined in completion-styles (see Completion Variables). props is a property list for additional information; any of the properties in completion-extra-properties are recognized (see Completion Variables), as well as the following additional ones:
+
+:predicate
+The value should be a predicate that completion candidates need to satisfy.
+
+:exclusive
+If the value is no, then if the completion table fails to match the text at point, completion-at-point moves on to the next function in completion-at-point-functions instead of reporting a completion failure.
+
+The functions on this hook should generally return quickly, since they may be called very often (e.g., from post-command-hook). Supplying a function for collection is strongly recommended if generating the list of completions is an expensive operation. Emacs may internally call functions in completion-at-point-functions many times, but care about the value of collection for only some of these calls. By supplying a function for collection, Emacs can defer generating completions until necessary. You can use completion-table-dynamic to create a wrapper function:
+
+;; Avoid this pattern.
+(let ((beg ...) (end ...) (my-completions (my-make-completions)))
+  (list beg end my-completions))
+
+;; Use this instead.
+(let ((beg ...) (end ...))
+  (list beg
+        end
+        (completion-table-dynamic
+          (lambda (_)
+            (my-make-completions)))))
+Additionally, the collection should generally not be pre-filtered based on the current text between start and end, because that is the responsibility of the caller of completion-at-point-functions to do that according to the completion styles it decides to use.
+
+A function in completion-at-point-functions may also return a function instead of a list as described above. In that case, that returned function is called, with no argument, and it is entirely responsible for performing the completion. We discourage this usage; it is only intended to help convert old code to using completion-at-point.
+
+The first function in completion-at-point-functions to return a non-nil value is used by completion-at-point. The remaining functions are not called. The exception to this is when there is an :exclusive specification, as described above.
+
+The following function provides a convenient way to perform completion on an arbitrary stretch of text in an Emacs buffer:
+
+Function: completion-in-region start end collection &optional predicate ¶
+This function completes the text in the current buffer between the positions start and end, using collection. The argument collection has the same meaning as in try-completion (see Basic Completion Functions).
+
+This function inserts the completion text directly into the current buffer. Unlike completing-read (see Completion and the Minibuffer), it does not activate the minibuffer.
+
+For this function to work, point must be somewhere between start and end.
+
+
+*** Yes-or-No Queries
+
+This section describes functions used to ask the user a yes-or-no question. The function y-or-n-p can be answered with a single character; it is useful for questions where an inadvertent wrong answer will not have serious consequences. yes-or-no-p is suitable for more momentous questions, since it requires three or four characters to answer.
+
+If either of these functions is called in a command that was invoked using the mouse or some other window-system gesture, or in a command invoked via a menu, then they use a dialog box or pop-up menu to ask the question if dialog boxes are supported. Otherwise, they use keyboard input. You can force use either of the mouse or of keyboard input by binding last-nonmenu-event to a suitable value around the call—bind it to t to force keyboard interaction, and to a list to force dialog boxes.
+
+Both yes-or-no-p and y-or-n-p use the minibuffer.
+
+Function: y-or-n-p prompt ¶
+This function asks the user a question, expecting input in the minibuffer. It returns t if the user types y, nil if the user types n. This function also accepts SPC to mean yes and DEL to mean no. It accepts C-] and C-g to quit, because the question uses the minibuffer and for that reason the user might try to use C-] to get out. The answer is a single character, with no RET needed to terminate it. Upper and lower case are equivalent.
+
+“Asking the question” means printing prompt in the minibuffer, followed by the string ‘(y or n) ’. If the input is not one of the expected answers (y, n, SPC, DEL, or something that quits), the function responds ‘Please answer y or n.’, and repeats the request.
+
+This function actually uses the minibuffer, but does not allow editing of the answer. The cursor moves to the minibuffer while the question is being asked.
+
+The answers and their meanings, even ‘y’ and ‘n’, are not hardwired, and are specified by the keymap query-replace-map (see Search and Replace). In particular, if the user enters the special responses recenter, scroll-up, scroll-down, scroll-other-window, or scroll-other-window-down (respectively bound to C-l, C-v, M-v, C-M-v and C-M-S-v in query-replace-map), this function performs the specified window recentering or scrolling operation, and poses the question again.
+
+If you bind help-form (see Help Functions) to a non-nil value while calling y-or-n-p, then pressing help-char causes it to evaluate help-form and display the result. help-char is automatically added to prompt.
+
+Function: y-or-n-p-with-timeout prompt seconds default ¶
+Like y-or-n-p, except that if the user fails to answer within seconds seconds, this function stops waiting and returns default. It works by setting up a timer; see Timers for Delayed Execution. The argument seconds should be a number.
+
+Function: yes-or-no-p prompt ¶
+This function asks the user a question, expecting input in the minibuffer. It returns t if the user enters ‘yes’, nil if the user types ‘no’. The user must type RET to finalize the response. Upper and lower case are equivalent.
+
+yes-or-no-p starts by displaying prompt in the minibuffer, followed by ‘(yes or no) ’. The user must type one of the expected responses; otherwise, the function responds ‘Please answer yes or no.’, waits about two seconds and repeats the request.
+
+yes-or-no-p requires more work from the user than y-or-n-p and is appropriate for more crucial decisions.
+
+Here is an example:
+
+(yes-or-no-p "Do you really want to remove everything? ")
+
+;; After evaluation of the preceding expression,
+;;   the following prompt appears,
+;;   with an empty minibuffer:
+
+---------- Buffer: minibuffer ----------
+Do you really want to remove everything? (yes or no)
+---------- Buffer: minibuffer ----------
+If the user first types y RET, which is invalid because this function demands the entire word ‘yes’, it responds by displaying these prompts, with a brief pause between them:
+
+---------- Buffer: minibuffer ----------
+Please answer yes or no.
+Do you really want to remove everything? (yes or no)
+---------- Buffer: minibuffer ----------
+
+
+*** Asking Multiple-Choice Questions
+
+This section describes facilities for asking the user more complex questions or several similar questions.
+
+When you have a series of similar questions to ask, such as “Do you want to save this buffer?” for each buffer in turn, you should use map-y-or-n-p to ask the collection of questions, rather than asking each question individually. This gives the user certain convenient facilities such as the ability to answer the whole series at once.
+
+Function: map-y-or-n-p prompter actor list &optional help action-alist no-cursor-in-echo-area ¶
+This function asks the user a series of questions, reading a single-character answer in the echo area for each one.
+
+The value of list specifies the objects to ask questions about. It should be either a list of objects or a generator function. If it is a function, it will be called with no arguments, and should return either the next object to ask about, or nil, meaning to stop asking questions.
+
+The argument prompter specifies how to ask each question. If prompter is a string, the question text is computed like this:
+
+(format prompter object)
+where object is the next object to ask about (as obtained from list). See Formatting Strings, for more information about format.
+
+If prompter is not a string, it should be a function of one argument (the object to ask about) and should return the question text for that object. If the value prompter returns is a string, that is the question to ask the user. The function can also return t, meaning to act on this object without asking the user, or nil, which means to silently ignore this object.
+
+The argument actor says how to act on the objects for which the user answers yes. It should be a function of one argument, and will be called with each object from list for which the user answers yes.
+
+If the argument help is given, it should be a list of this form:
+
+(singular plural action)
+where singular is a string containing a singular noun that describes a single object to be acted on, plural is the corresponding plural noun, and action is a transitive verb describing what actor does with the objects.
+
+If you don’t specify help, it defaults to the list ("object" "objects" "act on").
+
+Each time a question is asked, the user can answer as follows:
+
+y, Y, or SPC
+act on the object
+
+n, N, or DEL
+skip the object
+
+!
+act on all the following objects
+
+ESC or q
+exit (skip all following objects)
+
+. (period)
+act on the object and then exit
+
+C-h
+get help
+
+These are the same answers that query-replace accepts. The keymap query-replace-map defines their meaning for map-y-or-n-p as well as for query-replace; see Search and Replace.
+
+You can use action-alist to specify additional possible answers and what they mean. If provided, action-alist should be an alist whose elements are of the form (char function help). Each of the alist elements defines one additional answer. In each element, char is a character (the answer); function is a function of one argument (an object from list); and help is a string. When the user responds with char, map-y-or-n-p calls function. If it returns non-nil, the object is considered to have been acted upon, and map-y-or-n-p advances to the next object in list. If it returns nil, the prompt is repeated for the same object. If the user requests help, the text in help is used to describe these additional answers.
+
+Normally, map-y-or-n-p binds cursor-in-echo-area while prompting. But if no-cursor-in-echo-area is non-nil, it does not do that.
+
+If map-y-or-n-p is called in a command that was invoked using the mouse or some other window-system gesture, or a command invoked via a menu, then it uses a dialog box or pop-up menu to ask the question if dialog boxes are supported. In this case, it does not use keyboard input or the echo area. You can force use either of the mouse or of keyboard input by binding last-nonmenu-event to a suitable value around the call—bind it to t to force keyboard interaction, and to a list to force dialog boxes.
+
+The return value of map-y-or-n-p is the number of objects acted on.
+
+If you need to ask the user a question that might have more than just 2 answers, use read-answer.
+
+Function: read-answer question answers ¶
+This function prompts the user with text in question, which should end in the ‘SPC’ character. The function includes in the prompt the possible responses in answers by appending them to the end of question. The possible responses are provided in answers as an alist whose elements are of the following form:
+
+(long-answer short-answer help-message)
+where long-answer is the complete text of the user response, a string; short-answer is a short form of the same response, a single character or a function key; and help-message is the text that describes the meaning of the answer. If the variable read-answer-short is non-nil, the prompt will show the short variants of the possible answers and the user is expected to type the single characters/keys shown in the prompt; otherwise the prompt will show the long variants of the answers, and the user is expected to type the full text of one of the answers and end by pressing RET. If use-dialog-box is non-nil, and this function was invoked by mouse events, the question and the answers will be displayed in a GUI dialog box.
+
+The function returns the text of the long-answer selected by the user, regardless of whether long or short answers were shown in the prompt and typed by the user.
+
+Here is an example of using this function:
+
+(let ((read-answer-short t))
+  (read-answer "Foo "
+     '(("yes"  ?y "perform the action")
+       ("no"   ?n "skip to the next")
+       ("all"  ?! "perform for the rest without more questions")
+       ("help" ?h "show help")
+       ("quit" ?q "exit"))))
+Function: read-char-from-minibuffer prompt &optional chars history ¶
+This function uses the minibuffer to read and return a single character. Optionally, it ignores any input that is not a member of chars, a list of accepted characters. The history argument specifies the history list symbol to use; if it is omitted or nil, this function doesn’t use the history.
+
+If you bind help-form (see Help Functions) to a non-nil value while calling read-char-from-minibuffer, then pressing help-char causes it to evaluate help-form and display the result.
+
+
+*** Reading a Password
+
+To read a password to pass to another program, you can use the function read-passwd.
+
+Function: read-passwd prompt &optional confirm default ¶
+This function reads a password, prompting with prompt. It does not echo the password as the user types it; instead, it echoes ‘*’ for each character in the password. If you want to apply another character to hide the password, let-bind the variable read-hide-char with that character.
+
+The optional argument confirm, if non-nil, says to read the password twice and insist it must be the same both times. If it isn’t the same, the user has to type it over and over until the last two times match.
+
+The optional argument default specifies the default password to return if the user enters empty input. If default is nil, then read-passwd returns the null string in that case.
+
+
+*** Minibuffer Commands
+
+This section describes some commands meant for use in the minibuffer.
+
+Command: exit-minibuffer ¶
+This command exits the active minibuffer. It is normally bound to keys in minibuffer local keymaps. The command throws an error if the current buffer is a minibuffer, but not the active minibuffer.
+
+Command: self-insert-and-exit ¶
+This command exits the active minibuffer after inserting the last character typed on the keyboard (found in last-command-event; see Information from the Command Loop).
+
+Command: previous-history-element n ¶
+This command replaces the minibuffer contents with the value of the nth previous (older) history element.
+
+Command: next-history-element n ¶
+This command replaces the minibuffer contents with the value of the nth more recent history element. The position in the history can go beyond the current position and invoke “future history” (see Reading Text Strings with the Minibuffer).
+
+Command: previous-matching-history-element pattern n ¶
+This command replaces the minibuffer contents with the value of the nth previous (older) history element that matches pattern (a regular expression).
+
+Command: next-matching-history-element pattern n ¶
+This command replaces the minibuffer contents with the value of the nth next (newer) history element that matches pattern (a regular expression).
+
+Command: previous-complete-history-element n ¶
+This command replaces the minibuffer contents with the value of the nth previous (older) history element that completes the current contents of the minibuffer before the point.
+
+Command: next-complete-history-element n ¶
+This command replaces the minibuffer contents with the value of the nth next (newer) history element that completes the current contents of the minibuffer before the point.
+
+Command: goto-history-element nabs ¶
+This function puts element of the minibuffer history in the minibuffer. The argument nabs specifies the absolute history position in descending order, where 0 means the current element and a positive number n means the nth previous element. NABS being a negative number -n means the nth entry of “future history”. When this function reaches the end of the default values provided by read-from-minibuffer (see Reading Text Strings with the Minibuffer) and completing-read (see Completion and the Minibuffer), it adds the completion candidates to “future history”, see minibuffer-default-add-function.
+
+
+*** Minibuffer Windows
+
+These functions access and select minibuffer windows, test whether they are active and control how they get resized.
+
+Function: minibuffer-window &optional frame ¶
+This function returns the minibuffer window used for frame frame. If frame is nil, that stands for the selected frame.
+
+Note that the minibuffer window used by a frame need not be part of that frame—a frame that has no minibuffer of its own necessarily uses some other frame’s minibuffer window. The minibuffer window of a minibuffer-less frame can be changed by setting that frame’s minibuffer frame parameter (see Buffer Parameters).
+
+Function: set-minibuffer-window window ¶
+This function specifies window as the minibuffer window to use. This affects where the minibuffer is displayed if you put text in it without invoking the usual minibuffer commands. It has no effect on the usual minibuffer input functions because they all start by choosing the minibuffer window according to the selected frame.
+
+Function: window-minibuffer-p &optional window ¶
+This function returns t if window is a minibuffer window. window defaults to the selected window.
+
+The following function returns the window showing the currently active minibuffer.
+
+Function: active-minibuffer-window ¶
+This function returns the window of the currently active minibuffer, or nil if there is no active minibuffer.
+
+It is not sufficient to determine whether a given window shows the currently active minibuffer by comparing it with the result of (minibuffer-window), because there can be more than one minibuffer window if there is more than one frame.
+
+Function: minibuffer-window-active-p window ¶
+This function returns non-nil if window shows the currently active minibuffer.
+
+The following two options control whether minibuffer windows are resized automatically and how large they can get in the process.
+
+User Option: resize-mini-windows ¶
+This option specifies whether minibuffer windows are resized automatically. The default value is grow-only, which means that a minibuffer window by default expands automatically to accommodate the text it displays and shrinks back to one line as soon as the minibuffer gets empty. If the value is t, Emacs will always try to fit the height of a minibuffer window to the text it displays (with a minimum of one line). If the value is nil, a minibuffer window never changes size automatically. In that case the window resizing commands (see Resizing Windows) can be used to adjust its height.
+
+User Option: max-mini-window-height ¶
+This option provides a maximum height for resizing minibuffer windows automatically. A floating-point number specifies the maximum height as a fraction of the frame’s height; an integer specifies the maximum height in units of the frame’s canonical character height (see Frame Font). The default value is 0.25.
+
+Note that the values of the above two variables take effect at display time, so let-binding them around code which produces echo-area messages will not work. If you want to prevent resizing of minibuffer windows when displaying long messages, bind the message-truncate-lines variable instead (see Echo Area Customization).
+
+The option resize-mini-windows does not affect the behavior of minibuffer-only frames (see Frame Layout). The following option allows to automatically resize such frames as well.
+
+User Option: resize-mini-frames ¶
+If this is nil, minibuffer-only frames are never resized automatically.
+
+If this is a function, that function is called with the minibuffer-only frame to be resized as sole argument. At the time this function is called, the buffer of the minibuffer window of that frame is the buffer whose contents will be shown the next time that window is redisplayed. The function is expected to fit the frame to the buffer in some appropriate way.
+
+Any other non-nil value means to resize minibuffer-only frames by calling fit-mini-frame-to-buffer, a function that behaves like fit-frame-to-buffer (see Resizing Windows) but does not strip leading or trailing empty lines from the buffer text.
+
+
+*** Minibuffer Contents
+
+These functions access the minibuffer prompt and contents.
+
+Function: minibuffer-prompt ¶
+This function returns the prompt string of the currently active minibuffer. If no minibuffer is active, it returns nil.
+
+Function: minibuffer-prompt-end ¶
+This function returns the current position of the end of the minibuffer prompt, if a minibuffer is current. Otherwise, it returns the minimum valid buffer position.
+
+Function: minibuffer-prompt-width ¶
+This function returns the current display-width of the minibuffer prompt, if a minibuffer is current. Otherwise, it returns zero.
+
+Function: minibuffer-contents ¶
+This function returns the editable contents of the minibuffer (that is, everything except the prompt) as a string, if a minibuffer is current. Otherwise, it returns the entire contents of the current buffer.
+
+Function: minibuffer-contents-no-properties ¶
+This is like minibuffer-contents, except that it does not copy text properties, just the characters themselves. See Text Properties.
+
+Command: delete-minibuffer-contents ¶
+This command erases the editable contents of the minibuffer (that is, everything except the prompt), if a minibuffer is current. Otherwise, it erases the entire current buffer.
+
+
+*** Recursive Minibuffers
+
+These functions and variables deal with recursive minibuffers (see Recursive Editing):
+
+Function: minibuffer-depth ¶
+This function returns the current depth of activations of the minibuffer, a nonnegative integer. If no minibuffers are active, it returns zero.
+
+User Option: enable-recursive-minibuffers ¶
+If this variable is non-nil, you can invoke commands (such as find-file) that use minibuffers even while the minibuffer is active. Such invocation produces a recursive editing level for a new minibuffer. By default, the outer-level minibuffer is invisible while you are editing the inner one. If you have minibuffer-follows-selected-frame set to nil, you can have minibuffers visible on several frames at the same time. See (emacs)Basic Minibuffer.
+
+If this variable is nil, you cannot invoke minibuffer commands when the minibuffer is active, not even if you switch to another window to do it.
+
+If a command name has a property enable-recursive-minibuffers that is non-nil, then the command can use the minibuffer to read arguments even if it is invoked from the minibuffer. A command can also achieve this by binding enable-recursive-minibuffers to t in the interactive declaration (see Using interactive). The minibuffer command next-matching-history-element (normally M-s in the minibuffer) does the latter.
+
+
+*** Inhibiting Interaction
+
+It’s sometimes useful to be able to run Emacs as a headless server process that responds to commands given over a network connection. However, Emacs is primarily a platform for interactive usage, so many commands prompt the user for feedback in certain anomalous situations. This makes this use case more difficult, since the server process will just hang waiting for user input.
+
+Binding the inhibit-interaction variable to something non-nil makes Emacs signal a inhibited-interaction error instead of prompting, which can then be used by the server process to handle these situations.
+
+Here’s a typical use case:
+
+(let ((inhibit-interaction t))
+  (respond-to-client
+   (condition-case err
+       (my-client-handling-function)
+     (inhibited-interaction err))))
+If my-client-handling-function ends up calling something that asks the user for something (via y-or-n-p or read-from-minibuffer or the like), an inhibited-interaction error is signaled instead. The server code then catches that error and reports it to the client.
+
+
+*** Minibuffer Miscellany
+
+Function: minibufferp &optional buffer-or-name live ¶
+This function returns non-nil if buffer-or-name is a minibuffer. If buffer-or-name is omitted or nil, it tests the current buffer. When live is non-nil, the function returns non-nil only when buffer-or-name is an active minibuffer.
+
+Variable: minibuffer-setup-hook ¶
+This is a normal hook that is run whenever a minibuffer is entered. See Hooks.
+
+Macro: minibuffer-with-setup-hook function &rest body ¶
+This macro executes body after arranging for the specified function to be called via minibuffer-setup-hook. By default, function is called before the other functions in the minibuffer-setup-hook list, but if function is of the form (:append func), func will be called after the other hook functions.
+
+The body forms should not use the minibuffer more than once. If the minibuffer is re-entered recursively, function will only be called once, for the outermost use of the minibuffer.
+
+Variable: minibuffer-exit-hook ¶
+This is a normal hook that is run whenever a minibuffer is exited. See Hooks.
+
+Variable: minibuffer-help-form ¶
+The current value of this variable is used to rebind help-form locally inside the minibuffer (see Help Functions).
+
+Variable: minibuffer-scroll-window ¶
+If the value of this variable is non-nil, it should be a window object. When the function scroll-other-window is called in the minibuffer, it scrolls this window (see Textual Scrolling).
+
+Function: minibuffer-selected-window ¶
+This function returns the window that was selected just before the minibuffer window was selected. If the selected window is not a minibuffer window, it returns nil.
+
+Function: minibuffer-message string &rest args ¶
+This function is like message (see Displaying Messages in the Echo Area), but it displays the messages specially when the user types in the minibuffer, typically because Emacs prompted the user for some input. When the minibuffer is the current buffer, this function displays the message specified by string temporarily at the end of the minibuffer text, and thus avoids hiding the minibuffer text by the echo-area display of the message. It leaves the message on display for a few seconds, or until the next input event arrives, whichever comes first. The variable minibuffer-message-timeout specifies the number of seconds to wait in the absence of input. It defaults to 2. If args is non-nil, the actual message is obtained by passing string and args through format-message. See Formatting Strings.
+
+If called when the minibuffer is not the current buffer, this function just calls message, and thus string will be shown in the echo-area.
+
+Command: minibuffer-inactive-mode ¶
+This is the major mode used in inactive minibuffers. It uses keymap minibuffer-inactive-mode-map. This can be useful if the minibuffer is in a separate frame. See Minibuffers and Frames.

@@ -1,0 +1,35 @@
+* Cyberdeck Status Widget :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       fb239a3d-e3c8-4537-b65a-107f06a2dd44
+:MM_PARENT: none
+:MM_ORDER:  78.6
+:CATEGORY: ui
+:END:
+
+The loader's boot stats, as a dashboard section. Reads only from the
+loader's own helper functions (defined in cyberdeck-emacs.org,
+which always evaluates before modules do).
+
+** Widget
+#+begin_src emacs-lisp
+(cyberdeck-dashboard-define-widget status
+  :doc "Loader boot stats as a dashboard section."
+  :generate
+  ((let* ((errors (length (cyberdeck-emacs-errors-list)))
+          (warnings (length (cyberdeck-emacs-warnings-list)))
+          (notes (cyberdeck-emacs-splash--aius-count))
+          (missing (cyberdeck-emacs-splash--missing-prompts-count))
+          (git-line (cyberdeck-emacs-splash--vault-git-info))
+          (boot (or cyberdeck-emacs--last-boot-seconds
+                    (car (last (cyberdeck-emacs-splash--read-history))))))
+     (dashboard-insert-heading "Cyberdeck:" nil nil)
+     (insert "\n")
+     (insert (format "    boot %s %s\n"
+                     (if boot (format "%.1fs" boot) "?")
+                     (cyberdeck-emacs-splash--sparkline)))
+     (insert (format "    errors %d · warnings %d\n" errors warnings))
+     (insert (format "    vault notes: %d · missing prompts: %d\n"
+                     notes missing))
+     (when git-line
+       (insert (format "    git: %s\n" git-line))))))
+#+end_src

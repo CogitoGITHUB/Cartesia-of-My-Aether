@@ -1,0 +1,160 @@
+Macro definitions: state machine, minor modes, hydra states. Evaluated before everything that invokes them.
+* Requires & group :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       61a004ff-a822-4516-b2f0-d926c0c60a4b
+:MM_PARENT: none
+:MM_ORDER:  145.0
+:END:
+#+begin_src emacs-lisp
+(require 'cl-lib)
+(require 'transient)
+
+(defgroup cyberdeck-keyboard nil
+  "Build your own minor modes for modal editing."
+  :group 'editing
+  :tag "Cyberdeck-Keyboard"
+  :prefix "cyberdeck-keyboard-")
+#+end_src
+** Local variable macro
+#+begin_src emacs-lisp
+(defmacro cyberdeck-keyboard-define-local-var (symbol &optional init-value docstring)
+  "Define SYMBOL as a permanent buffer-local variable."
+  (declare (indent defun) (doc-string 3))
+  `(progn
+     (defvar ,symbol ,init-value ,docstring)
+     (make-variable-buffer-local ',symbol)
+     (put ',symbol 'permanent-local t)))
+#+end_src
+** Minor mode definition macro
+Atomic upstream — kept whole.
+#+begin_src emacs-lisp
+(defmacro cyberdeck-keyboard--define-minor-mode (mode keymap body)
+  "Define a minor MODE with KEYMAP and options in BODY."
+  (let ((mode-name (symbol-name mode))
+        (sparse (plist-get body :sparse))
+        (no-suppress (plist-get body :no-suppress))
+        (lighter (plist-get body :lighter))
+        (cursor-type (plist-get body :cursor-type))
+        (no-emulation (plist-get body :no-emulation)))
+    `(progn
+      (defvar ,keymap
+        (if ,sparse (make-sparse-keymap) (make-keymap))
+        ,(format "Keymap for %s." mode-name))
+      (unless ,no-suppress
+        (suppress-keymap ,keymap))
+      (define-minor-mode ,mode
+        ,(format "Cyberdeck-Keyboard minor mode %s" mode-name)
+        :lighter ,lighter
+        :keymap ,keymap
+        (when ,cursor-type (setq-local cursor-type ,cursor-type)))
+      (unless ,no-emulation
+        (unless (boundp 'cyberdeck-keyboard--emulation-mode-map-alist)
+          (setq cyberdeck-keyboard--emulation-mode-map-alist nil))
+        (add-to-list 'cyberdeck-keyboard--emulation-mode-map-alist (cons ',mode ,keymap))
+        (add-to-list 'emulation-mode-map-alists cyberdeck-keyboard--emulation-mode-map-alist)))))
+#+end_src
+** State registry
+One invocation of =cyberdeck-keyboard-define-state= both defines the
+mode/keymap AND registers the state here — a state file is one unit,
+never invocation-plus-separate-push. Order in this alist is newest
+eval first (push); =init-state-fn= consults colliding states via an
+explicit precedence list, not position, so alphabetical file order
+can never silently reorder decisions.
+#+begin_src emacs-lisp
+(defvar cyberdeck-keyboard-state-init-alist nil
+  "Alist (STATE . INIT-FN) of known states and auto-activation predicates.
+INIT-FN nil means manual-only activation (hooks, commands, prompts).")
+#+end_src
+** Define-state macro
+#+begin_src emacs-lisp
+(defmacro cyberdeck-keyboard-define-state (state &rest body)
+  "Define a new STATE minor mode with options in BODY.
+:init INIT-FN registers an auto-activation predicate: a function
+symbol (preferred) or lambda, called with no args — non-nil means
+activate this state. Nil (default) leaves activation manual.
+Registration is a side effect of expansion: dropping this file's
+invocation unregisters the state on next boot, nothing else touched."
+  (declare (indent defun))
+  (let ((mode (cyberdeck-keyboard-get-state-mode state))
+        (keymap (cyberdeck-keyboard-get-state-keymap state))
+        (init (plist-get body :init)))
+    `(progn
+       (cyberdeck-keyboard--define-minor-mode ,mode ,keymap ,body)
+       (cl-pushnew (cons ,state ,init) cyberdeck-keyboard-state-init-alist
+                   :key #'car :test #'equal))))
+
+
+#+end_src
+* Hydra Infrastructure
+
+** Defhydra-state macro
+Single declaration generates both a cyberdeck-keyboard state's keybindings and its Transient menu. Bindings with `:exit nil` become state keys (and sticky Transient suffixes); all bindings appear in the menu. The "Back → parent" group is automatic. Same spec shape the Hydra engine took — engine swapped, files untouched.
+#+begin_src emacs-lisp
+(defmacro my/defhydra-state (hydra-name state-name title back-target &rest spec)
+  "Define cyberdeck-keyboard STATE-NAME and its Transient menu from SPEC.
+STATE-NAME may be nil for menus without a cyberdeck-keyboard state.
+BACK-TARGET is (HYDRA/BODY LABEL) for the back link, or nil for root.
+SPEC is alternating group-name / binding-list pairs:
+  GROUP-NAME  ((KEY CMD LABEL &key EXIT) ...)
+Bindings with :exit nil go into the cyberdeck-keyboard state keymap
+and become sticky (:transient t) suffixes; the rest exit after invoke.
+Non-symbol CMDs (lambdas, call forms like (fn arg)) get deterministic
+wrapper names (my/<hydra>-<key>-action).
+A \"Back\" group linking to BACK-TARGET is appended automatically.
+The menu command is <HYDRA-NAME>/body, same as the Hydra era."
+  (declare (indent defun))
+  (let ((groups '())
+        (state-binds '())
+        (wrappers '()))
+    (while spec
+      (let ((group-name (pop spec))
+            (bindings (pop spec)))
+        (push (list group-name
+                    (mapcar (lambda (b)
+                              (let ((key (nth 0 b))
+                                    (cmd (nth 1 b))
+                                    (label (nth 2 b))
+                                    (exit (plist-get (nthcdr 3 b) :exit)))
+                                (unless (symbolp cmd)
+                                  (let ((w (intern (format "my/%s-%s-action"
+                                                           (substring (symbol-name hydra-name) 3)
+                                                           key))))
+                                    (push `(defun ,w ()
+                                             ,(format "Wrapper for %s %s menu key." hydra-name key)
+                                             (interactive)
+                                             ,(if (and (consp cmd) (eq (car cmd) 'lambda))
+                                                  `(funcall ,cmd)
+                                                cmd))
+                                          wrappers)
+                                    (setq cmd w)))
+                                (append (list key label cmd)
+                                        (when (eq exit nil) '(:transient t)))))
+                            bindings))
+              groups)
+        (dolist (b bindings)
+          (unless (plist-get (cdddr b) :exit)
+            (push (list (nth 0 b) (nth 1 b)) state-binds)))))
+    (setq groups (nreverse groups)
+          state-binds (nreverse state-binds))
+    (let ((back-group
+           (when back-target
+             `([ "Back" :class transient-column
+                 ("SPC" ,(cadr back-target) ,(car back-target)) ]))))
+      `(progn
+         ,@wrappers
+         ,@(when state-name
+             `((cyberdeck-keyboard-define-keys
+                :states '(,state-name)
+                :bind ',state-binds)))
+         (transient-define-prefix
+             ,(intern (format "%s/body" hydra-name)) ()
+           ,title
+           ,@(mapcar (lambda (g)
+                       (apply #'vector (car g) :class 'transient-column
+                              (cadr g)))
+                     groups)
+           ,@back-group)
+         (when (boundp 'my/menus-hydra-registry)
+           (cl-pushnew (cons ',hydra-name ,title)
+                       my/menus-hydra-registry :test #'equal))))))
+#+end_src

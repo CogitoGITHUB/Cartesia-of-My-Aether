@@ -1,0 +1,894 @@
+* AIU Contexts :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       52e2269f-9ad9-4b15-9abe-74c57c506b62
+:MM_PARENT: none
+:MM_ORDER:  2.0
+:CATEGORY: editing
+:END:
+
+Replaces static property values with Org links to canonical or scoped AIU Context AIUs.
+Three AIU Context types: ~'closed~ (shared, deduped), ~'scoped~ (per-entity), ~nil~ (plain string).
+
+** Canonicalize Value
+
+#+begin_src emacs-lisp
+;; Forward declarations: assigned before their definitions below,
+;; or defined in sibling units. Bare defvars silence the compiler
+;; without rebinding. The org-capture lets are dynamic-intent
+;; (org reads them globally); declaring makes that explicit.
+(defvar my/cyberdeck--pending-aiu-context-refresh)
+(defvar cyberdeck-find-default-filter)
+(defvar cyberdeck-create-default-function)
+(defvar my/cyberdeck-org-prompt--specs)
+(defvar org-capture-templates)
+(defvar org-capture-use-indirect-buffer)
+(defvar org-capture-window-setup)
+;; Key-selection package: read dynamically by ks-jump.
+(defvar ks-all-windows)
+(defun my/cyberdeck--canonicalize (value)
+  "Downcase, dasherize, strip non-alphanumeric for use as a filename."
+  (let ((s (downcase value)))
+    (setq s (replace-regexp-in-string "[^a-z0-9]+" "-" s))
+    (replace-regexp-in-string "^-+\\|-+$" "" s)))
+#+end_src
+
+** Make ID Link
+
+#+begin_src emacs-lisp
+(defun my/cyberdeck--make-id-link (id label)
+  "Return [[id:ID][LABEL]]."
+  (format "[[id:%s][%s]]" id label))
+#+end_src
+
+** AIU ID by Path
+
+#+begin_src emacs-lisp
+(defun my/cyberdeck--aiu-id-by-path (path)
+  "Return the ID of the AIU at PATH, or nil."
+  (when (file-exists-p path)
+    (with-temp-buffer
+      (insert-file-contents path)
+      (org-mode)
+      (goto-char (point-min))
+      (when (re-search-forward "^:ID:[[:blank:]]+\\(.+\\)" nil t)
+        (match-string-no-properties 1)))))
+#+end_src
+
+** Tolerant Drawer Access
+
+Canonical implementations live in =core-helpers= (drawer region, drawer
+read/write/delete, key-from-label, insert point, org-entry fallbacks
+plus their advice installs). This file keeps only the aiu-context-vocab
+key conversion it owns.
+#+begin_src emacs-lisp
+(defun my/cyberdeck--property-key-from-type (property-type)
+  (upcase (string-replace "-" "_"
+                          (if (symbolp property-type)
+                              (symbol-name property-type)
+                            property-type))))
+#+end_src
+
+** Ensure AIU Context AIU (closed vocab)
+
+#+begin_src emacs-lisp
+(defun my/cyberdeck--ensure-aiu-context-aiu (property-type value &optional note)
+  "Create or reuse an unfolding note for UNFOLDING-TYPE=VALUE.
+When a parent note can be determined (via _NOTE, session, or point),
+creates a *scoped* unique file per parent (via `create-scoped-aiu`);
+otherwise falls back to shared vocab file. This makes each unfolding
+unique per parent so per-file AIUs don't leak."
+  (when (and value (not (string-equal value "WARNING")))
+    (let* ((parent-aiu (or note
+                            (and (bound-and-true-p my/cyberdeck-org-prompt--session)
+                                 (plist-get my/cyberdeck-org-prompt--session :note))
+                            (ignore-errors (my/cyberdeck--aiu-at-point))
+                            (ignore-errors
+                              (when-let ((m (and (boundp 'my/cyberdeck-links--deleted-id)
+                                                 my/cyberdeck-links--deleted-id))
+                                         (note (ignore-errors (cyberdeck-db-get-by-id m))))
+                                note))))
+           (parent-id (and parent-aiu (ignore-errors (cyberdeck-aiu-id parent-aiu)))))
+      (if parent-id
+          ;; Unique per parent — scoped file holds AIUs for *this* parent only
+          (my/cyberdeck--create-scoped-aiu property-type value parent-id note)
+        ;; Fallback shared (legacy / no parent context)
+        (let* ((slug (my/cyberdeck--canonicalize value))
+               (root (expand-file-name (format "admin/unfoldings/%s/" property-type) (my/cyberdeck-root-dir)))
+               (path (expand-file-name slug root))
+               (id (my/cyberdeck--aiu-id-by-path path))
+               (key (my/cyberdeck--property-key-from-type property-type))
+               (tag (replace-regexp-in-string "[^A-Za-z0-9_@]" "_" value))
+               (title (format "%s >" key)))
+          (if id
+              (my/cyberdeck--make-id-link id value)
+            (make-directory root t)
+            (let ((cyberdeck-create-default-function (lambda (_) '())))
+              (let ((note (cyberdeck-create title path
+                           :tags (list tag) :unfoldings nil :body nil)))
+                (when note
+                  (my/cyberdeck--make-id-link (cyberdeck-aiu-id note) value))))))))))
+#+end_src
+
+** Scoped To-Plist Factory
+
+*** Cross-buffer AIU Context writer
+AIU may reside in a different buffer than the one being edited:
+locate its heading by file, level, and pos first.
+Uses drawer-put directly for AIU Contexts domain's AIU Proxy handling.
+#+begin_src emacs-lisp
+(require 'cl-lib)
+
+(defun my/cyberdeck--property-put (note key value)
+  "Set property KEY to VALUE in AIU's file on disk using drawer-put."
+  (let* ((file (cyberdeck-aiu-path note))
+         (level (cyberdeck-aiu-level note))
+         (pos   (cyberdeck-aiu-pos note)))
+    (when file
+      (with-current-buffer (find-file-noselect file)
+        (save-excursion
+          (if (and level (> level 0) pos)
+              (progn (goto-char pos) (org-back-to-heading t))
+            (goto-char (point-min)))
+          (my/cyberdeck--drawer-put key value))
+        (save-buffer)))))
+#+end_src
+
+*** Scoped post-apply and factory
+#+begin_src emacs-lisp
+(defun my/cyberdeck--apply-scoped-post (property-type drawer-key label note)
+  (let ((link (my/cyberdeck--create-scoped-aiu
+                property-type label
+                (cyberdeck-aiu-id note))))
+    (when link
+      (my/cyberdeck--property-put note drawer-key link))))
+
+(defun my/cyberdeck--make-scoped-to-plist (property-type drawer-key)
+  (let ((pt property-type) (dk drawer-key))
+    (lambda (val _ctx)
+      (when (and val (not (string-equal val "WARNING")))
+        `(:unfoldings ((,dk . ,val))
+          :post-apply (,(apply-partially
+                         #'my/cyberdeck--apply-scoped-post
+                         pt dk val)))))))
+#+end_src
+
+** Aliases To-Plist Factory
+
+#+begin_src emacs-lisp
+(defun my/cyberdeck--apply-aliases-post (labels note)
+  (let* ((id (cyberdeck-aiu-id note))
+         (links (delq nil (mapcar (lambda (v)
+                                    (my/cyberdeck--create-scoped-aiu
+                                      'alias v id))
+                                  labels)))
+         (str (mapconcat #'identity links ", ")))
+    (unless (string-empty-p str)
+      (my/cyberdeck--property-put note "ALIAS" str))))
+
+(defun my/cyberdeck--make-aliases-to-plist ()
+  (lambda (val _ctx)
+    (when val
+      (let ((labels (copy-sequence val)))
+        `(:unfoldings (("ALIAS" . ,(mapconcat #'identity val ", ")))
+          :post-apply (,(apply-partially
+                         #'my/cyberdeck--apply-aliases-post labels)))))))
+#+end_src
+
+** AIU Proxy AIU Contexts into the owning file
+
+*** Link and anchor helpers
+#+begin_src emacs-lisp
+(defun my/cyberdeck--aiu-context-link-value (value)
+  (when (and (stringp value)
+             (string-match "\\[\\[id:\\([^]]+\\)\\]\\[\\([^]]*\\)\\]\\]" value))
+    (cons (match-string-no-properties 1 value)
+          (match-string-no-properties 2))))
+
+(defun my/cyberdeck--body-anchor ()
+  (if (condition-case nil (progn (org-back-to-heading t) t) (error nil))
+      (progn
+        (end-of-line)
+        (forward-line 1)
+        (when (looking-at "^:PROPERTIES:")
+          (forward-line 1)
+          (re-search-forward "^:END:" nil t)
+          (forward-line 1))
+        (point))
+    (point-max)))
+#+end_src
+
+*** Heading property scan
+Reads plain drawer entries AND in-drawer AIU Proxy lines as
+uniform (KEY . VALUE) pairs.
+#+begin_src emacs-lisp
+(defun my/cyberdeck--props-in-region (beg end props)
+  "Collect (KEY . VALUE) pairs between BEG/END into PROPS."
+  (goto-char beg)
+  (while (re-search-forward
+          "^:\\([A-Z][A-Z0-9_]*\\):[[:blank:]]+\\(.*\\)$"
+          end t)
+    (push (cons (match-string-no-properties 1)
+                (match-string-no-properties 2))
+          props))
+  (goto-char beg)
+  (while (re-search-forward
+          "^#\\+AIU Proxy: \\[\\[id:\\([^]]+\\)\\]\\[\\([^]]*\\)\\]\\]"
+          end t)
+    (let ((key (my/cyberdeck--key-from-label
+                (match-string-no-properties 2))))
+      (when key
+        (push (cons key
+                    (format "[[id:%s][%s]]"
+                            (match-string-no-properties 1)
+                            (match-string-no-properties 2)))
+              props))))
+  props)
+
+(defun my/cyberdeck--heading-properties ()
+  (let (props)
+    (when (condition-case nil (progn (org-back-to-heading t) t) (error nil))
+      (save-excursion
+        (let* ((beg (condition-case nil (progn (org-back-to-heading t) (line-beginning-position)) (error (point-min))))
+               (end (save-excursion
+                      (goto-char beg)
+                      (forward-line 1)
+                      (if (re-search-forward "^\\*+[ \t]" (point-max) t)
+                          (line-beginning-position)
+                        (point-max)))))
+          (goto-char beg)
+          (when (re-search-forward "^:PROPERTIES:" end t)
+            (let ((dr-beg (line-beginning-position 2)))
+              (when (re-search-forward "^:END:" end t)
+                (setq props
+                      (my/cyberdeck--props-in-region
+                       dr-beg (line-beginning-position) props))))))))
+    props))
+#+end_src
+
+** State Property Factory (plain value, no automatic AIU Proxies)
+Nothing is an AIU Proxy by default: the create-time advice that
+wormholed every AIU Proxy was removed, and session applies below write
+plain AIU Proxy drawer entries. AIU Proxies are created explicitly only.
+
+*** Link and type predicates
+#+begin_src emacs-lisp :lexical t
+(defun my/cyberdeck--id-from-link (link)
+  (when-let ((m (my/cyberdeck--aiu-context-link-value link)))
+    (car m)))
+
+(defun my/cyberdeck--aiu-context-of-type-p (property-type id)
+  (when-let ((file (org-id-find-id-file id)))
+    (string-prefix-p
+     (expand-file-name (format "admin/unfoldings/%s/" property-type)
+                       (my/cyberdeck-root-dir))
+      (expand-file-name file))))
+#+end_src
+
+*** AIU Proxy removal sweep
+Drops stale :property AIU Proxy lines of this type, keeping UNFOLDING-ID,
+and reports which ids were removed for later cleanup.
+#+begin_src emacs-lisp :lexical t
+(defun my/cyberdeck--remove-other-type-aiu-proxies (property-type aiu-context-id)
+  "Delete UNFOLDING-TYPE AIU Proxy lines except UNFOLDING-ID; return removed ids."
+  (let (removed)
+    (goto-char (point-min))
+    (while (re-search-forward
+            "^#\\+AIU Proxy: \\[\\[id:\\([^]]+\\)\\]\\[" nil t)
+      (let ((lid (match-string-no-properties 1)))
+        (when (and (my/cyberdeck--aiu-context-of-type-p property-type lid)
+                   (not (string-equal lid aiu-context-id)))
+          (push lid removed)
+          (delete-region (line-beginning-position)
+                          (1+ (line-end-position))))))
+    removed))
+#+end_src
+
+*** Refresh orchestration
+#+begin_src emacs-lisp :lexical t
+(defun my/cyberdeck--refresh-property-aiu-proxy (property-type drawer-value aiu-context-id)
+  "Replace UNFOLDING-TYPE's current entry IN PLACE -- at whatever
+position it already occupies in the drawer, whether a plain value
+line or a legacy wormhole -- instead of always appending at
+the bottom of the drawer. Writes a `#+wormhole:' line so
+`aiu-proxy-add-all' can render it live; re-picking also
+clears legacy AIU Proxies of this type."
+  (let (removed insert-marker)
+    (save-excursion
+      (org-back-to-heading t)
+      (let* ((key (my/cyberdeck--property-key-from-type property-type))
+             (r (my/cyberdeck--drawer-region)))
+        (when r
+          (goto-char (car r))
+          (if (re-search-forward
+               (format "^:%s:[[:blank:]]*\\(.*\\)$" (regexp-quote key))
+               (cdr r) t)
+              (progn
+                (beginning-of-line)
+                (setq insert-marker (copy-marker (point)))
+                (delete-region (point) (1+ (line-end-position))))
+            (goto-char (car r))
+            (let (found)
+              (while (and (not found)
+                          (re-search-forward
+                           "^#\\+AIU Proxy: \\[\\[id:\\([^]]+\\)\\]\\[\\([^]]*\\)\\]\\]"
+                           (cdr r) t))
+                (let ((label (match-string-no-properties 2)))
+                  (when (string-equal key (my/cyberdeck--key-from-label label))
+                    (setq found t)
+                    (beginning-of-line)
+                    (setq insert-marker (copy-marker (point)))
+                    (delete-region (point) (1+ (line-end-position)))))))))
+        (setq removed (my/cyberdeck--remove-other-type-aiu-proxies
+                       property-type aiu-context-id))
+        (goto-char (or (and insert-marker (marker-position insert-marker))
+                       (my/cyberdeck--drawer-insert-point)
+                       (point-max)))
+        (beginning-of-line)
+        (insert (format "#+wormhole: [[id:%s][%s: %s]] :property\n"
+                        aiu-context-id
+                        (string-replace "_" " " key)
+                        drawer-value))
+        (when insert-marker (set-marker insert-marker nil)))
+      (save-buffer))
+    removed))
+#+end_src
+
+*** AIU Context usage checks and orphan sweep
+#+begin_src emacs-lisp :lexical t
+(defun my/cyberdeck--aiu-context-in-use-p (id)
+  (let* ((root (my/cyberdeck-root-dir))
+         (aiu-contexts-dir (expand-file-name "admin/unfoldings/" root))
+         (files (nconc (directory-files-recursively root "\\.org\\'")
+                       (directory-files-recursively root "[^./]+\\'")))
+         (in-use nil))
+    (dolist (f files)
+      (unless in-use
+        (let ((exp (expand-file-name f)))
+          (when (and (not (file-in-directory-p exp aiu-contexts-dir))
+                     (my/cyberdeck-links--aiu-context-id-in-file-p id exp))
+            (setq in-use t)))))
+    in-use))
+
+(defun my/cyberdeck--cleanup-unused-aiu-context (id)
+  (when (and id (not (my/cyberdeck--aiu-context-in-use-p id)))
+    (let ((path (ignore-errors (org-id-find-id-file id))))
+      (when (and path
+                 (file-exists-p path)
+                 (file-in-directory-p
+                  path
+                  (expand-file-name "admin/unfoldings/" (my/cyberdeck-root-dir))))
+        (message "my/cyberdeck: deleting unused AIU Context %s" path)
+        (delete-file path)))))
+
+(defun my/cyberdeck--sweep-orphaned-aiu-contexts ()
+  (interactive)
+  (let* ((root (my/cyberdeck-root-dir))
+         (aiu-contexts-dir (expand-file-name "admin/unfoldings/" root))
+         (files (directory-files-recursively aiu-contexts-dir "[^./]+\\'" t))
+         count)
+    (dolist (f files)
+      (when (file-regular-p f)
+        (with-temp-buffer
+          (insert-file-contents f)
+          (goto-char (point-min))
+          (when (re-search-forward "^:ID:[[:blank:]]+\\(.+\\)" nil t)
+            (let ((id (string-trim (match-string-no-properties 1))))
+              (unless (my/cyberdeck--aiu-context-in-use-p id)
+                (message "my/cyberdeck: deleting unused AIU Context %s" f)
+                (delete-file f)
+                (setq count (1+ (or count 0)))))))))
+    (message "my/cyberdeck: swept %d orphaned AIU Context%s"
+             (or count 0) (if (and count (= count 1)) "" "s"))))
+#+end_src
+
+*** State post-apply
+The state is represented ONLY by an in-drawer #+wormhole: line, so
+this drops the plain drawer entry and refreshes that transcription.
+AIU Proxy rendering is stripped first so the drawer edits see raw
+# AIU Proxy directives live here as documentation text; after-save-hook re-renders them.
+#+begin_src emacs-lisp :lexical t
+(defun my/cyberdeck--apply-state-post (property-type drawer-value aiu-context-id note)
+  "Post-apply wrapper for an unfolding state.
+Navigates by AIU's own path, so it works from any buffer."
+  (when-let ((file (cyberdeck-aiu-path note)))
+    (with-current-buffer (find-file-noselect file)
+      (let ((re-render (bound-and-true-p aiu-proxy-mode))
+            removed)
+        (when re-render (aiu-proxy-remove-all))
+        (unwind-protect
+            (save-excursion
+              (let ((pos (cyberdeck-aiu-pos note)))
+                (when (and pos (> pos 0)) (goto-char pos)))
+              (setq removed
+                    (my/cyberdeck--refresh-property-aiu-proxy
+                     property-type drawer-value aiu-context-id)))
+          (when re-render
+            (ignore-errors (aiu-proxy-add-all))))
+        (dolist (old-id removed)
+          (my/cyberdeck--cleanup-unused-aiu-context old-id))))))
+
+(defun my/cyberdeck--clear-state-transcribes (property-type _note)
+  (save-excursion
+    (goto-char (point-min))
+    (while (re-search-forward
+            "^#\\+AIU Proxy: \\[\\[id:\\([^]]+\\)\\]\\[" nil t)
+      (let ((lid (match-string-no-properties 1)))
+        (when (my/cyberdeck--aiu-context-of-type-p property-type lid)
+          (delete-region (line-beginning-position)
+                         (1+ (line-end-position))))))
+    (save-buffer)))
+
+ (defun my/cyberdeck--make-aiu-context-state-to-plist (property-type drawer-key)
+  (let ((pt property-type) (_dk drawer-key))
+    (lambda (val _ctx)
+      (when (and val (not (string-equal val "WARNING")))
+        (let* ((parent-aiu (ignore-errors (my/cyberdeck--aiu-at-point)))
+               (link (my/cyberdeck--ensure-aiu-context-aiu pt val parent-aiu))
+               (aiu-context-id (my/cyberdeck--id-from-link link)))
+          `(:post-apply (,(apply-partially
+                           #'my/cyberdeck--apply-state-post
+                           pt val aiu-context-id))))))))
+#+end_src
+
+#+begin_src emacs-lisp
+(defun my/cyberdeck--create-scoped-aiu (property-type value parent-id &optional _note)
+  (when (and value (not (string-equal value "WARNING")))
+    (let* ((slug (my/cyberdeck--canonicalize (or parent-id "orphan")))
+           (val-slug (my/cyberdeck--canonicalize value))
+           (root (expand-file-name (format "admin/unfoldings/%s/" property-type) (my/cyberdeck-root-dir)))
+           (path (expand-file-name (format "%s-%s" slug val-slug) root))
+           (key (my/cyberdeck--property-key-from-type property-type))
+           (tag (replace-regexp-in-string "[^A-Za-z0-9_@]" "_" value))
+           (title (format "%s >" key)))
+      (make-directory root t)
+      (let ((cyberdeck-create-default-function (lambda (_) '())))
+        (let ((note (cyberdeck-create title path
+                     :tags (list tag)
+                     :unfoldings (when parent-id `(("UNFOLDING_PARENT" . ,parent-id)
+                                                    ("UNFOLDING_TYPE" . ,(symbol-name property-type))))
+                     :body nil)))
+           (when note
+             (my/cyberdeck--make-id-link (cyberdeck-aiu-id note) value)))))))
+#+end_src
+
+** Default Filter — Hide AIU Context AIUs from cyberdeck-find
+
+*** Hidden-path predicate
+#+begin_src emacs-lisp
+(defun my/cyberdeck--hidden-aiu-p (path)
+  (or (string-prefix-p
+       (expand-file-name "admin/unfoldings/" (my/cyberdeck-root-dir))
+       path)
+      (string-prefix-p
+       (expand-file-name "admin/Journal/" (my/cyberdeck-root-dir))
+       path)))
+
+(setq cyberdeck-find-default-filter
+      (lambda (note)
+        (not (my/cyberdeck--hidden-aiu-p (cyberdeck-aiu-path note)))))
+#+end_src
+
+*** Select filter advice
+User-supplied filters compose with the hidden-path rule instead of
+replacing it.
+#+begin_src emacs-lisp
+(defun my/cyberdeck--select-filter-advice (orig-fn prompt &rest args)
+  (let ((orig-filter (plist-get args :filter-fn)))
+    (apply orig-fn prompt
+           (plist-put args :filter-fn
+                      (lambda (note)
+                        (and (not (my/cyberdeck--hidden-aiu-p
+                                   (cyberdeck-aiu-path note)))
+                             (or (null orig-filter)
+                                 (funcall orig-filter note))))))))
+
+(advice-add 'cyberdeck-select :around #'my/cyberdeck--select-filter-advice)
+#+end_src
+
+** Open AIU Context AIUs in capture by default
+
+*** Capture-style file editor
+#+begin_src emacs-lisp
+(defun my/cyberdeck--edit-file-in-capture (file)
+  (let* ((org-capture-templates
+          `(("v" "Edit AIU body"
+             plain
+             (file+function
+              ,file
+              (lambda ()
+                (goto-char (point-max))
+                (skip-chars-backward " \t\n")))
+             "%?"
+             :kill-buffer t
+             :unnarrowed t)))
+         (org-capture-use-indirect-buffer nil)
+         (org-capture-window-setup (quote other-window)))
+    (when-let ((buf (get-file-buffer file)))
+      (when (eq buf (current-buffer))
+        (switch-to-buffer (other-buffer))))
+    (org-capture nil "v")))
+#+end_src
+
+*** org-id-open advice
+Clicking an id: link that lives in a property drawer opens the AIU Context
+in capture instead of plain visit.
+#+begin_src emacs-lisp
+(defun my/cyberdeck--open-aiu-context-link (orig-fun id &optional path)
+  (if-let* ((_ (org-in-regexp org-link-any-re))
+            (start (match-beginning 0))
+            (_ (save-excursion
+                 (goto-char start)
+                 (beginning-of-line)
+                 (looking-at ":\\([A-Z_][A-Z_0-9]*\\):")))
+            (file (org-id-find-id-file id)))
+      (my/cyberdeck--edit-file-in-capture file)
+    (funcall orig-fun id path)))
+
+(advice-add 'org-id-open :around #'my/cyberdeck--open-aiu-context-link)
+#+end_src
+
+** Index aiu-proxy-in-drawer AIUs
+
+*** Parse tolerance flag
+#+begin_src emacs-lisp
+(defvar my/cyberdeck--db-parse nil)
+
+(defun my/cyberdeck--parse-file-with-tolerance (orig-fn &rest args)
+  (let ((my/cyberdeck--db-parse t))
+    (apply orig-fn args)))
+#+end_src
+
+*** Per-drawer stripping
+Swaps each in-drawer AIU Proxy line for a plain `:KEY:` synonym so
+org's parser sees ordinary properties; returns a restore cell.
+#+begin_src emacs-lisp
+(defun my/cyberdeck--strip-one-drawer ()
+  "Strip AIU Proxy lines in the drawer at point; return restore cell."
+  (let* ((pbeg (line-beginning-position 2))
+         (pm (save-excursion
+               (if (re-search-forward "^:END:[ \t]*$" nil t)
+                   (copy-marker (line-beginning-position))
+                 nil)))
+         restore)
+    (when pm
+      (goto-char pbeg)
+      (while (re-search-forward "^[^:].*$" pm t)
+        (let* ((text (match-string 0))
+               (m (when (string-match
+                         "^#\\+AIU Proxy: \\[\\[id:\\([^]]+\\)\\]\\[\\([^]]*\\)\\]\\]"
+                         text)
+                    (let* ((label (match-string-no-properties 2 text))
+                           (key (my/cyberdeck--key-from-label label)))
+                      (when key
+                        (list key
+                              (match-string-no-properties 1 text)
+                              label)))))
+               (syn (when m
+                      (format ":%s: [[id:%s][%s]]"
+                              (nth 0 m) (nth 1 m) (nth 2 m)))))
+          (push (cons (point-marker) (cons text syn)) restore)
+          (delete-region (line-beginning-position)
+                         (1+ (line-end-position)))
+          (when syn
+            (insert syn "\n"))))
+      (goto-char pm)
+      (set-marker pm nil))
+    restore))
+#+end_src
+
+*** Restore pass
+Puts the raw AIU Proxy lines back exactly where they were.
+#+begin_src emacs-lisp
+(defun my/cyberdeck--restore-stripped-lines (restore)
+  (dolist (cell (nreverse restore))
+    (goto-char (car cell))
+    (when (cddr cell)
+      (delete-region (line-beginning-position)
+                     (1+ (line-end-position))))
+    (insert (cadr cell) "\n")
+    (set-marker (car cell) nil)))
+#+end_src
+
+*** Parser advice wiring
+#+begin_src emacs-lisp
+(defun my/cyberdeck--strip-in-drawer-keywords (orig-fn &rest args)
+  (if (not my/cyberdeck--db-parse)
+      (apply orig-fn args)
+    (save-excursion
+      (save-restriction
+        (widen)
+        (let (restore)
+          (goto-char (point-min))
+          (while (re-search-forward "^:PROPERTIES:[ \t]*$" nil t)
+            (setq restore (append (my/cyberdeck--strip-one-drawer)
+                                  restore)))          (let ((result (apply orig-fn args)))
+            (my/cyberdeck--restore-stripped-lines restore)
+            result))))))
+
+(advice-add 'cyberdeck-db--parse-file :around #'my/cyberdeck--parse-file-with-tolerance)
+(advice-add 'org-element-parse-buffer :around #'my/cyberdeck--strip-in-drawer-keywords)
+#+end_src
+
+** RET on a property -- declarative session, then link
+Press RET on a property line inside a :PROPERTIES: drawer. The
+registered declarative spec for that key opens as a picking session
+(letters jump+mark, RET advances); on finish, the picked value is
+linked as an AIU Context AIU and its file opens directly so writing
+can start immediately. If the property already holds an AIU Context
+link, choose to update the linked AIU directly or change to a
+different option. Missing spec is a loud error naming the key --
+never a silent empty picker. Everywhere else, RET behaves normally.
+#+begin_src emacs-lisp
+(defun my/cyberdeck--current-property-key ()
+  "Return the property KEY on the current line, or nil if not on one."
+  (save-excursion
+    (beginning-of-line)
+    (when (looking-at "^[ \t]*:\\([A-Za-z_]+\\):")
+      (match-string-no-properties 1))))
+
+
+
+(defun my/cyberdeck--open-aiu-context-file-capture (aiu-context-id)
+  "Open UNFOLDING-ID's file using the vault's own capture-style editor,
+which already sets :kill-buffer and org-capture-use-indirect-buffer
+correctly so C-c C-c restores the original window."
+  (let ((file (ignore-errors (org-id-find-id-file aiu-context-id))))
+    (unless (and file (file-exists-p file))
+      (user-error "Could not find the AIU Context file for %s" aiu-context-id))
+    (my/cyberdeck--edit-file-in-capture file)))
+
+(defun my/cyberdeck--property-pick-live (key property-type)
+  "Pick an option for KEY from its declarative spec and go live instantly.
+Opens the spec's blueprint file in a capture picker; a letter jump
+selects the option, kills the picker (picking saves nothing), then
+creates/reuses the unfolding note, writes its id-link as KEY's
+value, saves, and opens the unfolding note in a capture for editing.
+No options in the file is a loud error -- never a silent empty picker."
+  (let* ((spec (gethash property-type my/cyberdeck-org-prompt--specs))
+         (file (and spec (plist-get spec :file)))
+         (marker (point-marker)))
+    (unless (and spec (stringp file) (file-exists-p file))
+      (user-error "No blueprint file for %s" key))
+    (my/cyberdeck--edit-file-in-capture file)
+    (goto-char (point-min))
+    (unless (re-search-forward "^\\*\\* .+$" nil t)
+      (org-capture-kill)
+      (user-error "No options in %s" (file-name-nondirectory file)))
+    (goto-char (point-min))
+    (let ((ks-all-windows nil))
+      (ks-jump "^\\*\\* .+$"
+               :beg (point-min)
+               :end (point-max)
+               :action
+               (lambda (pt)
+                 (goto-char pt)
+                 (org-back-to-heading t)
+                 (let ((final-title (string-trim (org-get-heading t t t t))))
+                   (org-capture-kill)
+                   (my/cyberdeck--property-go-live
+                    marker property-type key final-title)))))))
+
+(defface my/cyberdeck-context-key-face
+  '((((background light)) :foreground "#7030a0" :weight bold)
+    (((background dark)) :foreground "#c79bf0" :weight bold)
+    (t :weight bold))
+  "Face for the KEY part of unfolding `KEY → value' context lines.
+Light/dark variants keep it readable under modus-operandi and
+modus-vivendi without hardcoded single-theme colors."
+  :group 'cyberdeck)
+
+(defface my/cyberdeck-context-value-face
+  '((((background light)) :foreground "#c00000" :weight bold)
+    (((background dark)) :foreground "#ff7f7f" :weight bold)
+    (t :weight bold))
+  "Face for the value part of unfolding `KEY → value' context lines.
+Light/dark variants keep it readable under modus-operandi and
+modus-vivendi without hardcoded single-theme colors."
+  :group 'cyberdeck)
+
+(defvar my/cyberdeck--context-line-keywords
+  '(("^\\([A-Z][A-Z0-9_]*\\) > \\(:[A-Za-z0-9_]+:\\)[ \t]*$"
+     (1 'my/cyberdeck-context-key-face)
+     (2 'my/cyberdeck-context-value-face)))
+  "Font-lock rules highlighting live-property wormhole lines
+(\"KEY > :tag:\"), wherever they render -- including inside an
+origin AIU's transclusion, not just AIU Context AIU files.")
+
+(defun my/cyberdeck--context-line-fontify ()
+  "Enable live-property line highlighting in any org buffer."
+  (font-lock-add-keywords nil my/cyberdeck--context-line-keywords t)
+  (font-lock-flush))
+
+(add-hook 'org-mode-hook #'my/cyberdeck--context-line-fontify)
+
+(defun my/cyberdeck--property-ensure-context-line (aiu-context-id key value)
+  "Ensure the unfolding note shows `KEY → VALUE' under its drawer.
+Inserts the context line plus blank space as the first body lines,
+only when not already present -- re-picks never duplicate it.
+Repairs already-glued `:END:KEY → value' into correct spacing, and
+ensures exactly one blank line between :END: and context and one
+blank after (file ends with trailing newline). Returns non-nil when
+inserted or repaired."
+  (let ((file (and aiu-context-id
+                   (let ((f (and (fboundp 'org-id-find-id-file)
+                                 (org-id-find-id-file aiu-context-id))))
+                     (when (and f (file-exists-p f)) f)))))
+    (when file
+      (with-current-buffer (find-file-noselect file)
+        (save-excursion
+          (goto-char (point-min))
+          (when (re-search-forward "^\\* " nil t)
+            (org-back-to-heading t)
+            (let ((r (my/cyberdeck--drawer-region)))
+              (when r
+                (let ((desired (format "%s → %s" key value))
+                      (desired-re (format "^%s → %s[ \t]*$"
+                                          (regexp-quote key)
+                                          (regexp-quote value))))
+                  ;; Repair glued :END: line if present
+                  (goto-char (cdr r))
+                  (when (looking-at "^:END:[ \t]*\\(.+\\)$")
+                    (let ((trailing (string-trim (match-string 1))))
+                      (unless (string-empty-p trailing)
+                        (delete-region (match-beginning 1) (line-end-position))
+                        ;; If glued trailing was not desired, preserve it as body content
+                        (when (and (not (string= trailing desired))
+                                   (not (string-empty-p trailing)))
+                          (save-excursion
+                            (goto-char (cdr r))
+                            (forward-line 1)
+                            (unless (looking-at "^[ \t]*$")
+                              (insert "\n"))
+                            (insert trailing "\n")))
+                        ;; Ensure END line ends cleanly
+                        (goto-char (cdr r))
+                        (end-of-line)
+                        (unless (bolp) (insert "\n")))))
+                  ;; Normalize spacing and ensure context line
+                  (goto-char (cdr r))
+                  (forward-line 1)
+                  (let ((posAfterEnd (point)))
+                    ;; If already correctly spaced (blank, desired, blank) do nothing
+                    (if (and (looking-at "^[ \t]*$")
+                             (save-excursion
+                               (forward-line 1)
+                               (looking-at desired-re))
+                             (save-excursion
+                               (forward-line 2)
+                               (or (looking-at "^[ \t]*$") (eobp))))
+                        nil
+                      ;; Remove any existing desired line nearby to avoid duplication
+                      (save-excursion
+                        (let ((searchEnd (save-excursion (forward-line 5) (point))))
+                          (when (re-search-forward desired-re searchEnd t)
+                            (delete-region (line-beginning-position)
+                                           (min (1+ (line-end-position)) (point-max))))))
+                      ;; Remove extra blank lines at insertion point
+                      (goto-char posAfterEnd)
+                      (while (and (not (eobp)) (looking-at "^[ \t]*$"))
+                        (delete-region (point) (min (1+ (line-end-position)) (point-max))))
+                      ;; Insert exactly one blank, desired, blank
+                      (insert "\n" desired "\n\n")
+                      ;; Ensure file ends with trailing newline
+                      (goto-char (point-max))
+                      (unless (bolp) (insert "\n"))
+                      (save-buffer)
+                      t)))))))))))
+
+(defun my/cyberdeck--property-go-live (marker property-type _key final-title)
+  "Make FINAL-TITLE live for KEY at MARKER, then open it for editing.
+Create/reuse the unfolding note, replace KEY's drawer entry with a
+live `#+wormhole:' line via `my/cyberdeck--refresh-property-aiu-proxy',
+save the origin, and open the AIU Context AIU in a capture."
+  (let ((buf (marker-buffer marker)))
+    (unless (buffer-live-p buf)
+      (user-error "Origin buffer gone"))
+    (with-current-buffer buf
+      (save-excursion
+        (goto-char marker)
+        (let* ((parent-aiu (ignore-errors (my/cyberdeck--aiu-at-point)))
+               (link (my/cyberdeck--ensure-aiu-context-aiu
+                      property-type final-title parent-aiu))
+               (aiu-context-id (my/cyberdeck--id-from-link link)))
+          (unless aiu-context-id
+            (user-error "Could not create a reference AIU for %s" final-title))
+          (save-window-excursion
+            (save-excursion
+              (goto-char marker)
+              (let ((re-render (bound-and-true-p aiu-proxy-mode)))
+                (when re-render (aiu-proxy-remove-all))
+                (unwind-protect
+                    (my/cyberdeck--refresh-property-aiu-proxy
+                     property-type final-title aiu-context-id)
+                  (when re-render (aiu-proxy-add-all)))))
+            (save-buffer))
+          (dolist (win (get-buffer-window-list buf nil t))
+            (unless (window-minibuffer-p win)
+              (with-selected-window win
+                (font-lock-flush)
+                (font-lock-ensure))))
+          (setq my/cyberdeck--pending-aiu-context-refresh
+                (cons aiu-context-id (buffer-file-name buf)))
+          (my/cyberdeck--open-aiu-context-file-capture aiu-context-id))))))
+
+(defvar my/cyberdeck--pending-aiu-context-refresh nil
+  "Cons (UNFOLDING-ID . ORIGIN-FILE) to refresh after an unfolding
+capture finalizes. Set when RET opens an unfolding; consumed by
+`my/cyberdeck--maybe-refresh-aiu-context-origin'.")
+
+(defun my/cyberdeck--maybe-refresh-aiu-context-origin ()
+  "After a RET-opened unfolding capture finalizes, refresh its origin.
+Syncs the origin link description to the unfolding's current title
+and reverts origin windows so edits show immediately. No-op unless
+such a capture just finalized. Fully error-isolated."
+  (when-let ((p my/cyberdeck--pending-aiu-context-refresh))
+    (setq my/cyberdeck--pending-aiu-context-refresh nil)
+    (let ((uid (car p)) (ofile (cdr p)))
+      (condition-case err
+          (let* ((uf (and uid (ignore-errors (org-id-find-id-file uid))))
+                 (new-title (and uf (ignore-errors
+                                      (my/cyberdeck-links--aiu-title-of uf)))))
+            (when (and uf new-title (stringp ofile))
+              (dolist (link (ignore-errors
+                              (my/cyberdeck--get-incoming-links-with-descriptions uid)))
+                (when (and (string-equal (expand-file-name (plist-get link :source-path))
+                                         (expand-file-name ofile))
+                           (not (string= (or (plist-get link :description) "") new-title)))
+                  (cyberdeck--update-link-description
+                   ofile (plist-get link :pos) new-title)
+                  (with-current-buffer (find-file-noselect ofile)
+                    (when (buffer-modified-p) (save-buffer)))
+                  (message "Origin link updated to \"%s\"" new-title)))))
+        (error (lwarn 'cyberdeck :warning "AIU Context origin sync: %s" err)))
+      (let ((obuf (and (stringp ofile) (get-file-buffer ofile))))
+        (when (buffer-live-p obuf)
+          (with-current-buffer obuf
+            (save-excursion
+              ;; Ensure link description line is visually refreshed without revert
+              (font-lock-flush (point-min) (point-max))
+              (font-lock-ensure (point-min) (point-max))))
+          (dolist (win (get-buffer-window-list obuf nil t))
+            (unless (window-minibuffer-p win)
+              (with-selected-window win
+                (font-lock-flush)
+                (font-lock-ensure)))))))))
+
+(add-hook 'org-capture-after-finalize-hook #'my/cyberdeck--maybe-refresh-aiu-context-origin)
+
+(defun my/cyberdeck-property-make-aiu-context ()
+  "RET on a property: pick from the registered declarative spec, then
+link the picked unfolding note and open it directly. If the property
+already holds an unfolding link, ask whether to update the linked
+AIU directly or change to a different option."
+  (interactive)
+  (let ((key (my/cyberdeck--current-property-key)))
+    (unless key
+      (user-error "Not on a property line"))
+    (when (member key '("ID"))
+      (user-error "Cannot make the ID property an AIU Context"))
+    (when (zerop (hash-table-count my/cyberdeck-org-prompt--specs))
+      (my/cyberdeck-org-prompt--register-all))
+    (let* ((property-type (intern (downcase (string-replace "_" "-" key))))
+           (spec (gethash property-type my/cyberdeck-org-prompt--specs)))
+      (unless spec
+        (user-error "No declarative spec registered for %s" key))
+      (let* ((raw (or (org-entry-get nil key) ""))
+             (existing-link (my/cyberdeck--aiu-context-link-value raw))
+             (existing-id (car existing-link)))
+        (if existing-id
+            (if (y-or-n-p (format "%s is set -- update the AIU (y) or change the option (n)? " key))
+                (my/cyberdeck--open-aiu-context-file-capture existing-id)
+              (my/cyberdeck--property-pick-live key property-type))
+          (my/cyberdeck--property-pick-live key property-type))))))
+
+(defun my/cyberdeck-return-dispatch ()
+  "RET dispatcher: make the property at point an unfolding if on one, else
+fall back to normal `org-return' behavior everywhere else."
+  (interactive)
+  (if (my/cyberdeck--current-property-key)
+      (my/cyberdeck-property-make-aiu-context)
+    (call-interactively #'org-return)))
+
+(with-eval-after-load 'org
+  (define-key org-mode-map (kbd "RET") #'my/cyberdeck-return-dispatch))
+#+end_src

@@ -1,0 +1,675 @@
+* Text Properties :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       0c2393e1-9347-43d4-b8c4-f5bb399f24f5
+:END:
+
+Each character position in a buffer or a string can have a text property list, much like the property list of a symbol (see Property Lists). The properties belong to a particular character at a particular place, such as, the letter ‘T’ at the beginning of this sentence or the first ‘o’ in ‘foo’—if the same character occurs in two different places, the two occurrences in general have different properties.
+
+Each property has a name and a value. Both of these can be any Lisp object, but the name is normally a symbol. Typically each property name symbol is used for a particular purpose; for instance, the text property face specifies the faces for displaying the character (see Properties with Special Meanings). The usual way to access the property list is to specify a name and ask what value corresponds to it.
+
+If a character has a category property, we call it the property category of the character. It should be a symbol. The properties of the symbol serve as defaults for the properties of the character.
+
+Copying text between strings and buffers preserves the properties along with the characters; this includes such diverse functions as substring, insert, and buffer-substring. Killing and then yanking text (see The Kill Ring) also preserves the properties, except that some properties are handled specially and might be removed when text is yanked; see Yanking.
+
+**** Examining Text Properties
+
+The simplest way to examine text properties is to ask for the value of a particular property of a particular character. For that, use get-text-property. Use text-properties-at to get the entire property list of a character. See Text Property Search Functions, for functions to examine the properties of a number of characters at once.
+
+These functions handle both strings and buffers. Keep in mind that positions in a string start from 0, whereas positions in a buffer start from 1. Passing a buffer other than the current buffer may be slow.
+
+Function: get-text-property pos prop &optional object ¶
+This function returns the value of the prop property of the character after position pos in object (a buffer or string). The argument object is optional and defaults to the current buffer.
+
+If position is at the end of object, the value is nil, but note that buffer narrowing does not affect the value. That is, if object is a buffer or nil, and the buffer is narrowed and position is at the end of the narrowed buffer, the result may be non-nil.
+
+If there is no prop property strictly speaking, but the character has a property category that is a symbol, then get-text-property returns the prop property of that symbol.
+
+Function: get-char-property position prop &optional object ¶
+This function is like get-text-property, except that it checks overlays first and then text properties. See Overlays.
+
+The argument object may be a string, a buffer, or a window. If it is a window, then the buffer displayed in that window is used for text properties and overlays, but only the overlays active for that window are considered. If object is a buffer, then overlays in that buffer are considered first, in order of decreasing priority, followed by the text properties. If object is a string, only text properties are considered, since strings never have overlays.
+
+Function: get-pos-property position prop &optional object ¶
+This function is like get-char-property, except that it pays attention to properties’ stickiness and overlays’ advancement settings instead of the property of the character at (i.e., right after) position.
+
+Function: get-char-property-and-overlay position prop &optional object ¶
+This is like get-char-property, but gives extra information about the overlay that the property value comes from.
+
+Its value is a cons cell whose CAR is the property value, the same value get-char-property would return with the same arguments. Its CDR is the overlay in which the property was found, or nil, if it was found as a text property or not found at all.
+
+If position is at the end of object, both the CAR and the CDR of the value are nil.
+
+Variable: char-property-alias-alist ¶
+This variable holds an alist which maps property names to a list of alternative property names. If a character does not specify a direct value for a property, the alternative property names are consulted in order; the first non-nil value is used. This variable takes precedence over default-text-properties, and category properties take precedence over this variable.
+
+Function: text-properties-at position &optional object ¶
+This function returns the entire property list of the character at position in the string or buffer object. If object is nil, it defaults to the current buffer.
+
+If position is at the end of object, the value is nil, but note that buffer narrowing does not affect the value. That is, if object is a buffer or nil, and the buffer is narrowed and position is at the end of the narrowed buffer, the result may be non-nil.
+
+Variable: default-text-properties ¶
+This variable holds a property list giving default values for text properties. Whenever a character does not specify a value for a property, neither directly, through a category symbol, or through char-property-alias-alist, the value stored in this list is used instead. Here is an example:
+
+(setq default-text-properties '(foo 69)
+      char-property-alias-alist nil)
+;; Make sure character 1 has no properties of its own.
+(set-text-properties 1 2 nil)
+;; What we get, when we ask, is the default value.
+(get-text-property 1 'foo)
+     ⇒ 69
+Function: object-intervals OBJECT ¶
+This function returns a copy of the intervals (i.e., text properties) in object as a list of intervals. object must be a string or a buffer. Altering the structure of this list does not change the intervals in the object.
+
+(object-intervals (propertize "foo" 'face 'bold))
+     ⇒ ((0 3 (face bold)))
+Each element in the returned list represents one interval. Each interval has three parts: The first is the start, the second is the end, and the third part is the text property itself.
+
+
+**** Changing Text Properties
+
+The primitives for changing properties apply to a specified range of text in a buffer or string. The function set-text-properties (see end of section) sets the entire property list of the text in that range; more often, it is useful to add, change, or delete just certain properties specified by name.
+
+Since text properties are considered part of the contents of the buffer (or string), and can affect how a buffer looks on the screen, any change in buffer text properties marks the buffer as modified. Buffer text property changes are undoable also (see Undo). Positions in a string start from 0, whereas positions in a buffer start from 1.
+
+Function: put-text-property start end prop value &optional object ¶
+This function sets the prop property to value for the text between start and end in the string or buffer object. If object is nil, it defaults to the current buffer.
+
+Function: add-text-properties start end props &optional object ¶
+This function adds or overrides text properties for the text between start and end in the string or buffer object. If object is nil, it defaults to the current buffer.
+
+The argument props specifies which properties to add. It should have the form of a property list (see Property Lists): a list whose elements include the property names followed alternately by the corresponding values.
+
+The return value is t if the function actually changed some property’s value; nil otherwise (if props is nil or its values agree with those in the text).
+
+For example, here is how to set the comment and face properties of a range of text:
+
+(add-text-properties start end
+                     '(comment t face highlight))
+Function: remove-text-properties start end props &optional object ¶
+This function deletes specified text properties from the text between start and end in the string or buffer object. If object is nil, it defaults to the current buffer.
+
+The argument props specifies which properties to delete. It should have the form of a property list (see Property Lists): a list whose elements are property names alternating with corresponding values. But only the names matter—the values that accompany them are ignored. For example, here’s how to remove the face property.
+
+(remove-text-properties start end '(face nil))
+The return value is t if the function actually changed some property’s value; nil otherwise (if props is nil or if no character in the specified text had any of those properties).
+
+To remove all text properties from certain text, use set-text-properties and specify nil for the new property list.
+
+Function: remove-list-of-text-properties start end list-of-properties &optional object ¶
+Like remove-text-properties except that list-of-properties is a list of property names only, not an alternating list of property names and values.
+
+Function: set-text-properties start end props &optional object ¶
+This function completely replaces the text property list for the text between start and end in the string or buffer object. If object is nil, it defaults to the current buffer.
+
+The argument props is the new property list. It should be a list whose elements are property names alternating with corresponding values.
+
+After set-text-properties returns, all the characters in the specified range have identical properties.
+
+If props is nil, the effect is to get rid of all properties from the specified range of text. Here’s an example:
+
+(set-text-properties start end nil)
+Do not rely on the return value of this function.
+
+Function: add-face-text-property start end face &optional appendp object ¶
+This function acts on the text between start and end, adding the face face to the face text property. face should be a valid value for the face property (see Properties with Special Meanings), such as a face name or an anonymous face (see Faces).
+
+If any text in the region already has a non-nil face property, those face(s) are retained. This function sets the face property to a list of faces, with face as the first element (by default) and the pre-existing faces as the remaining elements. If the optional argument appendp is non-nil, face is appended to the end of the list instead. Note that in a face list, the first occurring value for each attribute takes precedence.
+
+For example, the following code would assign an italicized green face to the text between start and end:
+
+(add-face-text-property start end 'italic)
+(add-face-text-property start end '(:foreground "red"))
+(add-face-text-property start end '(:foreground "green"))
+The optional argument object, if non-nil, specifies a buffer or string to act on, rather than the current buffer. If object is a string, then start and end are zero-based indices into the string.
+
+The easiest way to make a string with text properties is with propertize:
+
+Function: propertize string &rest properties ¶
+This function returns a copy of string with the text properties properties added. These properties apply to all the characters in the string that is returned. Here is an example that constructs a string with a face property and a mouse-face property:
+
+(propertize "foo" 'face 'italic
+            'mouse-face 'bold-italic)
+     ⇒ #("foo" 0 3 (mouse-face bold-italic face italic))
+To put different properties on various parts of a string, you can construct each part with propertize and then combine them with concat:
+
+(concat
+ (propertize "foo" 'face 'italic
+             'mouse-face 'bold-italic)
+ " and "
+ (propertize "bar" 'face 'italic
+             'mouse-face 'bold-italic))
+     ⇒ #("foo and bar"
+                 0 3 (face italic mouse-face bold-italic)
+                 3 8 nil
+                 8 11 (face italic mouse-face bold-italic))
+See Examining Buffer Contents, for the function buffer-substring-no-properties, which copies text from the buffer but does not copy its properties.
+
+If you wish to add text properties to a buffer or remove them without marking the buffer as modified, you can wrap the calls above in the with-silent-modifications macro. See Buffer Modification.
+
+
+**** Text Property Search Functions
+
+In typical use of text properties, most of the time several or many consecutive characters have the same value for a property. Rather than writing your programs to examine characters one by one, it is much faster to process chunks of text that have the same property value.
+
+Here are functions you can use to do this. They use eq for comparing property values. In all cases, object defaults to the current buffer.
+
+For good performance, it’s very important to use the limit argument to these functions, especially the ones that search for a single property—otherwise, they may spend a long time scanning to the end of the buffer, if the property you are interested in does not change.
+
+These functions do not move point; instead, they return a position (or nil). Remember that a position is always between two characters; the position returned by these functions is between two characters with different properties.
+
+Function: next-property-change pos &optional object limit ¶
+The function scans the text forward from position pos in the string or buffer object until it finds a change in some text property, then returns the position of the change. In other words, it returns the position of the first character beyond pos whose properties are not identical to those of the character just after pos.
+
+If limit is non-nil, then the scan ends at position limit. If there is no property change before that point, this function returns limit.
+
+The value is nil if the properties remain unchanged all the way to the end of object and limit is nil. If the value is non-nil, it is a position greater than or equal to pos. The value equals pos only when limit equals pos.
+
+Here is an example of how to scan the buffer by chunks of text within which all properties are constant:
+
+(while (not (eobp))
+  (let ((plist (text-properties-at (point)))
+        (next-change
+         (or (next-property-change (point) (current-buffer))
+             (point-max))))
+    Process text from point to next-change…
+    (goto-char next-change)))
+Function: previous-property-change pos &optional object limit ¶
+This is like next-property-change, but scans back from pos instead of forward. If the value is non-nil, it is a position less than or equal to pos; it equals pos only if limit equals pos.
+
+Function: next-single-property-change pos prop &optional object limit ¶
+The function scans text for a change in the prop property, then returns the position of the change. The scan goes forward from position pos in the string or buffer object. In other words, this function returns the position of the first character beyond pos whose prop property differs from that of the character just after pos.
+
+If limit is non-nil, then the scan ends at position limit. If there is no property change before that point, next-single-property-change returns limit.
+
+The value is nil if the property remains unchanged all the way to the end of object and limit is nil. If the value is non-nil, it is a position greater than or equal to pos; it equals pos only if limit equals pos.
+
+Function: previous-single-property-change pos prop &optional object limit ¶
+This is like next-single-property-change, but scans back from pos instead of forward. If the value is non-nil, it is a position less than or equal to pos; it equals pos only if limit equals pos.
+
+Function: next-char-property-change pos &optional limit ¶
+This is like next-property-change except that it considers overlay properties as well as text properties, and if no change is found before the end of the buffer, it returns the maximum buffer position rather than nil (in this sense, it resembles the corresponding overlay function next-overlay-change, rather than next-property-change). There is no object operand because this function operates only on the current buffer. It returns the next address at which either kind of property changes.
+
+Function: previous-char-property-change pos &optional limit ¶
+This is like next-char-property-change, but scans back from pos instead of forward, and returns the minimum buffer position if no change is found.
+
+Function: next-single-char-property-change pos prop &optional object limit ¶
+This is like next-single-property-change except that it considers overlay properties as well as text properties, and if no change is found before the end of the object, it returns the maximum valid position in object rather than nil. Unlike next-char-property-change, this function does have an object operand; if object is not a buffer, only text-properties are considered.
+
+Function: previous-single-char-property-change pos prop &optional object limit ¶
+This is like next-single-char-property-change, but scans back from pos instead of forward, and returns the minimum valid position in object if no change is found.
+
+Function: text-property-any start end prop value &optional object ¶
+This function returns non-nil if at least one character between start and end has a property prop whose value is value. More precisely, it returns the position of the first such character. Otherwise, it returns nil.
+
+The optional fifth argument, object, specifies the string or buffer to scan. Positions are relative to object. The default for object is the current buffer.
+
+Function: text-property-not-all start end prop value &optional object ¶
+This function returns non-nil if at least one character between start and end does not have a property prop with value value. More precisely, it returns the position of the first such character. Otherwise, it returns nil.
+
+The optional fifth argument, object, specifies the string or buffer to scan. Positions are relative to object. The default for object is the current buffer.
+
+Function: text-property-search-forward prop &optional value predicate not-current ¶
+Search for the next region of text whose property prop is a match for value (which defaults to nil), according to predicate.
+
+This function is modeled after search-forward (see Searching for Strings) and friends, in that it moves point, but it also returns a structure that describes the match instead of returning it in match-beginning and friends.
+
+If the text property whose value is a match can’t be found, the function returns nil. If it’s found, point is placed at the end of the region that has this matching text property, and the function returns a prop-match structure with information about the match.
+
+predicate can either be t (which is a synonym for equal), nil (which means “not equal”), or a predicate that will be called with two arguments: value and the value of the text property prop at the buffer position that is a candidate for a match. The function should return non-nil if there’s a match, nil otherwise.
+
+If not-current is non-nil, then if point is already in a region where we have a property match, skip past that region and find the next region instead.
+
+The prop-match structure has the following accessor functions: prop-match-beginning (the start of the match), prop-match-end (the end of the match), and prop-match-value (the value of property at the start of the match).
+
+In the examples below, we use a buffer whose contents is:
+
+This is a bold and here’s bolditalic and this is the end.
+That is, the “bold” words are the bold face, and the “italic” word is in the italic face.
+
+With point at the start:
+
+(while (setq match (text-property-search-forward 'face 'bold t))
+  (push (buffer-substring (prop-match-beginning match)
+                          (prop-match-end match))
+        words))
+This will pick out all the words that use the bold face.
+
+(while (setq match (text-property-search-forward 'face nil t))
+  (push (buffer-substring (prop-match-beginning match)
+                          (prop-match-end match))
+        words))
+This will pick out all the bits that have no face properties, which will result in the list ‘("This is a " "and here's " "and this is the end")’ (only in reverse order, since we used push, see Modifying List Variables).
+
+(while (setq match (text-property-search-forward 'face nil nil))
+  (push (buffer-substring (prop-match-beginning match)
+                          (prop-match-end match))
+        words))
+This will pick out all the regions where face is set to something, but this is split up into where the properties change, so the result here will be ‘("bold" "bold" "italic")’.
+
+For a more realistic example where you might use this, consider that you have a buffer where certain sections represent URLs, and these are tagged with shr-url.
+
+(while (setq match (text-property-search-forward 'shr-url nil nil))
+  (push (prop-match-value match) urls))
+This will give you a list of all those URLs.
+
+Function: text-property-search-backward prop &optional value predicate not-current ¶
+This is just like text-property-search-forward, but searches backward instead, and if a match is found, point is placed at the beginning of the matched region instead of the end.
+
+
+**** Properties with Special Meanings
+
+Here is a table of text property names that have special built-in meanings. The following sections list a few additional special property names that control filling and property inheritance. All other names have no standard meaning, and you can use them as you like.
+
+Note: the properties composition, display, invisible and intangible can also cause point to move to an acceptable place, after each Emacs command. See Adjusting Point After Commands.
+
+category
+If a character has a category property, we call it the property category of the character. It should be a symbol. The properties of this symbol serve as defaults for the properties of the character.
+
+face ¶
+The face property controls the appearance of the character (see Faces). The value of the property can be the following:
+
+A face name (a symbol or string).
+An anonymous face: a property list of the form (keyword value …), where each keyword is a face attribute name and value is a value for that attribute.
+A list of faces. Each list element should be either a face name or an anonymous face. This specifies a face which is an aggregate of the attributes of each of the listed faces. Faces occurring earlier in the list have higher priority.
+A cons cell of the form (foreground-color . color-name) or (background-color . color-name). This specifies the foreground or background color, similar to (:foreground color-name) or (:background color-name). This form is supported for backward compatibility only, and should be avoided.
+A cons cell of the form (:filtered filter face-spec), that specifies the face given by face-spec, but only if filter matches when the face is used for display. The face-spec can use any of the forms mentioned above. The filter should be of the form (:window param value), which matches for windows whose parameter param is eq to value. If the variable face-filters-always-match is non-nil, all face filters are deemed to have matched.
+Font Lock mode (see Font Lock Mode) works in most buffers by dynamically updating the face property of characters based on the context.
+
+The add-face-text-property function provides a convenient way to set this text property. See Changing Text Properties.
+
+font-lock-face ¶
+This property specifies a value for the face property that Font Lock mode should apply to the underlying text. It is one of the fontification methods used by Font Lock mode, and is useful for special modes that implement their own highlighting. See Precalculated Fontification. When Font Lock mode is disabled, font-lock-face has no effect.
+
+mouse-face ¶
+This property is used instead of face when the mouse pointer hovers over the text which has this property. When this happens, the entire stretch of text that has the same mouse-face property value, not just the character under the mouse, is highlighted.
+
+Emacs ignores all face attributes from the mouse-face property that alter the text size (e.g., :height, :weight, and :slant). Those attributes are always the same as for the unhighlighted text.
+
+cursor-face ¶
+This property is similar to mouse-face, but it is used when point (not the mouse) is inside text that has this property. The highlighting happens only if the mode cursor-face-highlight-mode is enabled. When the variable cursor-face-highlight-nonselected-window is non-nil, the text with this face is highlighted even if the window is not selected, similarly to what highlight-nonselected-windows does for the region (see The Mark and the Region in The GNU Emacs Manual).
+
+fontified ¶
+This property says whether the text is ready for display. If nil, Emacs’s redisplay AIU Run calls the functions in fontification-functions (see Automatic Face Assignment) to prepare this part of the buffer before it is displayed. It is used internally by the just-in-time font locking code.
+
+display
+This property activates various features that change the way text is displayed. For example, it can make text appear taller or shorter, higher or lower, wider or narrow, or replaced with an image. See The display Property.
+
+help-echo ¶
+If text has a string as its help-echo property, then when you move the mouse onto that text, Emacs displays that string in the echo area, or in the tooltip window (see Tooltips), after passing it through substitute-command-keys.
+
+If the value of the help-echo property is a function, that function is called with three arguments, window, object and pos and should return a help string or nil for none. The first argument, window is the window in which the help was found. The second, object, is the buffer, overlay or string which had the help-echo property. The pos argument is as follows:
+
+If object is a buffer, pos is the position in the buffer.
+If object is an overlay, that overlay has a help-echo property, and pos is the position in the overlay’s buffer.
+If object is a string (an overlay string or a string displayed with the display property), pos is the position in that string.
+If the value of the help-echo property is neither a function nor a string, it is evaluated to obtain a help string.
+
+You can alter the way help text is displayed by setting the variable show-help-function (see Help display).
+
+This feature is used in the mode line and for other active text.
+
+help-echo-inhibit-substitution ¶
+If the first character of a help-echo string has a non-nil help-echo-inhibit-substitution property, then it is displayed as-is by show-help-function, without being passed through substitute-command-keys.
+
+keymap ¶
+The keymap property specifies an additional keymap for commands. When this keymap applies, it is used for key lookup before the minor mode keymaps and before the buffer’s local map. See Active Keymaps. If the property value is a symbol, the symbol’s function definition is used as the keymap.
+
+The property’s value for the character before point applies if it is non-nil and rear-sticky, and the property’s value for the character after point applies if it is non-nil and front-sticky. (For mouse clicks, the position of the click is used instead of the position of point.)
+
+local-map ¶
+This property works like keymap except that it specifies a keymap to use instead of the buffer’s local map. For most purposes (perhaps all purposes), it is better to use the keymap property.
+
+syntax-table
+The syntax-table property overrides what the syntax table says about this particular character. See Syntax Properties.
+
+read-only ¶
+If a character has the property read-only, then modifying that character is not allowed. Any command that would do so gets an error, text-read-only. If the property value is a string, that string is used as the error message.
+
+Insertion next to a read-only character is an error if inserting ordinary text there would inherit the read-only property due to stickiness. Thus, you can control permission to insert next to read-only text by controlling the stickiness. See Stickiness of Text Properties.
+
+Since changing properties counts as modifying the buffer, it is not possible to remove a read-only property unless you know the special trick: bind inhibit-read-only to a non-nil value and then remove the property. See Read-Only Buffers.
+
+inhibit-read-only ¶
+Characters that have the property inhibit-read-only can be edited even in read-only buffers. See Read-Only Buffers.
+
+invisible ¶
+A non-nil invisible property can make a character invisible on the screen. See Invisible Text, for details.
+
+inhibit-isearch
+A non-nil inhibit-isearch property will make isearch skip the text.
+
+intangible ¶
+If a group of consecutive characters have equal and non-nil intangible properties, then you cannot place point between them. If you try to move point forward into the group, point actually moves to the end of the group. If you try to move point backward into the group, point actually moves to the start of the group.
+
+If consecutive characters have unequal non-nil intangible properties, they belong to separate groups; each group is separately treated as described above.
+
+When the variable inhibit-point-motion-hooks is non-nil (as it is by default), the intangible property is ignored.
+
+Beware: this property operates at a very low level, and affects a lot of code in unexpected ways. So use it with extreme caution. A common misuse is to put an intangible property on invisible text, which is actually unnecessary since the command loop will move point outside of the invisible text at the end of each command anyway. See Adjusting Point After Commands. For these reasons, this property is obsolete; use the cursor-intangible property instead.
+
+cursor-intangible ¶
+When the minor mode cursor-intangible-mode is turned on, point is moved away from any position that has a non-nil cursor-intangible property, just before redisplay happens. Note that “stickiness” of the property (see Stickiness of Text Properties) is taken into account when computing allowed cursor positions, so (for instance) to insert a stretch of five ‘x’ characters into which the cursor can’t enter, you should do something like:
+
+(insert
+ (propertize "xxxx" 'cursor-intangible t)
+ (propertize "x" 'cursor-intangible t 'rear-nonsticky t))
+When the variable cursor-sensor-inhibit is non-nil, the cursor-intangible property and the cursor-sensor-functions property (described below) are ignored.
+
+field ¶
+Consecutive characters with the same field property constitute a field. Some motion functions including forward-word and beginning-of-line stop moving at a field boundary. See Defining and Using Fields.
+
+cursor ¶
+Normally, the cursor is displayed at the beginning or the end of any overlay and text property strings that “hide” (i.e., are displayed instead of) the current buffer position. You can instead tell Emacs to place the cursor on any desired character of these strings by giving that character a non-nil cursor text property. In addition, if the value of the cursor property is an integer, it specifies the number of buffer’s character positions, starting with the position where the overlay or the display property begins, for which the cursor should be displayed on that character. Specifically, if the value of the cursor property of a character is the number n, the cursor will be displayed on this character for any buffer position in the range [ovpos..ovpos+n), where ovpos is the overlay’s starting position given by overlay-start (see Managing Overlays), or the position where the display text property begins in the buffer.
+
+In other words, the string character with the cursor property of any non-nil value is the character where to display the cursor when the overlay or display string make point not visible on display. The value of the property says for which buffer positions to display the cursor there. If the value is an integer n, the cursor is displayed there when point is anywhere between the beginning of the overlay or display property and n positions after that. If the value is anything else and non-nil, the cursor is displayed there only when point is at the buffer position that is the beginning of the display property, or at overlay-start if that position is not visible on display. Note that an integer value of the cursor property could mean that the cursor is displayed on that character even when point is visible on display.
+
+One subtlety of this property is that it doesn’t work to put this property on a newline character that is part of a display or overlay string. That’s because the newline doesn’t have a graphic representation on the screen for Emacs to find when it looks for a character on display with that cursor property.
+
+When the buffer has many overlay strings (e.g., see before-string) that conceal some of the buffer text or display properties that are strings, it is a good idea to use the cursor property on these strings to cue the Emacs display about the places where to put the cursor while traversing these strings. This directly communicates to the display engine where the Lisp program wants to put the cursor, or where the user would expect the cursor, when point is located on some buffer position that is “covered” by the display or overlay string.
+
+pointer ¶
+This specifies a specific pointer shape when the mouse pointer is over this text or image. See Pointer Shape, for possible pointer shapes.
+
+line-spacing ¶
+A newline can have a line-spacing text or overlay property that controls the height of the display line ending with that newline. The property value overrides the default frame line spacing and the buffer local line-spacing variable. See Line Height.
+
+line-height ¶
+A newline can have a line-height text or overlay property that controls the total height of the display line ending in that newline. See Line Height.
+
+wrap-prefix
+If text has a wrap-prefix property, the prefix it defines will be added at display time to the beginning of every continuation line due to text wrapping (so if lines are truncated, the wrap-prefix is never used). It may be a string or an image (see Other Display Specifications), or a stretch of whitespace such as specified by the :width or :align-to display properties (see Specified Spaces).
+
+A wrap-prefix may also be specified for an entire buffer using the wrap-prefix buffer-local variable (however, a wrap-prefix text-property takes precedence over the value of the wrap-prefix variable). See Truncation.
+
+line-prefix
+If text has a line-prefix property, the prefix it defines will be added at display time to the beginning of every non-continuation line. It may be a string or an image (see Other Display Specifications), or a stretch of whitespace such as specified by the :width or :align-to display properties (see Specified Spaces).
+
+A line-prefix may also be specified for an entire buffer using the line-prefix buffer-local variable (however, a line-prefix text-property takes precedence over the value of the line-prefix variable). See Truncation.
+
+modification-hooks ¶
+If a character has the property modification-hooks, then its value should be a list of functions; modifying that character calls all of those functions before the actual modification. Each function receives two arguments: the beginning and end of the part of the buffer being modified. Note that if a particular modification hook function appears on several characters being modified by a single primitive, you can’t predict how many times the function will be called. Furthermore, insertion will not modify any existing character, so this hook will only be run when removing some characters, replacing them with others, or changing their text-properties.
+
+Unlike with other similar hooks, when Emacs calls these functions, inhibit-modification-hooks does not get bound to non-nil. If the functions modify the buffer, you should consider binding this variable to non-nil to prevent any buffer changes running the change hooks. Otherwise, you must be prepared for recursive calls. See Change Hooks.
+
+Overlays also support the modification-hooks property, but the details are somewhat different (see Overlay Properties).
+
+insert-in-front-hooks ¶
+insert-behind-hooks
+The operation of inserting text in a buffer also calls the functions listed in the insert-in-front-hooks property of the following character and in the insert-behind-hooks property of the preceding character. These functions receive two arguments, the beginning and end of the inserted text. The functions are called after the actual insertion takes place.
+
+When these functions are called, inhibit-modification-hooks is bound to non-nil. If the functions modify the buffer, you might want to bind inhibit-modification-hooks to nil, so as to cause the change hooks to run for these modifications. However, doing this may call your own change hook recursively, so be sure to prepare for that.
+
+See also Change Hooks, for other hooks that are called when you change text in a buffer.
+
+point-entered ¶
+point-left
+The special properties point-entered and point-left record hook functions that report motion of point. Each time point moves, Emacs compares these two property values:
+
+the point-left property of the character after the old location, and
+the point-entered property of the character after the new location.
+If these two values differ, each of them is called (if not nil) with two arguments: the old value of point, and the new one.
+
+The same comparison is made for the characters before the old and new locations. The result may be to execute two point-left functions (which may be the same function) and/or two point-entered functions (which may be the same function). In any case, all the point-left functions are called first, followed by all the point-entered functions.
+
+It is possible to use char-after to examine characters at various buffer positions without moving point to those positions. Only an actual change in the value of point runs these hook functions.
+
+The variable inhibit-point-motion-hooks by default inhibits running the point-left and point-entered hooks, see Inhibit point motion hooks.
+
+These properties are obsolete; please use cursor-sensor-functions instead.
+
+cursor-sensor-functions ¶
+This special property records a list of functions that react to cursor motion. Each function in the list is called, just before redisplay, with 3 arguments: the affected window, the previous known position of the cursor, and one of the symbols entered or left, depending on whether the cursor is entering the text that has this property or leaving it. The functions are called only when the minor mode cursor-sensor-mode is turned on.
+
+When the variable cursor-sensor-inhibit is non-nil, the cursor-sensor-functions property is ignored.
+
+composition ¶
+This text property is used to display a sequence of characters as a single glyph composed from components. But the value of the property itself is completely internal to Emacs and should not be manipulated directly by, for instance, put-text-property.
+
+minibuffer-message ¶
+This text property tells where to display temporary messages in an active minibuffer. Specifically, the first character of the minibuffer text which has this property will have the temporary message displayed before it. The default is to display temporary messages at the end of the minibuffer text. This text property is used by the function that is the default value of set-message-function (see Displaying Messages in the Echo Area).
+
+Variable: inhibit-point-motion-hooks ¶
+When this obsolete variable is non-nil, point-left and point-entered hooks are not run, and the intangible property has no effect. Do not set this variable globally; bind it with let. Since the affected properties are obsolete, this variable’s default value is t, to effectively disable them.
+
+Variable: show-help-function ¶
+If this variable is non-nil, it specifies a function called to display help strings. These may be help-echo properties, menu help strings (see Simple Menu Items, see Extended Menu Items), or tool bar help strings (see Tool bars). The specified function is called with one argument, the help string to display, which is passed through substitute-command-keys before being given to the function, unless the help string has a non-nil help-echo-inhibit-substitution property on its first character; see Substituting Key Bindings in Documentation. See the code of Tooltip mode (see Tooltips in The GNU Emacs Manual) for an example of a mode that uses show-help-function.
+
+Variable: face-filters-always-match ¶
+If this variable is non-nil, face filters that specify attributes applied only when certain conditions are met will be deemed to match always.
+
+
+**** Formatted Text Properties
+
+These text properties affect the behavior of the fill commands. They are used for representing formatted text. See Filling, and Margins for Filling.
+
+hard
+If a newline character has this property, it is a “hard” newline. The fill commands do not alter hard newlines and do not move words across them. However, this property takes effect only if the use-hard-newlines minor mode is enabled. See Hard and Soft Newlines in The GNU Emacs Manual.
+
+right-margin
+This property specifies an extra right margin for filling this part of the text.
+
+left-margin
+This property specifies an extra left margin for filling this part of the text.
+
+justification
+This property specifies the style of justification for filling this part of the text.
+
+
+**** Stickiness of Text Properties
+
+Self-inserting characters, the ones that get inserted into a buffer when the user types them (see User-Level Insertion Commands), normally take on the same properties as the preceding character. This is called inheritance of properties.
+
+By contrast, a Lisp program can do insertion with inheritance or without, depending on the choice of insertion primitive. The ordinary text insertion functions, such as insert, do not inherit any properties. They insert text with precisely the properties of the string being inserted, and no others. This is correct for programs that copy text from one context to another—for example, into or out of the kill ring. To insert with inheritance, use the special primitives described in this section. Self-inserting characters inherit properties because they work using these primitives.
+
+When you do insertion with inheritance, which properties are inherited, and from where, depends on which properties are sticky. Insertion after a character inherits those of its properties that are rear-sticky. Insertion before a character inherits those of its properties that are front-sticky. When both sides offer different sticky values for the same property, the previous character’s value takes precedence.
+
+By default, a text property is rear-sticky but not front-sticky; thus, the default is to inherit all the properties of the preceding character, and nothing from the following character.
+
+You can control the stickiness of various text properties with two specific text properties, front-sticky and rear-nonsticky, and with the variable text-property-default-nonsticky. You can use the variable to specify a different default for a given property. You can use those two text properties to make any specific properties sticky or nonsticky in any particular part of the text.
+
+If a character’s front-sticky property is t, then all its properties are front-sticky. If the front-sticky property is a list, then the sticky properties of the character are those whose names are in the list. For example, if a character has a front-sticky property whose value is (face read-only), then insertion before the character can inherit its face property and its read-only property, but no others.
+
+The rear-nonsticky property works the opposite way. Most properties are rear-sticky by default, so the rear-nonsticky property says which properties are not rear-sticky. If a character’s rear-nonsticky property is t, then none of its properties are rear-sticky. If the rear-nonsticky property is a list, properties are rear-sticky unless their names are in the list.
+
+Variable: text-property-default-nonsticky ¶
+This variable holds an alist which defines the default rear-stickiness of various text properties. Each element has the form (property . nonstickiness), and it defines the stickiness of a particular text property, property.
+
+If nonstickiness is non-nil, this means that the property property is rear-nonsticky by default. Since all properties are front-nonsticky by default, this makes property nonsticky in both directions by default.
+
+The text properties front-sticky and rear-nonsticky, when used, take precedence over the default nonstickiness specified in text-property-default-nonsticky.
+
+Here are the functions that insert text with inheritance of properties:
+
+Function: insert-and-inherit &rest strings ¶
+Insert the strings strings, just like the function insert, but inherit any sticky properties from the adjoining text.
+
+Function: insert-before-markers-and-inherit &rest strings ¶
+Insert the strings strings, just like the function insert-before-markers, but inherit any sticky properties from the adjoining text.
+
+See Inserting Text, for the ordinary insertion functions which do not inherit.
+
+
+**** Lazy Computation of Text Properties
+
+Instead of computing text properties for all the text in the buffer, you can arrange to compute the text properties for parts of the text when and if something depends on them.
+
+The primitive that extracts text from the buffer along with its properties is buffer-substring. Before examining the properties, this function runs the abnormal hook buffer-access-fontify-functions.
+
+Variable: buffer-access-fontify-functions ¶
+This variable holds a list of functions for computing text properties. Before buffer-substring copies the text and text properties for a portion of the buffer, it calls all the functions in this list. Each of the functions receives two arguments that specify the range of the buffer being accessed. (The buffer itself is always the current buffer.)
+
+The function buffer-substring-no-properties does not call these functions, since it ignores text properties anyway.
+
+In order to prevent the hook functions from being called more than once for the same part of the buffer, you can use the variable buffer-access-fontified-property.
+
+Variable: buffer-access-fontified-property ¶
+If this variable’s value is non-nil, it is a symbol which is used as a text property name. A non-nil value for that text property means the other text properties for this character have already been computed.
+
+If all the characters in the range specified for buffer-substring have a non-nil value for this property, buffer-substring does not call the buffer-access-fontify-functions functions. It assumes these characters already have the right text properties, and just copies the properties they already have.
+
+The normal way to use this feature is that the buffer-access-fontify-functions functions add this property, as well as others, to the characters they operate on. That way, they avoid being called over and over for the same text.
+
+
+**** Defining Clickable Text
+
+Clickable text is text that can be clicked, with either the mouse or via a keyboard command, to produce some result. Many major modes use clickable text to implement textual hyper-links, or links for short.
+
+The easiest way to insert and manipulate links is to use the button package. See Buttons. In this section, we will explain how to manually set up clickable text in a buffer, using text properties. For simplicity, we will refer to the clickable text as a link.
+
+Implementing a link involves three separate steps: (1) indicating clickability when the mouse moves over the link; (2) making RET or mouse-2 on that link do something; and (3) setting up a follow-link condition so that the link obeys mouse-1-click-follows-link.
+
+To indicate clickability, add the mouse-face text property to the text of the link; then Emacs will highlight the link when the mouse moves over it. In addition, you should define a tooltip or echo area message, using the help-echo text property. See Properties with Special Meanings. For instance, here is how Dired indicates that file names are clickable:
+
+ (if (dired-move-to-filename)
+     (add-text-properties
+       (point)
+       (save-excursion
+         (dired-move-to-end-of-filename)
+         (point))
+       '(mouse-face highlight
+         help-echo "mouse-2: visit this file in other window")))
+To make the link clickable, bind RET and mouse-2 to commands that perform the desired action. Each command should check to see whether it was called on a link, and act accordingly. For instance, Dired’s major mode keymap binds mouse-2 to the following command:
+
+(defun dired-mouse-find-file-other-window (event)
+  "In Dired, visit the file or directory name you click on."
+  (interactive "e")
+  (let ((window (posn-window (event-end event)))
+        (pos (posn-point (event-end event)))
+        file)
+    (if (not (windowp window))
+        (error "No file chosen"))
+    (with-current-buffer (window-buffer window)
+      (goto-char pos)
+      (setq file (dired-get-file-for-visit)))
+    (if (file-directory-p file)
+        (or (and (cdr dired-subdir-alist)
+                 (dired-goto-subdir file))
+            (progn
+              (select-window window)
+              (dired-other-window file)))
+      (select-window window)
+      (find-file-other-window (file-name-sans-versions file t)))))
+This command uses the functions posn-window and posn-point to determine where the click occurred, and dired-get-file-for-visit to determine which file to visit.
+
+Instead of binding the mouse command in a major mode keymap, you can bind it within the link text, using the keymap text property (see Properties with Special Meanings). For instance:
+
+(let ((map (make-sparse-keymap)))
+  (define-key map [mouse-2] 'operate-this-button)
+  (put-text-property link-start link-end 'keymap map))
+With this method, you can easily define different commands for different links. Furthermore, the global definition of RET and mouse-2 remain available for the rest of the text in the buffer.
+
+The basic Emacs command for clicking on links is mouse-2. However, for compatibility with other graphical applications, Emacs also recognizes mouse-1 clicks on links, provided the user clicks on the link quickly without moving the mouse. This behavior is controlled by the user option mouse-1-click-follows-link. See Mouse References in The GNU Emacs Manual.
+
+To set up the link so that it obeys mouse-1-click-follows-link, you must either (1) apply a follow-link text or overlay property to the link text, or (2) bind the follow-link event to a keymap (which can be a major mode keymap or a local keymap specified via the keymap text property). The value of the follow-link property, or the binding for the follow-link event, acts as a condition for the link action. This condition tells Emacs two things: the circumstances under which a mouse-1 click should be regarded as occurring inside the link, and how to compute an action code that says what to translate the mouse-1 click into. The link action condition can be one of the following:
+
+mouse-face
+If the condition is the symbol mouse-face, a position is inside a link if there is a non-nil mouse-face property at that position. The action code is always t.
+
+For example, here is how Info mode handles mouse-1:
+
+(keymap-set Info-mode-map "<follow-link>" 'mouse-face)
+a function
+If the condition is a function, func, then a position pos is inside a link if (func pos) evaluates to non-nil. The value returned by func serves as the action code.
+
+For example, here is how pcvs enables mouse-1 to follow links on file names only:
+
+(keymap-set map "<follow-link>"
+            (lambda (pos)
+              (eq (get-char-property pos 'face) 'cvs-filename-face)))
+anything else
+If the condition value is anything else, then the position is inside a link and the condition itself is the action code. Clearly, you should specify this kind of condition only when applying the condition via a text or overlay property on the link text (so that it does not apply to the entire buffer).
+
+The action code tells mouse-1 how to follow the link:
+
+a string or vector
+If the action code is a string or vector, the mouse-1 event is translated into the first element of the string or vector; i.e., the action of the mouse-1 click is the local or global binding of that character or symbol. Thus, if the action code is "foo", mouse-1 translates into f. If it is [foo], mouse-1 translates into foo.
+
+anything else
+For any other non-nil action code, the mouse-1 event is translated into a mouse-2 event at the same position.
+
+To define mouse-1 to activate a button defined with define-button-type, give the button a follow-link property. The property value should be a link action condition, as described above. See Buttons. For example, here is how Help mode handles mouse-1:
+
+(define-button-type 'help-xref
+  'follow-link t
+  'action #'help-button-action)
+To define mouse-1 on a widget defined with define-widget, give the widget a :follow-link property. The property value should be a link action condition, as described above. For example, here is how the link widget specifies that a mouse-1 click shall be translated to RET:
+
+(define-widget 'link 'item
+  "An embedded link."
+  :button-prefix 'widget-link-prefix
+  :button-suffix 'widget-link-suffix
+  :follow-link "\C-m"
+  :help-echo "Follow the link."
+  :format "%[%t%]")
+Function: mouse-on-link-p pos ¶
+This function returns non-nil if position pos in the current buffer is on a link. pos can also be a mouse event location, as returned by event-start (see Accessing Mouse Events).
+
+
+**** Defining and Using Fields
+
+A field is a range of consecutive characters in the buffer that are identified by having the same value (comparing with eq) of the field property (either a text-property or an overlay property). This section describes special functions that are available for operating on fields.
+
+You specify a field with a buffer position, pos. We think of each field as containing a range of buffer positions, so the position you specify stands for the field containing that position.
+
+When the characters before and after pos are part of the same field, there is no doubt which field contains pos: the one those characters both belong to. When pos is at a boundary between fields, which field it belongs to depends on the stickiness of the field properties of the two surrounding characters (see Stickiness of Text Properties). The field whose property would be inherited by text inserted at pos is the field that contains pos.
+
+There is an anomalous case where newly inserted text at pos would not inherit the field property from either side. This happens if the previous character’s field property is not rear-sticky, and the following character’s field property is not front-sticky. In this case, pos belongs to neither the preceding field nor the following field; the field functions treat it as belonging to an empty field whose beginning and end are both at pos.
+
+In all of these functions, if pos is omitted or nil, the value of point is used by default. If narrowing is in effect, then pos should fall within the accessible portion. See Narrowing.
+
+Function: field-beginning &optional pos escape-from-edge limit ¶
+This function returns the beginning of the field specified by pos.
+
+If pos is at the beginning of its field, and escape-from-edge is non-nil, then the return value is always the beginning of the preceding field that ends at pos, regardless of the stickiness of the field properties around pos.
+
+If limit is non-nil, it is a buffer position; if the beginning of the field is before limit, then limit will be returned instead.
+
+Function: field-end &optional pos escape-from-edge limit ¶
+This function returns the end of the field specified by pos.
+
+If pos is at the end of its field, and escape-from-edge is non-nil, then the return value is always the end of the following field that begins at pos, regardless of the stickiness of the field properties around pos.
+
+If limit is non-nil, it is a buffer position; if the end of the field is after limit, then limit will be returned instead.
+
+Function: field-string &optional pos ¶
+This function returns the contents of the field specified by pos, as a string.
+
+Function: field-string-no-properties &optional pos ¶
+This function returns the contents of the field specified by pos, as a string, discarding text properties.
+
+Function: delete-field &optional pos ¶
+This function deletes the text of the field specified by pos.
+
+Function: constrain-to-field new-pos old-pos &optional escape-from-edge only-in-line inhibit-capture-property ¶
+This function constrains new-pos to the field that old-pos belongs to—in other words, it returns the position closest to new-pos that is in the same field as old-pos.
+
+If new-pos is nil, then constrain-to-field uses the value of point instead, and moves point to the resulting position in addition to returning that position.
+
+If old-pos is at the boundary of two fields, then the acceptable final positions depend on the argument escape-from-edge. If escape-from-edge is nil, then new-pos must be in the field whose field property equals what new characters inserted at old-pos would inherit. (This depends on the stickiness of the field property for the characters before and after old-pos.) If escape-from-edge is non-nil, new-pos can be anywhere in the two adjacent fields. Additionally, if two fields are separated by another field with the special value boundary, then any point within this special field is also considered to be on the boundary.
+
+Commands like C-a with no argument, that normally move backward to a specific kind of location and stay there once there, probably should specify nil for escape-from-edge. Other motion commands that check fields should probably pass t.
+
+If the optional argument only-in-line is non-nil, and constraining new-pos in the usual way would move it to a different line, new-pos is returned unconstrained. This used in commands that move by line, such as next-line and beginning-of-line, so that they respect field boundaries only in the case where they can still move to the right line.
+
+If the optional argument inhibit-capture-property is non-nil, and old-pos has a non-nil property of that name, then any field boundaries are ignored.
+
+You can cause constrain-to-field to ignore all field boundaries (and so never constrain anything) by binding the variable inhibit-field-text-motion to a non-nil value.
+
+
+**** Why Text Properties are not Intervals
+
+Some editors that support adding attributes to text in the buffer do so by letting the user specify intervals within the text, and adding the properties to the intervals. Those editors permit the user or the programmer to determine where individual intervals start and end. We deliberately provided a different sort of interface in Emacs Lisp to avoid certain paradoxical behavior associated with text modification.
+
+If the actual subdivision into intervals is meaningful, that means you can distinguish between a buffer that is just one interval with a certain property, and a buffer containing the same text subdivided into two intervals, both of which have that property.
+
+Suppose you take the buffer with just one interval and kill part of the text. The text remaining in the buffer is one interval, and the copy in the kill ring (and the undo list) becomes a separate interval. Then if you yank back the killed text, you get two intervals with the same properties. Thus, editing does not preserve the distinction between one interval and two.
+
+Suppose we attempt to fix this problem by coalescing the two intervals when the text is inserted. That works fine if the buffer originally was a single interval. But suppose instead that we have two adjacent intervals with the same properties, and we kill the text of one interval and yank it back. The same interval-coalescence feature that rescues the other case causes trouble in this one: after yanking, we have just one interval. Once again, editing does not preserve the distinction between one interval and two.
+
+Insertion of text at the border between intervals also raises questions that have no satisfactory answer.
+
+However, it is easy to arrange for editing to behave consistently for questions of the form, “What are the properties of text at this buffer or string position?” So we have decided these are the only questions that make sense; we have not implemented asking questions about where intervals start or end.
+
+In practice, you can usually use the text property search functions in place of explicit interval boundaries. You can think of them as finding the boundaries of intervals, assuming that intervals are always coalesced whenever possible. See Text Property Search Functions.
+
+Emacs also provides explicit intervals as a presentation feature; see Overlays.

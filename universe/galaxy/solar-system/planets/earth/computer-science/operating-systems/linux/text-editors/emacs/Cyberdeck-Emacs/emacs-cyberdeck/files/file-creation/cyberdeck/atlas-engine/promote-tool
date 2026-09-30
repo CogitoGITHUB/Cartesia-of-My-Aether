@@ -1,0 +1,61 @@
+* Promote Tool :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       f4e80f89-ebe9-4078-933c-eb1ad79d7b6f
+:END:
+
+Turn a selection or heading into a linked AIU via named templates:
+template data plus a macro that generates one command per template.
+Reuse-or-create by title; the selection becomes an ordinary id: link.
+Built on the standard find/create/link primitives, not a parallel
+pipeline.  Nothing here runs at load.
+
+** Templates and macro
+#+begin_src emacs-lisp
+(require 'cl-lib)
+
+(defvar my/cyberdeck-promote-templates nil
+  "Alist (KEY . (:name NAME :target-file FILE :tags (T...))).")
+
+(defun my/cyberdeck-promote-register-template (key name target-file tags)
+  "Register promote template KEY."
+  (push (cons key (list :name name :target-file target-file :tags tags))
+        (setq my/cyberdeck-promote-templates
+              (assoc-delete-all key my/cyberdeck-promote-templates))))
+
+(defmacro my/cyberdeck-define-promote-command (name key)
+  "Define interactive command NAME promoting via template KEY."
+  (declare (indent 1))
+  `(defun ,name (text)
+     ,(format "Promote TEXT to a linked AIU via template %s." key)
+     (interactive
+      (list (if (region-active-p)
+                (buffer-substring-no-properties (region-beginning) (region-end))
+              (read-string "Text: "))))
+     (my/cyberdeck-promote text ,key)))
+
+(defun my/cyberdeck-promote-find-aiu (title)
+  "Existing AIU titled TITLE, or nil."
+  (cl-find title (ignore-errors (cyberdeck-db-query))
+           :key (lambda (n) (ignore-errors (cyberdeck-aiu-title n)))
+           :test #'string=))
+
+(defun my/cyberdeck-promote (text key)
+  "Promote TEXT to a linked AIU via template KEY (reuse or create)."
+  (interactive
+   (list (if (region-active-p)
+             (buffer-substring-no-properties (region-beginning) (region-end))
+           (read-string "Text: "))
+         (completing-read "Template: "
+                          (mapcar #'car my/cyberdeck-promote-templates))))
+  (let* ((tpl (cdr (assoc key my/cyberdeck-promote-templates)))
+         (note (or (my/cyberdeck-promote-find-aiu text)
+                   (and (fboundp 'cyberdeck-find-create-aiu)
+                        (ignore-errors
+                         (cyberdeck-find-create-aiu text))))))
+    (if (null note)
+        (message "promote: could not create AIU for '%s'" text)
+      (when (region-active-p)
+        (delete-region (region-beginning) (region-end)))
+      (insert (cyberdeck-utils-link-make-string note text))
+      (message "promoted to '%s'" text))))
+#+end_src

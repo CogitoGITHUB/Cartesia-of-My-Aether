@@ -1,0 +1,67 @@
+SPC v: AIU Cyberdeck menu.
+
+* SPC v — AIU Cyberdeck :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       875a96ee-33ea-4d4a-be30-e6db1a7f3396
+:MM_PARENT: none
+:MM_ORDER:  202.0
+:END:
+#+begin_src emacs-lisp
+(my/defhydra-state my/cyberdeck-hydra nil "AIU Cyberdeck" (my/main-hydra/body "main menu")
+  "Find"
+  (("v" cyberdeck-find "find AIU" :exit t)
+   ("V" my/cyberdeck-insert-link "insert link" :exit t)
+   ("r" my/cyberdeck-rename-link "rename link" :exit t))
+  "Capture"
+  (("h" my/cyberdeck-capture-heading "new heading" :exit t)
+   ("c" my/cyberdeck-insert-heading "at point" :exit t)
+   ("H" my/cyberdeck-heading-to-aiu "heading→AIU" :exit t))
+   "Meta"
+   (("u" cyberdeck-ui-sidebar-toggle "sidebar" :exit t)
+    ("E" my/cyberdeck-reinforce-sweep "schema sweep" :exit t))
+  "Rules"
+  (("k" my/cyberdeck-rules-mark-as-rule "mark rule" :exit t)
+   ("K" my/cyberdeck-rules-goto-routed-file "rule file" :exit t)
+   ("R" my/cyberdeck-find-rules "find rules" :exit t))
+  "Protocols"
+  (("p" my/cyberdeck-protocols-build "build" :exit t)
+   ("m" my/cyberdeck-protocols-mark-as-step "mark step" :exit t)
+   ("i" my/cyberdeck-find-protocols "find protocols" :exit t))
+  "Vocab"
+   (("w" my/cyberdeck-dictionary-menu "dictionary" :exit t))
+   "Installation Protocol"
+  (("g" my/cyberdeck-installation-protocol-review "review due" :exit t)
+   ("G" my/cyberdeck-installation-protocol-review-overdue "review overdue" :exit t)
+   ("M" my/cyberdeck-installation-protocol-mark-review "mark reviewed" :exit t)
+   ("a" my/cyberdeck-installation-protocol-attest "attest stage" :exit t)
+   ("d" my/cyberdeck-installation-protocol-review-subtree "branch" :exit t)
+   ("t" my/cyberdeck-installation-protocol-toggle-participation "suspend" :exit t))
+  "Search"
+  (("s" my/cyberdeck-search "search center" :exit t))
+  "Recipe"
+  (("n" my/cyberdeck-recipe-create "new recipe" :exit t)
+   ("e" my/cyberdeck-recipes-edit-servings "edit servings" :exit t)
+   ("f" my/cyberdeck-recipes-menu "recipes" :exit t))
+  "AIU Runs"
+  (("N" my/cyberdeck-aiu-runs-create "new AIU Run" :exit t)
+   ("J" my/cyberdeck-aiu-runs-chain-create "new chain" :exit t)
+   ("F" my/cyberdeck-aiu-runs-find "find AIU Run" :exit t)
+   ("B" my/cyberdeck-aiu-runs-generate "generate" :exit t)
+   ("X" my/cyberdeck-aiu-runs-run "run" :exit t)
+   ("!" my/cyberdeck-aiu-runs-validate "validate" :exit t)
+   ("S" my/cyberdeck-aiu-runs-report "report" :exit t)
+   ("T" my/cyberdeck-aiu-runs-menu "menu" :exit t))
+  "AIU Proxy"
+  (("y" my/aiu-proxy-hydra/body "AIU Proxy" :exit t))
+  "Config"
+   (("A" my/cyberdeck-open-drawer-order "drawer order" :exit t)
+    ("b" my/cyberdeck-blueprint-nest-at-point "nest blueprint" :exit t)
+    ("P" my/cyberdeck-blueprint-add "blueprint file" :exit t))
+  "Mechanism"
+  (("D" my/cyberdeck-emacs-mechanism-local-create "new mechanism" :exit t)
+   ("L" my/cyberdeck-emacs-mechanism-module-create "new module" :exit t)
+   ("Q" my/cyberdeck-emacs-mechanism-agent-create "new agent" :exit t)
+   ("U" my/cyberdeck-emacs-mechanism-auto-run "auto-convert" :exit t))
+  "Tools"
+  (("T" my/cyberdeck-tools-hydra/body "tools" :exit t)))
+#+end_src

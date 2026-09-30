@@ -1,0 +1,162 @@
+* Dashboard Widget DSL :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       aa22d145-ead7-4293-a7c8-e5230a7da69c
+:MM_PARENT: none
+:MM_ORDER:  78.2
+:CATEGORY: ui
+:END:
+
+Mirrors the keyboard `define-state` DSL: one macro invocation declares
+a widget — generator defun, item-generators entry, registry push.
+Deleting a widgets/ file unregisters it next boot (fresh process, no
+manifest). Depends only on builtins.
+
+** Registry
+#+begin_src emacs-lisp
+(defvar cyberdeck-dashboard--widget-registry nil
+  "Manifold widget keys registered this boot, in load order.
+Fresh process plus file-drop files: only present files register.
+Entries are (KEY . LENGTH).")
+
+#+end_src
+
+** Define-widget macro
+#+begin_src emacs-lisp
+(defmacro cyberdeck-dashboard-define-widget (name &rest spec)
+  "Declare dashboard widget NAME (unprefixed symbol, e.g. clock).
+SPEC keys: :length (default 1), :doc, :helpers (extra top-level
+forms: vars, timers, hooks), :generate (body forms rendering the
+section with point in the dashboard buffer). Expands to the
+`dashboard-insert-cyberdeck-NAME' generator, the item-generators
+entry, and a registry push."
+  (declare (indent 1))
+  (let ((len (or (plist-get spec :length) 1))
+        (doc (plist-get spec :doc))
+        (helpers (plist-get spec :helpers))
+        (gen (plist-get spec :generate))
+        (fn (intern (format "dashboard-insert-cyberdeck-%s" name)))
+        (key (intern (format "cyberdeck-%s" name))))
+    `(progn
+       ,@helpers
+       (defun ,fn (_list-size)
+         ,@(and doc (list doc))
+         ,@gen)
+       (add-to-list 'dashboard-item-generators ',(cons key fn))
+       (unless (assq ',key cyberdeck-dashboard--widget-registry)
+         (push ',(cons key len) cyberdeck-dashboard--widget-registry)))))
+#+end_src
+
+** Skeleton writer
+#+begin_src emacs-lisp
+(defvar cyberdeck-dashboard--module-dir
+  (file-name-as-directory
+   (directory-file-name
+    (expand-file-name
+     ".."
+     (file-name-directory
+      ;; The loader binds this per unit (cyberdeck-emacs:2170), so it is
+      ;; the one anchor that is right on both load paths. `load-file-name'
+      ;; is bound only while a unit loads and `default-directory' pointed
+      ;; at the loader's *cache* on the interpreted path — which is how this
+      ;; once resolved to `~/.config/emacs/.local/cache/'. And
+      ;; `cyberdeck-emacs-loader-dir' is no use either: that is the
+      ;; tangled loader's own directory (~/.config/emacs), not the vault.
+      (or (and (boundp 'cyberdeck-emacs--current-unit-file)
+               cyberdeck-emacs--current-unit-file)
+          load-file-name
+          buffer-file-name
+          default-directory)))))
+  "Absolute path of the cyberdeck-dashboard/ module directory.
+
+A variable, not a defun, so it is read as one. Renames above this file
+never break it, and a full vault move needs no edit.")
+
+(defun cyberdeck-dashboard-new-widget (name)
+  "Create widgets/<NAME> from the widget skeleton. Mirrors the
+keyboard scaffolding writers: file-drop registration, one wanted-list
+line in engine/setup. Errors loudly when the file already exists."
+  (interactive "sWidget name (unprefixed, e.g. clock): ")
+  (when (string-empty-p name)
+    (user-error "Widget name must not be empty"))
+  (let ((path (expand-file-name
+               (format "widgets/%s" name)
+               cyberdeck-dashboard--module-dir)))
+    (when (file-exists-p path)
+      (user-error "Widget file exists: %s" path))
+    (with-temp-file path
+      ;; The heading is the unit's name. The loader takes a unit's title
+      ;; from its level-1 heading and not from #+title:, and reads only
+      ;; :ID:, :MM_PARENT: and :MM_ORDER: out of the drawer. So this
+      ;; template emits no #+title:, #+filetags: or #+property: — the
+      ;; first two are ignored, and the third falsely implies a
+      ;; per-file lexical-binding control that does not exist.
+      (insert (format "* Cyberdeck %s Widget :EMACS_MECHANISM:\n:PROPERTIES:\n:ID:       %s\n:MM_PARENT: none\n:MM_ORDER:  78.4\n:END:\n\nDescribe the widget here.\n\n** Widget\n#+begin_src emacs-lisp\n(cyberdeck-dashboard-define-widget %s\n  :doc \"What this section shows.\"\n  :generate\n  ((insert \"\\n\")\n   (insert \"hello\")))\n#+end_src\n"
+                      (capitalize name) (org-id-uuid) name)))
+    (find-file path)
+    (message "Widget created: %s (add one wanted-list line in engine/setup)" path)))
+#+end_src
+
+** Validator
+#+begin_src emacs-lisp
+(defun cyberdeck-dashboard--widget-files ()
+  "Files in the module's widgets/ directory. Nil when it does not exist."
+  (let ((dir (expand-file-name "widgets" cyberdeck-dashboard--module-dir)))
+    (and (file-directory-p dir)
+         (directory-files dir nil "[^./]+$" t))))
+
+(defun cyberdeck-dashboard-validate ()
+  "Check the widget registry against reality. Mirrors the keyboard
+validator: generator defined? item-generators entry present? wanted
+entries resolvable? Every widget has a file? No file without a widget?
+
+Returns problems (empty means clean).
+
+The last two checks are the ones that matter and did not exist: this
+module once carried five `:DASHBOARD_BLUEPRINT:' files that no code path
+read for anything but a `:LENGTH:' of 1 — the same value the registry
+already returned — and a `:BLUEPRINT_BODY:' variant mechanism that was
+never implemented. They sat there looking load-bearing because the old
+validator only checked that every *widget* had a blueprint, never that
+anything *consumed* one. An orphan check is what catches that class."
+  (let (problems)
+    (dolist (pair cyberdeck-dashboard--widget-registry)
+      (let* ((key (car pair))
+             (len (cdr pair))
+             (fn (cdr (assq key dashboard-item-generators))))
+        (unless (and fn (fboundp fn))
+          (push (format "widget %s: generator %s missing" key fn) problems))
+        ;; A non-positive length silently renders a clipped section.
+        (unless (and (integerp len) (> len 0))
+          (push (format "widget %s: bad :length %S (must be a positive integer)"
+                        key len)
+                problems))
+        ;; Every registered widget must be a real file, so a widget cannot
+        ;; be registered from somewhere that has since been moved away.
+        (let ((file (expand-file-name
+                     (format "widgets/%s" (string-remove-prefix "cyberdeck-"
+                                                              (format "%s" key)))
+                     cyberdeck-dashboard--module-dir)))
+          (unless (file-exists-p file)
+            (push (format "widget %s: registered but no file at %s" key file)
+                  problems)))))
+    (dolist (name (cyberdeck-dashboard--order-file-keys))
+      (when (and (string-prefix-p "cyberdeck-" (format "%s" name))
+                 (not (assq name cyberdeck-dashboard--widget-registry))
+                 (not (cdr (assq name dashboard-item-generators))))
+        (push (format "order file %s: no widget file registers it" name) problems)))
+    ;; The inverse: a file in widgets/ that no widget claims. This is the
+    ;; check that would have flagged the orphaned blueprints on the day
+    ;; they were added, instead of months later.
+    (let ((claimed (mapcar (lambda (key)
+                             (string-remove-prefix "cyberdeck-" (format "%s" key)))
+                           (mapcar #'car cyberdeck-dashboard--widget-registry))))
+      (dolist (file (cyberdeck-dashboard--widget-files))
+        (unless (member (file-name-nondirectory file) claimed)
+          (push (format "orphan file widgets/%s: no widget registers it"
+                        (file-name-nondirectory file))
+                problems))))
+    (when problems
+      (message "cyberdeck-dashboard: %d problem(s): %s"
+               (length problems) (mapconcat #'identity problems "; ")))
+    problems))
+#+end_src

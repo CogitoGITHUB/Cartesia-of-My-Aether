@@ -1,0 +1,65 @@
+* Cyberdeck Dashboard Faces :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       1069b25a-f16b-4095-a688-061d0aebaa8a
+:MM_PARENT: none
+:MM_ORDER:  78.85
+:CATEGORY: ui
+:END:
+
+Pure-red face tuning plus apply. Edit freely. Two-decimal order keeps the group contiguous; loads before setup.
+
+** Faces — Banner & Title
+
+#+begin_src emacs-lisp
+(defun cyberdeck/pure-red--dashboard-banner ()
+  (with-eval-after-load 'dashboard
+    (dolist (face '(dashboard-banner-logo-title dashboard-text-banner))
+      (when (facep face)
+        (set-face-attribute face nil
+                            :foreground "#FFFFFF" :background 'unspecified :weight 'bold :inherit nil)))))
+#+end_src
+
+** Faces — Headings
+
+#+begin_src emacs-lisp
+(defun cyberdeck/pure-red--dashboard-headings ()
+  (with-eval-after-load 'dashboard
+    (when (facep 'dashboard-heading)
+      (set-face-attribute 'dashboard-heading nil
+                          :foreground "#FFFFFF" :background 'unspecified :weight 'bold :inherit nil))))
+#+end_src
+
+** Faces — Items
+
+#+begin_src emacs-lisp
+(defun cyberdeck/pure-red--dashboard-items ()
+  (with-eval-after-load 'dashboard
+    (when (facep 'dashboard-items-face)
+      (set-face-attribute 'dashboard-items-face nil
+                          :foreground "#FFFFFF" :background 'unspecified :weight 'normal :inherit nil))))
+#+end_src
+
+** Faces — Footer
+
+#+begin_src emacs-lisp
+(defun cyberdeck/pure-red--dashboard-footer ()
+  (with-eval-after-load 'dashboard
+    (dolist (face '(dashboard-footer dashboard-footer-icon-face))
+      (when (facep face)
+        (set-face-attribute face nil
+                            :foreground "#FFFFFF" :background 'unspecified :weight 'normal :inherit nil)))))
+#+end_src
+
+** Faces — Apply
+
+#+begin_src emacs-lisp
+(defun cyberdeck/pure-red--dashboard ()
+  (cyberdeck/pure-red--dashboard-banner)
+  (cyberdeck/pure-red--dashboard-headings)
+  (cyberdeck/pure-red--dashboard-items)
+  (cyberdeck/pure-red--dashboard-footer))
+
+(cyberdeck/pure-red--dashboard)
+(advice-add 'load-theme :after (lambda (&rest _) (cyberdeck/pure-red--dashboard)))
+(add-hook 'after-make-frame-functions (lambda (_frame) (cyberdeck/pure-red--dashboard)))
+#+end_src

@@ -1,0 +1,107 @@
+* Org TODO States :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       9a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d
+:MM_PARENT: none
+:MM_ORDER:  107.0
+:CATEGORY: org
+:END:
+
+Single source of truth for the TODO vocabulary: the Cyberdeck TODO
+blueprint. Every `** STATE :BLUEPRINT_BODY:' heading there is a todo
+state. Add, remove or reorder one there and `org-todo-keywords'
+follows on the next reload — nothing else needs editing.
+
+** Blueprint path
+#+begin_src emacs-lisp
+(defconst my/subnet-todo-blueprint
+  (expand-file-name
+   "emacs-cyberdeck/files/file-creation/cyberdeck/blueprints/heading-unfoldings/todo"
+   cyberdeck-emacs-loader-dir)
+  "Canonical TODO vocabulary: the Atlas TODO blueprint.
+The one place TODO states are defined. Adding, removing or
+reordering a `** STATE :BLUEPRINT_BODY:' heading there changes
+`org-todo-keywords' and `consult-todo-narrow' on the next reload.")
+#+end_src
+
+** Read the vocabulary
+#+begin_src emacs-lisp
+(defun my/subnet-todo-states ()
+  "TODO states read from `my/subnet-todo-blueprint', in file order.
+Returns nil rather than signalling when the blueprint is missing or
+holds no body headings, so a renamed tree cannot break boot."
+  (when (file-exists-p my/subnet-todo-blueprint)
+    (with-temp-buffer
+      (insert-file-contents my/subnet-todo-blueprint)
+      (goto-char (point-min))
+      (let (states)
+        (while (re-search-forward
+                "^\\*\\*+[ \t]+\\([A-Z][A-Z0-9-]*\\)[ \t]+:BLUEPRINT_BODY:"
+                nil t)
+          (let ((state (match-string 1)))
+            (unless (member state states)
+              (push state states))))
+        (nreverse states)))))
+
+(defun my/subnet-todo-keywords ()
+  "Build the `org-todo-keywords' value from the blueprint.
+States before DONE are open; DONE and everything after it are
+completed. With no DONE in the blueprint every state is open.
+
+Deliberately built from `member' and `length' alone. The obvious
+`(position \"DONE\" states)' is `cl-position' or `seq-position'
+depending on which library happens to be loaded, and is a void
+function when neither is — which turns this into a boot-time error
+that surfaces much later, in `org-set-regexps-and-options', a long way
+from its cause."
+  (let* ((states (or (my/subnet-todo-states) '("TODO" "DONE")))
+         (done (member "DONE" states))
+         ;; `member' returns the sublist starting at the match, DONE
+         ;; included, so the length of that sublist is exactly DONE's
+         ;; index. Subtracting (cdr done) instead would put DONE itself
+         ;; on the open side of the separator.
+         (split (if done
+                    (- (length states) (length done))
+                  (length states))))
+    ;; `cons', not `list'. The entry must be (sequence . STATES) — a
+    ;; dotted pair. `(list 'sequence STATES)' nests the states one level
+    ;; too deep, and org's parser then hands that nested list straight to
+    ;; `string-match', which is the "Wrong type argument: stringp" that
+    ;; surfaced in 175 units at once.
+    (list (cons 'sequence
+                (append (cl-subseq states 0 split)
+                        (list "|")
+                        (cl-subseq states split))))))
+
+(defun my/subnet-consult-todo-narrow ()
+  "Build `consult-todo-narrow' from the blueprint, one key per state.
+The key is the state's first letter, then its two-letter prefix, then
+its first letter plus a counter when both are taken — so every state
+in the 24-word vocabulary gets a distinct, typeable selector. Returns
+nil when the blueprint yields no states."
+  (let ((states (my/subnet-todo-states))
+        (taken nil))
+    (and states
+         (mapcar
+          (lambda (state)
+            (let* ((lower (downcase state))
+                   (key (or (seq-find (lambda (c) (not (member c taken)))
+                                      (list (substring lower 0 1)
+                                            (substring lower 0
+                                                       (min 2 (length lower)))))
+                            (format "%s%d" (substring lower 0 1)
+                                    (length taken)))))
+              (push key taken)
+              (list (intern (concat "?" key)) state)))
+          states))))
+#+end_src
+
+** Apply
+`org-set-regexps-and-options' re-reads the vocabulary in every Org
+buffer, so the sequence applies on load order and on file open
+alike. This hook is the reason nothing downstream has to care
+which unit happened to load first.
+#+begin_src emacs-lisp
+(with-eval-after-load 'org
+  (setq org-todo-keywords (my/subnet-todo-keywords)))
+(add-hook 'org-mode-hook #'org-set-regexps-and-options)
+#+end_src

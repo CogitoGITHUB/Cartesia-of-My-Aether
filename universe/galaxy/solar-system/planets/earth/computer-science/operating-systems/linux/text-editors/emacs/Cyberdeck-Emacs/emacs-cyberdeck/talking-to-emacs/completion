@@ -1,0 +1,105 @@
+#+identifier: 4e8b2f1a-3c7d-4a9e-bf56-1d2c4e6a8b3f
+
+* VERTICO — Vertical Completion UI #emacs-package #completion :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       4e8b2f1a-3c7d-4a9e-bf56-1d2c4e6a8b3f
+:MM_PARENT: none
+:MM_ORDER:  47.0
+:PACKAGE:  vertico
+:STRAIGHT: (vertico :type git :host github :repo "minad/vertico" :files (:defaults "extensions/vertico-*.el"))
+:CATEGORY: completion
+:END:
+
+** Config
+#+begin_src emacs-lisp
+;; Package vars (see mini-modeline AIU).
+(defvar vertico-cycle)
+(defvar vertico-count)
+(defvar vertico-preselect)
+(defvar consult-preview-key)
+(defvar embark-indicators)
+(require 'compat nil t)
+(when (locate-library "compat-31")
+  (require 'compat-31))
+
+(setq vertico-cycle t
+      vertico-count 15
+      vertico-preselect 'first
+      completion-ignore-case t)
+
+(vertico-mode 1)
+#+end_src
+
+* ORDERLESS — Flexible Matching #emacs-package #completion
+:PROPERTIES:
+:ID:       7b3f1c2e-4d8a-4e6f-cd89-2e4f6b8c1d3e
+:PACKAGE:  orderless
+:STRAIGHT: (orderless :type git :host github :repo "oantolin/orderless")
+:CATEGORY: completion
+:END:
+
+** Config
+#+begin_src emacs-lisp
+(setq completion-styles '(orderless basic)
+      completion-category-defaults nil
+      completion-category-overrides '((file (styles partial-completion))))
+#+end_src
+
+* MARGINALIA — Completion Annotations #emacs-package #completion
+:PROPERTIES:
+:ID:       9c4e2d3f-5a1b-4f7e-de90-3f5a7c9e2d4f
+:PACKAGE:  marginalia
+:STRAIGHT: (marginalia :type git :host github :repo "minad/marginalia")
+:CATEGORY: completion
+:END:
+
+** Config
+#+begin_src emacs-lisp
+(marginalia-mode 1)
+#+end_src
+
+* CONSULT — Completing Read Commands #emacs-package #completion
+:PROPERTIES:
+:ID:       2d6f4e5a-7b3c-4a8f-ef12-4a6b8d0f3e5a
+:PACKAGE:  consult
+:STRAIGHT: (consult :type git :host github :repo "minad/consult")
+:CATEGORY: completion
+:END:
+
+** Config
+#+begin_src emacs-lisp
+(setq consult-preview-key 'any)
+
+(global-set-key (kbd "C-x b")   #'consult-buffer)
+(global-set-key (kbd "C-x 4 b") #'consult-buffer-other-window)
+(global-set-key (kbd "M-y")     #'consult-yank-pop)
+(global-set-key (kbd "M-g g")   #'consult-goto-line)
+(global-set-key (kbd "M-g o")   #'consult-outline)
+(global-set-key (kbd "M-s r")   #'consult-ripgrep)
+(global-set-key (kbd "M-s f")   #'consult-find)
+#+end_src
+
+* EMBARK — Contextual Actions #emacs-package #completion
+:PROPERTIES:
+:ID:       5e8a6f7b-9c4d-4b0e-fa34-5b7c9e1f4a6b
+:PACKAGE:  embark
+:STRAIGHT: (embark :type git :host github :repo "oantolin/embark" :files ("embark.el" "embark-org.el" "embark-consult.el" "embark.texi"))
+:CATEGORY: completion
+:END:
+
+** Config
+#+begin_src emacs-lisp
+(setq embark-indicators
+      '(embark-minimal-indicator
+        embark-highlight-indicator
+        embark-isearch-highlight-indicator))
+
+(global-set-key (kbd "C-.") #'embark-act)
+(global-set-key (kbd "C-;") #'embark-dwim)
+(global-set-key (kbd "C-h B") #'embark-bindings)
+
+(with-eval-after-load 'embark
+  (with-eval-after-load 'consult
+    (require 'embark-consult)
+    (add-hook 'embark-collect-mode-hook #'consult-preview-at-point-mode)))
+#+end_src

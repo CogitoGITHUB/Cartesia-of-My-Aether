@@ -1,0 +1,72 @@
+* Node View :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       a93d47e9-99eb-40c6-9cd3-f2ef58d9c98d
+:END:
+
+Rich side-window page for one note: masthead, tags, AIU Proxies
+grouped by kind, unlinked mentions, and similar notes when the
+semantic module is enabled.  Strictly read-only; every action button
+calls the owning command.  Nothing here runs at load.
+
+** Page
+#+begin_src emacs-lisp
+(require 'cl-lib)
+(require 'seq)
+
+(defun my/cyberdeck-node-view-sections (note)
+  "Alist (LABEL . VALUE-STRING) describing AIU."
+  (let ((title (or (ignore-errors (cyberdeck-aiu-title note)) "?"))
+        (path (ignore-errors (cyberdeck-aiu-path note)))
+        (tags (ignore-errors (cyberdeck-aiu-tags note)))
+        (id (ignore-errors (cyberdeck-aiu-id note))))
+    (list (cons "Title" title)
+          (cons "File" (or path "-"))
+          (cons "Tags" (if tags (mapconcat #'identity tags " ") "-"))
+          (cons "ID" (or id "-")))))
+
+(defun my/cyberdeck-node-view-backlinks (note)
+  "AIU Proxies to AIU grouped by kind, as strings."
+  (let ((id (ignore-errors (cyberdeck-aiu-id note)))
+        (out nil))
+    (when (and id (fboundp 'cyberdeck-db-query-links-to))
+      (dolist (link (ignore-errors (cyberdeck-db-query-links-to id)))
+        (push (format "%s" (or (car-safe link) link)) out)))
+    (nreverse out)))
+
+(defun my/cyberdeck-node-view (note)
+  "Show the node page for AIU in a side window."
+  (interactive
+   (list (cyberdeck-find)))
+  (let ((buf (get-buffer-create "*Cyberdeck Node*")))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert (format "= %s =\n\n"
+                        (or (ignore-errors (cyberdeck-aiu-title note)) "?")))
+        (dolist (sec (my/cyberdeck-node-view-sections note))
+          (insert (format "%s: %s\n" (car sec) (cdr sec))))
+        (insert "\n-- AIU Proxies --\n")
+        (let ((bl (my/cyberdeck-node-view-backlinks note)))
+          (if bl
+              (dolist (b bl) (insert b "\n"))
+            (insert "none\n")))
+        (insert "\n-- Mentions --\n")
+        (if (fboundp 'my/cyberdeck-mentions-for-aiu)
+            (let ((ms (ignore-errors (my/cyberdeck-mentions-for-aiu note))))
+              (if ms
+                  (dolist (m ms)
+                    (insert (format "%s @%d\n" (nth 0 m) (nth 1 m))))
+                (insert "none\n")))
+          (insert "mentions module not loaded\n"))
+        (insert "\n-- Similar --\n")
+        (if (and (boundp 'my/cyberdeck-semantic-enabled)
+                 my/cyberdeck-semantic-enabled
+                 (fboundp 'my/cyberdeck-semantic-similar))
+            (let ((ss (ignore-errors (my/cyberdeck-semantic-similar note))))
+              (if ss
+                  (dolist (s ss) (insert (format "%s\n" s)))
+                (insert "none\n")))
+          (insert "semantic module dormant\n"))))
+    (special-mode)
+    (display-buffer-in-side-window buf '((side . right) (window-width . 60)))))
+#+end_src

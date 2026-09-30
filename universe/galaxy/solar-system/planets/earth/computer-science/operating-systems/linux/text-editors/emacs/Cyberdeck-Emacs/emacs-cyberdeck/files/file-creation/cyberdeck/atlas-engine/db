@@ -1,0 +1,1992 @@
+(require 'cl-lib)
+#+TITLE: AIU Cyberdeck — Database
+
+* Database :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       cd042753-616a-4ebf-8476-640004859841
+:MM_PARENT: none
+:MM_ORDER:  21.0
+:END:
+
+The substrate law: org files are the durable truth; =notes= and
+=links= are the machine-readable structural substrate — identity
+plus relations plus traversal. =mm_nodes=, =mastering_schedule=, and
+every plugin table are peer disposable indexes over that substrate,
+each rebuilt from files without touching the others. Higher-level
+queries compose indexes; no index is authoritative over another, and
+the substrate itself stays domain-neutral (it knows graph structure,
+never what any subsystem means by it).
+
+** Forward declarations
+Bare defvars, no values: silence the byte-compiler about
+variables defined later in this file, without rebinding anything.
+#+begin_src emacs-lisp
+(defvar cyberdeck-db-location)
+(defvar cyberdeck-db-sync-directories)
+(defvar my/cyberdeck--aius-table-ready)
+(defvar my/cyberdeck--links-table-ready)
+(defvar my/cyberdeck--aiu-proxy-links-table-ready)
+#+end_src
+
+** Database Core
+#+begin_src emacs-lisp
+(provide 'cyberdeck-db)
+(provide 'cyberdeck-db-query)
+
+(defvar cyberdeck-db--connection nil
+  "DB connection.")
+
+(defcustom my/cyberdeck-db-backend 'sqlite
+  "Substrate backend: sqlite (vault file) or pg (PostgreSQL).
+The SQLite path is the temporary rollback artifact of the Postgres
+migration — byte-identical behavior to before. Flip to pg after the
+server exists and the fresh-rescan cutover checklist (README) passes.
+Scaffolding, not a permanent feature: delete the sqlite branch once
+PostgreSQL has survived real sessions."
+  :type '(choice (const sqlite) (const pg))
+  :group 'cyberdeck)
+
+(defcustom my/cyberdeck-db-pg-host "localhost"
+  "PostgreSQL host for the pg backend."
+  :type 'string :group 'cyberdeck)
+(defcustom my/cyberdeck-db-pg-port 5432
+  "PostgreSQL port for the pg backend."
+  :type 'integer :group 'cyberdeck)
+(defcustom my/cyberdeck-db-pg-dbname "cyberdeck"
+  "PostgreSQL database name for the pg backend."
+  :type 'string :group 'cyberdeck)
+(defcustom my/cyberdeck-db-pg-user user-login-name
+  "PostgreSQL user for the pg backend.
+The password is never a defcustom and never lives in source: it comes
+solely from auth-source (typically ~/.authinfo as
+\"machine <host> port <port> login <user> password <secret>\").
+SCRAM-SHA-256 on the server side; no md5 fallback anywhere."
+  :type 'string :group 'cyberdeck)
+
+(defun my/cyberdeck-db-pg-password ()
+  "Fetch the pg password from auth-source, or nil when absent."
+  (require 'auth-source nil t)
+  (when (fboundp 'auth-source-pick-first-password)
+    (auth-source-pick-first-password
+     :host my/cyberdeck-db-pg-host
+     :user my/cyberdeck-db-pg-user
+     :port my/cyberdeck-db-pg-port)))
+
+(defun my/cyberdeck-db--connect-pg ()
+  "Open the PostgreSQL connection. Signals classifiable errors."
+  (require 'emacsql-pg)
+  (require 'pg)
+  (emacsql-pg my/cyberdeck-db-pg-dbname
+              my/cyberdeck-db-pg-user
+              :host my/cyberdeck-db-pg-host
+              :port my/cyberdeck-db-pg-port
+              :password (my/cyberdeck-db-pg-password)))
+
+(defun my/cyberdeck-db-health ()
+  "Probe the current backend; return (STATE . HINT).
+STATE is CONNECTED, DOWN, AUTH-FAILED, DATABASE-MISSING, or
+SCHEMA-OUTDATED. HINT names the exact shell recovery step. Never
+signals — infrastructure state must be reportable, not exceptional."
+  (condition-case err
+      (let ((db (cyberdeck-db)))
+        (if (null db)
+            (cons 'DOWN "pg_ctl -D $PREFIX/var/lib/postgresql start")
+          (condition-case nil
+              (progn
+                (emacsql db [:select [id] :from notes :limit 1])
+                (cons 'CONNECTED nil))
+            (error (cons 'SCHEMA-OUTDATED "rescan the vault to rebuild indexes")))))
+    (error
+     (let ((msg (error-message-string err)))
+       (cond ((string-match-p "refused\\|could not connect\\|no such host" msg)
+              (cons 'DOWN "pg_ctl -D $PREFIX/var/lib/postgresql start"))
+             ((string-match-p "auth\\|password" msg)
+              (cons 'AUTH-FAILED "check ~/.authinfo entry and pg_hba scram-sha-256"))
+             ((string-match-p "does not exist" msg)
+              (cons 'DATABASE-MISSING "createdb cyberdeck (after createuser)"))
+             (t (cons 'DOWN msg)))))))
+
+(defun cyberdeck-db (&optional _args)
+  "Return DB connection, opening it if needed."
+  (require 'emacsql)
+  (if (eq my/cyberdeck-db-backend 'pg)
+      (unless (and cyberdeck-db--connection
+                   (ignore-errors (emacsql-live-p cyberdeck-db--connection)))
+        (setq cyberdeck-db--connection
+              (my/cyberdeck-db--connect-pg)))
+    (require 'emacsql-sqlite-builtin)
+    (unless (and cyberdeck-db--connection
+                 (ignore-errors (emacsql-live-p cyberdeck-db--connection)))
+      (setq cyberdeck-db--connection
+            (emacsql-sqlite-builtin cyberdeck-db-location))))
+  (when (and cyberdeck-db--connection
+             (not (bound-and-true-p my/cyberdeck--aius-table-ready)))
+    ;; Guarantee `AIUs' exists for every caller (find/query/create),
+    ;; not just update-file path. Direct emacsql on connection avoids
+    ;; recursing via ensure-aius-table -> (cyberdeck-db).
+    (ignore-errors
+      (emacsql cyberdeck-db--connection
+               [:create :table :if :not :exists notes
+                ([(id :text :primary-key :not-null)
+                  (title :text)
+                  (path :text :not-null)
+                  (level :integer)
+                  (pos :integer)
+                  (unfoldings :text)
+                  (tags :text)])]))
+    (setq my/cyberdeck--aius-table-ready t))
+  (when (and cyberdeck-db--connection
+             (not (bound-and-true-p my/cyberdeck--links-table-ready)))
+    (ignore-errors
+      (emacsql cyberdeck-db--connection
+               [:create :table :if :not :exists links
+                ([(source :text :not-null)
+                  (dest :text :not-null)]
+                 (:primary-key [source dest]))]))
+    (setq my/cyberdeck--links-table-ready t))
+  (when (and cyberdeck-db--connection
+             (fboundp 'my/aiu-proxy-links-ensure-table)
+             (not (bound-and-true-p my/cyberdeck--aiu-proxy-links-table-ready)))
+    ;; cyberdeck-aiu-proxies.org loads after db.org, so guard with fboundp —
+    ;; symmetric with restoration.org's (when (fboundp ...)) call guard.
+    (ignore-errors (my/aiu-proxy-links-ensure-table))
+    (setq my/cyberdeck--aiu-proxy-links-table-ready t))
+  cyberdeck-db--connection)
+
+;; Wire-format law: TEXT cells hold raw human strings (titles with `#',
+;; spaces, punctuation), NOT Elisp-readable s-expressions. Compound
+;; cells (unfoldings/tags) are `prin1-to-string' output, parsed back by
+;; row readers (`my/cyberdeck--row-to-aiu' `read's them).
+;; Upstream `emacsql-sqlite-read-column' runs the Elisp reader over
+;; every TEXT cell, so a title like "NERD-ICONS — ... #emacs-package"
+;; signals (invalid-read-syntax "#e"), surfaced as (emacsql-error "#e")
+;; on any SELECT * ; and any multi-token title silently splices extra
+;; objects into the row via mapcan, shifting every positional reader
+;; (`row-to-aiu' :path/:level/:pos all land wrong, no error).
+;; Bypass the reader: every non-empty TEXT cell arrives as the stored
+;; string. Integers/nil keep their upstream branches (numberp/null),
+;; so count(*)/empty cells are unaffected.
+(defun my/cyberdeck--read-column-raw (string)
+  "Return STRING as a single-column value, bypassing the Elisp reader.
+Wire-format law above: TEXT cells are raw strings."
+  (list string))
+
+(with-eval-after-load 'emacsql-sqlite
+  (advice-add 'emacsql-sqlite-read-column :override
+              #'my/cyberdeck--read-column-raw))
+
+;; Missing core shims — extractor/parse-ctx structs, notes table, and workers
+;; These are normally provided by the external `cyberdeck' package;
+;; when that package is absent (as in this Termux checkout) we provide
+;; minimal compatible implementations so `AIUs' actually populates.
+
+(unless (fboundp 'make-cyberdeck-parse-ctx)
+  (cl-defstruct (cyberdeck-parse-ctx (:constructor make-cyberdeck-parse-ctx))
+    path ast file-node heading-nodes hash mtime size))
+
+(unless (fboundp 'make-cyberdeck-extractor)
+  (cl-defstruct (cyberdeck-extractor (:constructor make-cyberdeck-extractor))
+    name version priority extract-fn requires-ast))
+
+(defvar cyberdeck-db--extractors nil
+  "List of registered `cyberdeck-extractor' structs,
+sorted by priority.")
+
+(defun cyberdeck--register-extractor (extractor)
+  "Register EXTRACTOR and keep
+`cyberdeck-db--extractors' sorted by :priority."
+  (setq cyberdeck-db--extractors
+        (sort (cons extractor
+                    (cl-remove (plist-get (list :name (cyberdeck-extractor-name extractor)) :name)
+                               cyberdeck-db--extractors
+                               :key #'cyberdeck-extractor-name :test #'eq))
+              (lambda (a b) (< (or (cyberdeck-extractor-priority a) 100)
+                               (or (cyberdeck-extractor-priority b) 100)))))
+  ;; de-duplicate by name keep highest priority (last wins, sort stable)
+  (setq cyberdeck-db--extractors
+        (cl-remove-duplicates cyberdeck-db--extractors :key #'cyberdeck-extractor-name :test #'eq :from-end t)))
+
+(defun my/cyberdeck--ensure-aius-table ()
+  "Create `notes' table if absent — mirrors `citation.org' pattern."
+  (emacsql (cyberdeck-db)
+           [:create :table :if :not :exists notes
+            ([(id :text :primary-key :not-null)
+              (title :text)
+              (path :text :not-null)
+              (level :integer)
+              (pos :integer)
+              (unfoldings :text)
+              (tags :text)])]))
+
+(defun my/cyberdeck--row-to-aiu (row)
+  "Normalize DB ROW (vector or list) to plist note; tolerate
+nil/malformed `unfoldings'/`tags' via `ignore-errors' + `read'."
+  (if (and (listp row) (plist-get row :id))
+      row
+    (let ((v (if (vectorp row) (append row nil) row)))
+      (list :id (nth 0 v) :title (nth 1 v) :path (nth 2 v)
+            :level (or (nth 3 v) 0) :pos (or (nth 4 v) 1)
+            :unfoldings (let ((s (nth 5 v))) (and (stringp s) (ignore-errors (read s))))
+            :tags (let ((s (nth 6 v))) (and (stringp s) (ignore-errors (read s))))
+            :aliases nil :primary-title nil :meta nil))))
+
+(defun my/cyberdeck--ensure-links-table ()
+  "Create `links' table if absent — queried by guard, may not
+be created by extractors."
+  (ignore-errors
+    (emacsql (cyberdeck-db)
+             [:create :table :if :not :exists links
+              ([(source :text :not-null)
+                (dest :text :not-null)]
+               (:primary-key [source dest]))])))
+
+(with-eval-after-load 'cyberdeck
+  (my/cyberdeck--ensure-aius-table)
+  (my/cyberdeck--ensure-links-table)
+  (add-hook 'cyberdeck-db-autosync-mode-hook #'my/cyberdeck--ensure-aius-table)
+  (add-hook 'cyberdeck-db-autosync-mode-hook #'my/cyberdeck--ensure-links-table))
+
+(cl-defun cyberdeck-db--update-file (path)
+  "Parse PATH, upsert its `notes' row, and run all registered extractors.
+Returns 1 if a note was indexed, 0 otherwise. Handles deletion
+when file missing."
+  (my/cyberdeck--ensure-aius-table)
+  (if (not (file-exists-p path))
+      (progn
+        (ignore-errors (emacsql (cyberdeck-db) [:delete :from notes :where (= path $s1)] path))
+        ;; also purge dependent tables via cascade or explicit
+        (dolist (extractor cyberdeck-db--extractors)
+          (ignore-errors (funcall (cyberdeck-extractor-extract-fn extractor)
+                                  (make-cyberdeck-parse-ctx :path path :ast nil) nil)))
+        0)
+    ;; Build parse-ctx via existing override if available, else minimal
+    (let* ((ctx (if (fboundp 'cyberdeck-db--parse-file)
+                    (ignore-errors (cyberdeck-db--parse-file path))
+                  (with-temp-buffer
+                    (insert-file-contents path)
+                    (let ((ast (ignore-errors (org-element-parse-buffer))))
+                      (make-cyberdeck-parse-ctx :path path :ast ast)))))
+           (_ast (and ctx (cyberdeck-parse-ctx-ast ctx)))
+            (id (with-temp-buffer
+                  (insert-file-contents path)
+                  (when (re-search-forward "^:ID:[ \t]+\\(.+\\)" nil t)
+                    (string-trim (match-string 1)))))
+           (title (with-temp-buffer
+                    (insert-file-contents path)
+                    (when (re-search-forward "^\\*+[ \t]+\\(.*\\)" nil t)
+                      (string-trim (match-string 1))))))
+      (unless id
+        (ignore-errors (emacsql (cyberdeck-db) [:delete :from notes :where (= path $s1)] path))
+        (cl-return-from cyberdeck-db--update-file 0))
+      (let ((unfoldings (with-temp-buffer
+                     (insert-file-contents path)
+                     (when (re-search-forward "^:PROPERTIES:" nil t)
+                       (let (alist)
+                         (while (re-search-forward "^:\\([^:]+\\):[ \t]*\\(.*\\)" nil t)
+                           (let ((k (match-string 1)))
+                             (if (string= k "END") (goto-char (point-max))
+                               (push (cons k (match-string 2)) alist))))
+                         (nreverse alist)))))
+            (tags (with-temp-buffer
+                    (insert-file-contents path)
+                    (let (tags)
+                      (when (re-search-forward "^\\*+[ \t]+.*:\\([^:\n]+\\):[ \t]*$" nil t)
+                        (setq tags (split-string (match-string 1) ":" t)))
+                      ;; Inline #tokens join headline tags (same token rule
+                      ;; as the hashtag sidecar, so both agree exactly).
+                      (goto-char (point-min))
+                      (while (re-search-forward "\\(^\\|[ \t\n]\\)#\\([A-Za-z0-9_@/-]+\\)" nil t)
+                        (let ((tag (match-string-no-properties 2)))
+                          (unless (member tag tags)
+                            (push tag tags))))
+                      (nreverse tags)))))
+        ;; upsert AIUs row
+        (ignore-errors (emacsql (cyberdeck-db) [:delete :from notes :where (= id $s1)] id))
+        (emacsql (cyberdeck-db)
+                 [:insert :into notes :values $v1]
+                 (vector id (or title (file-name-nondirectory path)) path 0 1
+                         (prin1-to-string unfoldings) (prin1-to-string tags)))
+        ;; run extractors
+        (let ((aiu-data (list :id id :title title :path path)))
+          (dolist (extractor (sort (copy-sequence cyberdeck-db--extractors)
+                                   (lambda (a b) (< (or (cyberdeck-extractor-priority a) 100)
+                                                    (or (cyberdeck-extractor-priority b) 100)))))
+            (let ((fn (cyberdeck-extractor-extract-fn extractor)))
+              (when fn
+                (ignore-errors
+                  (let ((result (funcall fn ctx aiu-data)))
+                    (when result (setq aiu-data result))))))))
+        (if (car (emacsql (cyberdeck-db) [:select * :from notes :where (= id $s1)] id)) 1 0)))))
+
+(defvar cyberdeck--autosync-mode nil)
+
+(defun cyberdeck--autosync-mode (&optional arg)
+  "Toggle autosync: on save under
+`cyberdeck-db-sync-directories', call
+`cyberdeck-db--update-file'."
+  (setq cyberdeck--autosync-mode
+        (if (null arg) (not cyberdeck--autosync-mode)
+          (> (prefix-numeric-value arg) 0)))
+  (if cyberdeck--autosync-mode
+      (add-hook 'after-save-hook #'cyberdeck--autosync-after-save nil t)
+    (remove-hook 'after-save-hook #'cyberdeck--autosync-after-save t)))
+
+(defun cyberdeck--autosync-after-save ()
+  (when (and buffer-file-name
+             (cl-some (lambda (dir) (string-prefix-p (expand-file-name dir) (expand-file-name buffer-file-name)))
+                      cyberdeck-db-sync-directories))
+    (cyberdeck-db--update-file buffer-file-name)))
+#+end_src
+
+*** Orphan prune (state comparison, not hooks)
+Shell rm, git checkout, and external tools never fire Emacs hooks,
+so deleted files linger as DB ghosts (visible in find completion)
+until something diffs. This does: every distinct DB path missing
+on disk goes through `cyberdeck-db--update-file', which
+already deletes the row. File existence is truth — same rule as
+the blueprint `.known-keys' reconcile. Admin history untouched.
+#+begin_src emacs-lisp
+(defun my/cyberdeck-db--prune-orphans ()
+  "Drop DB note rows for vault files that no longer exist on disk.
+Returns pruned count. Never touches files or admin history.
+Skips silently when the engine (emacsql/cyberdeck-db) is not
+loaded yet — boot timers fire before it; the idle repeat catches up."
+  (if (not (and (fboundp 'emacsql) (fboundp 'cyberdeck-db)
+                (fboundp 'cyberdeck-db--update-file)))
+      0
+    (let ((pruned 0))
+    (my/cyberdeck--ensure-aius-table)
+    (let ((paths (ignore-errors
+                   (mapcar #'car (emacsql (cyberdeck-db)
+                                          [:select :distinct [path] :from notes])))))
+      (dolist (p paths)
+        (when (and (stringp p) (not (file-exists-p p)))
+          (ignore-errors (cyberdeck-db--update-file p))
+          (setq pruned (1+ pruned)))))
+    (when (> pruned 0)
+      (message "db orphans: pruned %d AIU(s) for deleted files" pruned))
+    pruned)))
+
+(defun cyberdeck-db-query (&optional filter)
+  "Query notes, filtered by FILTER if given.
+Rows whose file no longer exists on disk are dropped before FILTER
+is applied, so callers never see stale/deleted entries."
+  (let* ((db (ignore-errors (cyberdeck-db)))
+         (db-result (when db
+                      (let ((notes (seq-filter
+                                    (lambda (n) (file-exists-p (cyberdeck-aiu-path n)))
+                                    (mapcar #'my/cyberdeck--row-to-aiu (emacsql db [:select * :from notes])))))
+                        (if filter (seq-filter filter notes) notes)))))
+    (if (and db-result (consp db-result))
+        db-result
+      ;; Fallback: scan vault directly when DB not available or empty (same fallback as elsewhere tonight)
+      (let* ((root (my/cyberdeck-root-dir))
+             (files (ignore-errors (my/cyberdeck-db-sync--list-org-files root)))
+             notes)
+        (dolist (file (or files (directory-files-recursively root "^[^.]" t)))
+          (when (and (file-regular-p file)
+                     (not (string-match-p "/\\.git/" file))
+                     (not (string-match-p "/admin/" file))
+                     (not (string-match-p "/WIP/" file)))
+            (let ((id (ignore-errors
+                        (with-temp-buffer
+                          (insert-file-contents file)
+                          (when (re-search-forward "^:ID:[ \t]+\\(.+\\)" nil t)
+                            (string-trim (match-string 1)))))))
+              (when id
+                (let ((title (ignore-errors
+                               (with-temp-buffer
+                                 (insert-file-contents file)
+                                 (when (re-search-forward "^\\*+[ \t]+\\(.*\\)" nil t)
+                                   (let ((raw (string-trim (match-string 1))))
+                                     (if (string-match "^TODO[ \t]+\\(.*\\)" raw)
+                                         (string-trim (match-string 1 raw))
+                                       raw)))))))
+                  (push (list :id id :title (or title (file-name-nondirectory file))
+                              :path file :level 0 :pos 1
+                              :tags nil :unfoldings nil :aliases nil :primary-title nil :meta nil)
+                        notes))))))
+        (if filter
+            (seq-filter filter notes)
+          notes)))))
+
+(defun cyberdeck-db-query-by-aiu-context (unfolding val)
+  (let ((db (cyberdeck-db)))
+    (if db
+        (mapcar #'my/cyberdeck--row-to-aiu (emacsql db [:select * :from notes :where (= unfoldings $s1)] (format "\"%s\":\"%s\"" unfolding val)))
+      ;; Fallback: scan vault and filter by AIU Context (uses same vault-scan as db-query)
+      (seq-filter (lambda (n)
+                    (let ((unfoldings (cyberdeck-aiu-aiu-contexts n)))
+                      (equal (cdr (assoc (upcase unfolding) unfoldings)) val)))
+                  (ignore-errors (cyberdeck-db-query))))))
+
+(defun cyberdeck-db-query-by-ids (ids)
+  (let ((db (cyberdeck-db)))
+    (if (and db ids)
+        ;; $v1 vector elements are prin1-encoded: raw strings gain Elisp
+        ;; quotes ('"uuid"') and never match stored raw text. Symbols
+        ;; prin1 bare, so intern string ids (UUID-safe: ids never hold
+        ;; spaces/quotes) to keep the single IN query.
+        (mapcar #'my/cyberdeck--row-to-aiu (emacsql db [:select * :from notes :where (in id $v1)] (vconcat (mapcar #'intern ids))))
+      ;; Fallback: scan vault and filter by ids
+      (when ids
+        (seq-filter (lambda (n) (member (cyberdeck-aiu-id n) ids))
+                    (ignore-errors (cyberdeck-db-query)))))))
+
+(defun cyberdeck-db-query-by-file-path (path)
+  (let ((db (cyberdeck-db)))
+    (if db
+        (mapcar #'my/cyberdeck--row-to-aiu (emacsql db [:select * :from notes :where (= path $s1)] path))
+      ;; Fallback: scan vault and filter by path
+      (seq-filter (lambda (n) (string-equal (cyberdeck-aiu-path n) path))
+                  (ignore-errors (cyberdeck-db-query))))))
+
+(defun cyberdeck-db-query-by-tags-some (tags)
+  (let ((db (cyberdeck-db)))
+    (if db
+        (seq-filter (lambda (n) (seq-intersection tags (cyberdeck-aiu-tags n)))
+                    (ignore-errors (cyberdeck-db-query)))
+      ;; Fallback: same filter on vault scan when DB unavailable
+      (seq-filter (lambda (n) (seq-intersection tags (cyberdeck-aiu-tags n)))
+                  (ignore-errors (cyberdeck-db-query))))))
+
+(defun cyberdeck-db-query-by-links-some (links)
+  (let ((db (cyberdeck-db)))
+    (if db
+        ;; Same $v1 prin1 rule as query-by-ids above: intern source ids.
+        (emacsql db [:select * :from links :where (in source $v1)] (vconcat (mapcar (lambda (l) (intern (car l))) links)))
+      ;; Fallback: links require DB, vault scan has no link index
+      (progn
+        (message "cyberdeck-db-query-by-links-some: DB unavailable, links not indexed")
+        nil))))
+
+(defun cyberdeck-db-query-links-to (id)
+  (let ((db (cyberdeck-db)))
+    (if db
+        (emacsql db [:select * :from links :where (= dest $s1)] id)
+      (progn
+        (message "cyberdeck-db-query-links-to: DB unavailable")
+        nil))))
+
+(defun cyberdeck-db-query-links-from (id)
+  (let ((db (cyberdeck-db)))
+    (if db
+        (emacsql db [:select * :from links :where (= source $s1)] id)
+      (progn
+        (message "cyberdeck-db-query-links-from: DB unavailable")
+        nil))))
+
+(defun cyberdeck-db-get-by-id (id)
+  (let ((db (cyberdeck-db)))
+    (if db
+        (or (car (mapcar #'my/cyberdeck--row-to-aiu (emacsql db [:select * :from notes :where (= id $s1)] id)))
+            (user-error "cyberdeck-db-get-by-id: ID %s not found" id))
+      (let ((file (condition-case nil (org-id-find-id-file id) (error nil))))
+        (if (and file (file-exists-p file))
+            (with-temp-buffer
+              (insert-file-contents file)
+              (let ((title (when (re-search-forward "^\\*+[ \t]+\\(.*\\)" nil t)
+                             (let ((raw (string-trim (match-string 1))))
+                               (if (string-match "^TODO[ \t]+\\(.*\\)" raw)
+                                   (string-trim (match-string 1 raw))
+                                 raw)))))
+                (list :id id
+                      :title (or title (file-name-nondirectory file))
+                      :path file
+                      :level 0 :pos 1
+                      :tags nil :unfoldings nil
+                      :aliases nil :primary-title nil
+                      :meta nil)))
+          (user-error "cyberdeck-db-get-by-id: ID %s not found" id))))))
+#+end_src
+
+** Graph Traversal
+
+Single-hop relations already exist above (links-to, links-from).
+This section walks the knowledge graph itself: multi-hop reachability
+over =notes= + =links=, domain-neutral and cycle-safe throughout.
+
+The governing distinction, worth protecting: =db-descendants= answers
+"What is reachable through knowledge links?" while =mm/subtree-of=
+answers "What is contained beneath this node in this map?" Those sets
+sometimes look alike but mean different things — semantic
+reachability versus positional containment — so the substrate
+traverses links and the map traverses placement, and neither knows
+about the other's tables. No defun here may reference =mm_nodes=,
+stages, order keys, or parent ids; substrate purity is what keeps
+later composition powerful (ordered review, orphan triage, relation
+tracing, cluster layout — all compose these primitives with domain
+indexes rather than living inside them).
+
+*** Single-hop helpers
+#+begin_src emacs-lisp
+(defun cyberdeck-db--link-dests (id)
+  "Destination ids linked from ID, raw single hop."
+  (let ((db (cyberdeck-db)))
+    (when db
+      (mapcar #'car (emacsql db [:select [dest] :from links :where (= source $s1)] id)))))
+
+(defun cyberdeck-db--link-sources (id)
+  "Source ids linking to ID, raw single hop."
+  (let ((db (cyberdeck-db)))
+    (when db
+      (mapcar #'car (emacsql db [:select [source] :from links :where (= dest $s1)] id)))))
+
+(defun cyberdeck-db-neighbors (id)
+  "All ids one link away from ID in either direction, deduped, excluding ID."
+  (seq-uniq (seq-remove (lambda (x) (string-equal x id))
+                        (append (cyberdeck-db--link-dests id)
+                                (cyberdeck-db--link-sources id)))))
+#+end_src
+
+*** Breadth-first core
+One iterative engine for every multi-hop query: visited set, no
+recursion, optional depth cap in edges. Returns visited ids in
+discovery order with the starts first, so callers drop the head to
+exclude origins.
+#+begin_src emacs-lisp
+(defun cyberdeck-db--bfs (starts step-fn &optional max-depth)
+  "Walk from STARTS with STEP-FN (id -> id list), cycle-safe.
+Returns visited ids in discovery order, starts first. MAX-DEPTH
+caps edges traversed from any start; nil means unbounded."
+  (let ((seen (make-hash-table :test 'equal))
+        (order nil)
+        (frontier (copy-sequence starts))
+        (depth 0))
+    (dolist (s starts)
+      (puthash s t seen)
+      (push s order))
+    (while (and frontier (or (null max-depth) (< depth max-depth)))
+      (let (next)
+        (dolist (cur frontier)
+          (dolist (nxt (funcall step-fn cur))
+            (unless (gethash nxt seen)
+              (puthash nxt t seen)
+              (push nxt order)
+              (push nxt next))))
+        (setq frontier (nreverse next)))
+      (setq depth (1+ depth)))
+    (nreverse order)))
+#+end_src
+
+*** Reachability
+#+begin_src emacs-lisp
+(defun cyberdeck-db-descendants (id &optional max-depth)
+  "Ids reachable from ID following source→dest links, excluding ID.
+Semantic reachability through knowledge links — not map containment
+(contrast mm/subtree-of, which walks placement instead)."
+  (cdr (cyberdeck-db--bfs (list id) #'cyberdeck-db--link-dests max-depth)))
+
+(defun cyberdeck-db-ancestors (id &optional max-depth)
+  "Ids that can reach ID following source→dest links, excluding ID.
+Answers \"what does this knowledge stand on?\" one question the
+review queue may one day sort by."
+  (cdr (cyberdeck-db--bfs (list id) #'cyberdeck-db--link-sources max-depth)))
+
+(defun cyberdeck-db-component (id)
+  "Full connected component of ID in either direction, ID first.
+The unit of orphan triage: a component of one is an unintegrated card."
+  (cyberdeck-db--bfs (list id) #'cyberdeck-db-neighbors))
+#+end_src
+
+*** Paths and entry points
+#+begin_src emacs-lisp
+(defun cyberdeck-db-shortest-path (from to)
+  "Id path [FROM ... TO] along links, nil when disconnected.
+FROM == TO returns the one-element path (FROM): a thing reaches
+itself trivially, which keeps relationship explanations and visual
+tracing total instead of special-cased."
+  (if (string-equal from to)
+      (list from)
+    (let ((seen (make-hash-table :test 'equal))
+          (prev (make-hash-table :test 'equal))
+          (queue (list from))
+          found)
+      (puthash from t seen)
+      (while (and queue (not found))
+        (let ((cur (pop queue)))
+          (dolist (nxt (cyberdeck-db-neighbors cur))
+            (unless (gethash nxt seen)
+              (puthash nxt t seen)
+              (puthash nxt cur prev)
+              (if (string-equal nxt to)
+                  (setq found t)
+                (setq queue (append queue (list nxt))))))))
+      (when found
+        (let ((path (list to))
+              (cur to))
+          (while (not (string-equal cur from))
+            (setq cur (gethash cur prev))
+            (push cur path))
+          path)))))
+
+(defun cyberdeck-db-link-roots ()
+  "Ids that link out but are never linked to: entry points of the graph.
+Where a newcomer (or a review walk) would start reading."
+  (let ((db (cyberdeck-db)))
+    (when db
+      (let ((dests (make-hash-table :test 'equal))
+            (rows (emacsql db [:select [source dest] :from links])))
+        (dolist (r rows)
+          (puthash (nth 1 r) t dests))
+        (seq-uniq (seq-filter (lambda (s) (not (gethash s dests)))
+                              (mapcar #'car rows)))))))
+
+(defun cyberdeck-db-isolated ()
+  "Note ids with no links in either direction: unintegrated cards.
+The honest feeder for UNSEEN triage and future \"connect this\"
+review prompts."
+  (let ((db (cyberdeck-db)))
+    (when db
+      (let ((linked (make-hash-table :test 'equal)))
+        (dolist (r (emacsql db [:select [source dest] :from links]))
+          (puthash (nth 0 r) t linked)
+          (puthash (nth 1 r) t linked))
+        (seq-filter (lambda (id) (not (gethash id linked)))
+                    (mapcar #'car (emacsql db [:select [id] :from notes])))))))
+#+end_src
+
+#+begin_src emacs-lisp
+(defun cyberdeck-db-update-file (path)
+  (let ((db (cyberdeck-db)))
+    (if db
+        (or (ignore-errors (cyberdeck-db--update-file path)) 0)
+      1)))
+
+(defun cyberdeck-db-prune-missing ()
+  "Remove DB rows whose file no longer exists on disk.
+Safe to call anytime; only deletes rows, never touches files.
+Rows with malformed (non-string) paths are skipped and counted, never
+acted on: some extractors historically wrote relative paths."
+  (interactive)
+  (let* ((db (ignore-errors (cyberdeck-db)))
+         (rows (and db (ignore-errors (emacsql db [:select [id path] :from notes]))))
+         (removed 0)
+         (skipped 0))
+    (dolist (row rows)
+      (let ((id (car row)) (path (cadr row)))
+        (cond
+         ((not (stringp path))
+          (setq skipped (1+ skipped)))
+         ((file-exists-p path) nil)
+         (t (condition-case nil
+                (progn
+                  (emacsql db [:delete :from notes :where (= id $s1)] id)
+                  (setq removed (1+ removed)))
+              (error (setq skipped (1+ skipped))))))))
+    (when (or (called-interactively-p 'any) (> skipped 0))
+      (message "cyberdeck: pruned %d stale AIU(s), skipped %d malformed row(s)"
+               removed skipped))
+    removed))
+
+(add-hook 'emacs-startup-hook #'cyberdeck-db-prune-missing)
+
+(defun my/cyberdeck--prune-on-delete-file (orig-fn filename &rest args)
+  "After deleting FILENAME, prune it from the DB if it was a vault file."
+  (prog1 (apply orig-fn filename args)
+    (when (and (stringp filename)
+               (fboundp 'my/cyberdeck-root-dir)
+               (stringp (my/cyberdeck-root-dir))
+               (string-prefix-p (expand-file-name (my/cyberdeck-root-dir))
+                                 (expand-file-name filename)))
+      (ignore-errors (cyberdeck-db-prune-missing)))))
+
+(advice-add 'delete-file :around #'my/cyberdeck--prune-on-delete-file)
+
+(defun cyberdeck-db-count-aius ()
+  (let ((db (cyberdeck-db)))
+    (if db
+        (or (caar (emacsql db [:select (funcall count *) :from notes]))
+            (length (ignore-errors (cyberdeck-db-query))))
+      ;; Fallback: count vault files via same scan as db-query
+      (length (ignore-errors (cyberdeck-db-query))))))
+
+(defun cyberdeck-select-from (prompt candidates &rest _args)
+  "Real select-from: completing-read over CANDIDATES titles,
+return existing or new plist."
+  (require 'seq)
+  (let* ((titles (mapcar (lambda (n) (or (cyberdeck-aiu-title n) (plist-get n :title) "")) candidates))
+         (choice (completing-read (cond ((string-suffix-p ": " prompt) prompt)
+                                         ((string-suffix-p ":" prompt) (concat prompt " "))
+                                         (t (concat prompt ": ")))
+                                   titles nil nil nil nil nil))
+         (found (seq-find (lambda (n) (string= (or (cyberdeck-aiu-title n) (plist-get n :title) "") choice)) candidates)))
+    (if found
+        found
+      (list :id nil :title choice :path nil :unfoldings nil :tags nil))))
+
+(cl-defun cyberdeck-select (prompt &key require-match filter-fn candidates)
+  "Select a note with PROMPT via completing-read.
+CANDIDATES defaults to every note in the database (via
+`cyberdeck-db-query'). FILTER-FN, if given, is applied to
+narrow the auto-fetched candidates down first. REQUIRE-MATCH is
+passed through to the underlying prompt."
+  (let* ((cands (or candidates (ignore-errors (cyberdeck-db-query))))
+         (cands (if filter-fn (seq-filter filter-fn cands) cands)))
+    (cyberdeck-select-from prompt cands :require-match require-match)))
+
+(defun cyberdeck-db-register-extractor (extractor)
+  (when (fboundp 'cyberdeck--register-extractor)
+    (ignore-errors (cyberdeck--register-extractor extractor))))
+
+(defun cyberdeck-db-autosync-mode (&optional arg)
+  (when (fboundp 'cyberdeck--autosync-mode)
+    (ignore-errors (cyberdeck--autosync-mode arg))))
+
+(defvar cyberdeck-db-location
+  (when (fboundp 'my/cyberdeck-root-dir)
+    (expand-file-name "admin/cyberdeck.db"
+                      (my/cyberdeck-root-dir)))
+  "Vault DB path. Overridden by setup.org after discovery; nil until then.")
+
+(defvar cyberdeck-db-sync-directories
+  (when (fboundp 'my/cyberdeck-root-dir)
+    (list (my/cyberdeck-root-dir))))
+
+(defvar my--orig-aiu-p (when (fboundp 'cyberdeck-aiu-p) (symbol-function 'cyberdeck-aiu-p)))
+(defun cyberdeck-aiu-p (obj)
+  (or (and (listp obj) (plist-get obj :id))
+      (when (and obj my--orig-aiu-p) (ignore-errors (funcall my--orig-aiu-p obj)))))
+
+(defvar my--orig-aiu-id (when (fboundp 'cyberdeck-aiu-id) (symbol-function 'cyberdeck-aiu-id)))
+(defun cyberdeck-aiu-id (note)
+  (or (plist-get note :id)
+      (when (and note my--orig-aiu-id) (ignore-errors (funcall my--orig-aiu-id note)))))
+
+(defvar my--orig-aiu-title (when (fboundp 'cyberdeck-aiu-title) (symbol-function 'cyberdeck-aiu-title)))
+(defun cyberdeck-aiu-title (note)
+  (or (plist-get note :title)
+      (when (and note my--orig-aiu-title) (ignore-errors (funcall my--orig-aiu-title note)))))
+
+(defvar my--orig-aiu-path (when (fboundp 'cyberdeck-aiu-path) (symbol-function 'cyberdeck-aiu-path)))
+(defun cyberdeck-aiu-path (note)
+  (or (plist-get note :path)
+      (when (and note my--orig-aiu-path) (ignore-errors (funcall my--orig-aiu-path note)))))
+
+(defvar my--orig-aiu-aiu-contexts (when (fboundp 'cyberdeck-aiu-aiu-contexts) (symbol-function 'cyberdeck-aiu-aiu-contexts)))
+(defun cyberdeck-aiu-aiu-contexts (note)
+  (or (plist-get note :unfoldings)
+      (when (and note my--orig-aiu-aiu-contexts) (ignore-errors (funcall my--orig-aiu-aiu-contexts note)))))
+
+(defvar my--orig-aiu-tags (when (fboundp 'cyberdeck-aiu-tags) (symbol-function 'cyberdeck-aiu-tags)))
+(defun cyberdeck-aiu-tags (note)
+  (or (plist-get note :tags)
+      (plist-get note :tag)
+      (when (and note my--orig-aiu-tags) (ignore-errors (funcall my--orig-aiu-tags note)))))
+
+(defvar my--orig-aiu-meta-get (when (fboundp 'cyberdeck-aiu-meta-get) (symbol-function 'cyberdeck-aiu-meta-get)))
+(defun cyberdeck-aiu-meta-get (note key type)
+  (or (let ((v (plist-get note :meta)))
+        (when v
+          (let ((pair (assoc key v)))
+            (when pair (cdr pair)))))
+      (when (and note my--orig-aiu-meta-get) (ignore-errors (funcall my--orig-aiu-meta-get note key type)))))
+
+(defvar my--orig-aiu-meta-get-list (when (fboundp 'cyberdeck-aiu-meta-get-list) (symbol-function 'cyberdeck-aiu-meta-get-list)))
+(defun cyberdeck-aiu-meta-get-list (note key type)
+  (or (let ((v (plist-get note :meta)))
+        (when v
+          (let ((vals (cdr (assoc key v))))
+            (when vals (if (listp vals) vals (list vals))))))
+      (when (and note my--orig-aiu-meta-get-list) (ignore-errors (funcall my--orig-aiu-meta-get-list note key type)))))
+
+(defvar my--orig-aiu-level (when (fboundp 'cyberdeck-aiu-level) (symbol-function 'cyberdeck-aiu-level)))
+(defun cyberdeck-aiu-level (note)
+  (or (plist-get note :level)
+      (when (and note my--orig-aiu-level) (ignore-errors (funcall my--orig-aiu-level note)))))
+
+(defvar my--orig-aiu-pos (when (fboundp 'cyberdeck-aiu-pos) (symbol-function 'cyberdeck-aiu-pos)))
+(defun cyberdeck-aiu-pos (note)
+  (or (plist-get note :pos)
+      (when (and note my--orig-aiu-pos) (ignore-errors (funcall my--orig-aiu-pos note)))))
+
+(defvar my--orig-aiu-aliases (when (fboundp 'cyberdeck-aiu-aliases) (symbol-function 'cyberdeck-aiu-aliases)))
+(defun cyberdeck-aiu-aliases (note)
+  (or (plist-get note :aliases)
+      (when (and note my--orig-aiu-aliases) (ignore-errors (funcall my--orig-aiu-aliases note)))))
+
+(defvar my--orig-aiu-primary-title (when (fboundp 'cyberdeck-aiu-primary-title) (symbol-function 'cyberdeck-aiu-primary-title)))
+(defun cyberdeck-aiu-primary-title (note)
+  (or (plist-get note :primary-title)
+      (when (and note my--orig-aiu-primary-title) (ignore-errors (funcall my--orig-aiu-primary-title note)))))
+
+(defvar my--orig-aiu-outline-path (when (fboundp 'cyberdeck-aiu-outline-path) (symbol-function 'cyberdeck-aiu-outline-path)))
+(defun cyberdeck-aiu-outline-path (note)
+  (or (plist-get note :outline-path)
+      (when (and note my--orig-aiu-outline-path) (ignore-errors (funcall my--orig-aiu-outline-path note)))))
+
+(defvar my--orig-links-current-aiu-id (when (fboundp 'my/cyberdeck-links--current-aiu-id) (symbol-function 'my/cyberdeck-links--current-aiu-id)))
+(defun my/cyberdeck-links--current-aiu-id ()
+  (or (when (and (fboundp 'my/cyberdeck--aiu-at-point) (ignore-errors (my/cyberdeck--aiu-at-point)))
+        (ignore-errors (cyberdeck-aiu-id (my/cyberdeck--aiu-at-point))))
+      (when (and (fboundp 'my/cyberdeck--buffer-aiu) (ignore-errors (my/cyberdeck--buffer-aiu)))
+        (ignore-errors (cyberdeck-aiu-id (my/cyberdeck--buffer-aiu))))
+      (when my--orig-links-current-aiu-id (ignore-errors (funcall my--orig-links-current-aiu-id)))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+
+** Extraction
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+(defun cyberdeck-db--extract-aliases (unfoldings)
+  "Extract aliases from UNFOLDINGS alist.
+
+Looks for unfolding defined by `cyberdeck-buffer-alias-aiu-context'.
+Handles both quoted aliases (with spaces) and unquoted aliases properly.
+Strips org links and emphasis markers from each alias.
+
+The unfolding name is upcased before lookup because UNFOLDINGS keys
+are stored upcased, so a lowercase or mixed-case
+`cyberdeck-buffer-alias-aiu-context' still matches."
+  (when-let* ((aliases-str (cdr (assoc (upcase cyberdeck-buffer-alias-aiu-context)
+                                       unfoldings))))
+    (setq aliases-str (string-trim aliases-str))
+    (let ((result nil)
+          (pos 0))
+      (while (< pos (length aliases-str))
+        ;; Skip whitespace
+        (while (and (< pos (length aliases-str))
+                    (= (aref aliases-str pos) ? ))
+          (setq pos (1+ pos)))
+        (when (< pos (length aliases-str))
+          (let ((char (aref aliases-str pos)))
+            (cond
+             ;; Quoted alias - find matching closing quote
+             ((= char ?\")
+              (let ((end (string-match "\"" aliases-str (1+ pos))))
+                (if end
+                    (progn
+                      (push (cyberdeck-db--strip-emphasis
+                             (org-link-display-format
+                              (substring aliases-str (1+ pos) end)))
+                            result)
+                      (setq pos (1+ end)))
+                  (error "Unmatched quote in %s" cyberdeck-buffer-alias-aiu-context))))
+             ;; Unquoted alias - find next space or end of string
+             (t
+              (let ((end (or (string-match " " aliases-str pos)
+                             (length aliases-str))))
+                (push (cyberdeck-db--strip-emphasis
+                       (org-link-display-format
+                        (substring aliases-str pos end)))
+                       result)
+                (setq pos end)))))))
+      (nreverse result))))
+
+
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+
+** Query
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+
+** Worker
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+
+** Sync
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+
+** Mentions Detection
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+
+** Metadata Manipulation
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+
+** Utilities
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+
+** Tags Manipulation
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+
+** AIU Selection
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+
+** AIU Structure
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+
+#+begin_src emacs-lisp
+#+end_src
+

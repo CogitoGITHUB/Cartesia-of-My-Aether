@@ -1,0 +1,63 @@
+* Scheduled / Deadline :EMACS_MECHANISM::DRAWER_BLUEPRINT:
+:PROPERTIES:
+:ID:       2ee4fc9c-7c4c-4633-b19d-174f66ac60a0
+:MM_PARENT: none
+:MM_ORDER:  9.0
+:END:
+Why: Plan when to start or finish an AIU. ~SCHEDULED~ appears in the agenda
+from that date onward; ~DEADLINE~ appears as due.  Enter org timestamps like
+~<2025-06-01 Sun>~ or leave blank for none.
+
+** Scheduled Prompt
+#+begin_src emacs-lisp
+(defun my/cyberdeck-prompt-scheduled ()
+  "Prompt for a SCHEDULED timestamp.  Returns nil or a string."
+  (let ((raw (read-string "SCHEDULED (e.g. <2025-06-01 Sun> or blank): ")))
+    (unless (string-empty-p raw) raw)))
+#+end_src
+
+** Deadline Prompt
+#+begin_src emacs-lisp
+(defun my/cyberdeck-prompt-deadline ()
+  "Prompt for a DEADLINE timestamp.  Returns nil or a string."
+  (let ((raw (read-string "DEADLINE (e.g. <2025-06-01 Sun> or blank): ")))
+    (unless (string-empty-p raw) raw)))
+#+end_src
+
+** Registration
+
+*** Scheduled registration
+#+begin_src emacs-lisp
+(my/cyberdeck-register-prompt
+  :key 'scheduled
+  :name 'scheduled
+  :label "Scheduled"
+  :prompt-fn #'my/cyberdeck-prompt-scheduled
+  :contexts '(file heading task)
+  :read-current-fn (lambda () (org-entry-get nil "SCHEDULED"))
+  :merge-strategy 'replace
+  :to-plist (lambda (val ctx)
+              (if val
+                  (if (eq ctx 'heading)
+                      `(:post-apply (,(apply-partially #'my/cyberdeck--heading-schedule-apply val)))
+                    `(:unfoldings (("SCHEDULED" . ,val))))
+                `(:unfoldings (("SCHEDULED" . "WARNING"))))))
+#+end_src
+
+*** Deadline registration
+#+begin_src emacs-lisp
+(my/cyberdeck-register-prompt
+  :key 'deadline
+  :name 'deadline
+  :label "Deadline"
+  :prompt-fn #'my/cyberdeck-prompt-deadline
+  :contexts '(file heading task)
+  :read-current-fn (lambda () (org-entry-get nil "DEADLINE"))
+  :merge-strategy 'replace
+  :to-plist (lambda (val ctx)
+              (if val
+                  (if (eq ctx 'heading)
+                      `(:post-apply (,(apply-partially #'my/cyberdeck--heading-deadline-apply val)))
+                    `(:unfoldings (("DEADLINE" . ,val))))
+                `(:unfoldings (("DEADLINE" . "WARNING"))))))
+#+end_src

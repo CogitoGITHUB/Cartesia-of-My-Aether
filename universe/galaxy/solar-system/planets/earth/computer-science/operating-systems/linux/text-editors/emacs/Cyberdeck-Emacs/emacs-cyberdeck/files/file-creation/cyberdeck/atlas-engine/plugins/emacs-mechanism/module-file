@@ -1,0 +1,102 @@
+* Emacs Mechanism Module Files :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       081bd698-04d5-47db-88ae-f6c5f76e0fb3
+:MM_PARENT: none
+:MM_ORDER:  235.0
+:END:
+
+** Database Table
+#+begin_src emacs-lisp
+(defun my/cyberdeck-emacs-mechanism--ensure-table ()
+  "Create the emacs_mechanism_modules table if it does not exist."
+  (emacsql (cyberdeck-db)
+    [:create :table :if :not :exists emacs_mechanism_modules
+     ([(aiu-id :not-null)
+       (package :null)]
+      (:primary-key [aiu-id])
+      (:foreign-key [aiu-id] :references notes [id]
+       :on-delete :cascade))]))
+#+end_src
+
+** DB Extractor
+#+begin_src emacs-lisp
+(defun my/cyberdeck-emacs-mechanism--extract (_ctx aiu-data)
+  "Index PACKAGE AIU Context of mechanism module AIUs."
+  (let* ((aiu-id (plist-get aiu-data :id))
+         (tags (plist-get aiu-data :tags))
+         (unfoldings (plist-get aiu-data :unfoldings)))
+    (when (member "emacs-mechanism" tags)
+      (emacsql (cyberdeck-db)
+        [:delete :from emacs_mechanism_modules :where (= aiu-id $s1)]
+        aiu-id)
+      (emacsql (cyberdeck-db)
+        [:insert :into emacs_mechanism_modules :values $v1]
+        (vector aiu-id (cdr (assoc "PACKAGE" unfoldings)))))
+    aiu-data))
+#+end_src
+
+** Registration
+#+begin_src emacs-lisp
+(with-eval-after-load 'cyberdeck
+  (my/cyberdeck-emacs-mechanism--ensure-table)
+  (cyberdeck-db-register-extractor
+   (make-cyberdeck-extractor
+    :name 'emacs-mechanism-modules
+    :version 1
+    :priority 80
+    :extract-fn #'my/cyberdeck-emacs-mechanism--extract)))
+#+end_src
+
+** Schema Definition
+#+begin_src emacs-lisp
+(with-eval-after-load 'cyberdeck
+  (cyberdeck-blueprint-define
+   'emacs-mechanism
+   :predicate (lambda (note)
+                (member "emacs-mechanism" (cyberdeck-aiu-tags note)))
+   :fields (list)))
+#+end_src
+
+** Module body
+#+begin_src emacs-lisp
+(defun my/cyberdeck-emacs-mechanism--module-body (package)
+  "Leaf skeleton body for PACKAGE from the module template."
+  (let ((raw (my/cyberdeck-emacs-mechanism--template-body
+              "emacs-mechanism-module")))
+    (replace-regexp-in-string
+     "PACKAGE-NAME" package
+     (replace-regexp-in-string " :tangle no" "" raw) t t)))
+#+end_src
+
+** Create command
+#+begin_src emacs-lisp
+(defun my/cyberdeck-emacs-mechanism-module-create (package)
+  "Create a loadable mechanism module for PACKAGE under modules/."
+  (interactive (list (read-string "Package name: ")))
+  (unless (boundp 'cyberdeck-emacs-org-directory)
+    (user-error "Loader modules dir unknown (boot first)"))
+  (let* ((recipe (read-string "Straight recipe: "
+                   (format "(%s :type git :host github :repo \"\")" package)))
+         (category (read-string "Category: "))
+         (slug (downcase (replace-regexp-in-string "[^a-z0-9]+" "-" package)))
+         (abs (expand-file-name slug cyberdeck-emacs-org-directory))
+         (rel (file-relative-name abs (my/cyberdeck-root-dir)))
+         (body (my/cyberdeck-emacs-mechanism--module-body package))
+         (note (cyberdeck-create package rel
+                 :tags '("emacs-mechanism") :body body)))
+    (with-current-buffer (find-file-noselect
+                          (cyberdeck-aiu-path note))
+      (goto-char (point-min))
+      (when (re-search-forward "^\\*+ " nil t)
+        (org-set-property "PACKAGE" package)
+        (org-set-property "STRAIGHT" recipe)
+        (org-set-property "CATEGORY" category))
+      (save-buffer))
+    (my/cyberdeck-emacs-mechanism--store-template
+     note "emacs-mechanism-module")
+    (my/cyberdeck-emacs-mechanism--ensure-headline-tag note)
+    (when (fboundp 'cyberdeck-db-update-file)
+      (cyberdeck-db-update-file
+       (cyberdeck-aiu-path note)))
+    note))
+#+end_src

@@ -1,0 +1,22 @@
+* Emacs Mechanism Agent Files :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       8808e72d-3849-4834-a08c-56e735c71199
+:MM_PARENT: none
+:MM_ORDER:  307.0
+:END:
+
+** Create command
+#+begin_src emacs-lisp
+(defun my/cyberdeck-emacs-mechanism-agent-create (title)
+  "Create a new agent instruction file for TITLE in the mechanism subdir."
+  (interactive (list (read-string "Agent file title: ")))
+  (make-directory my/cyberdeck-emacs-mechanism-directory t)
+  (let* ((slug (downcase (replace-regexp-in-string "[^a-z0-9]+" "-" title)))
+         (body (my/cyberdeck-emacs-mechanism--template-body "agent"))
+         (note (cyberdeck-create title (concat "emacs-mechanism/" slug)
+                 :tags '("emacs-mechanism") :body body)))
+    (my/cyberdeck-emacs-mechanism--store-template note "agent")
+    (my/cyberdeck-emacs-mechanism--ensure-headline-tag note)
+    (my/cyberdeck-emacs-mechanism--open-capture note body)
+    note))
+#+end_src

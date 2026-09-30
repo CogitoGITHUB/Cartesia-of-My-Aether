@@ -1,0 +1,54 @@
+#+title:      Modeline Faces
+#+filetags:   :emacs-package:ui:
+#+property:   header-args:emacs-lisp :lexical t
+
+* Modeline Faces :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       5dff5b6b-e40e-48c0-adc2-d32a1f0d9598
+:MM_PARENT: none
+:MM_ORDER:  80.04
+:CATEGORY: mode-line
+:END:
+
+Mono base (AIU Frame owns mode-line/mode-line-inactive: white on
+black) plus three accents. Migrated from
+the-screen/display/06-screen (Properties in the Mode Line).
+
+** Properties in the Mode Line
+
+Certain text properties are meaningful in the mode line. The face property affects the appearance of text; the help-echo property associates help strings with the text, and keymap can make the text mouse-sensitive.
+
+There are four ways to specify text properties for text in the mode line:
+
+Put a string with a text property directly into the mode line data structure, but see The Data Structure of the Mode Line for caveats for that.
+Put a text property on a mode line %-construct such as ‘%12b’; then the expansion of the %-construct will have that same text property.
+Use a (:propertize elt props…) construct to give elt a text property specified by props.
+Use a list containing :eval form in the mode line data structure, and make form evaluate to a string that has a text property.
+You can use the keymap property to specify a keymap. This keymap only takes real effect for mouse clicks; binding character keys and function keys to it has no effect, since it is impossible to move point into the mode line.
+
+When the mode line refers to a variable which does not have a non-nil risky-local-variable property, any text properties given or specified within that variable’s values are ignored. This is because such properties could otherwise specify functions to be called, and those functions could come from file variables without prompting the user.)
+
+** Accent faces
+No color anywhere: plain mode-line text, bold only for emphasis.
+Keyboard letters lead the line, loud by position.
+#+begin_src emacs-lisp
+(defface manifolding-modeline-modified-face
+  '((t :inherit mode-line))
+  "Dirty/read-only letter. No color — plain text.")
+
+(defface manifolding-modeline-error-face
+  '((t :inherit mode-line :weight bold))
+  "Errors. No color — bold only for emphasis.")
+
+(defface manifolding-modeline-ok-face
+  '((t :inherit mode-line))
+  "Clean/ok states. Plain text, no color.")
+
+(defface manifolding-modeline-keyboard-face
+  '((t :inherit mode-line :weight bold))
+  "Keyboard state letters. Bold, no color.")
+
+(defface manifolding-modeline-info-face
+  '((t :inherit mode-line))
+  "Neutral info. Plain text, no color.")
+#+end_src

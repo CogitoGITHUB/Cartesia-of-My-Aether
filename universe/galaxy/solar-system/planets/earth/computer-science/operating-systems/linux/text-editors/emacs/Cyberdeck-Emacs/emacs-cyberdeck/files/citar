@@ -1,0 +1,77 @@
+#+identifier: 7e3a9c2f-1b4d-4f8e-ad27-3c6e9b2f4a1d
+
+* CITAR — Bibliographic Reference Management #emacs-package :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       7e3a9c2f-1b4d-4f8e-ad27-3c6e9b2f4a1d
+:MM_PARENT: none
+:MM_ORDER:  45.0
+:PACKAGE:  citar
+:STRAIGHT: (citar :type git :host github :repo "emacs-citar/citar" :files ("citar*.el"))
+:CATEGORY: bibliography
+:END:
+
+** Guix
+#+begin_src scheme ~/.config/guix/Operating-System/user-space/root/editors/emacs-packages/bibliography/citar.scm
+#+end_src
+
+** Config
+#+begin_src emacs-lisp
+;; Package vars; declared for compiles that run before load.
+(defvar citar-bibliography)
+(defvar citar-aius-source)
+(setq citar-bibliography '("~/bib/references.bib"))
+
+(setq org-cite-global-bibliography citar-bibliography
+      org-cite-insert-processor   'citar
+      org-cite-follow-processor   'citar
+      org-cite-activate-processor 'citar)
+
+(add-hook 'org-mode-hook
+          (lambda () (add-to-list 'completion-at-point-functions #'citar-capf)))
+(add-hook 'LaTeX-mode-hook
+          (lambda () (add-to-list 'completion-at-point-functions #'citar-capf)))
+
+(with-eval-after-load 'cyberdeck
+  (defun my/citar-cyberdeck-get-candidates (keys)
+    "Return alist of (citekey . display) for KEYS that have cyberdeck AIUs."
+    (mapcar (lambda (k) (cons k k))
+            (seq-filter
+             (lambda (k)
+               (not (null (cyberdeck-db-query-by-meta "citekey" k))))
+             keys)))
+
+  (defun my/citar-cyberdeck-has-aius (keys)
+    "Return hash of citekey -> bool for KEYS."
+    (let ((tbl (make-hash-table :test 'equal)))
+      (dolist (k keys)
+        (puthash k
+                 (not (null (cyberdeck-db-query-by-meta "citekey" k)))
+                 tbl))
+      tbl))
+
+  (defun my/citar-cyberdeck-open-aiu (citekey)
+    "Open or create a cyberdeck AIU for CITEKEY."
+    (let ((note (car (cyberdeck-db-query-by-meta "citekey" citekey))))
+      (if note
+          (cyberdeck-visit note)
+        (cyberdeck-create citekey nil
+                       :properties `(("CITEKEY" . ,citekey))))))
+
+  (citar-register-aius-source
+   'citar-cyberdeck
+   (list :name      "AIU Cyberdeck AIUs"
+         :category  'file
+         :items     #'my/citar-cyberdeck-get-candidates
+         :hasitems  #'my/citar-cyberdeck-has-aius
+         :open      #'my/citar-cyberdeck-open-aiu
+         :create    #'my/citar-cyberdeck-open-aiu))
+
+  (setq citar-aius-source 'citar-cyberdeck))
+#+end_src
+
+** Embark integration
+#+begin_src emacs-lisp
+(with-eval-after-load 'embark
+  (require 'citar-embark)
+  (citar-embark-mode +1))
+#+end_src

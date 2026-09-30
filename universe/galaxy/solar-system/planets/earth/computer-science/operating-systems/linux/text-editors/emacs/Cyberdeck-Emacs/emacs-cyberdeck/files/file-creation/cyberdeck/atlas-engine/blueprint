@@ -1,0 +1,1144 @@
+#+TITLE: AIU Cyberdeck — Blueprint
+
+* Blueprint Core Library :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       3846581a-2a0e-411c-abe5-9f4e049da55c
+:MM_PARENT: none
+:MM_ORDER:  19.0
+:CATEGORY: blueprint
+:END:
+
+#+begin_src emacs-lisp
+(require 'cl-lib)
+(require 'ol)
+(require 'cyberdeck-db nil t)
+(require 'cyberdeck-db-query nil t)
+(require 'cyberdeck-buffer nil t)
+
+;;; Schema structure
+
+(cl-defstruct (cyberdeck-blueprint (:constructor cyberdeck-blueprint--create)
+                             (:copier nil))
+  "A schema describing structured expectations for a class of notes.
+
+Slots:
+  name      - symbol identifying the schema
+  predicate - function (note) -> non-nil selecting notes it applies to
+  fields    - list of OWN field spec plists (see Commentary).  Use
+              `cyberdeck-blueprint-effective-fields' for the
+              merged list (own fields over includes').
+  includes  - names of the schemas this one inherits fields from"
+  name
+  predicate
+  fields
+  includes)
+
+;;; Registry
+
+(defvar cyberdeck-blueprint--registry (make-hash-table :test 'eq)
+  "Registry of defined schemas, keyed by name symbol.")
+
+(defvar cyberdeck-blueprint--generation 0
+  "Bumped on every define/unregister; invalidates the effective-fields cache.")
+
+(defvar cyberdeck-blueprint--effective-cache (make-hash-table :test 'eq)
+  "Schema name -> (GENERATION . MERGED-FIELDS).")
+
+(defvar cyberdeck-blueprint--resolving nil
+  "Names currently being merged (cycle guard for lazy :include).")
+
+(defun cyberdeck-blueprint--merge-fields (field-lists)
+  "Merge FIELD-LISTS, a list of field-spec lists, into a single list.
+The lists are processed in order; a later field spec overrides an
+earlier one with the same :key, whether the duplicate falls within a
+single list or across lists, while an overridden field keeps the
+position of its first appearance.  Used to fold the fields of included
+schemas into a schema that names them in :include."
+  (let ((order nil)
+        (by-key (make-hash-table :test 'equal)))
+    (dolist (fields field-lists)
+      (dolist (field fields)
+        (let ((key (plist-get field :key)))
+          (unless (gethash key by-key)
+            (push key order))
+          (puthash key field by-key))))
+    (mapcar (lambda (key) (gethash key by-key)) (nreverse order))))
+
+(cl-defun cyberdeck-blueprint-define (name &key predicate fields include)
+  "Define and register a schema called NAME.
+
+PREDICATE is a function (note) -> non-nil when the schema applies to
+the note.  FIELDS is a list of field spec plists (see Commentary for
+the supported keys).
+
+INCLUDE names another schema to inherit fields from - a schema
+name symbol, a `cyberdeck-blueprint' object, or a list of
+either. The included schemas contribute their fields first
+(multiple includes merged
+left-to-right), then FIELDS.  When a :key appears more than once the
+later definition wins, so FIELDS overrides an included field and a
+later include overrides an earlier one; an overridden field keeps the
+position of its first appearance.  Includes resolve lazily at first
+use (see `cyberdeck-blueprint-effective-fields'), so definition
+order never matters and re-defining an included schema updates all its
+includers.  Cyclic :include chains signal an error when merged.
+
+Registering a schema with an existing NAME replaces it.  Returns the
+`cyberdeck-blueprint' object."
+  (unless (symbolp name)
+    (error "Schema name must be a symbol: %S" name))
+  (unless (functionp predicate)
+    (error "Schema :predicate must be a function"))
+  (dolist (field fields)
+    (unless (and (plist-member field :key)
+                 (stringp (plist-get field :key)))
+      (error "Schema field must have a string :key: %S" field)))
+  (let ((includes (cond
+                   ((null include) nil)
+                   ((or (symbolp include) (cyberdeck-blueprint-p include)) (list include))
+                   ((listp include) include)
+                   (t (error "Schema :include must be a symbol, a schema, or a list of them: %S"
+                             include)))))
+    (let ((schema (cyberdeck-blueprint--create
+                   :name name
+                   :predicate predicate
+                   :includes (mapcar (lambda (s)
+                                       (if (cyberdeck-blueprint-p s)
+                                           (cyberdeck-blueprint-name s)
+                                         s))
+                                     includes)
+                   :fields fields)))
+      (puthash name schema cyberdeck-blueprint--registry)
+      (setq cyberdeck-blueprint--generation
+            (1+ cyberdeck-blueprint--generation))
+      schema)))
+
+(defun cyberdeck-blueprint--compute-fields (schema)
+  "Merge SCHEMA's own fields over its includes', recursively."
+  (let ((name (cyberdeck-blueprint-name schema)))
+    (when (memq name cyberdeck-blueprint--resolving)
+      (error "Cyclic schema :include involving %S" name))
+    (let ((cyberdeck-blueprint--resolving
+           (cons name cyberdeck-blueprint--resolving)))
+      (cyberdeck-blueprint--merge-fields
+       (append (mapcar (lambda (s)
+                         (cyberdeck-blueprint-effective-fields
+                          (cyberdeck-blueprint--resolve s)))
+                       (cyberdeck-blueprint-includes schema))
+               (list (cyberdeck-blueprint-fields schema)))))))
+
+(defun cyberdeck-blueprint-effective-fields (schema-or-name)
+  "Merged field list for SCHEMA-OR-NAME: includes first, own fields last.
+Resolved lazily with per-generation memoization, so schema definition
+order never matters.  Signals an error on cyclic :include chains or
+genuinely missing schemas (same message as direct resolution)."
+  (let ((schema (cyberdeck-blueprint--resolve schema-or-name)))
+    (let ((hit (gethash (cyberdeck-blueprint-name schema)
+                        cyberdeck-blueprint--effective-cache)))
+      (if (and hit (eq (car hit) cyberdeck-blueprint--generation))
+          (cdr hit)
+        (let ((merged (cyberdeck-blueprint--compute-fields schema)))
+          (puthash (cyberdeck-blueprint-name schema)
+                   (cons cyberdeck-blueprint--generation merged)
+                   cyberdeck-blueprint--effective-cache)
+          merged)))))
+
+(defun cyberdeck-blueprint-get (name)
+  "Return the registered schema called NAME, or nil."
+  (gethash name cyberdeck-blueprint--registry))
+
+(defun cyberdeck-blueprint-list ()
+  "Return the list of registered schema names."
+  (let (names)
+    (maphash (lambda (k _v) (push k names)) cyberdeck-blueprint--registry)
+    (nreverse names)))
+
+(defun cyberdeck-blueprint-unregister (name)
+  "Remove the schema called NAME from the registry."
+  (remhash name cyberdeck-blueprint--registry)
+  (setq cyberdeck-blueprint--generation
+        (1+ cyberdeck-blueprint--generation)))
+
+(defun cyberdeck-blueprint--resolve (schema-or-name)
+  "Return a `cyberdeck-blueprint' from SCHEMA-OR-NAME.
+
+SCHEMA-OR-NAME is either a `cyberdeck-blueprint' object
+or the symbol name of a registered schema. Signals an error when
+a name is not registered."
+  (cond
+   ((cyberdeck-blueprint-p schema-or-name) schema-or-name)
+   ((symbolp schema-or-name)
+    (or (cyberdeck-blueprint-get schema-or-name)
+        (error "No schema registered as %S" schema-or-name)))
+   (t (error "Not a schema or schema name: %S" schema-or-name))))
+
+;;; Field access
+
+(defun cyberdeck-blueprint-field-value (note field)
+  "Return the value of FIELD for NOTE, read with the field's declared type.
+
+FIELD is a field spec plist or a bare metadata key string (in which
+case the type defaults to `string'). Reads from the note's
+already-extracted metadata via `cyberdeck-aiu-meta-get'.
+When the field spec is :multiple, returns a list of values."
+  (let* ((spec (if (stringp field) (list :key field) field))
+         (key (plist-get spec :key))
+         (type (or (plist-get spec :type) 'string)))
+    (if (plist-get spec :multiple)
+        (cyberdeck-aiu-meta-get-list note key type)
+      (cyberdeck-aiu-meta-get note key type))))
+
+;;; Predicate
+
+(defun cyberdeck-blueprint-applies-p (note schema-or-name)
+  "Return non-nil when SCHEMA-OR-NAME's predicate matches NOTE.
+
+SCHEMA-OR-NAME is a `cyberdeck-blueprint' object or a
+registered schema name."
+  (let ((schema (cyberdeck-blueprint--resolve schema-or-name)))
+    (funcall (cyberdeck-blueprint-predicate schema) note)))
+
+;;; Validation
+
+(cl-defstruct (cyberdeck-violation (:copier nil))
+  "A single schema violation found on a note.
+
+Slots:
+  aiu-id    - id of the offending note
+  aiu-title - title of the offending note
+  schema     - name of the schema that was violated
+  field      - metadata key of the offending field
+  type       - violation type symbol (see `cyberdeck-blueprint-validate')
+  message    - human-readable description
+  value      - the offending value, when applicable"
+  aiu-id aiu-title schema field type message value)
+
+(defun cyberdeck-blueprint--call-or-value (spec note)
+  "Resolve SPEC for NOTE: call it when a function, otherwise return it.
+Used for field keys like :required and :one-of that accept either a
+literal or a function of the AIU."
+  (if (functionp spec) (funcall spec note) spec))
+
+(defun cyberdeck-blueprint--coerce (raw type)
+  "Coerce the RAW string value to TYPE for comparison."
+  (pcase type
+    ('number (string-to-number raw))
+    ('symbol (intern raw))
+    (_ raw)))
+
+(defun cyberdeck-blueprint--link-id (raw)
+  "Return the note id referenced by RAW, or nil when RAW is not an id link.
+Accepts a bracket link \"[[id:UUID][desc]]\" or a bare UUID."
+  (cond
+   ((string-match org-link-bracket-re raw)
+    (let ((link (match-string 1 raw)))
+      (when (string-prefix-p "id:" link)
+        (string-remove-prefix "id:" link))))
+   ((string-match-p (concat "\\`" (or (bound-and-true-p cyberdeck-utils--uuid-regexp) "[0-9a-fA-F\\-]\\{36\\}") "\\'") raw)
+     raw)))
+
+(defun cyberdeck-blueprint--violation (note schema field type message value)
+  "Build a `cyberdeck-violation' for NOTE on SCHEMA's FIELD of TYPE.
+MESSAGE describes the problem and VALUE is the offending value."
+  (make-cyberdeck-violation
+   :aiu-id (cyberdeck-aiu-id note)
+   :aiu-title (cyberdeck-aiu-title note)
+   :schema (cyberdeck-blueprint-name schema)
+   :field (plist-get field :key)
+   :type type
+   :message message
+   :value value))
+
+(defun cyberdeck-blueprint--target-tags-violation (target id field note schema)
+  "Return a violation when TARGET is missing FIELD's :target-tags, else nil.
+
+TARGET is the resolved `cyberdeck-aiu' referenced by FIELD
+on NOTE, and ID is its id (used in the message and as the
+offending value). SCHEMA owns
+the field.  All declared tags must be present (all-of); the missing ones
+are named in the message."
+  (let* ((required (plist-get field :target-tags))
+         (missing (and required
+                       (cl-remove-if
+                        (lambda (tag) (member tag (cyberdeck-aiu-tags target)))
+                        required))))
+    (when missing
+      (cyberdeck-blueprint--violation
+       note schema field 'invalid-target
+       (format "Field %S target %s is missing required tag(s) %S"
+               (plist-get field :key) id missing)
+       id))))
+
+(defun cyberdeck-blueprint--value-violation (raw field note schema)
+  "Return a violation for the RAW value of FIELD on NOTE, or nil when valid.
+SCHEMA is the owning schema.  Checks, in order: type, reference
+resolution and :target-tags (for `note' fields), allowed values, then a
+custom :validate function.  Returns the first problem found."
+  (let* ((key (plist-get field :key))
+         (type (or (plist-get field :type) 'string))
+         (one-of (cyberdeck-blueprint--call-or-value (plist-get field :one-of) note))
+         (validate (plist-get field :validate)))
+    (or
+     ;; type / reference checks
+     (pcase type
+       ('number
+        (unless (string-match-p "\\`[ \t]*-?[0-9][0-9.]*[ \t]*\\'" raw)
+          (cyberdeck-blueprint--violation
+           note schema field 'wrong-type
+           (format "Field %S expected a number, got %S" key raw) raw)))
+       ((or 'note 'link)
+        (let ((id (cyberdeck-blueprint--link-id raw)))
+          (cond
+           ((null id)
+            (cyberdeck-blueprint--violation
+             note schema field 'wrong-type
+             (format "Field %S expected an id link, got %S" key raw) raw))
+           ;; `link' fields only check the id-link shape; `AIU' fields
+           ;; additionally resolve the target and enforce :target-tags.
+           ((eq type 'note)
+            (let ((target (cyberdeck-db-get-by-id id)))
+              (if (not target)
+                  (cyberdeck-blueprint--violation
+                   note schema field 'invalid-reference
+                   (format "Field %S references missing AIU %s" key id) id)
+                (cyberdeck-blueprint--target-tags-violation
+                 target id field note schema))))))))
+     ;; allowed values (not meaningful for note/link references)
+     (when (and one-of (not (memq type '(note link))))
+       (let ((typed (cyberdeck-blueprint--coerce raw type)))
+         (unless (member typed one-of)
+           (cyberdeck-blueprint--violation
+            note schema field 'disallowed-value
+            (format "Field %S value %S is not one of %S" key typed one-of)
+            typed))))
+     ;; custom validator
+     (when validate
+       (let* ((typed (cyberdeck-blueprint--coerce raw type))
+              (result (funcall validate typed note)))
+         (unless (eq result t)
+           (cyberdeck-blueprint--violation
+            note schema field 'invalid-value
+            (if (stringp result) result
+              (format "Field %S failed validation" key))
+            typed)))))))
+
+(defun cyberdeck-blueprint--field-violations (note field schema)
+  "Return the list of violations for FIELD on AIU against SCHEMA."
+  (let* ((key (plist-get field :key))
+         (required (cyberdeck-blueprint--call-or-value (plist-get field :required) note))
+         (raws (cyberdeck-aiu-meta-get-list note key 'string)))
+    (cond
+     ((and required (null raws))
+      (list (cyberdeck-blueprint--violation
+             note schema field 'missing-required
+             (format "Required field %S is missing" key) nil)))
+     ((null raws) nil)
+     (t (delq nil
+              (mapcar (lambda (raw)
+                        (cyberdeck-blueprint--value-violation raw field note schema))
+                      raws))))))
+
+(defun cyberdeck-blueprint-validate (note schema-or-name)
+  "Return the list of `cyberdeck-violation' for NOTE
+against SCHEMA-OR-NAME.
+
+SCHEMA-OR-NAME is a `cyberdeck-blueprint' object or a
+registered schema name. Each field is checked for the following
+problem types:
+
+- `missing-required'   a required field has no value
+- `wrong-type'         a value does not match the field's declared type
+- `invalid-reference'  a `note' field links to a non-existent note
+- `invalid-target'     a `note' field's target is missing a :target-tags tag
+- `disallowed-value'   a value is not in the field's :one-of set
+- `invalid-value'      a value is rejected by the field's :validate function
+
+The note is validated as given; the schema's predicate is not consulted
+here (see `cyberdeck-blueprint-validate-all')."
+  (let ((schema (cyberdeck-blueprint--resolve schema-or-name)))
+    (cl-loop for field in (cyberdeck-blueprint-effective-fields schema)
+             append (cyberdeck-blueprint--field-violations note field schema))))
+
+(defun cyberdeck-blueprint-validate-aius (notes schema-or-name)
+  "Return all violations for NOTES against SCHEMA-OR-NAME.
+
+NOTES is any list of `cyberdeck-aiu' objects; every note is validated
+regardless of the schema's predicate. To validate only the notes
+a schema applies to, filter with
+`cyberdeck-blueprint-applies-p' first, or use
+`cyberdeck-blueprint-validate-all'."
+  (let ((schema (cyberdeck-blueprint--resolve schema-or-name)))
+    (cl-loop for note in notes
+             append (cyberdeck-blueprint-validate note schema))))
+
+(defun cyberdeck-blueprint-validate-all (schema-or-name)
+  "Return all violations for every note matched by SCHEMA-OR-NAME.
+
+Notes are selected with the schema's predicate, then validated.
+This is sugar for `cyberdeck-blueprint-validate-aius'
+over the matching AIUs."
+  (let ((schema (cyberdeck-blueprint--resolve schema-or-name)))
+    (cyberdeck-blueprint-validate-aius
+     (cyberdeck-db-query (lambda (note) (cyberdeck-blueprint-applies-p note schema)))
+     schema)))
+
+;;; Authoring
+
+(defun cyberdeck-blueprint-applicable (note)
+  "Return the names of registered schemas whose predicate matches NOTE.
+Schemas are tested in registration order."
+  (cl-remove-if-not (lambda (name) (cyberdeck-blueprint-applies-p note name))
+                    (cyberdeck-blueprint-list)))
+
+(defun cyberdeck-blueprint-missing-fields (note schema-or-name &optional required-only)
+  "Return the fields of SCHEMA-OR-NAME that NOTE has no value for.
+
+Required fields come first (in declared order), then optional ones;
+with REQUIRED-ONLY non-nil only required fields are returned.
+Requiredness is evaluated against NOTE, so a function :required is
+honored.  A field counts as present when NOTE has any value for its
+:key, so this never proposes a field the AIU already carries."
+  (let ((schema (cyberdeck-blueprint--resolve schema-or-name))
+        (required nil)
+        (optional nil))
+    (dolist (field (cyberdeck-blueprint-effective-fields schema))
+      (when (null (cyberdeck-aiu-meta-get-list note (plist-get field :key) 'string))
+        (if (cyberdeck-blueprint--call-or-value (plist-get field :required) note)
+            (push field required)
+          (unless required-only (push field optional)))))
+    (append (nreverse required) (nreverse optional))))
+
+(defun cyberdeck-blueprint-aiu-violations (note)
+  "Return all violations of NOTE across the schemas that apply to it.
+
+Validates NOTE against each schema named by
+`cyberdeck-blueprint-applicable' and concatenates the
+results. Returns nil when no schema applies or the
+note conforms to all that do.  This is the per-aiu counterpart to
+`cyberdeck-blueprint-validate-all' and the shared entry
+point for surfacing a single note's violations (sync warnings,
+in-buffer linting, health
+widgets)."
+  (cl-loop for name in (cyberdeck-blueprint-applicable note)
+           append (cyberdeck-blueprint-validate note name)))
+
+;;; Collection health
+
+(cl-defstruct (cyberdeck-blueprint-health (:constructor cyberdeck-blueprint-health--create)
+                                    (:copier nil))
+  "Aggregated health of a single schema across a set of notes.
+
+Slots:
+  schema        - schema name symbol
+  covered       - number of notes the schema applies to
+  invalid       - number of covered notes with at least one violation
+  invalid-aius - list of (note . violations) for the invalid notes
+  includes      - schema names this schema inherits fields from
+  included-by   - schema names that inherit fields from this schema"
+  schema covered invalid invalid-aius includes included-by)
+
+(cl-defun cyberdeck-blueprint-collection-health (&optional (notes (cyberdeck-db-query)))
+  "Return the health of every registered schema across NOTES.
+
+NOTES defaults to all notes in the database.  The result is a list of
+`cyberdeck-blueprint-health' structures, one per registered schema in
+registration order, each carrying how many notes the schema covers, how
+many of those are invalid, the invalid notes paired with their
+violations, and the schema's include relationships.  Pure apart from the
+default `cyberdeck-db-query'; pass NOTES to aggregate an explicit set."
+  (let ((by-name (make-hash-table :test 'eq))
+        (included-by (make-hash-table :test 'eq))
+        result)
+    (dolist (name (cyberdeck-blueprint-list))
+      (let ((includes (cyberdeck-blueprint-includes (cyberdeck-blueprint-get name))))
+        (puthash name (cyberdeck-blueprint-health--create
+                       :schema name :covered 0 :invalid 0
+                       :invalid-aius nil :includes includes)
+                 by-name)
+        (dolist (inc includes)
+          (push name (gethash inc included-by)))))
+    (dolist (note notes)
+      (dolist (name (cyberdeck-blueprint-applicable note))
+        (let ((h (gethash name by-name)))
+          (when h
+            (cl-incf (cyberdeck-blueprint-health-covered h))
+            (let ((vs (cyberdeck-blueprint-validate note name)))
+              (when vs
+                (cl-incf (cyberdeck-blueprint-health-invalid h))
+                (push (cons note vs) (cyberdeck-blueprint-health-invalid-aius h))))))))
+    (dolist (name (cyberdeck-blueprint-list))
+      (let ((h (gethash name by-name)))
+        (setf (cyberdeck-blueprint-health-invalid-aius h)
+              (nreverse (cyberdeck-blueprint-health-invalid-aius h)))
+        (setf (cyberdeck-blueprint-health-included-by h)
+              (nreverse (gethash name included-by)))
+        (push h result)))
+    (nreverse result)))
+
+(provide 'cyberdeck-blueprint)
+#+end_src
+
+* Blueprint DB Validation
+
+#+begin_src emacs-lisp
+(require 'cyberdeck-aiu nil t)
+(require 'cyberdeck-blueprint nil t)
+(require 'cyberdeck-db-extract nil t)
+
+(defcustom cyberdeck-db-blueprint-validation-action 'warning
+  "How to react when an indexed note violates an applicable schema.
+
+The check runs while a note is written to the database (on save,
+external sync, or a full scan), and only when schemas are registered and
+one applies to the note - otherwise it does nothing.
+
+- `silent'  index the note, say nothing.
+- `warning' index the note, emit a non-blocking warning naming the
+            violations (the default).
+- `error'   keep the violating note OUT of the database (skip indexing
+            it) and emit a warning.  The file on disk is untouched, so
+            the note simply stays absent from the database until it is
+            fixed and re-synced.
+
+Because files are the source of truth, none of these touch the file;
+they only control whether the database mirrors a violating AIU."
+  :type '(choice (const :tag "Index silently" silent)
+                 (const :tag "Index and warn" warning)
+                 (const :tag "Skip and warn" error))
+  :group 'cyberdeck)
+
+(defun cyberdeck-db-blueprint-validation--format (note violations)
+  "Format VIOLATIONS of NOTE into a human-readable warning string."
+  (format "AIU %S (%s) violates its schema:\n%s"
+          (cyberdeck-aiu-title note)
+          (cyberdeck-aiu-id note)
+          (mapconcat
+           (lambda (v)
+             (format "  - [%s] %s"
+                     (cyberdeck-violation-schema v)
+                     (cyberdeck-violation-message v)))
+           violations "\n")))
+
+(defun cyberdeck-db-blueprint-validation--warn (note violations level)
+  "Emit a warning at LEVEL describing VIOLATIONS of NOTE."
+  (lwarn 'cyberdeck-blueprint level "%s"
+         (cyberdeck-db-blueprint-validation--format note violations)))
+
+(defun cyberdeck-db-blueprint-validation--filter (note)
+  "Validate NOTE for `cyberdeck-db-aiu-index-filter-functions'.
+
+Return non-nil to allow indexing NOTE and nil to skip it,
+dispatching on `cyberdeck-db-blueprint-validation-action'.
+Fast-exits when validation is
+`silent' or no schemas are registered, and never affects a note that
+conforms or that no schema applies to."
+  (if (or (eq cyberdeck-db-blueprint-validation-action 'silent)
+          (null (cyberdeck-blueprint-list)))
+      t
+    (let ((violations (cyberdeck-blueprint-aiu-violations note)))
+      (cond
+       ((null violations) t)
+       ((eq cyberdeck-db-blueprint-validation-action 'error)
+        (cyberdeck-db-blueprint-validation--warn note violations :error)
+        nil)
+       (t
+        (cyberdeck-db-blueprint-validation--warn note violations :warning)
+        t)))))
+
+(add-hook 'cyberdeck-db-aiu-index-filter-functions
+          #'cyberdeck-db-blueprint-validation--filter)
+
+(provide 'cyberdeck-db-blueprint-validation)
+#+end_src
+
+* Blueprint Flymake
+
+#+begin_src emacs-lisp
+(require 'flymake)
+(require 'org-element)
+(require 'cyberdeck-aiu nil t)
+(require 'cyberdeck-blueprint nil t)
+(require 'cyberdeck-buffer nil t)
+(require 'cyberdeck-db-extract nil t)
+
+(defun cyberdeck-blueprint-flymake--aiu-region (level pos)
+  "Return (BEG . END) of the header line of a note at LEVEL and POS.
+For a heading-level note (LEVEL above zero) this is the heading line at
+POS; for a file-level note it is the =#+title= line, or the first line
+when there is none."
+  (save-excursion
+    (if (and level (> level 0) pos)
+        (goto-char pos)
+      (goto-char (point-min))
+      (unless (re-search-forward "^#\\+title:" nil t)
+        (goto-char (point-min))))
+    (cons (line-beginning-position) (line-end-position))))
+
+(defun cyberdeck-blueprint-flymake--field-region (field bound)
+  "Return (BEG . END) of FIELD's metadata line within BOUND, or
+nil. BOUND scopes the lookup to a heading subtree (see
+`cyberdeck-buffer-meta')
+and is nil for file-level metadata."
+  (when-let* ((meta (cyberdeck-buffer-meta--get (cyberdeck-buffer-meta bound) field))
+              (item (car (plist-get meta :items)))
+              (beg (org-element-aiu-context :begin item)))
+    (cons beg (save-excursion (goto-char beg) (line-end-position)))))
+
+(defun cyberdeck-blueprint-flymake--violation-region (violation data level)
+  "Return (BEG . END) in the current buffer for VIOLATION.
+DATA is the extraction plist of the offending note and LEVEL its level.
+A value violation points at its field's line; a missing required field
+\(which has no line) points at the AIU's header line."
+  (let ((field (cyberdeck-violation-field violation))
+        (bound (when (and level (> level 0)) (plist-get data :pos))))
+    (or (and field
+             (not (eq (cyberdeck-violation-type violation) 'missing-required))
+             (cyberdeck-blueprint-flymake--field-region field bound))
+        (cyberdeck-blueprint-flymake--aiu-region level (plist-get data :pos)))))
+
+(defun cyberdeck-blueprint-flymake--collect ()
+  "Return schema-violation diagnostics for the notes in the current buffer.
+Each element is (BEG END TYPE TEXT), ready for `flymake-make-diagnostic'."
+  (let* ((ast (org-element-parse-buffer))
+         (path (or (buffer-file-name) (buffer-name)))
+         (file-title (cyberdeck-db--extract-file-title ast path))
+         (datas (cons (cyberdeck-db--extract-file-node ast path (current-buffer) file-title)
+                      (cyberdeck-db--extract-heading-nodes ast path (current-buffer) file-title)))
+         (diagnostics nil))
+    (dolist (data datas)
+      (when (plist-get data :id)
+        (let* ((level (or (plist-get data :level) 0))
+               (note (cyberdeck-db--aiu-from-data data path level)))
+          (dolist (v (cyberdeck-blueprint-aiu-violations note))
+            (let ((region (cyberdeck-blueprint-flymake--violation-region v data level)))
+              (push (list (car region) (cdr region) :warning
+                          (format "[%s] %s"
+                                  (cyberdeck-violation-schema v)
+                                  (cyberdeck-violation-message v)))
+                    diagnostics))))))
+    (nreverse diagnostics)))
+
+(defun cyberdeck-blueprint-flymake (report-fn &rest _)
+  "Report schema violations in the current buffer to REPORT-FN.
+A flymake backend; see `flymake-diagnostic-functions'."
+  (funcall report-fn
+           (mapcar (lambda (d)
+                     (apply #'flymake-make-diagnostic (current-buffer) d))
+                   (cyberdeck-blueprint-flymake--collect))))
+
+;;;###autoload
+(define-minor-mode cyberdeck-blueprint-flymake-mode
+  "Toggle real-time schema-violation linting in the current buffer.
+When enabled, register `cyberdeck-blueprint-flymake'
+as a flymake backend and
+turn on `flymake-mode', so violations of any schema applicable to a note
+in the buffer are flagged as you edit."
+  :lighter " cyberdeck-blueprint"
+  (if cyberdeck-blueprint-flymake-mode
+      (progn
+        (add-hook 'flymake-diagnostic-functions #'cyberdeck-blueprint-flymake nil t)
+        (flymake-mode 1))
+    (remove-hook 'flymake-diagnostic-functions #'cyberdeck-blueprint-flymake t)))
+
+(provide 'cyberdeck-blueprint-flymake)
+#+end_src
+
+* Blueprint Customization
+
+#+begin_src emacs-lisp
+(defun my/cyberdeck-blueprint--outline-spec (prompt-name)
+  "Return (KEY . OPTIONS) from declarative file PROMPT-NAME, or nil.
+Declarative = no src blocks; level-1 KEY heading, level-2 options."
+  (let ((file (my/cyberdeck-blueprint-file-for prompt-name)))
+    (when file
+      (condition-case nil
+          (with-temp-buffer
+            (insert-file-contents file)
+            (goto-char (point-min))
+            (when (not (re-search-forward "begin_src" nil t))
+              (let ((spec (car (my/cyberdeck-org-prompt--parse
+                                file))))
+                (when spec
+                  (cons (nth 0 spec) (nth 1 spec))))))
+        ;; Engine unavailable/broken → legacy extractors handle it.
+        (error nil)))))
+
+(defun my/cyberdeck-blueprint--legacy-choices (prompt-name)
+  "Legacy regex extraction of choices from elisp prompt PROMPT-NAME."
+  (let ((file (my/cyberdeck-blueprint-file-for prompt-name)))
+    (when file
+      (with-temp-buffer
+        (insert-file-contents file)
+        (goto-char (point-min))
+        (when (re-search-forward "completing-read" nil t)
+          (condition-case nil
+              (when (re-search-forward "'(\"" nil t)
+                (let ((items (save-excursion
+                               (backward-char 2)
+                               (read (current-buffer)))))
+                  (cl-remove-if (lambda (s) (string-match-p "WARNING" s)) items)))
+            (error nil)))))))
+
+(defun my/cyberdeck-blueprint--extract-choices (prompt-name)
+  "Extract allowed values for PROMPT-NAME: level-2 options from a
+declarative file (WARNING sentinel excluded), else legacy regex over
+elisp lists (WARNING excluded)."
+  (or (let ((choices (cdr (my/cyberdeck-blueprint--outline-spec
+                           prompt-name))))
+        (when choices
+          (cl-remove-if (lambda (s) (string-match-p "WARNING" s))
+                        choices)))
+      (my/cyberdeck-blueprint--legacy-choices prompt-name)))
+
+(defun my/cyberdeck-blueprint--extract-aiu-context-key (prompt-name)
+  "Extract the property drawer key for PROMPT-NAME: level-1 heading of a
+declarative file, else legacy regex over the elisp source."
+  (or (car (my/cyberdeck-blueprint--outline-spec prompt-name))
+      (let ((file (my/cyberdeck-blueprint-file-for prompt-name)))
+        (when file
+          (with-temp-buffer
+            (insert-file-contents file)
+            (when (re-search-forward "org-entry-get nil \"\\([A-Z_]+?\\)\"" nil t)
+              (match-string 1)))))))
+
+(defun my/cyberdeck-blueprint--validate (choices val _note)
+  "Validate a field value against CHOICES (dynamic-binding compat).
+Extracts label from Org link format if present."
+  (if (equal val "WARNING") "missing-required"
+    (let ((label (if (string-match "\\[\\[id:\\([^]]+\\)\\]\\[\\([^]]+\\)\\]\\]" val)
+                     (match-string 2 val)
+                   val)))
+      (if (and choices (not (member label choices)))
+          (format "invalid-value: %s" label)
+        t))))
+
+(defun my/cyberdeck-blueprint--field-from-prompt (prompt-name &optional required)
+  "Generate a cyberdeck-blueprint field plist from prompt file PROMPT-NAME.
+When REQUIRED is non-nil, the field is mandatory."
+  (let* ((key (or (my/cyberdeck-blueprint--extract-aiu-context-key prompt-name)
+                  (upcase (replace-regexp-in-string
+                           "-" "_" (symbol-name prompt-name)))))
+         (choices (my/cyberdeck-blueprint--extract-choices prompt-name)))
+    `(:key ,key
+      :type string
+      ,@(when choices `(:one-of ,choices))
+      ,@(when required '(:required t))
+      :validate ,(apply-partially #'my/cyberdeck-blueprint--validate choices))))
+
+(defun my/cyberdeck-blueprint--drawer-keys-in-file (file)
+  "Return AIU Context keys declared in FILE's drawer template."
+  (let (keys)
+    (with-temp-buffer
+      (insert-file-contents file)
+      (goto-char (point-min))
+      (when (re-search-forward "^:PROPERTIES:$" nil t)
+        (forward-line)
+        (while (not (looking-at "^:END:$"))
+          (when (looking-at "^:\\([A-Z_]+?\\):[ \t]*$")
+            (push (match-string 1) keys))
+          (forward-line))))
+    keys))
+
+(defun my/cyberdeck-blueprint--template-display-name (key)
+  "Public template name for registry KEY: strip BODY_, downcase, _ to -."
+  (replace-regexp-in-string
+   "_" "-"
+   (downcase (if (string-prefix-p "BODY_" key) (substring key 5) key))))
+
+(defun my/cyberdeck-blueprint--template-aiu-context-keys ()
+  "Return list of AIU Context keys defined in registered template files."
+  (let (keys)
+    (dolist (entry my/cyberdeck-template-registry)
+      (setq keys (append (my/cyberdeck-blueprint--drawer-keys-in-file
+                          (cdr entry))
+                         keys)))
+    (delete-dups keys)))
+
+(defun my/cyberdeck-blueprint--template-aiu-contexts ()
+  "Return alist of (template-name . (aiu-context-key ...)) from the registry.
+Names stay in stored form (e.g. \"recipes\") so existing TEMPLATE
+AIU Contexts keep matching their schemas."
+  (let (result)
+    (dolist (entry my/cyberdeck-template-registry)
+      (let* ((name (my/cyberdeck-blueprint--template-display-name
+                    (car entry)))
+             (keys (nreverse (my/cyberdeck-blueprint--drawer-keys-in-file
+                              (cdr entry)))))
+        (when keys
+          (push (cons name keys) result))))
+    (nreverse result)))
+(cyberdeck-blueprint-define
+ 'base
+ :predicate (lambda (_note) t)
+ :fields
+ (list (my/cyberdeck-blueprint--field-from-prompt 'state-work t)
+       (my/cyberdeck-blueprint--field-from-prompt 'state-general t)
+       (my/cyberdeck-blueprint--field-from-prompt 'state-intelligence t)
+       (my/cyberdeck-blueprint--field-from-prompt 'state-operational t)
+       (my/cyberdeck-blueprint--field-from-prompt 'state-validation t)
+       (my/cyberdeck-blueprint--field-from-prompt 'state-source t)
+       (my/cyberdeck-blueprint--field-from-prompt 'state-dependency)
+       (my/cyberdeck-blueprint--field-from-prompt 'state-checklist)
+       (my/cyberdeck-blueprint--field-from-prompt 'rules)
+       (my/cyberdeck-blueprint--field-from-prompt 'traps-external)
+       (my/cyberdeck-blueprint--field-from-prompt 'traps-internal)))
+(defun my/cyberdeck-blueprint--required-validator ()
+  "Validator flagging missing or WARNING-valued required fields."
+  (lambda (val _note)
+    (cond ((equal val "WARNING") "missing-required")
+          ((null val) "missing-required")
+          (t t))))
+
+(defun my/cyberdeck-blueprint--hash-validator ()
+  "Validator comparing TEMPLATE_HASH against the current template file."
+  (lambda (val note)
+    (let* ((name (or (car (cyberdeck-aiu-meta-get-list
+                           note 'TEMPLATE 'string))
+                     (cdr (assoc "TEMPLATE"
+                                 (cyberdeck-aiu-aiu-contexts note)))))
+           (current (if name
+                        (my/cyberdeck--capture-file-hash name)
+                      nil)))
+      (cond ((and val current (not (string-equal val current)))
+             "template-outdated")
+            ((null val) "missing-required")
+            (t t)))))
+(cl-loop for (template-name . keys) in (my/cyberdeck-blueprint--template-aiu-contexts)
+         for schema-name = (intern (concat "template-" template-name))
+         do (cyberdeck-blueprint-define
+             schema-name
+             :predicate
+             `(lambda (note)
+                (or (member ,template-name
+                            (cyberdeck-aiu-meta-get-list note 'TEMPLATE 'string))
+                    (equal ,template-name
+                           (cdr (assoc "TEMPLATE"
+                                       (cyberdeck-aiu-aiu-contexts note))))))
+             :include 'base
+             :fields
+             `((:key "TEMPLATE_HASH"
+                :type string
+                :required t
+                :validate ,(my/cyberdeck-blueprint--hash-validator))
+               ,@(cl-loop for key in keys
+                          collect
+                          `(:key ,key :type string
+                            :required t
+                            :validate ,(my/cyberdeck-blueprint--required-validator))))))
+(cyberdeck-blueprint-define
+ 'task
+ :predicate (lambda (note) (member "task" (cyberdeck-aiu-tags note)))
+ :include 'base
+ :fields
+ (list (my/cyberdeck-blueprint--field-from-prompt 'todo)
+       (my/cyberdeck-blueprint--field-from-prompt 'priority)))
+(with-eval-after-load 'cyberdeck
+  (setq cyberdeck-db-blueprint-validation-action 'silent))
+(defun my/cyberdeck-blueprint--migrate-aiu-warnings (level pos)
+  "Clean WARNING sentinels at one heading anchor; return count deleted."
+  (let ((count 0))
+    (when (and level (> level 0) pos)
+      (goto-char pos)
+      (org-back-to-heading t))
+    (dolist (unfolding '("STATE_WORK" "STATE_GENERAL" "STATE_INTELLIGENCE"
+                    "STATE_OPERATIONAL" "STATE_VALIDATION" "STATE_SOURCE"
+                    "STATE_DEPENDENCY" "STATE_CHECKLIST" "PRIORITY" "TAG"))
+      (let ((val (org-entry-get nil unfolding)))
+        (when (and val (string-match-p "WARNING" val))
+          (org-entry-delete nil unfolding)
+          (setq count (1+ count)))))
+    (when (and (org-at-heading-p)
+               (equal (org-get-todo-state) "WARNING"))
+      (org-todo " ")
+      (setq count (1+ count)))
+    count))
+
+(defun my/cyberdeck-blueprint--migrate-file-warnings (file notes)
+  "Delete WARNING-valued AIU Contexts for AIUS in FILE; return count."
+  (let ((count 0))
+    (with-current-buffer (find-file-noselect file)
+      (dolist (info notes)
+        (setq count
+              (+ count
+                 (my/cyberdeck-blueprint--migrate-aiu-warnings
+                  (plist-get info :level) (plist-get info :pos)))))
+      (when (buffer-modified-p)
+        (save-buffer))
+      (kill-buffer))
+    count))
+(defun my/cyberdeck-blueprint-migrate-warnings ()
+  "Delete all unfoldings with value \"WARNING\" throughout the vault.
+
+Under the old prompt system, skipping a prompt stored \"WARNING\" as
+the unfolding value to track it in Static Blueprints.  Now schema
+validation flags notes that are *missing* the metadata entirely as
+`missing-required` violations, so the sentinel is no longer needed.
+Deleting the WARNING sentinel lets the description-list metadata
+(eg - STATE_WORK :: ACTIVE) become the canonical value."
+  (interactive)
+  (unless (yes-or-no-p
+           "Delete all \"WARNING\" AIU Context values throughout the vault? ")
+    (user-error "Aborted"))
+  (let ((count 0)
+        (files (make-hash-table :test #'equal)))
+    ;; Group AIUs by file so we only visit each file once
+    (dolist (note (cyberdeck-db-query))
+      (let ((file (cyberdeck-aiu-path note)))
+        (when (and file (file-exists-p file))
+          (push (list :level (cyberdeck-aiu-level note)
+                      :pos (cyberdeck-aiu-pos note))
+                (gethash file files)))))
+    (maphash
+     (lambda (file notes)
+       (setq count
+             (+ count (my/cyberdeck-blueprint--migrate-file-warnings
+                       file notes))))
+     files)
+     (message "Migration complete: deleted %d WARNING AIU Context values (existing metadata preserved)." count)))
+(require 'cyberdeck nil t)
+(require 'cyberdeck-db nil t)
+(require 'cyberdeck-blueprint nil t)
+(defvar my/cyberdeck-reinforce--timer nil
+  "Debounced idle timer handle for scheduled sweeps.")
+
+(defvar my/cyberdeck-reinforce--last-sweep nil
+  "Float time of the last completed sweep.")
+
+(defvar my/cyberdeck-reinforce-idle-delay 15
+  "Idle seconds after vault activity before a debounced sweep runs.")
+
+(defvar my/cyberdeck-reinforce-boot-delay 30
+  "Idle seconds after boot before the one-shot boot sweep.")
+
+(defvar my/cyberdeck-reinforce-audit-allowlist
+  '("FILE_NAME" "SUBDIR" "POSITION" "TAG" "THINKING_TYPES"
+     "STAGE" "STATUS" "MIND_MAP" "POS" "ETYMOLOGY" "EXAMPLE" "FREQUENCY"
+     "PRONUNCIATION" "REGISTER" "SYNONYMS" "TEMPLATE")
+  "Unfolding keys managed outside schemas; excluded from the audit.
+STAGE and STATUS replaced the retired MASTERING key here: both are
+owned by the mastering engine (spine + workflow state), not by
+declarative schemas.")
+(defun my/cyberdeck-reinforce-sweep ()
+  "Run a full-vault schema sweep and rebuild Static Blueprints."
+  (interactive)
+  ;; Sweeps can fire at arbitrary ambient stack depth (idle inside
+  ;; recursive-edits etc). Carry an independent deep budget so ambient
+  ;; depth is irrelevant. max-specpdl-size is obsolete as of 29.1 but
+  ;; still honored; the binding stays, warning suppressed.
+  (with-no-warnings
+    (let ((max-lisp-eval-depth 12000)
+          (max-specpdl-size 12000))
+      (condition-case err
+        (progn
+          (my/cyberdeck-missing--rebuild-from-health)
+          (setq my/cyberdeck-reinforce--last-sweep (float-time))
+          ;; Keep the blueprint registry complete. `refresh' only ever
+          ;; appends a missing entry, so running it from the idle sweep
+          ;; cannot disturb an arrangement. The destructive half — sync,
+          ;; which rewrites every :MM_ORDER: — stays interactive.
+          (ignore-errors
+            (when (fboundp 'my/cyberdeck-drawer-registry-refresh)
+              (my/cyberdeck-drawer-registry-refresh)))
+          (my/cyberdeck-reinforce--audit))
+      (error (message "Schema sweep failed: %s" err))))))
+(defun my/cyberdeck-reinforce--schedule ()
+  "Debounce: re-arm the idle sweep timer."
+  (when my/cyberdeck-reinforce--timer
+    (cancel-timer my/cyberdeck-reinforce--timer))
+  (setq my/cyberdeck-reinforce--timer
+        (run-with-idle-timer my/cyberdeck-reinforce-idle-delay
+                             nil
+                             #'my/cyberdeck-reinforce--sweep-maybe)))
+
+(defun my/cyberdeck-reinforce--sweep-maybe ()
+  "Run a sweep only when the DB is ready; never reschedules itself."
+  (setq my/cyberdeck-reinforce--timer nil)
+  (let ((ready (condition-case nil
+                   (caar (emacsql (cyberdeck-db)
+                                  [:select [id] :from notes :limit 1]))
+                 (error nil))))
+    (when ready
+      (my/cyberdeck-reinforce-sweep))))
+(with-eval-after-load 'cyberdeck
+  (run-with-idle-timer my/cyberdeck-reinforce-boot-delay
+                       nil
+                       #'my/cyberdeck-reinforce--sweep-maybe))
+(defvar my/cyberdeck-reinforce--guard-timer nil)
+
+(defun my/cyberdeck-reinforce--validate-buffer-aiu ()
+  "Validate the current buffer's note from freshly synced DB data.
+Violations are intentionally silent here — they surface in
+admin/Static Blueprints via the reinforcement sweeps."
+  (setq my/cyberdeck-reinforce--guard-timer nil)
+  (unless (active-minibuffer-window)
+    (when-let ((id (my/cyberdeck-links--current-aiu-id))
+               (note (cyberdeck-db-get-by-id id)))
+      (cyberdeck-blueprint-aiu-violations note))))
+
+(defun my/cyberdeck-reinforce--save-guard ()
+  "Debounce a validation of the just-saved note.
+Runs after the idle delay so fswatch has synced the new state into
+the DB and we grade fresh data, not pre-save state."
+  (when my/cyberdeck-reinforce--guard-timer
+    (cancel-timer my/cyberdeck-reinforce--guard-timer))
+  (setq my/cyberdeck-reinforce--guard-timer
+        (run-with-idle-timer 3 nil
+                             #'my/cyberdeck-reinforce--validate-buffer-aiu)))
+
+(defun my/cyberdeck-reinforce--on-worker-done (&rest _)
+  "React to sync worker completion by scheduling a sweep."
+  (my/cyberdeck-reinforce--schedule))
+(with-eval-after-load 'cyberdeck
+  (add-hook 'org-capture-after-finalize-hook
+            #'my/cyberdeck-reinforce--schedule t)
+  (add-hook 'cyberdeck-db-worker-done-functions
+            #'my/cyberdeck-reinforce--on-worker-done))
+(defun my/cyberdeck-reinforce--enable-in-vault ()
+  "Enable save guard and debounced sweeps in vault AIU buffers."
+  (when (and buffer-file-name
+             (string-prefix-p (expand-file-name
+                               (my/cyberdeck-root-dir))
+                              buffer-file-name))
+    (add-hook 'after-save-hook
+              #'my/cyberdeck-reinforce--save-guard nil t)
+    (add-hook 'after-save-hook
+              #'my/cyberdeck-reinforce--schedule nil t)))
+
+(add-hook 'org-mode-hook #'my/cyberdeck-reinforce--enable-in-vault)
+(defun my/cyberdeck-reinforce--schema-field-keys ()
+  "Return all AIU Context keys covered by registered schemas."
+  (let ((keys nil))
+    (dolist (name (cyberdeck-blueprint-list))
+      (dolist (field (cyberdeck-blueprint-effective-fields
+                      (cyberdeck-blueprint-get name)))
+        (push (plist-get field :key) keys)))
+    (delete-dups keys)))
+(defun my/cyberdeck-reinforce--audit-prompts (covered)
+  "Return prompt keys not covered by COVERED schema fields."
+  (let ((uncovered nil))
+    (dolist (spec my/cyberdeck-prompt-registry)
+      (let* ((name (plist-get spec :name))
+             (file (and name (my/cyberdeck-blueprint-file-for name)))
+             (key (condition-case nil
+                      (my/cyberdeck-blueprint--extract-aiu-context-key name)
+                    (error nil))))
+        (unless (or (memq name '(position subdir file-name tags todo
+                                        schedule deadline unfoldings))
+                    (and file (string-match-p "/prompts/" file))
+                    (null key)
+                    (member key covered))
+          (push key uncovered))))
+    uncovered))
+(defun my/cyberdeck-reinforce--audit-templates ()
+  "Return issue strings for missing/drifted template schemas."
+  (let ((template-issues nil))
+    (dolist (name (mapcar #'car (my/cyberdeck-blueprint--template-aiu-contexts)))
+      (let* ((schema-name (intern (concat "template-" name)))
+             (schema (cyberdeck-blueprint-get schema-name)))
+        (if (null schema)
+            (push (format "%s: no template schema" name) template-issues)
+          (let* ((field-keys (mapcar (lambda (f) (plist-get f :key))
+                                     (cyberdeck-blueprint-effective-fields schema)))
+                 (expected (cons "TEMPLATE_HASH"
+                                 (cdr (assoc name
+                                             (my/cyberdeck-blueprint--template-aiu-contexts))))))
+            (dolist (want expected)
+              (unless (member want field-keys)
+                (push (format "%s: schema missing field %s" name want)
+                      template-issues)))))))
+    template-issues))
+(defvar my/cyberdeck-reinforce--drawer-order-extra-keys '("ID")
+  "Drawer keys allowed in drawer-order.org without a prompt blueprint.
+Org-native keys live here; everything else must match a spec :key.")
+(defun my/cyberdeck-reinforce--audit-drawer-registry ()
+  "Return issue strings for the :DRAWER_BLUEPRINT: registry.
+Three checks, and the third is the one that matters: a property whose
+file is gone, a blueprint with no property, and registry order that
+disagrees with the files' current :MM_ORDER: (a sync is pending).
+Passive; never writes. Plain defun with an if/else (no
+`return-from', so no `cl' block needed at compile time)."
+  (require 'cl-lib)
+  (let ((issues nil))
+    (when (fboundp 'my/cyberdeck-drawer-registry)
+      (let* ((root (and (boundp 'my/cyberdeck-blueprints-root)
+                        (file-name-directory my/cyberdeck-blueprints-root)))
+             (entries (condition-case nil
+                          (my/cyberdeck-drawer-registry)
+                        (error nil)))
+             (known (condition-case nil
+                       (my/cyberdeck-blueprint-key-files)
+                     (error nil))))
+        (if (or (null root) (null known))
+            (push "drawer registry: blueprint root or key files unavailable" issues)
+          (dolist (e entries)
+            (unless (assoc (car e) known)
+              (push (format "registry: %s names no blueprint file" (car e)) issues))
+            (unless (file-exists-p (expand-file-name (cdr e) root))
+              (push (format "registry: %s -> %s is missing" (car e) (cdr e)) issues)))
+          (dolist (pair known)
+            (unless (assoc (car pair) entries)
+              (push (format "registry: %s has no entry yet" (car pair)) issues)))
+          ;; Drift: is the registry order what the files currently say?
+          (let* ((orders nil) (i 0) (drift nil))
+            (dolist (f (mapcar #'cdr known))
+              (with-temp-buffer
+                (insert-file-contents f)
+                (goto-char (point-min))
+                (when (re-search-forward "^[ \t]*:MM_ORDER:[ \t]*\\([0-9.]+\\)" nil t)
+                  (push (cons (cons 0 (file-name-nondirectory f))
+                              (string-to-number (match-string 1)))
+                        orders))))
+            (setq orders (sort orders (lambda (a b) (< (cdr a) (cdr b)))))
+            (dolist (e entries)
+              (let* ((want (assoc (car e) orders))
+                     (have (nth i orders)))
+                (when (and want have (not (equal (cdr want) (cdr have))))
+                  (push (format "registry: %s is %s but should be %s (sync pending)"
+                                (car e) (cdr have) (cdr want))
+                        drift)))
+              (setq i (1+ i)))
+            (dolist (d drift) (push d issues))))))
+    (nreverse issues)))
+
+(defun my/cyberdeck-reinforce--audit-drawer-order ()
+  "Return issue strings for drawer-order.org headings with no prompt.
+Compares against spec :key strings (drawer keys, e.g. TODO_STATE),
+not prompt names. Passive check only — never touches the order file
+or the drawer sweep; silent when clean or engine unavailable."
+  (let ((issues (my/cyberdeck-reinforce--audit-drawer-registry)))
+    (when (fboundp 'my/cyberdeck-drawer-order-from-file)
+      (let ((order (condition-case nil
+                       (my/cyberdeck-drawer-order-from-file)
+                     (error nil)))
+            known)
+        (when (and (boundp 'my/cyberdeck-org-prompt--specs)
+                   (hash-table-p my/cyberdeck-org-prompt--specs))
+          (maphash (lambda (_k spec)
+                     (push (plist-get spec :key) known))
+                   my/cyberdeck-org-prompt--specs))
+        (dolist (k (or order nil))
+          (unless (or (member k known)
+                      (member k my/cyberdeck-reinforce--drawer-order-extra-keys))
+            (push (format "drawer-order: %s matches no prompt" k)
+                  issues)))))
+    (nreverse issues)))
+(defun my/cyberdeck-reinforce--audit ()
+  "Warn about prompts not covered by any schema and templates whose
+generated schema is missing or drifted. Silent when clean."
+  (let* ((covered (append my/cyberdeck-reinforce-audit-allowlist
+                          (my/cyberdeck-reinforce--schema-field-keys)))
+         ;; Bound (not dropped) in case the query warms caches; the
+         ;; uncovered-prompts warn path was never wired (see docstring
+         ;; aspiration) — underscore keeps behavior identical.
+         (_uncovered (my/cyberdeck-reinforce--audit-prompts covered))
+         (template-issues (my/cyberdeck-reinforce--audit-templates))
+         (drawer-issues (my/cyberdeck-reinforce--audit-drawer-order)))
+    (when template-issues
+      (lwarn 'cyberdeck-reinforce :warning
+             "Template schema issues: %s"
+             (string-join (nreverse template-issues) "; ")))
+    (when drawer-issues
+      (lwarn 'cyberdeck-reinforce :warning
+             "Drawer order issues: %s"
+             (string-join drawer-issues "; ")))))
+#+end_src

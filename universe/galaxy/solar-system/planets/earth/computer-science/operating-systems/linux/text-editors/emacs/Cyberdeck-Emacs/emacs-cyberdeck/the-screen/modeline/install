@@ -1,0 +1,48 @@
+* Cyberdeck Modeline Install :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       4e7a1c93-6b28-4f50-9d13-8c05b2e7a6f4
+:MM_PARENT: none
+:MM_ORDER:  80.15
+:CATEGORY: the-screen
+:END:
+
+The one top-level call that starts the bar.
+
+It has to be its own unit, and it has to be the **last** lane slot. The
+composer can only build a row from segments that are already registered,
+and segments arrive with the widgets at 80.05–80.13. Calling install from
+`engine/setup` (80.2) therefore composes an empty bar; calling it from any
+widget composes a partial one, because a later widget would have nothing
+re-triggering the compose. So: a unit of its own, after everything.
+
+This file existing at all is the record of an omission. The DSL, the
+composer, the segments, the order file, the clobber guard and the clock
+timer were all written and verified individually, and the bar still never
+appeared, because nothing called install. Everything was green and the
+feature was dead. If the bar ever stops showing, check here first:
+`manifolding-modeline-install` must have run (called immediately
+below and again on `after-init-hook`).
+
+Deferring to `after-init-hook` rather than installing inline is what makes
+it safe against a later unit that also touches the format, and it means a
+failure here degrades to the stock mode line rather than a broken one.
+
+#+begin_src emacs-lisp
+(defun manifolding-modeline--install-after-init ()
+  "Install the bar once Emacs has finished starting.
+Deferred because a package loaded during init — display-time,
+fly-sparkline, super-save — can still be rewriting mode-line-format when
+the units are evaluated."
+  (condition-case err
+      (manifolding-modeline-install)
+    (error
+     (message "manifolding-modeline: install failed: %s"
+              (error-message-string err)))))
+
+(when (boundp 'after-init-hook)
+  (add-hook 'after-init-hook #'manifolding-modeline--install-after-init))
+;; Run it now too, so a --batch boot still gets a bar. (Not gated on
+;; the hook being non-nil: during init it never is, which used to
+;; skip both paths and leave the rows empty forever.)
+(manifolding-modeline--install-after-init)
+#+end_src

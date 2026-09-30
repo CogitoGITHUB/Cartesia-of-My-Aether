@@ -1,0 +1,25 @@
+SPC y: AIU Proxy menu.
+
+* SPC y — AIU Proxy :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       30810a72-3691-4d08-a460-c580c6eb6b6f
+:MM_PARENT: none
+:MM_ORDER:  177.0
+:END:
+#+begin_src emacs-lisp
+(my/defhydra-state my/aiu-proxy-hydra nil "AIU Proxy" (my/main-hydra/body "main menu")
+  "Add"
+  (("a" my/aiu-proxy-add       "add"         :exit t)
+   ("b" (my/aiu-proxy-add t)   "body only"   :exit t)
+   ("A" aiu-proxy-add-all         "add all"     :exit t))
+  "Manage"
+  (("r" aiu-proxy-remove          "remove"      :exit t)
+   ("R" aiu-proxy-remove-all      "remove all"  :exit t)
+   ("d" aiu-proxy-detach          "detach"      :exit t)
+   ("f" aiu-proxy-refresh         "refresh"     :exit t))
+  "Edit"
+  (("o" aiu-proxy-open-source     "open source" :exit t)
+   ("m" aiu-proxy-move-to-source  "move source" :exit t)
+   ("s" aiu-proxy-live-sync-start "live sync"   :exit nil)
+   ("x" aiu-proxy-live-sync-exit  "exit sync"   :exit t)))
+#+end_src

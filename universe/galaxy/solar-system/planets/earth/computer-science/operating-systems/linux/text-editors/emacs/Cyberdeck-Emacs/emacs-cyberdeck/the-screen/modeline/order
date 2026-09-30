@@ -1,0 +1,19 @@
+* Modeline Segment Order
+
+Left to right per row; the setup recomposes on save. Row 1 is the
+identity row (top), row 2 the context row. Keyboard letters always
+lead row 1. Both sides always render exactly two lines (empty rows
+render blank, never dropped), so the stacked pairing never breaks.
+
+** Row 1 Left
+*** keyboard-state
+*** modified
+*** buffer-id
+*** position
+** Row 1 Right
+*** vc
+*** cyberdeck
+** Row 2 Left
+*** doctor
+** Row 2 Right
+*** datetime

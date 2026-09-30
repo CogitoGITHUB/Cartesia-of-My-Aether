@@ -1,0 +1,140 @@
+* Inline Hashtags :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       9c991520-5fc9-4ae2-9f6e-1384fb57c4bb
+:END:
+
+`#tag` completion and indexing for org buffers.  Tags stay plain text
+(a `#tag` token); the index is a sidecar that never touches AIU
+content or the DB schema, so this amplifies the drawer-tag system
+without conflicting with it.  Entering a slash path (`a/b/c`) inserts
+the leaf and notifies `my/cyberdeck-hashtag-recorded-functions` (used by
+the tag-hierarchy module); without it the path is inert data.
+
+** Known tags
+#+begin_src emacs-lisp
+(defvar my/cyberdeck-hashtag-sidecar-file
+  (expand-file-name ".local/cache/atlas-hashtags.el" (expand-file-name "~"))
+  "Persisted TAG -> (FILES...) sidecar for inline #tags.")
+
+(defvar my/cyberdeck-hashtag-index (make-hash-table :test 'equal)
+  "TAG string -> list of file paths containing it inline.")
+
+(defun my/cyberdeck-tags-known-list ()
+  "Union of note tags (DB) and headline tags in the current buffer."
+  (let (out)
+    (dolist (n (ignore-errors (cyberdeck-db-query)))
+      (dolist (tag (ignore-errors (cyberdeck-aiu-tags n)))
+        (when (and (stringp tag) (not (member tag out)))
+          (push tag out))))
+    (when (derived-mode-p 'org-mode)
+      (save-excursion
+        (goto-char (point-min))
+        (while (re-search-forward "^[ \t]*#\\+FILETAGS:.*$" nil t)
+          (dolist (tag (split-string (match-string 0) "[: \t]+" t))
+            (unless (member tag out) (push tag out))))))
+    (sort out #'string<)))
+#+end_src
+
+** Completion
+#+begin_src emacs-lisp
+(require 'cl-lib)
+
+(defcustom my/cyberdeck-hashtag-mode-auto t
+  "Non-nil enables `my/cyberdeck-hashtag-mode' in every org buffer.
+Completion only triggers right after a `#', so normal typing is
+unaffected; disable this if any completion framework complains."
+  :type 'boolean :group 'cyberdeck)
+(defvar my/cyberdeck-hashtag-recorded-functions nil
+  "Hook run with (TAG PATH) after an inline tag is inserted.
+PATH is the slash path typed, or nil for a bare tag.")
+
+(defun my/cyberdeck-hashtag-completion-at-point ()
+  "Complete `#tag' at point from known tags, with `[New]'."
+  (when (and (derived-mode-p 'org-mode)
+             (eq (char-before) ?#))
+    (let ((beg (1- (point)))
+          (cands (append (my/cyberdeck-tags-known-list) '("[New]"))))
+      (list beg (point) cands :exclusive 'no))))
+
+(defun my/cyberdeck-insert-hashtag (tag)
+  "Insert #TAG at point; record slash paths for the hierarchy module."
+  (interactive
+   (list (completing-read "Tag: " (append (my/cyberdeck-tags-known-list) '("[New]")))))
+  (when (string= tag "[New]")
+    (setq tag (read-string "New tag: ")))
+  (let ((leaf (car (last (split-string tag "/" t)))))
+    (insert "#" leaf)
+    (run-hook-with-args 'my/cyberdeck-hashtag-recorded-functions
+                        leaf (unless (string= leaf tag) tag))))
+
+(define-minor-mode my/cyberdeck-hashtag-mode
+  "Inline #tag completion in org buffers."
+  :lighter " #"
+  (if my/cyberdeck-hashtag-mode
+      (add-hook 'completion-at-point-functions
+                #'my/cyberdeck-hashtag-completion-at-point nil t)
+    (remove-hook 'completion-at-point-functions
+                 #'my/cyberdeck-hashtag-completion-at-point t)))
+#+end_src
+
+** Sidecar index
+#+begin_src emacs-lisp
+(defun my/cyberdeck-scan-hashtags-buffer ()
+  "Return (TAG . FILES) alist for #tags in the current buffer."
+  (let ((file (buffer-file-name))
+        (found nil))
+    (when file
+      (save-excursion
+        (goto-char (point-min))
+        (while (re-search-forward "\\(^\\|[ \t\n]\\)#\\([A-Za-z0-9_@/-]+\\)" nil t)
+          (let ((tag (match-string-no-properties 2)))
+            (unless (assoc tag found)
+              (push (list tag) found))
+            (cl-pushnew file (cdr (assoc tag found)) :test #'string=)))))
+    found))
+
+(defun my/cyberdeck-hashtags-save ()
+  "Persist the sidecar atomically.  Never throws."
+  (condition-case nil
+      (let ((tmp (concat my/cyberdeck-hashtag-sidecar-file ".tmp"))
+            (pairs nil))
+        (make-directory (file-name-directory my/cyberdeck-hashtag-sidecar-file) t)
+        (maphash (lambda (k v) (push (cons k v) pairs)) my/cyberdeck-hashtag-index)
+        (let ((print-length nil) (print-level nil))
+          (with-temp-file tmp (prin1 pairs (current-buffer))))
+        (rename-file tmp my/cyberdeck-hashtag-sidecar-file t))
+    (error nil)))
+
+(defun my/cyberdeck-hashtags-load ()
+  "Load the sidecar if present.  Never throws."
+  (clrhash my/cyberdeck-hashtag-index)
+  (condition-case nil
+      (when (file-exists-p my/cyberdeck-hashtag-sidecar-file)
+        (dolist (pair (car (read-from-string
+                            (with-temp-buffer
+                              (insert-file-contents my/cyberdeck-hashtag-sidecar-file)
+                              (buffer-string)))))
+          (puthash (car pair) (cdr pair) my/cyberdeck-hashtag-index)))
+    (error nil)))
+
+(defun my/cyberdeck-hashtags-refresh-file ()
+  "Re-index inline tags of the current file (after-save entry)."
+  (when (and buffer-file-name
+             (derived-mode-p 'org-mode))
+    (let ((root (ignore-errors (my/cyberdeck-root-dir))))
+      (when (and root (file-in-directory-p buffer-file-name root))
+        (maphash (lambda (k v)
+                   (puthash k (delete buffer-file-name v) my/cyberdeck-hashtag-index))
+                 my/cyberdeck-hashtag-index)
+        (dolist (entry (my/cyberdeck-scan-hashtags-buffer))
+          (puthash (car entry) (cdr entry) my/cyberdeck-hashtag-index))
+        (my/cyberdeck-hashtags-save)))))
+
+(my/cyberdeck-hashtags-load)
+(add-hook 'after-save-hook #'my/cyberdeck-hashtags-refresh-file)
+(add-hook 'org-mode-hook
+          (lambda ()
+            (when (and my/cyberdeck-hashtag-mode-auto
+                       (fboundp 'my/cyberdeck-hashtag-mode))
+              (my/cyberdeck-hashtag-mode 1))))
+#+end_src

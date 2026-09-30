@@ -1,0 +1,45 @@
+SPC v S: Cyberdeck Search menu.
+
+* SPC v S — Cyberdeck Search :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       75f74667-ccfc-4ba2-8fcb-21ba2787462f
+:MM_PARENT: none
+:MM_ORDER:  172.0
+:END:
+All launchers point at commands defined in
+=cyberdeck-engine/search-center.org= (priority 16, loads before this
+file), so every head resolves at compile time.
+#+begin_src emacs-lisp
+(my/defhydra-state my/cyberdeck-search-hydra nil "Cyberdeck Search"
+ (my/cyberdeck-hydra/body "cyberdeck")
+ "Surface"
+ (("s" my/cyberdeck-search "unified surface" :exit t)
+  ("n" my/cyberdeck-deft "deft browser" :exit t))
+ "Text"
+ (("g" my/cyberdeck-search-rg-vault "rg vault" :exit t)
+  ("G" my/cyberdeck-search-rg-dir "rg dir" :exit t)
+  ("l" consult-line-multi "lines (open)" :exit t)
+  ("o" consult-outline "outline" :exit t))
+ "Structured"
+ (("q" my/cyberdeck-search-ql-agenda "agenda" :exit t)
+  ("T" my/cyberdeck-search-org-ql-tag "by tag" :exit t)
+  (":" my/cyberdeck-search-org-ql-custom "custom query" :exit t))
+ "Database"
+ (("t" my/cyberdeck-search-by-tag "by tag" :exit t)
+  ("m" my/cyberdeck-search-by-stage "by stage" :exit t)
+  ("u" my/cyberdeck-search-by-status "by status" :exit t)
+  ("b" my/cyberdeck-search-backlinks "AIU Proxies" :exit t)
+  ("f" my/cyberdeck-search-forward-links "forward" :exit t)
+  ("D" my/cyberdeck-search-by-due "due" :exit t)
+  ("O" my/cyberdeck-search-by-overdue "overdue" :exit t)
+  ("U" my/cyberdeck-search-by-unseen "unseen" :exit t)
+  ("i" my/cyberdeck-search-by-isolated "isolated" :exit t)
+  ("c" my/cyberdeck-search-component "component" :exit t)
+  ("P" my/cyberdeck-search-path "path" :exit t))
+ "Todo"
+ (("w" cyberdeck-search-todo-dir "todo vault" :exit t)
+  ("W" cyberdeck-search-todo-all "todo open" :exit t))
+ "Files"
+ (("F" consult-recent-file "recent" :exit t)
+  ("d" my/cyberdeck-search-find-vault-file "find file" :exit t)))
+#+end_src

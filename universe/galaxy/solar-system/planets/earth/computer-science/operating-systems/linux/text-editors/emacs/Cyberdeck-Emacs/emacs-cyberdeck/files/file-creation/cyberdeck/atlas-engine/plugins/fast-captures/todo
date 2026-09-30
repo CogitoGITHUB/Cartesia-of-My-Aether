@@ -1,0 +1,55 @@
+Quickly add a TODO item using org-capture.  Simple mode finishes
+immediately; capture mode opens the buffer with cursor ready.
+
+* Core :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       cbe0cc2e-7ef9-4cca-a808-0904ea69c27a
+:MM_PARENT: none
+:MM_ORDER:  133.0
+:END:
+
+** Template selection
+#+begin_src emacs-lisp
+(defun my/cyberdeck-quick-todo--choose-template ()
+  "Return template string from the template registry, or nil."
+  (let ((names (mapcar (lambda (e)
+                         (my/cyberdeck-blueprint--template-display-name
+                          (car e)))
+                       my/cyberdeck-template-registry)))
+    (when names
+      (let* ((prompt (format "Template (%s): "
+                             (mapconcat #'identity names ", ")))
+             (choice (completing-read prompt names nil t nil nil
+                                      (car names))))
+        (my/cyberdeck-template-body choice)))))
+#+end_src
+
+** Quick todo command
+Simple mode finishes immediately; capture mode opens the buffer with
+cursor ready.
+#+begin_src emacs-lisp
+(defun my/cyberdeck-quick-todo ()
+  (interactive)
+  (let* ((mode (let ((c (read-char "Mode: (s)imple (c)apture [C]: ")))
+                 (if (memq c '(?\n ?\r ?\s)) ?c c)))
+         (template (my/cyberdeck-quick-todo--choose-template))
+         (file (expand-file-name "Todo"
+                                  (my/cyberdeck-root-dir))))
+    (if (eq mode ?s)
+        ;; let*: org-capture-initial reads the just-read text (plain
+        ;; let would read an outer binding instead).
+        (let* ((text (read-string "TODO: "))
+               (org-capture-initial text)
+              (org-capture-templates
+               `(("t" "Quick Todo" entry (file ,file)
+                  ,(or template "* TODO %i\n")
+                  :immediate-finish t :kill-buffer t))))
+          (org-capture nil "t"))
+      (let ((org-capture-templates
+             `(("t" "Quick Todo" entry (file ,file)
+                ,(or template "* TODO %?")
+                :kill-buffer t :unnarrowed t))))
+        (org-capture nil "t")
+        (set-buffer-modified-p nil)
+        (when (fboundp 'modaled-set-state) (modaled-set-state "insert"))))))
+#+end_src

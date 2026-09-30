@@ -1,0 +1,234 @@
+Modal state core: variables, naming, the define-keys binder, initialization, and the 12 state-mode invocations.
+* Buffer-local state variable :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       a5c2c9db-dc36-4ebf-81a7-b549cda38758
+:MM_PARENT: none
+:MM_ORDER:  146.0
+:END:
+#+begin_src emacs-lisp
+(cyberdeck-keyboard-define-local-var cyberdeck-keyboard-state nil "Current cyberdeck-keyboard state.")
+#+end_src
+** Set state
+The only place `cyberdeck-keyboard-state' is assigned, so the model line
+accommodation lives here rather than in each of the 15 state units. Emacs
+does not recompute a mode line because a buffer-local variable changed, and
+the bar shows the *name* of the state, so a state change has to be announced.
+#+begin_src emacs-lisp
+(defun cyberdeck-keyboard-set-state (state)
+  "Set current cyberdeck-keyboard STATE."
+  ;; Normalise the input to a symbol. The state machine is keyed by symbols
+  ;; and calls `cyberdeck-keyboard-get-state-mode' on the result, but it is
+  ;; also driven from `change-major-mode-after-body-hook', and under polymode
+  ;; the mode name arriving here is a *string* — poly-org-mode yields "org",
+  ;; not a symbol. Left unconverted that is a wrong-type-argument inside the
+  ;; state table lookup, thrown from the middle of a mode-line compose.
+  (when (stringp state)
+    (setq state (intern state)))
+  (let ((previous cyberdeck-keyboard-state))
+    (when (and cyberdeck-keyboard-state (not (equal cyberdeck-keyboard-state state)))
+      (let ((old-mode (cyberdeck-keyboard-get-state-mode cyberdeck-keyboard-state)))
+        (when (fboundp old-mode) (funcall old-mode -1))))
+    (when state
+      (let ((new-mode (cyberdeck-keyboard-get-state-mode state)))
+        (if (fboundp new-mode)
+            (funcall new-mode 1)
+          (message "cyberdeck-keyboard: unknown state %s" state))))
+    (setq cyberdeck-keyboard-state state)
+    (unless (equal previous cyberdeck-keyboard-state)
+      ;; Model line accommodation. Guarded on fboundp so the keyboard has no
+      ;; dependency on the modeline module — either can be absent.
+      (when (fboundp 'manifolding-modeline--state-changed)
+        (manifolding-modeline--state-changed)))))
+#+end_src
+** Model line accommodation
+The bar reads the state from `cyberdeck-keyboard-state' and shows it in
+full — `normal`, `insert`, `presentation`, `git-timemachine` — not as a
+single letter. Fifteen two-letter codes are unreadable at a glance and, on a
+narrow bar, no narrower than the names are; the width is not the constraint,
+legibility is.
+
+This is the one function the model line consumes, so there is a single
+definition of "what the state reads as" and no second copy to drift.
+#+begin_src emacs-lisp
+(defun cyberdeck-keyboard-modeline-state-name ()
+  "Full name of the current state, for the mode line.
+Reads `cyberdeck-keyboard-state' directly — the bar never keeps its own
+copy, so the two can never disagree. Returns nil before the keyboard has
+assigned a state, and the segment treats nil as \"show nothing\".
+
+Total over the value's type, not just symbols. The state is normally a
+symbol, but the keyboard is also driven from `change-major-mode-after-body-
+hook', and under polymode the mode name reaching `set-state' is a *string*
+— `poly-org-mode` yields \"org\". Calling `symbol-name' on that is a
+wrong-type-argument, and it fires from inside the mode-line compose, so it
+takes the whole bar down rather than just this segment."
+  (let ((state cyberdeck-keyboard-state))
+    (cond ((null state) nil)
+          ((symbolp state) (symbol-name state))
+          ((stringp state) state)
+          (t (format "%s" state)))))
+#+end_src
+** Emulation mode map alist
+#+begin_src emacs-lisp
+(defvar cyberdeck-keyboard--emulation-mode-map-alist nil
+  "An alist of cyberdeck-keyboard mode map to add to `emulation-mode-map-alists'.")
+#+end_src
+** Main state management
+#+begin_src emacs-lisp
+(defvar cyberdeck-keyboard-main-state-alist '()
+  "Main cyberdeck-keyboard state for major modes.")
+
+(defvar cyberdeck-keyboard-main-state-fn nil
+  "A function to return main cyberdeck-keyboard state for buffer.")
+(make-obsolete-variable 'cyberdeck-keyboard-main-state-alist 'cyberdeck-keyboard-main-state-fn "0.8.3")
+
+(defun cyberdeck-keyboard-set-main-state ()
+  "Set current state to main state."
+  (interactive)
+  (cyberdeck-keyboard-set-state (if cyberdeck-keyboard-main-state-fn
+                         (funcall cyberdeck-keyboard-main-state-fn)
+                       (cyberdeck-keyboard-get-main-state))))
+
+(defvar cyberdeck-keyboard-init-state-fn nil
+  "A function to return init cyberdeck-keyboard state for buffer.")
+
+(defun cyberdeck-keyboard-set-init-state ()
+  "Set current state to init state."
+  (interactive)
+  (cyberdeck-keyboard-set-state (and cyberdeck-keyboard-init-state-fn
+                          (funcall cyberdeck-keyboard-init-state-fn))))
+
+(cyberdeck-keyboard-define-local-var cyberdeck-keyboard-default-state nil
+  "Default cyberdeck-keyboard state.")
+(make-obsolete-variable 'cyberdeck-keyboard-default-state 'cyberdeck-keyboard-init-state-fn "0.8.3")
+
+(defun cyberdeck-keyboard-set-default-state ()
+  "Set current state to default state."
+  (interactive)
+  (cyberdeck-keyboard-set-state cyberdeck-keyboard-default-state))
+(make-obsolete #'cyberdeck-keyboard-set-default-state #'cyberdeck-keyboard-set-init-state "0.8.3")
+
+(defun cyberdeck-keyboard-get-main-state ()
+  "Get main state for current major mode."
+  (alist-get major-mode
+             cyberdeck-keyboard-main-state-alist
+             cyberdeck-keyboard-default-state nil
+             (lambda (modes mode)
+               (cond
+                ((listp modes) (memq mode modes))
+                ((eq modes t) t)
+                (t (eq mode modes))))))
+(make-obsolete #'cyberdeck-keyboard-get-main-state nil "0.8.3")
+#+end_src
+** Naming utilities
+#+begin_src emacs-lisp
+(defun cyberdeck-keyboard-get-state-mode (state)
+  "Get the symbol of STATE minor mode."
+  (intern (format "cyberdeck-keyboard-%s-state-mode" state)))
+
+(defun cyberdeck-keyboard-get-state-keymap (state)
+  "Get the symbol of STATE keymap."
+  (intern (format "cyberdeck-keyboard-%s-state-keymap" state)))
+
+(defun cyberdeck-keyboard-get-substate-mode (substate)
+  "Get the symbol of SUBSTATE minor mode."
+  (intern (format "cyberdeck-keyboard-%s-substate-mode" substate)))
+
+(defun cyberdeck-keyboard-get-substate-keymap (substate)
+  "Get the symbol of SUBSTATE keymap."
+  (intern (format "cyberdeck-keyboard-%s-substate-keymap" substate)))
+#+end_src
+** Define-keys function
+#+begin_src emacs-lisp
+(defun cyberdeck-keyboard-define-keys (&rest body)
+  "Define keybindings for states, substates, or globally.
+
+:states / :substates / :global / :keymaps / :inherit / :bind"
+  (declare (indent defun))
+  (let* ((states (plist-get body :states))
+         (substates (plist-get body :substates))
+         (keymaps (append (mapcar #'cyberdeck-keyboard-get-state-keymap states)
+                          (mapcar #'cyberdeck-keyboard-get-substate-keymap substates)
+                          (plist-get body :keymaps)))
+         (global (plist-get body :global))
+         (inherit (plist-get body :inherit))
+         (bind (plist-get body :bind)))
+    (pcase-dolist (`(,inherit-keymap . ,inherit-keys) inherit)
+      (dolist (k inherit-keys)
+        (let ((binding (keymap-lookup (symbol-value inherit-keymap) k)))
+          (dolist (keymap keymaps)
+            (keymap-set (symbol-value keymap) k binding))
+          (when global (keymap-global-set k binding)))))
+    (pcase-dolist (`(,key . ,def) bind)
+      (let ((keys (if (listp key) key (list key))))
+        (dolist (k keys)
+          (dolist (keymap keymaps)
+            (keymap-set (symbol-value keymap) k def))
+          (when global (keymap-global-set k def)))))))
+#+end_src
+** Buffer initialization & setup
+#+begin_src emacs-lisp
+(cyberdeck-keyboard-define-local-var cyberdeck-keyboard--initialized nil
+  "Non-nil if this buffer is initialized by cyberdeck-keyboard.")
+
+(defun cyberdeck-keyboard-initialize (&optional force)
+  "Initialize current buffer with init cyberdeck-keyboard state."
+  (when (or force (not cyberdeck-keyboard--initialized))
+    (setq cyberdeck-keyboard--initialized t)
+    (unless (minibufferp)
+      (if cyberdeck-keyboard-init-state-fn (cyberdeck-keyboard-set-init-state)))))
+
+(defun cyberdeck-keyboard-initialize-all-buffers ()
+  "Initialize all existing buffers."
+  (dolist (buf (buffer-list))
+    (with-current-buffer buf (cyberdeck-keyboard-initialize))))
+
+(defun cyberdeck-keyboard-setup ()
+  "Set up cyberdeck-keyboard for existing and future buffers."
+  (add-hook 'after-change-major-mode-hook
+            (lambda ()
+              (setq cyberdeck-keyboard--initialized nil)
+              (cyberdeck-keyboard-initialize)))
+  (add-hook 'buffer-list-update-hook
+            (lambda () (cyberdeck-keyboard-initialize-all-buffers)))
+  (cyberdeck-keyboard-initialize-all-buffers))
+
+(defun cyberdeck-keyboard-enable-substate-on-state-change (substate &rest body)
+  "Enable SUBSTATE under conditions specified in BODY."
+  (declare (indent defun))
+  (let ((states (plist-get body :states))
+        (major (plist-get body :major))
+        (minor (plist-get body :minor))
+        (pred (plist-get body :pred))
+        (check-minor (lambda (mode)
+                       (and (boundp mode) (symbol-value mode)))))
+    (add-variable-watcher
+     'cyberdeck-keyboard-state
+     (lambda (_ new-val _ _)
+       (funcall (cyberdeck-keyboard-get-substate-mode substate)
+                (if (and (or (not major) (memq major-mode major))
+                         (or (not minor) (memq t (mapcar check-minor minor)))
+                         (or (not pred) (funcall pred))
+                         (or (not states) (member new-val states)))
+                    1 -1))))))
+
+(provide 'cyberdeck-keyboard)
+#+end_src
+
+** Activation (must eval after the provide above — filename order
+would otherwise run setup before this file exists; deferred to
+startup so hooks install and the first sweep runs with states/
+registry fully populated — a direct call would initialize boot
+buffers against an empty registry)
+#+begin_src emacs-lisp
+(require 'cyberdeck-keyboard nil t)
+(add-hook 'emacs-startup-hook #'cyberdeck-keyboard-setup)
+#+end_src
+
+*** Tree Slide Hooks
+#+begin_src emacs-lisp
+(add-hook 'org-tree-slide-play-hook
+          (lambda () (cyberdeck-keyboard-set-state "presentation")))
+(add-hook 'org-tree-slide-stop-hook
+          (lambda () (cyberdeck-keyboard-set-state "org")))
+#+end_src

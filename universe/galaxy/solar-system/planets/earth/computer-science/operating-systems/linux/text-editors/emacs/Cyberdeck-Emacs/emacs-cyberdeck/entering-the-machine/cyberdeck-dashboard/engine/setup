@@ -1,0 +1,222 @@
+* Dashboard Setup :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       797e199d-e94f-4e23-b316-d07a0694270f
+:MM_PARENT: none
+:MM_ORDER:  78.9
+:CATEGORY: ui
+:END:
+
+Wires last: composes the section order from the widget registry,
+then hooks, keys, recentf, startup. Loads after every widgets/ file
+so the registry is full.
+
+** Section order
+Mirrors the blueprint drawer-order mechanism: the `order' file holds
+`** key' headings top to bottom; setup composes `dashboard-items'
+from it, reconciles it on boot (append new, prune dead cyberdeck-*),
+and re-applies on manual save. The banner is structural and always
+renders first — it never belongs here.
+#+begin_src emacs-lisp
+(defvar cyberdeck-dashboard--default-items
+  '((cyberdeck-clock . 1) (cyberdeck-commands . 1)
+    (recents . 10) (bookmarks . 10) (registers . 10) (projects . 10)
+    (cyberdeck-status . 1) (cyberdeck-todos . 1) (cyberdeck-sartre . 1))
+  "Seed and empty-file fallback for the section order. Mirrors the
+blueprint default key list.")
+
+(defvar cyberdeck-dashboard--stock-items
+  '((recents . 10) (bookmarks . 10) (registers . 10) (projects . 10)
+    (agenda . 5))
+  "Upstream sections and their lengths. Never pruned from the order file.")
+
+(defun cyberdeck-dashboard--order-file ()
+  "Absolute path of the section order file.
+Lives in admin/order/, beside the modeline's, so both bars' layouts are
+in one place. Anchored on the vault root rather than the module
+directory: this file is read and written at runtime (see
+`cyberdeck-dashboard--reconcile-order-file' and the widget
+scaffolder), and admin/ is excluded from unit discovery, so the loader
+will never compile it — which is what a data file wants."
+  (expand-file-name "admin/order/dashboard widgets"
+                   cyberdeck-emacs-vault-root))
+
+(defun cyberdeck-dashboard--order-file-keys ()
+  "Item keys top-down from the order file (symbols), or nil when the
+file is missing or holds no headings."
+  (let ((f (cyberdeck-dashboard--order-file)))
+    (when (file-exists-p f)
+      (with-temp-buffer
+        (insert-file-contents f)
+        (let (keys)
+          (goto-char (point-min))
+          (while (re-search-forward "^\\*\\* \\(.*\\)$" nil t)
+            (let ((k (intern (string-trim (match-string 1)))))
+              (unless (or (memq k keys))
+                (push k keys))))
+          (nreverse keys))))))
+
+(defun cyberdeck-dashboard--entry-length (name)
+  "Length for item NAME: the widget registry first, then stock, else 1.
+The registry is authoritative, and it is the widget's own
+`cyberdeck-dashboard-define-widget' :length — declared in the file that
+renders the section, next to the code that decides how tall it is.
+
+There was a blueprint-file step ahead of this, and it was worse than
+redundant: every widget blueprint declared `:LENGTH: 1` while the
+sections they claimed to measure rendered 2 to 6 lines, and one of them
+(`todos') has no fixed height at all. So the step was both wrong and
+unread, and removing it changed no rendering at all."
+  (or (cdr (assq name cyberdeck-dashboard--widget-registry))
+      (cdr (assq name cyberdeck-dashboard--stock-items))
+      1))
+
+(defun cyberdeck-dashboard--apply-order ()
+  "Compose `dashboard-items' from the order file: file order first,
+then any present-but-unlisted items in current order. Unknown file
+keys are skipped (audit warns). Returns the items."
+  (let* ((file-keys (cyberdeck-dashboard--order-file-keys))
+         (names (or file-keys (mapcar #'car cyberdeck-dashboard--default-items)))
+         (have (mapcar #'car dashboard-item-generators))
+         (out nil))
+    (dolist (name names)
+      (when (memq name have)
+        (push (cons name (cyberdeck-dashboard--entry-length name)) out)))
+    ;; Unlisted cyberdeck widgets append (registry-driven, never stock:
+    ;; stock sections appear only when the order file lists them).
+    (setq out (nreverse out))
+    (let (extra)
+      (dolist (pair (reverse cyberdeck-dashboard--widget-registry))
+        (unless (assq (car pair) out)
+          (push pair extra)))
+      (setq dashboard-items (nconc out (nreverse extra))))
+    dashboard-items))
+
+(defun cyberdeck-dashboard--reconcile-order-file ()
+  "Append registry widgets missing from the order file at EOF; prune
+`cyberdeck-*' headings with no registered widget and no generator;
+seed the file when missing. Never reorders, never touches stock.
+Mirrors the blueprint boot reconcile. Returns t when the file changed."
+  (let* ((f (cyberdeck-dashboard--order-file))
+         (changed nil))
+    (if (not (file-exists-p f))
+        (progn
+          (with-temp-file f
+            (insert "* Dashboard Section Order\n\n")
+            (dolist (pair cyberdeck-dashboard--default-items)
+              (insert (format "** %s\n" (car pair)))))
+          t)
+      (let ((have (mapcar #'car dashboard-item-generators))
+            (keys (cyberdeck-dashboard--order-file-keys)))
+        ;; Append new registry widgets in load order.
+        (dolist (pair (reverse cyberdeck-dashboard--widget-registry))
+          (let ((name (car pair)))
+            (unless (memq name keys)
+              (setq keys (nconc keys (list name)))
+              (setq changed t))))
+        ;; Prune dead cyberdeck-* headings.
+        (let ((before (length keys))
+              (kept nil))
+          (dolist (k keys)
+            (unless (and (string-prefix-p "cyberdeck-" (format "%s" k))
+                         (not (assq k cyberdeck-dashboard--widget-registry))
+                         (not (memq k have)))
+              (push k kept)))
+          (setq keys (nreverse kept))
+          (when (/= (length keys) before)
+            (setq changed t)))
+        (when changed
+          (with-temp-file f
+            (insert "* Dashboard Section Order\n\n")
+            (dolist (k keys)
+              (insert (format "** %s\n" k)))))
+        changed))))
+
+(defun cyberdeck-dashboard--audit-order-file ()
+  "Warn about order-file keys matching neither registry nor stock
+generators. Passive audit, never modifies — mirrors the blueprint
+reinforce audit."
+  (let ((have (mapcar #'car dashboard-item-generators)))
+    (dolist (name (cyberdeck-dashboard--order-file-keys))
+      (unless (or (memq name have)
+                  (assq name cyberdeck-dashboard--stock-items))
+        (message "cyberdeck-dashboard: order file %s matches no widget" name)))))
+
+(defun cyberdeck-dashboard--order-after-save ()
+  "Re-apply the order file when the user saves it; refresh the live
+dashboard. Mirrors the blueprint drawer-order save hook."
+  (when (and buffer-file-name
+             (equal (expand-file-name buffer-file-name)
+                    (cyberdeck-dashboard--order-file)))
+    (cyberdeck-dashboard--apply-order)
+    (when (and (get-buffer "*dashboard*")
+               (fboundp 'dashboard-refresh-buffer))
+      (with-current-buffer "*dashboard*"
+        (dashboard-refresh-buffer)))))
+
+(defun cyberdeck-dashboard--order-find-file-hook ()
+  "Install the order save hook buffer-locally. Mirrors the blueprint
+find-file installer."
+  (when (and buffer-file-name
+             (equal (expand-file-name buffer-file-name)
+                    (cyberdeck-dashboard--order-file)))
+    (add-hook 'after-save-hook
+              #'cyberdeck-dashboard--order-after-save nil t)))
+
+(add-hook 'find-file-hook #'cyberdeck-dashboard--order-find-file-hook)
+
+;; Registry is full (setup loads last): reconcile, compose, audit.
+(cyberdeck-dashboard--reconcile-order-file)
+(cyberdeck-dashboard--apply-order)
+(cyberdeck-dashboard--audit-order-file)
+#+end_src
+
+** Mode hook & keys
+
+#+begin_src emacs-lisp
+(add-hook 'dashboard-mode-hook
+          (lambda ()
+            (setq-local mode-line-format nil)
+            ;; Let Olivetti handle centering — wide enough to not mangle the ASCII banner
+            (when (fboundp 'olivetti-mode)
+              (setq-local olivetti-body-width 120)
+              (olivetti-mode 1))
+            (local-set-key (kbd "r") #'dashboard-jump-to-recents)
+            (local-set-key (kbd "m") #'dashboard-jump-to-bookmarks)
+            (local-set-key (kbd "e") #'dashboard-jump-to-registers)
+            (local-set-key (kbd "p") #'dashboard-jump-to-projects)
+            (local-set-key (kbd "a") #'org-agenda)
+            (local-set-key (kbd "g") #'consult-register)
+            (local-set-key (kbd "c") (lambda () (interactive) (dashboard-jump-to-item 'cyberdeck-commands)))
+            (local-set-key (kbd "q") (lambda () (interactive) (save-buffers-kill-terminal)))
+            (local-set-key (kbd "d") (lambda () (interactive) (dired "~")))))
+#+end_src
+
+** Recentf wiring
+#+begin_src emacs-lisp
+;; Ensure recentf is active so dashboard recents are always fresh
+(recentf-mode +1)
+(setq recentf-max-saved-items 100)
+;; Save recentf list every 5 minutes in case of crash
+(run-at-time nil (* 5 60) 'recentf-save-list)
+
+;; Refresh dashboard recents after every super-save
+(add-hook 'after-save-hook
+          (lambda ()
+            (when (and (fboundp 'recentf-add-file)
+                       buffer-file-name)
+              (recentf-add-file buffer-file-name))
+            (when (and (get-buffer-window "*dashboard*")
+                       (not (active-minibuffer-window))
+                       (not (cl-some (lambda (b) (buffer-local-value 'org-capture-mode b))
+                                     (buffer-list))))
+              (with-current-buffer "*dashboard*"
+                (dashboard-refresh-buffer)))))
+#+end_src
+
+** Startup
+#+begin_src emacs-lisp
+;; Only show dashboard on startup when no files were passed as arguments
+(when (and (not (daemonp))
+           (= 0 (length command-line-args-left)))
+  (dashboard-setup-startup-hook))
+#+end_src

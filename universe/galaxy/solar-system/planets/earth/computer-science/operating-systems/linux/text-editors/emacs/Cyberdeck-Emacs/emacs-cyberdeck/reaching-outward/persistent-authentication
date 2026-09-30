@@ -1,0 +1,24 @@
+#+cyberdeck-source: ../manuals.org
+#+cyberdeck-lines: 25622-25638
+#+cyberdeck-stage: 05-world
+#+cyberdeck-date: 2026-09-15
+
+* Persistent Authentication :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       6869b2e6-9afe-43bc-9b44-529448d52438
+:END:
+
+Some Emacs packages, which connect to other services, require authentication (see Entering passwords), e.g., see Gnus in The Gnus Manual, or Tramp in The Tramp Manual. Because it might be annoying to provide the same user name and password again and again, Emacs offers to keep this information persistent via the auth-source library.
+
+By default, the authentication information is taken from the file ~/.authinfo or ~/.authinfo.gpg or ~/.netrc. These files have a syntax similar to netrc files as known from the ftp program, like this:
+
+machine mymachine login myloginname password mypassword port myport
+Similarly, the auth-source library supports multiple storage backend, currently either the classic netrc backend, JSON files, the Secret Service API, and pass, the standard unix password manager.
+
+All these alternatives can be customized via the user option auth-sources, see Emacs auth-source in Emacs auth-source.
+
+When a password is entered interactively, which is not found via the configured backend, some of the backends offer to save it persistently. This can be changed by customizing the user option auth-source-save-behavior.
+
+
+
+

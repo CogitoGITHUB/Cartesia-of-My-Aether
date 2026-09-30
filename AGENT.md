@@ -22,10 +22,10 @@ Everything lives under one git repo:
 | Path | What it is |
 |---|---|
 | `universe/` | the knowledge cyberdeck, mirrored from physical scale down (universe → galaxy → solar-system → earth → … → linux) |
-| `…/linux/text-editors/emacs/Manifolding-Emacs/` | the Emacs config source. Everything below this is Emacs. |
-| `Manifolding-Emacs/AIU-Frame` | Org source, tangled at every boot into `early-init.el` + `foundation-init.el` |
-| `Manifolding-Emacs/manifolding-emacs` | **the loader** (3176 lines) — discovery, ordering, extraction, compilation, caching, doctor |
-| `Manifolding-Emacs/emacs-manifoldings/` | the unit tree: ~400 files, ~300 tagged units |
+| `…/linux/text-editors/emacs/Cyberdeck-Emacs/` | the Emacs config source. Everything below this is Emacs. |
+| `Cyberdeck-Emacs/AIU-Frame` | Org source, tangled at every boot into `early-init.el` + `foundation-init.el` |
+| `Cyberdeck-Emacs/cyberdeck-emacs` | **the loader** (3176 lines) — discovery, ordering, extraction, compilation, caching, doctor |
+| `Cyberdeck-Emacs/emacs-cyberdeck/` | the unit tree: ~400 files, ~300 tagged units |
 | `admin/` | session + layout state, excluded from unit discovery (see §10) |
 | `WIP/` | raw captures. Never read, never walked, by anything. |
 | `emacs-mechanism/` | blueprint/metadata for the mechanism system |
@@ -43,19 +43,19 @@ init.el
   → tangles AIU-Frame (Org)
       → early-init.el          (palette, GC, message filters — pre-init)
       → foundation-init.el     (straight → org → leaf → loader)
-          → tangles manifolding-emacs
+          → tangles cyberdeck-emacs
               → discovers + orders + compiles every tagged unit
                   → your config
 ```
 
-`foundation-init.el` ends by calling `manifolding-emacs-boot`. The loader is
+`foundation-init.el` ends by calling `cyberdeck-emacs-boot`. The loader is
 the only thing that knows how a unit becomes code.
 
 ---
 
 ## 2. The loader's rules — these are the non-negotiables
 
-All of this is from `manifolding-emacs`, and all of it is **silent** when you
+All of this is from `cyberdeck-emacs`, and all of it is **silent** when you
 break it.
 
 ### A file is a unit only if all of these hold
@@ -66,7 +66,7 @@ break it.
    you touch it, check this first.
 2. **It is not under `.git/`, `admin/`, or `WIP/`** (`:1275-1279`).
 3. **It has a level-1 Org heading tagged `:EMACS_MECHANISM:`**
-   (`manifolding-emacs--scan-file-tagged-units`, `:844-850`).
+   (`cyberdeck-emacs--scan-file-tagged-units`, `:844-850`).
 
 Nothing else. There is no per-module directory requirement — see §8.
 
@@ -107,9 +107,9 @@ those three lines, they are the loader telling you a move went wrong.
 |---|---|---|
 | `#+auto_tangle: t` | **yes** — 2 files only | the AIU Frame and the loader are the only org-babel-tangled files |
 | `:header-args:` drawer property | **yes** — same 2 files | their tangle targets |
-| `#+title:` | display only | `manifolding-emacs-file-title` (`:929`) uses it for the splash, falling back to the basename. **Its docstring literally says "Display only".** |
+| `#+title:` | display only | `cyberdeck-emacs-file-title` (`:929`) uses it for the splash, falling back to the basename. **Its docstring literally says "Display only".** |
 | `#+filetags:` | dead | no reader anywhere in the vault |
-| `#+property:` | dead **and misleading** | lexical binding is the single global `manifolding-emacs-lexical-binding` defcustom (`:1529`), written into the `.el` cookie at `:1930`. There is no per-file control. |
+| `#+property:` | dead **and misleading** | lexical binding is the single global `cyberdeck-emacs-lexical-binding` defcustom (`:1529`), written into the `.el` cookie at `:1930`. There is no per-file control. |
 
 `#+title:`, `#+filetags:` and `#+property:` were stripped from all of
 `universe/` (458 lines, 333 files) on 2026-09-26. Root-level files were
@@ -130,8 +130,8 @@ say whose stock; `setup` and `macros` say nothing at all; and `dashboard` in
 2. **Directories say which module owns them.** `cyberdeck-dashboard/`,
    `cyberdeck-keyboard/`, `cyberdeck/`. Never a bare `engine/`,
    `core/`, or `blueprints/` at a shared level.
-3. **Function and variable names carry their module.** `manifolding-dashboard--…`,
-   `my/manifolding-atlas--…`, `manifolding-modeline--…`. A name that could
+3. **Function and variable names carry their module.** `cyberdeck-dashboard--…`,
+   `my/cyberdeck--…`, `manifolding-modeline--…`. A name that could
    belong to two modules belongs to neither.
 4. **Never name a file after the module that reads it** when the file means
    something else. A drawer-order file inside the Cyberdeck is a layout file for the
@@ -212,31 +212,31 @@ is not a validator.
 
 ## 5. What the Cyberdeck is
 
-This is the note-taking system, not the Emacs config. Under
-`emacs-manifoldings/files/file-creation/cyberdeck/`. Verdicts are from
+This is the aiu-taking system, not the Emacs config. Under
+`emacs-cyberdeck/files/file-creation/cyberdeck/`. Verdicts are from
 reading the tree, and many files there are raw Emacs-manual prose with an empty
 src block — those are **not** implementations.
 
 | Area | State | Detail |
 |---|---|---|
-| **AIU factory** | WORKING | `atlas-engine/aiu-registration` — 8040 lines, 252 src blocks, the largest real implementation. `manifolding-atlas-create/-find/-insert/-visit`, prompt registry, `${var}` / `%(elisp)` template expansion, blueprint add/edit/nest. |
+| **AIU factory** | WORKING | `cyberdeck-engine/aiu-registration` — 8040 lines, 252 src blocks, the largest real implementation. `cyberdeck-create/-find/-insert/-visit`, prompt registry, `${var}` / `%(elisp)` template expansion, blueprint add/edit/nest. |
 | **Blueprints** | WORKING | `blueprints/heading-unfoldings/` — ~45 files. Most are **pure vocabulary**: a `:DRAWER_BLUEPRINT:` heading plus `** VALUE :BLUEPRINT_BODY:` children, zero src blocks. `todo` defines 22 TODO states, `mastery` the stage spine, `status` the lifecycle. |
-| **Database** | WORKING | `atlas-engine/db` — 371 src blocks. emacsql. `notes` (id, title, path, level, pos, AIU Contexts, tags) + `links`. Extractor registry with priority. Traversal: `db--bfs`, `db-ancestors`, `db-component`, `db-shortest-path`, `db-isolated`. |
-| **Search** | WORKING | `atlas-engine/search-center` (827 lines) — the real surface. `my/atlas-search` is one `consult--multi` over Text (rg, async), DB, Org-ql (7 presets) and Files. **Extensible**: `my/atlas-search-register-provider`, with the candidate contract asserted in code. |
-| **Keyword scan** | WORKING | `atlas-engine/search` — vendored `consult-todo`, deliberately not `rgrep` or `hl-todo--search`. |
-| **Query language** | WORKING, narrow | `atlas-engine/query-language` — and/or/not, tag, title-match, recent-days, before/after, sort/limit. **No full-text operator.** |
+| **Database** | WORKING | `cyberdeck-engine/db` — 371 src blocks. emacsql. `notes` (id, title, path, level, pos, AIU Contexts, tags) + `links`. Extractor registry with priority. Traversal: `db--bfs`, `db-ancestors`, `db-component`, `db-shortest-path`, `db-isolated`. |
+| **Search** | WORKING | `cyberdeck-engine/search-center` (827 lines) — the real surface. `my/cyberdeck-search` is one `consult--multi` over Text (rg, async), DB, Org-ql (7 presets) and Files. **Extensible**: `my/cyberdeck-search-register-provider`, with the candidate contract asserted in code. |
+| **Keyword scan** | WORKING | `cyberdeck-engine/search` — vendored `consult-todo`, deliberately not `rgrep` or `hl-todo--search`. |
+| **Query language** | WORKING, narrow | `cyberdeck-engine/query-language` — and/or/not, tag, title-match, recent-days, before/after, sort/limit. **No full-text operator.** |
 | **Context UI** | WORKING | `sidebar` (20% window, Context/Backlinks/Outline/Due, 2s idle follow), `node-view`, `search-center` preview, `mind-map`. `sidebar` has an empty `** Implementation` section from a split-out refactor. |
-| **Semantic search** | **dormant by design** | `atlas-engine/semantic-similar` — Ollama `/api/embed` + `bge-m3`, sidecar is a printed Elisp alist, `-similar` is a linear scan, one vector per AIU, and `my/atlas-semantic-enabled` is `nil`. The file says "Nothing here runs at load." |
+| **Semantic search** | **dormant by design** | `cyberdeck-engine/semantic-similar` — Ollama `/api/embed` + `bge-m3`, sidecar is a printed Elisp alist, `-similar` is a linear scan, one vector per AIU, and `my/cyberdeck-semantic-enabled` is `nil`. The file says "Nothing here runs at load." |
 | **Export** | essentially ABSENT | Only `mm/export-json` (an AIU Subnet dump). No org-publish, no HTML, no flatten-to-headings. |
 | **LLM question-answering** | ABSENT | Nothing calls a model to answer anything. `ai-proposals` is a generic shell command with no retrieval; `agent-api` is the read/write surface for agents and stamps `PROVENANCE_*`; `plugins/citation` extracts `[@citekey]` into a `citations` table. The two halves exist, the citation-validating join does not. |
 | **Dashboard** | PLACEHOLDER | The real dashboard is a separate module under `entering-the-machine/`. Inside the Cyberdeck, "dashboard" is only a declaration registry (§11). |
 
 ### The database is fine — do not "fix" it
 
-- `my/manifolding-atlas-db-backend` defaults to **`sqlite`**
-  (`atlas-engine/db:28`) against `admin/cyberdeck.db` — a real file with
+- `my/cyberdeck-db-backend` defaults to **`sqlite`**
+  (`cyberdeck-engine/db:28`) against `admin/cyberdeck.db` — a real file with
   **302 AIUs**. A `pg` backend exists and is fully implemented, and
-  `my/manifolding-atlas-db-health` reports `DOWN` **for pg only**. Seeing `DOWN`
+  `my/cyberdeck-db-health` reports `DOWN` **for pg only**. Seeing `DOWN`
   in a proot batch run means you were looking at the wrong backend.
 - **Sync is poll-based on purpose** (`setup:115-120`: "fswatch rarely exists on
   Termux"), so the DB updating lazily is the design, not a fault. There is also
@@ -247,7 +247,7 @@ src block — those are **not** implementations.
 
 ## 6. Module map
 
-All paths relative to `Manifolding-Emacs/emacs-manifoldings/`.
+All paths relative to `Cyberdeck-Emacs/emacs-cyberdeck/`.
 
 | Directory | MM_ORDER lane | Role |
 |---|---|---|
@@ -319,13 +319,13 @@ When an isolated test and the boot disagree, the boot is right.
 ### After a boot
 
 ```sh
-grep -o ':level [a-z]*'  ~/.config/emacs/manifolding-emacs-errors.log.el | sort | uniq -c
-grep -o ':status [a-z-]*' ~/.config/emacs/manifolding-emacs-errors.log.el | sort | uniq -c
+grep -o ':level [a-z]*'  ~/.config/emacs/cyberdeck-emacs-errors.log.el | sort | uniq -c
+grep -o ':status [a-z-]*' ~/.config/emacs/cyberdeck-emacs-errors.log.el | sort | uniq -c
 ```
 
 `:status ok` is the health metric. `:level part` entries carry the failing
-file, line and package. The three gates — `manifolding-dashboard-validate`,
-`manifolding-keyboard-validate`, `manifolding-modeline-audit` — should all be
+file, line and package. The three gates — `cyberdeck-dashboard-validate`,
+`cyberdeck-keyboard-validate`, `manifolding-modeline-audit` — should all be
 empty.
 
 ---
@@ -341,7 +341,7 @@ Three exceptions, all real:
 
 1. **Chainless units reorder by path.** Give anything you move an `:MM_ORDER:`.
    `leaders/tools` currently has none — that is the one to fix first.
-2. **`manifolding-keyboard-validate` scans two hard-coded directories**
+2. **`cyberdeck-keyboard-validate` scans two hard-coded directories**
    (`cyberdeck-keyboard/engine/scaffolding:132-134`): `states/` and `leaders/`,
    non-recursively. Move a state out and the validator silently stops checking
    it. Silence means "not looked at", not "fine".
@@ -355,13 +355,13 @@ self-maintaining until those change too.
 ## 9. Never edit these
 
 `~/.config/emacs/early-init.el`, `~/.config/emacs/foundation-init.el`,
-`~/.config/emacs/manifolding-emacs.el`, and anything the loader writes into its
+`~/.config/emacs/cyberdeck-emacs.el`, and anything the loader writes into its
 cache. All are regenerated from `universe/` on every boot.
 
 **Editing a macro does not invalidate its users' caches.** The cache is keyed per
 unit on that unit's own content hash, so fix a DSL in `engine/macros` and the
 widgets that *call* it keep their stale compiled expansion. Bump
-`manifolding-emacs-cache-salt` or clear the cache when you change how a macro
+`cyberdeck-emacs-cache-salt` or clear the cache when you change how a macro
 expands.
 
 ---
@@ -382,9 +382,9 @@ admin/
 
 The three order files are named for **what they order**, not after the module
 that reads them. Each is reached through one helper, so a reader and a writer
-never diverge: `manifolding-dashboard--order-file`,
-`manifolding-modeline--order-file`, `my/manifolding-atlas--drawer-order-file` —
-all anchored on `manifolding-emacs-vault-root`.
+never diverge: `cyberdeck-dashboard--order-file`,
+`manifolding-modeline--order-file`, `my/cyberdeck--drawer-order-file` —
+all anchored on `cyberdeck-emacs-vault-root`.
 
 Filenames contain **spaces** on purpose. Safe: `admin/` is excluded from unit
 discovery, so the loader never touches them. Quote them in shell:
@@ -402,15 +402,15 @@ everything else in `admin/` as generated. That document needs updating.
 | What | State |
 |---|---|
 | `bufler` / `auto-workspace` void in `the-screen/buffer-management:86` | **Pre-existing.** The loaded bufler checkout's `bufler-defgroups` macro has no `auto-workspace` clause. The unit carries an interlock (`my/bufler--macro-has-workspace-p`) that skips grouping setup instead of dying. Fix by updating the bufler checkout. This is the 1 error in an otherwise clean boot. |
-| **The blueprint registry is not built** | The design is agreed: one `:BLUEPRINT_<KEY>:` property per blueprint in `admin/order/headings blueprints drawer`, values relative to `heading-unfoldings/`, order is arrangement, and an interactive sync writes the arrangement into each file's `:MM_ORDER:` by **reusing the numbers those files already own** so no collision is possible. A first sync must report **no changes**. An earlier attempt broke two Cyberdeck units and was reverted; `my/manifolding-atlas-dashboard-key-files` is a better host for it than `file-creation`. Do not re-derive this from scratch. |
-| `my/manifolding-atlas-dashboard-register-all` | **Confirmed dead** — the Cyberdeck's in-dashboard registration sweep runs every boot and finds nothing, because its blueprint directory does not exist. Roughly 350 lines on the Cyberdeck boot path. Not removed, because deleting it means touching boot. |
+| **The blueprint registry is not built** | The design is agreed: one `:BLUEPRINT_<KEY>:` property per blueprint in `admin/order/headings blueprints drawer`, values relative to `heading-unfoldings/`, order is arrangement, and an interactive sync writes the arrangement into each file's `:MM_ORDER:` by **reusing the numbers those files already own** so no collision is possible. A first sync must report **no changes**. An earlier attempt broke two Cyberdeck units and was reverted; `my/cyberdeck-dashboard-key-files` is a better host for it than `file-creation`. Do not re-derive this from scratch. |
+| `my/cyberdeck-dashboard-register-all` | **Confirmed dead** — the Cyberdeck's in-dashboard registration sweep runs every boot and finds nothing, because its blueprint directory does not exist. Roughly 350 lines on the Cyberdeck boot path. Not removed, because deleting it means touching boot. |
 | modeline left column | Segments parse but land in the right slot: `read-order` returns rows like `(1 nil (…))`. The `row-N-side` regex is **verified correct** (`row-1-left` → `1`, `left`, and `(eq 'left :left)` is true), so the fault is in the slot assignment below it — untraced. Cosmetic: the bar renders mirrored. |
 | modeline audit | Last verified failing on a `characterp` in the right-align padding; a fix landed in `manifolding-modeline-format` (rows are constructs, not strings, so they are interleaved with a literal `"\n"` rather than `mapconcat`-ed) and a follow-up in the audit's emptiness check. Both are balanced; the combination has **not** been confirmed in a boot. |
-| `manifolding-atlas-drawer-key-order` | A **second** source for the same key order the drawer file carries (`("TODO_STATE" "ID")`). They can disagree silently. Reconcile before building the registry. |
-| `manifolding-emacs-todo-file` | Points at `modules/TODO`, which does not exist. Only affects the interactive "file this boot error as a TODO" escape hatch. |
+| `cyberdeck-drawer-key-order` | A **second** source for the same key order the drawer file carries (`("TODO_STATE" "ID")`). They can disagree silently. Reconcile before building the registry. |
+| `cyberdeck-emacs-todo-file` | Points at `modules/TODO`, which does not exist. Only affects the interactive "file this boot error as a TODO" escape hatch. |
 | `/root/modules` | Dangling symlink to `~/.config/emacs/modules/`, which does not exist. Nothing references it. |
 | `links` table empty | 0 rows while `mm-nodes` has data. May be expected; worth a look separately. |
-| ~128 compiler warnings | Nearly all in `atlas-engine/aiu-registration`: free variables, docstring width, an obsolete `max-specpdl-size`, a duplicate `manifolding-atlas-insert`. Pre-existing, surfaced whenever that file recompiles. |
+| ~128 compiler warnings | Nearly all in `cyberdeck-engine/aiu-registration`: free variables, docstring width, an obsolete `max-specpdl-size`, a duplicate `cyberdeck-insert`. Pre-existing, surfaced whenever that file recompiles. |
 
 ---
 
@@ -421,10 +421,10 @@ VAULT=/data/data/com.termux/files/home/Subnet
 EMACS=$VAULT/universe/galaxy/solar-system/planets/earth/computer-science/operating-systems/linux/text-editors/emacs/AIU Cyberdeck
 
 # health, after a boot
-grep -o ':status [a-z-]*' ~/.config/emacs/manifolding-emacs-errors.log.el | sort | uniq -c
+grep -o ':status [a-z-]*' ~/.config/emacs/cyberdeck-emacs-errors.log.el | sort | uniq -c
 
 # paren check — use this, not a boot
-emacs --batch -Q --load /tmp/kilo/bc.el "$EMACS/emacs-manifoldings/<file>"
+emacs --batch -Q --load /tmp/kilo/bc.el "$EMACS/emacs-cyberdeck/<file>"
 
 # duplicate MM_ORDER (should print nothing)
 grep -oE ':MM_ORDER:[ \t]+[0-9.]+' -r $VAULT/universe/ | sort | uniq -d
