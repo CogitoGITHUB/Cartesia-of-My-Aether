@@ -1,4 +1,4 @@
-* Manifold Commands Widget :EMACS_MECHANISM:
+* Cyberdeck Commands Widget :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       5cf65442-b525-4aa6-9d6e-cf442ca302c1
 :MM_PARENT: none
@@ -13,18 +13,16 @@ Command index plus dashboard keys.
 (manifolding-dashboard-define-widget commands
   :doc "Command index plus dashboard keys."
   :helpers
-  ((defun manifold/dashboard-keys ()
+  ((defun cyberdeck/dashboard-keys ()
      (setq-local mode-line-format nil)
      (local-set-key (kbd "S") (lambda () (interactive) (manifolding-emacs-doctor)))
      (local-set-key (kbd "D") (lambda () (interactive) (dired (manifolding-emacs-get-org-directory)))))
 
-   (add-hook 'dashboard-mode-hook #'manifold/dashboard-keys))
+   (add-hook 'dashboard-mode-hook #'cyberdeck/dashboard-keys))
   :generate
   ((insert "\n")
-   (insert "🌹 ─────────────────── Manifold ─────────────────── 🌹")
+   (insert "Cyberdeck")
    (insert "\n\n")
    (insert "[S]  Status        [D]  Modules")
-   (insert "\n\n")
-   (insert "🌹 ──────────────────────────────────────────────── 🌹")
    (insert "\n\n")))
 #+end_src

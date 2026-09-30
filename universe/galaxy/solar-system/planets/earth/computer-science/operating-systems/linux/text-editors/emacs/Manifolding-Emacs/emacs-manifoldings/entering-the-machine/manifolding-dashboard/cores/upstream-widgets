@@ -151,12 +151,10 @@ See `create-image' and Info node `(elisp)Image Descriptors'."
 (make-obsolete-variable 'dashboard-set-footer
                         'dashboard-startupify-list "1.9.0")
 
-(defcustom dashboard-footer-messages '("🌹 the manifold endures 🌹"
-                                        "🌹 every module a petal 🌹"
-                                        "🌹 sovereign and self-contained 🌹"
-                                        "🌹 per aspera ad astra 🌹"
-                                        "🌹 existence precedes essence 🌹"
-                                        "🌹 man is condemned to be free 🌹")
+(defcustom dashboard-footer-messages '("AIU Cyberdeck"
+                                        "Subnet > Cyberdeck > AIU Frame"
+                                        "AIU Subnet > AIU > Context / Proxy"
+                                        "Installation Protocol > AIU Run > AIU Registration")
   "A list of messages, one of which dashboard chooses to display."
   :type '(repeat string)
   :group 'dashboard)
@@ -288,7 +286,7 @@ nerd-icons or (all-the-icons-faicon \"newspaper-o\") using all-the-icons."
 
 ** Customization — title, navigator, init info
 #+begin_src emacs-lisp
-(defcustom dashboard-banner-logo-title "🌹 𝕸𝖆𝖓𝖎𝖋𝖔𝖑𝖉 🌹"
+(defcustom dashboard-banner-logo-title "AIU Cyberdeck"
   "Specify the startup banner."
   :type 'string
   :group 'dashboard)
@@ -602,12 +600,12 @@ shortcut is disabled.  See `dashboard-items' for possible values of list-type.'"
   :type '(alist :key-type symbol :value-type string)
   :group 'dashboard)
 
-(defcustom dashboard-item-names '(("Recent Files:"               . "🌹 Recently Opened:")
-                                   ("Bookmarks:"                  . "🌹 Marks:")
-                                   ("Registers:"                  . "🌹 Registers:")
-                                   ("Projects:"                   . "🌹 Projects:")
-                                   ("Agenda for the coming week:" . "🌹 Agenda:")
-                                   ("Sartre:"                     . "🌹 Sartre:"))
+(defcustom dashboard-item-names '(("Recent Files:"               . "Recently Opened:")
+                                   ("Bookmarks:"                  . "Marks:")
+                                   ("Registers:"                  . "Registers:")
+                                   ("Projects:"                   . "Projects:")
+                                   ("Agenda for the coming week:" . "Agenda:")
+                                   ("Sartre:"                     . "Sartre:"))
   "Association list of item heading names.
 When an item is nil or not present, the default name is used.
 Will be of the form `(default-name . new-name)'."

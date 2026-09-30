@@ -1,4 +1,4 @@
-* Manifold Banner Art :EMACS_MECHANISM:
+* Cyberdeck Banner :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       addbea6c-e0f3-41dd-842a-2743ee1f0e0d
 :MM_PARENT: none
@@ -6,26 +6,18 @@
 :CATEGORY: ui
 :END:
 
-The rose MANIFOLD ascii banner plus banner selection. Edit freely.
+The Cyberdeck identity banner plus banner selection. Edit freely.
+Restrained structural aesthetic: identity only, no decoration.
 
-** Banner — vendored rose MANIFOLD art
+** Banner — Cyberdeck identity text
 Lives here as a variable; no external banner file needed.
 #+begin_src emacs-lisp
-(defvar manifold/banner-text
-  "🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹
-🌹                                                                      🌹
-🌹  ███╗   ███╗ █████╗ ███╗   ██╗██╗███████╗ ██████╗ ██╗     ██████╗    🌹
-🌹  ████╗ ████║██╔══██╗████╗  ██║██║██╔════╝██╔═══██╗██║     ██╔══██╗   🌹
-🌹  ██╔████╔██║███████║██╔██╗ ██║██║█████╗  ██║   ██║██║     ██║  ██║   🌹
-🌹  ██║╚██╔╝██║██╔══██║██║╚██╗██║██║██╔══╝  ██║   ██║██║     ██║  ██║   🌹
-🌹  ██║ ╚═╝ ██║██║  ██║██║ ╚████║██║██║     ╚██████╔╝███████╗██████╔╝   🌹
-🌹  ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝      ╚═════╝ ╚══════╝╚═════╝    🌹
-🌹                                                                      🌹
-🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹🌹"
-  "The rose MANIFOLD banner.")
+(defvar cyberdeck/banner-text
+  "AIU CYBERDECK"
+  "The Cyberdeck identity banner.")
 #+end_src
 
 #+begin_src emacs-lisp
-(setq dashboard-banner-ascii manifold/banner-text)
+(setq dashboard-banner-ascii cyberdeck/banner-text)
 (setq dashboard-startup-banner 'ascii)
 #+end_src
