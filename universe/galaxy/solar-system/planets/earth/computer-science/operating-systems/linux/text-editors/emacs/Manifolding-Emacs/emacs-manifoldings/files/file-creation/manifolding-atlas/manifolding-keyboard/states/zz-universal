@@ -1156,11 +1156,15 @@ Otherwise, forward to `goto-line' with ARG."
         (forward-line (1- arg)))
     (ks-with ks-goto-line
       (let* ((ks-handler-old ks-handler-function)
-             (ks-handler-function
-              (lambda (char)
-                (if (or (< char ?0)
-                        (> char ?9))
-                    (funcall ks-handler-old char)
+              (ks-handler-function
+               (lambda (char)
+                 ;; Non-characters (wheel/mouse events, symbols) go
+                 ;; to the old handler: arithmetic below would crash
+                 ;; on them with wrong-type-argument (scroll crash).
+                 (if (or (not (characterp char))
+                         (< char ?0)
+                         (> char ?9))
+                     (funcall ks-handler-old char)
                   (let ((line (read-from-minibuffer
                                "Goto line: " (string char))))
                     (when line

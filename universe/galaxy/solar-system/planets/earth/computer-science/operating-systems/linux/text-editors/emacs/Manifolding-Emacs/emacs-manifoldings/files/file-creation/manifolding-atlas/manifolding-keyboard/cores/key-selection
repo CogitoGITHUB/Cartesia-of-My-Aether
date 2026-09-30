@@ -465,10 +465,21 @@ KEYS is the path from the root of `ks-tree' to LEAF."
 (defvar ks-current-path ""
   "Store the current incomplete path during `ks-read'.")
 
+(defun ks-wheel-event-p (char)
+  "Non-nil when CHAR is a mouse wheel event list.
+`mouse-event-p' returns nil for wheel events on some builds, so
+wheel needs its own test: without it every ks reader feeds the
+event list to handlers that do character arithmetic and crash
+with wrong-type-argument on scroll."
+  (and (consp char)
+       (memq (car char) '(wheel-up wheel-down wheel-left wheel-right))))
+
 (defun ks-mouse-event-window (char)
   "Return the window of mouse event CHAR if any or the selected window.
-Return nil if CHAR is not a mouse event."
-  (when (mouse-event-p char)
+Return nil if CHAR is not a mouse event. Wheel events count here:
+they carry positions and must never fall through to character
+handlers downstream."
+  (when (or (mouse-event-p char) (ks-wheel-event-p char))
     (cond ((windowp (posn-window (event-start char)))
            (posn-window (event-start char)))
           ((framep (posn-window (event-start char)))
@@ -497,6 +508,13 @@ multiple DISPLAY-FN invocations."
             window
             branch)
         (funcall cleanup-fn)
+        (when (ks-wheel-event-p char)
+          ;; Scroll now (direction and modifiers honored), then
+          ;; restart over fresh overlays. Without this the event
+          ;; reaches digit-testing handlers and crashes there.
+          (when (fboundp 'mwheel-scroll)
+            (ignore-errors (mwheel-scroll char)))
+          (throw 'done 'restart))
         (if (setq window (ks-mouse-event-window char))
             (throw 'done (cons char window))
           (if (setq branch (assoc char tree))
@@ -531,6 +549,10 @@ multiple DISPLAY-FN invocations."
             (ks--overlay-at-full (reverse (car x)) (cdr x)))
           (let ((char (funcall ks-translate-char-function (read-key))))
             (ks--remove-leading-chars)
+            (when (ks-wheel-event-p char)
+              (when (fboundp 'mwheel-scroll)
+                (ignore-errors (mwheel-scroll char)))
+              (throw 'done 'restart))
             (setq alist
                   (delq nil
                         (mapcar (lambda (x)
@@ -582,6 +604,10 @@ multiple DISPLAY-FN invocations."
           (ks--overlay-at-full (reverse (car x)) (cdr x)))
         (let ((char (funcall ks-translate-char-function (read-key))))
           (ks--remove-leading-chars)
+          (when (ks-wheel-event-p char)
+            (when (fboundp 'mwheel-scroll)
+              (ignore-errors (mwheel-scroll char)))
+            (throw 'done 'restart))
           (setq alist
                 (delq nil
                       (mapcar (lambda (x)
