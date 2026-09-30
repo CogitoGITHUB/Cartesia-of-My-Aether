@@ -1,14 +1,14 @@
-#+title: Manifolding Atlas Mindmap (vendored)
+#+title: Manifolding Atlas AIU Subnet (vendored)
 
 Vendored from https://github.com/krvkir/org-mindmap (GPL-3.0,
-krvkir, 2026). Editable ASCII mindmap visualization inside org
+krvkir, 2026). Editable ASCII AIU Subnet visualization inside org
 buffers: `#+begin_mindmap` regions render as box-drawing trees and
 stay editable in place. Ships inline so AIUs never wait on a
 package fetch. Complements the vault's own mm/* topology subsystem
 (atlas-engine/mind-map, order 127): that one owns vault structure,
 this one draws pictures inside AIUs.
 
-* Atlas Mindmap — vendored :EMACS_MECHANISM:
+* Atlas AIU Subnet — vendored :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       378f6ebd-5c88-4fed-8696-ca0b306b0155
 :MM_PARENT: none
@@ -44,8 +44,8 @@ this one draws pictures inside AIUs.
 
 
 ;;; Commentary:
-;; Provides the parsing logic for editable mindmap visualizations in org-mode.
-;; It detects mindmap regions and walks the 2D grid of characters to build
+;; Provides the parsing logic for editable AIU Subnet visualizations in org-mode.
+;; It detects AIU Subnet regions and walks the 2D grid of characters to build
 ;; a tree structure of nodes.
 
 ;;; Code:
@@ -53,7 +53,7 @@ this one draws pictures inside AIUs.
 (require 'cl-lib)
 
 (cl-defstruct (org-mindmap-parser-node (:constructor org-mindmap-parser-make-node))
-  "Data structure representing a single mindmap node."
+  "Data structure representing a single AIU Subnet node."
   id text children depth parent row col width side point-offset)
 
 (defcustom org-mindmap-parser-debug nil
@@ -536,7 +536,7 @@ VISITED keeps track of visited locations."
             (cons start end)))))))
 
 (defun org-mindmap-parser-region-active-p ()
-  "Check if cursor is inside a mindmap region."
+  "Check if cursor is inside an AIU Subnet region."
   (when (org-mindmap-parser-get-region) t))
 
 (defun org-mindmap-parser--find-explicit-root (lines-strings lines visited &optional point-row point-col)
@@ -644,7 +644,7 @@ VISITED tracks consumed cells, POINT-ROW/POINT-COL handle cursor offset."
              found-text))))
 
 (defun org-mindmap-parser-parse-region (&optional start end)
-  "Parse mindmap within START to END into a tree structure."
+  "Parse AIU Subnet within START to END into a tree structure."
   (org-mindmap-parser-with-debug-batch
     "Parse region"
     (unless (and start end)
@@ -709,9 +709,9 @@ VISITED tracks consumed cells, POINT-ROW/POINT-COL handle cursor offset."
 ;;; org-mindmap-parser.el ends here
 #+end_src
 
-** Mindmap engine: header and options
+** AIU Subnet engine: header and options
 #+begin_src emacs-lisp
-;;; org-mindmap.el --- Editable mindmap visualization in org-mode -*- lexical-binding: t -*-
+;;; org-mindmap.el --- Editable AIU Subnet visualization in org-mode -*- lexical-binding: t -*-
 ;; Version: 0.3
 ;; Package-Requires: ((emacs "29.1") (org "9.1"))
 
@@ -725,7 +725,7 @@ VISITED tracks consumed cells, POINT-ROW/POINT-COL handle cursor offset."
 (require 'org-mindmap-parser nil t)
 
 (defgroup org-mindmap nil
-  "Editable mindmap visualization within `org-mode'."
+  "Editable AIU Subnet visualization within `org-mode'."
   :group 'org)
 
 (defcustom org-mindmap-default-spacing 1
@@ -1447,7 +1447,7 @@ Handles legacy :layout left/compact/centered migration."
         (setq props-string (match-string 1)))))
   (when props-string
     (let ((props nil))
-      ;; Parse mindmap block properties:
+      ;; Parse AIU Subnet block properties:
       (while (string-match "\\(:[a-zA-Z-]+\\)[ \t]+\\([^ \t\n]+\\)" props-string)
         (let ((key (intern (match-string 1 props-string)))
               (val (match-string 2 props-string)))
@@ -1548,7 +1548,7 @@ ROOTS are used to determine auto max-width."
 (defun org-mindmap--get-state ()
   "Parse current region, return (start end props roots target-node)."
   (let* ((region (org-mindmap-parser-get-region)))
-    (unless region (error "Not inside a mindmap region"))
+    (unless region (error "Not inside an AIU Subnet region"))
     (let* ((start (car region))
            (end (cdr region))
            (roots (org-mindmap-parser-parse-region start end))
@@ -1598,7 +1598,7 @@ Handles multi-line wrapped nodes, left/right padding, and root delimiters."
       (list (+ (org-mindmap-parser-node-row node) row-offset) target-col))))
 
 (defun org-mindmap-switch-layout ()
-  "Cycle layout mode between top and centered for the current mindmap region."
+  "Cycle layout mode between top and centered for the current AIU Subnet region."
   (interactive)
   (let* ((region (org-mindmap-parser-get-region))
          (start (car region))
@@ -1619,7 +1619,7 @@ Handles multi-line wrapped nodes, left/right padding, and root delimiters."
     (org-mindmap-align)))
 
 (defun org-mindmap-switch-compaction ()
-  "Toggle :compacted property on the current mindmap block."
+  "Toggle :compacted property on the current AIU Subnet block."
   (interactive)
   (let* ((region (org-mindmap-parser-get-region))
          (start (car region))
@@ -1673,7 +1673,7 @@ Uses PROPS for rendering."
           (goto-char start))))))
 
 (defun org-mindmap-align ()
-  "Align and format the current mindmap region based on block properties."
+  "Align and format the current AIU Subnet region based on block properties."
   (interactive)
   (org-mindmap-parser-with-debug-batch
     "Align"
@@ -1692,7 +1692,7 @@ Uses PROPS for rendering."
     target-node))
 
 (defun org-mindmap-edit-node ()
-  "Edit the text of the node at point and refresh the mindmap."
+  "Edit the text of the node at point and refresh the AIU Subnet."
   (interactive)
   (cl-destructuring-bind (start end props roots target-node) (org-mindmap--get-state)
     (unless target-node (error "No node at point"))
@@ -1762,7 +1762,7 @@ In the single-root model, this is only allowed if no root exists."
   (setq text (or text ""))
   (cl-destructuring-bind (start end props roots _target-node) (org-mindmap--get-state)
     (if (and roots (> (length roots) 0))
-        (user-error "A root node already exists.  This mindmap only supports a single root")
+        (user-error "A root node already exists.  This AIU Subnet only supports a single root")
       (let ((new-node (org-mindmap-parser-make-node :id (gensym "node") :text text)))
         (setq roots (list new-node))
         (org-mindmap--update-buffer start end roots new-node props)))))
@@ -2156,7 +2156,7 @@ nodes of that side."
     t))
 
 (defun org-mindmap-return ()
-  "If on a mindmap node, insert a sibling, otherwise call `org-return'."
+  "If on an AIU Subnet node, insert a sibling, otherwise call `org-return'."
   (interactive)
   (if (org-mindmap-parser-region-active-p)
       (let ((node (org-mindmap-find-node-at-point)))
@@ -2171,7 +2171,7 @@ nodes of that side."
     map))
 
 (define-minor-mode org-mindmap-mode
-  "Editable mindmap visualization within `org-mode'."
+  "Editable AIU Subnet visualization within `org-mode'."
   :lighter " ⅄"
   :keymap org-mindmap-mode-map
   (if org-mindmap-mode
@@ -2191,7 +2191,7 @@ nodes of that side."
     (remove-hook 'org-metareturn-hook #'org-mindmap--metareturn t)
     (remove-hook 'org-ctrl-c-ctrl-c-hook #'org-mindmap--ctrl-c-ctrl-c t)))
 
-(add-to-list 'org-structure-template-alist '("m" . "mindmap"))
+(add-to-list 'org-structure-template-alist '("m" . "AIU Subnet"))
 
 (defun org-mindmap-unload-function ()
   "Clean up global state when `org-mindmap' is unloaded.
@@ -2203,7 +2203,7 @@ reach on its own."
   (setq minor-mode-list
         (delq 'org-mindmap-mode minor-mode-list))
   (setq org-structure-template-alist
-        (cl-delete "mindmap" org-structure-template-alist
+        (cl-delete "AIU Subnet" org-structure-template-alist
                    :test #'string= :key #'cdr))
   ;; Return nil so standard unloading proceeds (hook removal, etc).
   nil)
@@ -2214,21 +2214,21 @@ reach on its own."
 #+end_src
 
 ** Atlas integration
-AIUs are org buffers, so mindmap regions work in them
+AIUs are org buffers, so AIU Subnet regions work in them
 natively. This block is the only atlas-specific code: a one-key
-block inserter (bound in the mindmap keyboard state) plus
-auto-activation of `org-mindmap-mode' inside mindmap regions, so
+block inserter (bound in the AIU Subnet keyboard state) plus
+auto-activation of `org-mindmap-mode' inside AIU Subnet regions, so
 the state drives and the package follows.
 #+begin_src emacs-lisp
 (defun my/atlas-mindmap-insert-block ()
   "Insert an empty mindmap region for the current subtree.
-C-c C-c inside redraws; the mindmap keyboard state drives after."
+C-c C-c inside redraws; the AIU Subnet keyboard state drives after."
   (interactive)
   (insert "#+begin_mindmap\n\n#+end_mindmap\n")
   (forward-line -1))
 
 (defun my/atlas-mindmap--maybe-activate ()
-  "Enable `org-mindmap-mode' when point sits in a mindmap region."
+  "Enable `org-mindmap-mode' when point sits in an AIU Subnet region."
   (when (and (derived-mode-p 'org-mode)
              (fboundp 'org-mindmap-parser-region-active-p)
              (org-mindmap-parser-region-active-p))

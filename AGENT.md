@@ -227,7 +227,7 @@ src block — those are **not** implementations.
 | **Query language** | WORKING, narrow | `atlas-engine/query-language` — and/or/not, tag, title-match, recent-days, before/after, sort/limit. **No full-text operator.** |
 | **Context UI** | WORKING | `sidebar` (20% window, Context/Backlinks/Outline/Due, 2s idle follow), `node-view`, `search-center` preview, `mind-map`. `sidebar` has an empty `** Implementation` section from a split-out refactor. |
 | **Semantic search** | **dormant by design** | `atlas-engine/semantic-similar` — Ollama `/api/embed` + `bge-m3`, sidecar is a printed Elisp alist, `-similar` is a linear scan, one vector per AIU, and `my/atlas-semantic-enabled` is `nil`. The file says "Nothing here runs at load." |
-| **Export** | essentially ABSENT | Only `mm/export-json` (a mind-map dump). No org-publish, no HTML, no flatten-to-headings. |
+| **Export** | essentially ABSENT | Only `mm/export-json` (an AIU Subnet dump). No org-publish, no HTML, no flatten-to-headings. |
 | **LLM question-answering** | ABSENT | Nothing calls a model to answer anything. `ai-proposals` is a generic shell command with no retrieval; `agent-api` is the read/write surface for agents and stamps `PROVENANCE_*`; `plugins/citation` extracts `[@citekey]` into a `citations` table. The two halves exist, the citation-validating join does not. |
 | **Dashboard** | PLACEHOLDER | The real dashboard is a separate module under `entering-the-machine/`. Inside the Atlas, "dashboard" is only a declaration registry (§11). |
 

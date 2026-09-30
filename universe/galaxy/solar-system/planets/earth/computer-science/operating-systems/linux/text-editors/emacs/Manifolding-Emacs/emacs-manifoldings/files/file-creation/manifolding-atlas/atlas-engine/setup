@@ -119,7 +119,7 @@ Single function everything asks. Self-locating: renames never break it."
 (when (boundp 'manifolding-atlas-db-sync-poll-interval)
   (setq manifolding-atlas-db-sync-poll-interval 10))
 
-;; Mind-map queries read the DB, so saved files must land there:
+;; AIU Subnet queries read the DB, so saved files must land there:
 ;; enable per-buffer autosync in every org buffer (the after-save
 ;; entry itself gates by sync-directories, so non-vault files are
 ;; untouched). Vault AIUs visit in org-mode via auto-mode-alist.
@@ -131,7 +131,7 @@ Single function everything asks. Self-locating: renames never break it."
                 (manifolding-atlas--autosync-mode 1)))))
 
 ;; Boot backfill, idle and one-shot: historical rows predate drawer
-;; capture, so mind-map reads would miss their MM_* data. One
+;; capture, so AIU Subnet reads would miss their MM_* data. One
 ;; background walk re-indexes everything; autosync plus explicit
 ;; creation updates keep it fresh after that. Never throws, never
 ;; blocks boot (idle 60s, silent unless it fails).

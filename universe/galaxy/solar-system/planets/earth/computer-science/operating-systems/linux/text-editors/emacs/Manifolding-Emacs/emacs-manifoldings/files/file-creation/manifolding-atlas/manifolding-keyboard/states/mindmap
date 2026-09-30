@@ -1,4 +1,4 @@
-Keys specific to the mindmap state. Shared bindings live in universal.org.
+Keys specific to the AIU Subnet state. Shared bindings live in universal.org.
 
 * State definition :EMACS_MECHANISM:
 :PROPERTIES:
@@ -8,14 +8,14 @@ Keys specific to the mindmap state. Shared bindings live in universal.org.
 :END:
 Self-registration: mode and keymap in one unit (manual activation only). Delete this file and the state unregisters on next boot.
 #+begin_src emacs-lisp
-(manifolding-keyboard-define-state "mindmap"
+(manifolding-keyboard-define-state "AIU Subnet"
   :lighter "[MAP]"
   :cursor-type 'box)
 #+end_src
 ** Bindings
 #+begin_src emacs-lisp
 (manifolding-keyboard-define-keys
-  :states '("mindmap")
+  :states '("AIU Subnet")
   :bind
   `(
     ("A" . mm/assign-after)

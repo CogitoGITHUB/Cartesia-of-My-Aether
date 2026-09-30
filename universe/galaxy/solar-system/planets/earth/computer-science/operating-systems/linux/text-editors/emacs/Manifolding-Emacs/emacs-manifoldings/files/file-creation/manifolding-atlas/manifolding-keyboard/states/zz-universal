@@ -44,10 +44,10 @@ keyboard engine, highlight state). No values, no rebinding.
     ("w" . my/save-all)
     ("q" . save-buffers-kill-terminal)))
 #+end_src
-*** Shared: normal + visual + org + motion + dired + ibuffer + mindmap
+*** Shared: normal + visual + org + motion + dired + ibuffer + AIU Subnet
 #+begin_src emacs-lisp
 (manifolding-keyboard-define-keys
-  :states '("normal" "visual" "org" "motion" "dired" "ibuffer" "mindmap")
+  :states '("normal" "visual" "org" "motion" "dired" "ibuffer" "AIU Subnet")
   :bind
   `(
     ("SPC" . my/main-hydra/body)

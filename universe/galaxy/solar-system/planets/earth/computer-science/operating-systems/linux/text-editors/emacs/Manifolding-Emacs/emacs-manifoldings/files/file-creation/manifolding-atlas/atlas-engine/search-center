@@ -747,7 +747,7 @@ Use when you don't know the words yet (rg is for when you do)."
 * Menu
 The hydra lives with all other hydras in =manifolding-keyboard/leaders/=
 (the =my/defhydra-state= macro is defined in =engine/macros=, later
-in mind-map order — referencing it here would void at compile — referencing it here would void at compile).
+in AIU Subnet order — referencing it here would void at compile — referencing it here would void at compile).
 Launchers below are plain commands; the hydra only points at them.
 Legacy TODO search moves from direct =SPC v s= to head =w= inside
 the menu — one search entry point for the whole Atlas.

@@ -744,7 +744,7 @@ walks the tree proper. A leaf reports instead of guessing."
               (t (mm/goto-child)))))))
 #+end_src
 **** Traverse-mode entry
-The mindmap keyboard state (defined in manifolding-keyboard/states/mindmap.org)
+The AIU Subnet keyboard state (defined in manifolding-keyboard/states/mindmap.org)
 turns single keys into topology moves. Entry is explicit — never by
 major-mode hook — so traverse mode can't hijack help, dired, or
 minibuffer flows. Entering over the current AIU also raises the map
@@ -758,7 +758,7 @@ Shows the map beside the vault when it isn't already visible."
     (user-error "No AIU at point"))
   (unless (get-buffer "*manifold-map*")
     (ignore-errors (mm/map-display)))
-  (manifolding-keyboard-set-state "mindmap")
+  (manifolding-keyboard-set-state "AIU Subnet")
   (message "MAP traverse: s/n vertical · h/t horizontal · B branch review · q quit"))
 
 (defun my/mindmap-traverse-quit ()
@@ -1165,12 +1165,12 @@ selection never aborts AIU creation.
 #+end_src
 
 **** Prompt post-apply
-The declarative mind-map prompt lands here instead of the interactive
+The declarative AIU Subnet prompt lands here instead of the interactive
 dispatcher — no questions asked twice.
 #+begin_src emacs-lisp
 (defun mm/--apply-placement (placement target-id note)
   "Apply mind map PLACEMENT for NOTE with TARGET-ID.
-Called as a post-apply function by the mind-map prompt."
+Called as a post-apply function by the AIU Subnet prompt."
   (let ((note-id (manifolding-atlas-note-id note)))
     (pcase placement
       ("parent"

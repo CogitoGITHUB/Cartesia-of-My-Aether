@@ -1,4 +1,4 @@
-Keys for editable ASCII mindmap regions (`#+begin_mindmap`) from
+Keys for editable ASCII AIU Subnet regions (`#+begin_mindmap`) from
 the vendored atlas-engine/mindmap unit. Separate state from the mm/*
 topology chord: that one drives vault structure, this one drives
 pictures inside AIUs. Shared bindings live in universal.org.
@@ -19,7 +19,7 @@ Delete this file and the state unregisters on next boot.
 #+end_src
 ** Bindings
 Lowercase moves within the map, uppercase restructures it. Every
-org-mindmap command no-ops outside a mindmap region.
+org-mindmap command no-ops outside an AIU Subnet region.
 #+begin_src emacs-lisp
 (manifolding-keyboard-define-keys
   :states '("org-mindmap")

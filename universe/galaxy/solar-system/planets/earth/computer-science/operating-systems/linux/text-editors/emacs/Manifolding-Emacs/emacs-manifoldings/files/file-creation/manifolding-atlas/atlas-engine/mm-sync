@@ -1,12 +1,12 @@
-#+title: Manifolding Mindmap Sync
+#+title: Manifolding AIU Subnet Sync
 
-Automatic mind-map ownership and generation. Locked law: every file
+Automatic AIU Subnet ownership and generation. Locked law: every file
 is a node; a node belongs to multiple maps only hierarchically (one
 directory level up/down); no two map files in one directory; lower
 maps embed fully expanded into upper maps; files are the source of
 truth; secondary membership is derived, never stored.
 
-* Mindmap Sync :EMACS_MECHANISM:
+* AIU Subnet Sync :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       4eb48722-387c-49c4-b875-3842c340fb58
 :MM_PARENT: none
@@ -23,7 +23,7 @@ Secondary membership is derived from directory adjacency only.
   "Files already warned about default-map fallback this session.")
 
 (defun my/mm-db-ready-p ()
-  "Non-nil when the atlas DB answers mind-map queries."
+  "Non-nil when the atlas DB answers AIU Subnet queries."
   (and (fboundp 'emacsql)
        (fboundp 'manifolding-atlas-db)
        (condition-case nil
@@ -218,7 +218,7 @@ flows stay fresh via autosync plus explicit updates. Never throws."
                   (ignore-errors
                     (manifolding-atlas-db-update-file f)
                     (setq n (1+ n))))))
-            (message "Mind-map rescan: %d files re-indexed" n)))
+            (message "AIU Subnet rescan: %d files re-indexed" n)))
         (my/mm-map-files))
     (error nil)))
 
@@ -301,12 +301,12 @@ never slip through and violate the law."
                      (equal (my/mm-file-drawer-get f "MM_KIND") "map"))
             (push f found)))))
     (when found
-      (error "Directory already has a mind-map file: %s"
+      (error "Directory already has an AIU Subnet file: %s"
              (file-name-nondirectory (car found))))))
 #+end_src
 
 ** Map membership stamping
-Drawer writers used by creation flows and placement post-apply.
+Drawer writers used by Registration flows and placement post-apply.
 Outliving any single sync: files stay source of truth.
 #+begin_src emacs-lisp
 (defun my/mm-heal-drawer (file)

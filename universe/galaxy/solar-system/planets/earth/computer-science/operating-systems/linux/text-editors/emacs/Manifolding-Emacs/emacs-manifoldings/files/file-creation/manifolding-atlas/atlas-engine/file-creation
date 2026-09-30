@@ -1676,7 +1676,7 @@ Why: Implementation of ~my/manifolding-atlas--get-template-content~.
     (my/manifolding-atlas-template-body template-name)))
 #+end_src
 
-** Mind-map flow steps
+** AIU Subnet flow steps
 Flat, independently testable steps for the find-create-note 2b
 phase. Quit becomes an ordinary return (nil or `mm-skip);
 callers decide. Never throws.
@@ -1705,7 +1705,7 @@ a new name creates on the spot; empty dirs bootstrap. Never throws."
                       (let ((manifolding-atlas--create-target-dir
                              target-dir))
                         (my/manifolding-atlas-org-prompt--ask-mm-map-select
-                         nil "Mind-map"))
+                         nil "AIU Subnet"))
                     (quit (setq quitp t) nil)
                     (error nil)))
             (unless (or quitp
@@ -1715,10 +1715,10 @@ a new name creates on the spot; empty dirs bootstrap. Never throws."
                     (and (fboundp 'my/mm-create-map-in-dir)
                          (my/mm-create-map-in-dir target-dir)))
               (if (stringp map-id)
-                  (message "Created mind-map in %s"
+                  (message "Created AIU Subnet in %s"
                            (file-name-nondirectory
                             (directory-file-name target-dir)))
-                (message "A mind-map is required — pick one or create it."))))
+                (message "An AIU Subnet is required — pick one or create it."))))
           (and (not quitp) map-id)))
     (quit nil)
     (error nil)))
@@ -1821,7 +1821,7 @@ This is the default value of `manifolding-atlas-find-default-create-fn'."
          (note (manifolding-atlas-create title (concat subdir fname)
                            :unfoldings default-unfoldings))
           (file-path (manifolding-atlas-note-path note)))
-      ;; 2b. Mind-map ownership: map first, then placement (forced order).
+      ;; 2b. AIU Subnet ownership: map first, then placement (forced order).
       ;; HARD INVARIANT: no AIU survives mappeless. A missing map
       ;; aborts the whole creation and the fresh file is removed;
       ;; placement quit keeps the mapped file with WARNING instead.
@@ -1838,7 +1838,7 @@ This is the default value of `manifolding-atlas-find-default-create-fn'."
             (progn
               (ignore-errors (kill-buffer (find-buffer-visiting file-path)))
               (ignore-errors (delete-file file-path))
-              (user-error "Creation aborted: every AIU needs a mind-map parent (file removed)"))
+              (user-error "Creation aborted: every AIU needs an AIU Subnet parent (file removed)"))
           ;; New AIUs sort last in their map by default (max
           ;; member MM_ORDER + 1); placement may adjust hierarchy
           ;; later via the db ops. Never throws.
@@ -2915,7 +2915,7 @@ uses the same init path, so enrollment is idempotent by
 construction: existing stages are never downgraded here, only
 missing ones are set.
 
-Load-order note: files compile in mind-map order, so every call below is guarded
+Load-order note: files compile in AIU Subnet order, so every call below is guarded
 by `fboundp'. At creation time in a live session everything is
 loaded; the guards only protect batch/headless partial loads.
 
@@ -3839,7 +3839,7 @@ AIU Context; deleting a file removes it. Files that contain src blocks
 are treated as legacy elisp prompts and skipped.
 
 Tag vocabulary on the level-1 heading, e.g. ~* MY_KEY :unfolding:file:heading:~:
-KIND (first match wins): AIU Context|inline|todo|multi|tags|tagopt|template|free|scoped|Installation Protocol|mindmap|body   (default: AIU Context)
+KIND (first match wins): AIU Context|inline|todo|multi|tags|tagopt|template|free|scoped|Installation Protocol|AIU Subnet|body   (default: AIU Context)
 CONTEXTS (all matches, space-joined): file|heading|task|AIU Run|dictionary|contact|recipe|rule   (default: file heading)
 Unknown tags are ignored. No #+ file keywords; no :LABEL: (KEY is the label).
 A :PROPERTIES: drawer holding only :ID: may follow the heading.
@@ -5977,7 +5977,7 @@ every other option-based kind already got the buffer-style picker,
 and these two would otherwise fall through to the minibuffer even
 when `my/manifolding-atlas-org-prompt-ui' is `buffer'.
 
-*** Mindmap placement resolution
+*** AIU Subnet placement resolution
 A raw placement pick becomes a placement plist; anything else
 degrades to the WARNING sentinel.
 ** my/manifolding-atlas-org-prompt--ask-mindmap
@@ -5985,7 +5985,7 @@ Why: Implementation of ~my/manifolding-atlas-org-prompt--ask-mindmap~.
 
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-org-prompt--ask-mindmap (choice)
-  "Resolve a mindmap CHOICE into a placement plist."
+  "Resolve an AIU Subnet CHOICE into a placement plist."
    (cond
     ((and (stringp choice)
           (member choice '("parent" "child" "sibling" "node")))
@@ -6007,7 +6007,7 @@ Why: Implementation of ~my/manifolding-atlas-org-prompt--ask-mindmap~.
      (list :placement "root" :target-id nil))
     (t "WARNING")))
 #+end_src
-** Mindmap file picker
+** AIU Subnet file picker
 Same search-and-create pattern as files: pick an existing map, or
 create one (validator rejects a second map per directory).
 ** my/manifolding-atlas-org-prompt--ask-mm-map-select
@@ -6061,7 +6061,7 @@ two-mode contract for programmatic callers."
            (nearest-disp (and nearest-id
                               (car (rassoc nearest-id choices))))
            (prompt (format "%s [%s, new name creates]: "
-                           (or label "Mind-map")
+                           (or label "AIU Subnet")
                            (or nearest-disp "no maps yet")))
            (input (string-trim
                    (completing-read prompt (mapcar #'car choices)
@@ -6126,7 +6126,7 @@ entry bootstraps the target directory without further prompts."
          (here (and (my/mm-target-dir-or-nil)
                     "[create new map here]"))
          (pick (completing-read
-                "Mind-map: "
+                "AIU Subnet: "
                 (append (mapcar #'car choices)
                         (delq nil (list here "[create new map]")))
                 nil t)))
@@ -6152,7 +6152,7 @@ missing map instead of leaving AIUs mappeless."
         (my/mm-validate-map-dir dir)
         (let* ((title (let ((c (string-trim (or name ""))))
                         (if (string-empty-p c) "Mind Map" c)))
-               (file (expand-file-name "mindmap" dir)))
+               (file (expand-file-name "AIU Subnet" dir)))
           (when (file-exists-p file)
             (error "map file exists"))
           (with-temp-file file
@@ -6472,7 +6472,7 @@ Why: Implementation of ~my/manifolding-atlas-org-prompt--fragment-scoped~.
   (when val
     `(:unfoldings ((,key . ,val)))))
 #+end_src
-** Mindmap fragment
+** AIU Subnet fragment
 Root placement stores WARNING (nothing to link); real placements get
 an AIU Context AIU and a post-apply that moves the AIU into place.
 ** my/manifolding-atlas-org-prompt--fragment-mindmap
@@ -6633,7 +6633,7 @@ reconcile for the whole session. Retry every 5s, bounded (~5 min)."
 :END:
 
 Central registry so that adding a new .org to modules/manifolding-atlas/blueprints/ automatically
-includes its prompt in the creation flow.
+includes its prompt in the Registration flow.
 
 The registry defvar and defun live at the top of this file so they load before any
 prompt file calls ~my/manifolding-atlas-register-prompt~.

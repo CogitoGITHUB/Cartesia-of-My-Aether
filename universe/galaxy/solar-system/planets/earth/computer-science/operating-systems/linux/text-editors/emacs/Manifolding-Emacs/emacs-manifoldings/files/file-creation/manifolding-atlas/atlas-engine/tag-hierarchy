@@ -3,7 +3,7 @@
 :ID:       5ce7c227-49ed-4154-904e-805418faa60f
 :END:
 
-Multi-parent tag graph (`:extends`), kept SEPARATE from the mind-map
+Multi-parent tag graph (`:extends`), kept SEPARATE from the AIU Subnet
 single-parent topology by design: mm owns AIU placement, this owns
 tag meaning.  Transitive queries (stream, search, manager) consult
 this graph; nothing else changes.  Slash paths entered via inline
