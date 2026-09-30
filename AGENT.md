@@ -16,7 +16,7 @@ overlap.
 Everything lives under one git repo:
 
 ```
-/data/data/com.termux/files/home/Cartesia-of-My-Aether/     <- vault root, has .git
+/data/data/com.termux/files/home/Subnet/     <- vault root, has .git
 ```
 
 | Path | What it is |
@@ -29,7 +29,7 @@ Everything lives under one git repo:
 | `admin/` | session + layout state, excluded from unit discovery (see §10) |
 | `WIP/` | raw captures. Never read, never walked, by anything. |
 | `emacs-mechanism/` | blueprint/metadata for the mechanism system |
-| `~/.config/emacs/init.el` | static seed. Locates the Foundation, tangles it, loads `foundation-init.el`. |
+| `~/.config/emacs/init.el` | static seed. Locates the AIU Frame, tangles it, loads `foundation-init.el`. |
 | `~/.config/emacs/*.el` | **build artifacts.** Never edit. See §9. |
 
 Environment: Termux inside a proot Ubuntu, Emacs 30.2, TTY only (no GUI), phone
@@ -105,7 +105,7 @@ those three lines, they are the loader telling you a move went wrong.
 
 | Keyword | Live? | Why |
 |---|---|---|
-| `#+auto_tangle: t` | **yes** — 2 files only | the Foundation and the loader are the only org-babel-tangled files |
+| `#+auto_tangle: t` | **yes** — 2 files only | the AIU Frame and the loader are the only org-babel-tangled files |
 | `:header-args:` drawer property | **yes** — same 2 files | their tangle targets |
 | `#+title:` | display only | `manifolding-emacs-file-title` (`:929`) uses it for the splash, falling back to the basename. **Its docstring literally says "Display only".** |
 | `#+filetags:` | dead | no reader anywhere in the vault |
@@ -417,7 +417,7 @@ everything else in `admin/` as generated. That document needs updating.
 ## 12. Quick reference
 
 ```sh
-VAULT=/data/data/com.termux/files/home/Cartesia-of-My-Aether
+VAULT=/data/data/com.termux/files/home/Subnet
 EMACS=$VAULT/universe/galaxy/solar-system/planets/earth/computer-science/operating-systems/linux/text-editors/emacs/AIU Cyberdeck
 
 # health, after a boot
