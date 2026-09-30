@@ -76,7 +76,7 @@ SOURCES is a subset of (AIU inline)."
     (when f
       (file-name-directory
        (directory-file-name (file-name-directory f)))))
-  "Atlas tree root holding blueprints/ and workflows/.")
+  "Cyberdeck tree root holding blueprints/ and workflows/.")
 
 (defun my/atlas-tag-vocab-hits (old)
   "Curated-vocabulary files mentioning OLD: REPORT ONLY, never edited.
@@ -200,7 +200,7 @@ Edits back to front per file.  Returns files changed."
 (defun my/atlas-tag-preview (occurrences new &optional notes)
   "Show OCCURRENCES with replacement NEW in a preview buffer.
 AIUS are extra report lines (curated files, never edited)."
-  (let ((buf (get-buffer-create "*Atlas Tag Preview*")))
+  (let ((buf (get-buffer-create "*Cyberdeck Tag Preview*")))
     (with-current-buffer buf
       (let ((inhibit-read-only t))
         (erase-buffer)
@@ -278,7 +278,7 @@ Consumed by the tag-hierarchy module to keep extends in sync.")
 (defun my/atlas-tag-manager ()
   "Open the tag manager."
   (interactive)
-  (let ((buf (get-buffer-create "*Atlas Tags*")))
+  (let ((buf (get-buffer-create "*Cyberdeck Tags*")))
     (with-current-buffer buf
       (my/atlas-tag-manager-mode)
       (setq tabulated-list-entries

@@ -1,13 +1,13 @@
-SPC v: Manifolding Atlas menu.
+SPC v: AIU Cyberdeck menu.
 
-* SPC v — Manifolding Atlas :EMACS_MECHANISM:
+* SPC v — AIU Cyberdeck :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       875a96ee-33ea-4d4a-be30-e6db1a7f3396
 :MM_PARENT: none
 :MM_ORDER:  202.0
 :END:
 #+begin_src emacs-lisp
-(my/defhydra-state my/manifolding-atlas-hydra nil "Manifolding Atlas" (my/main-hydra/body "main menu")
+(my/defhydra-state my/manifolding-atlas-hydra nil "AIU Cyberdeck" (my/main-hydra/body "main menu")
   "Find"
   (("v" manifolding-atlas-find "find AIU" :exit t)
    ("V" my/manifolding-atlas-insert-link "insert link" :exit t)

@@ -3,7 +3,7 @@
 :ID:       6b2d7bc9-7c42-4dd0-80b3-dd1bfc16cda5
 :END:
 
-Plain-data bridge for AI agents: read the atlas (query, node,
+Plain-data bridge for AI agents: read the cyberdeck (query, node,
 schema), write through the same primitives interactive use
 (set-field, link), with a provenance sidecar on every agent write.
 Catalog documents the surface.  An explicit endpoint opts the

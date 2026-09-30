@@ -1,4 +1,4 @@
-#+title: Manifolding AIU Subnet Sync
+#+title: Cyberdeck AIU Subnet Sync
 
 Automatic AIU Subnet ownership and generation. Locked law: every file
 is a node; a node belongs to multiple maps only hierarchically (one
@@ -23,7 +23,7 @@ Secondary membership is derived from directory adjacency only.
   "Files already warned about default-map fallback this session.")
 
 (defun my/mm-db-ready-p ()
-  "Non-nil when the atlas DB answers AIU Subnet queries."
+  "Non-nil when the cyberdeck DB answers AIU Subnet queries."
   (and (fboundp 'emacsql)
        (fboundp 'manifolding-atlas-db)
        (condition-case nil

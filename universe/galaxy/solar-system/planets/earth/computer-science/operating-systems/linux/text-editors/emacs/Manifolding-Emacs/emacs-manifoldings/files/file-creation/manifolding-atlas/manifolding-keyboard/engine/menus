@@ -104,7 +104,7 @@ through `transient-parse-suffix': init-time consumes parsed objects."
            (call-interactively #'my/manifolding-atlas-quick-todo))
           ((fboundp 'my/manifolding-atlas-quick-observations)
            (call-interactively #'my/manifolding-atlas-quick-observations))
-          (t (user-error "quick captures not loaded (atlas fast-captures not available)")))))
+          (t (user-error "quick captures not loaded (cyberdeck fast-captures not available)")))))
 
 (defun my/menus--digraphs-or-msg ()
   "Show digraphs if evil present, else fallback."

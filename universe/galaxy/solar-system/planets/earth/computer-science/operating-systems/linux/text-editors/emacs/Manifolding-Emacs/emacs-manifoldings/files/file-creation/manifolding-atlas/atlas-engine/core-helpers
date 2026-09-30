@@ -165,7 +165,7 @@ Finds the property drawer of the heading at point without org's own strict parsi
 
 * Shared Timer Helper
 
-Single home for all Atlas timing: one duration grammar, countdowns via
+Single home for all Cyberdeck timing: one duration grammar, countdowns via
 =org-timer=, stopwatches via =current-time=, one journal-line
 formatter. AIU Runs, protocols and Installation Protocol call these; none of them
 implements timing itself.

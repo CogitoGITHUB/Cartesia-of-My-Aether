@@ -1,4 +1,4 @@
-Modular AIU Runs system for the atlas, modeled on the Installation Protocol plugin.
+Modular AIU Runs system for the cyberdeck, modeled on the Installation Protocol plugin.
 An AIU Run is an AIU tagged =routine= whose child headings are
 AIU Run entries referencing sources via =SOURCE=, =ROUTINE_ID= and
 =ROUTINE_ORDER= AIU Contexts. Every mutation dual-writes the org drawer
@@ -902,7 +902,7 @@ Opens =*routines-report*= in an org buffer.
 #+end_src
 
 *** Agenda Facet
-Read-only org surface for AIU Runs. Atlas writes SCHEDULED planning
+Read-only org surface for AIU Runs. Cyberdeck writes SCHEDULED planning
 lines (sole writer); agenda only displays them. No org repeaters on
 any Atlas-managed timestamp — that rule also excludes =org-habit=,
 which structurally requires a TODO keyword, a repeater, and

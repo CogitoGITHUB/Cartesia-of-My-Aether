@@ -1,8 +1,8 @@
-#+title:      Caestria Agent Integration Into Atlas
+#+title:      Caestria Agent Integration Into Cyberdeck
 
 * Purpose
 
-This file is the contract between AI agents and the Manifolding Atlas:
+This file is the contract between AI agents and the AIU Cyberdeck:
 how an agent connects, what it may call, what it must record, and
 which capabilities stay dormant until a connection exists.  It is
 documentation, not configuration: no mechanism tag, no code blocks,

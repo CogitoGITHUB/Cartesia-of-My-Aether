@@ -37,7 +37,7 @@ calls the owning command.  Nothing here runs at load.
   "Show the node page for AIU in a side window."
   (interactive
    (list (manifolding-atlas-find)))
-  (let ((buf (get-buffer-create "*Atlas Node*")))
+  (let ((buf (get-buffer-create "*Cyberdeck Node*")))
     (with-current-buffer buf
       (let ((inhibit-read-only t))
         (erase-buffer)

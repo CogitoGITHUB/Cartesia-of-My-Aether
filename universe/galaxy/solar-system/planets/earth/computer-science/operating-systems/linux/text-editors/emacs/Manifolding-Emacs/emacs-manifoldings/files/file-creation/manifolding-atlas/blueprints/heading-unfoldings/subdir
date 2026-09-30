@@ -98,7 +98,7 @@ reserved for internal bookkeeping."
                           (string-prefix-p ".." rel))
                       ""
                     (file-name-as-directory rel)))
-              (message "Outside atlas root; using root")
+              (message "Outside cyberdeck root; using root")
               ""))
            (t (file-name-as-directory choice)))))
 #+end_src

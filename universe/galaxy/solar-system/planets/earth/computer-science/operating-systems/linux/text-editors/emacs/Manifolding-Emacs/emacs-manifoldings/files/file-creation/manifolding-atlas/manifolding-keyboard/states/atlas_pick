@@ -12,7 +12,7 @@ Self-registration: mode and keymap in one unit (manual activation only). Delete 
   :lighter "[PCK]"
   :cursor-type 'box)
 #+end_src
-** Atlas Pick
+** Cyberdeck Pick
 Flow: session pickers open with an auto-armed key-selection loop
 (org-prompts.org) that owns letters for jumps+marking and takes
 SPC/RET/C-q/C-l/C-e. This

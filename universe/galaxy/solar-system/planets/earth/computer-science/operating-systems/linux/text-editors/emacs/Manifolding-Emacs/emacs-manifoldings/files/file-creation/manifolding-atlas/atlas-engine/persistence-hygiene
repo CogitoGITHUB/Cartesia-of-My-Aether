@@ -6,7 +6,7 @@
 Policy plus helpers for crash-safe writes.  Crash safety in this
 system is layered: the loader writes caches atomically (tmp+rename in
 ~manifolding-emacs--cache-write~) and readers validate with rescan
-fallback, so a killed boot self-heals.  This file gives atlas code the
+fallback, so a killed boot self-heals.  This file gives cyberdeck code the
 same primitive and a verification command.  Nothing here runs at load;
 all helpers are runtime-only, so load order is irrelevant.
 

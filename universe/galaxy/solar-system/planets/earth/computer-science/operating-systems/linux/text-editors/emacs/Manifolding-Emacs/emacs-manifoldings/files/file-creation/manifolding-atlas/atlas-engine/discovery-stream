@@ -37,7 +37,7 @@ explicit yank.  Nothing here runs at load.
 (defun my/atlas-discovery ()
   "Show a batch of random AIU cards."
   (interactive)
-  (let ((buf (get-buffer-create "*Atlas Discovery*"))
+  (let ((buf (get-buffer-create "*Cyberdeck Discovery*"))
         (cards (my/atlas-discovery-sample)))
     (dolist (n cards)
       (let ((id (ignore-errors (manifolding-atlas-note-id n))))

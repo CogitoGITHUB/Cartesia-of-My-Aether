@@ -1,4 +1,4 @@
-Search TODO/FIXME/BUG/HACK keywords scoped to the atlas only. Vendored
+Search TODO/FIXME/BUG/HACK keywords scoped to the cyberdeck only. Vendored
 engine: the consult-todo package is embedded below as loader-managed
 source (no straight) with all symbols renamed `consult-todo-*` →
 `atlas-search-todo-*` so the original straight `consult-todo` module is
@@ -316,7 +316,7 @@ Return the location marker."
   (consult--forbid-minibuffer)
   (consult--read
    formatted-candidates
-   :prompt "Atlas todo in dir: "
+   :prompt "Cyberdeck todo in dir: "
    :category 'consult-location
    :require-match t
    :sort nil
@@ -374,7 +374,7 @@ If BUFFERS is nil, use current buffer instead."
   (consult--read
    (atlas-search-todo--format
     (atlas-search-todo--parse-bufs (or buffers (current-buffer))))
-   :prompt "Atlas todo: "
+   :prompt "Cyberdeck todo: "
    :category 'consult-location
    :require-match t
    :sort nil

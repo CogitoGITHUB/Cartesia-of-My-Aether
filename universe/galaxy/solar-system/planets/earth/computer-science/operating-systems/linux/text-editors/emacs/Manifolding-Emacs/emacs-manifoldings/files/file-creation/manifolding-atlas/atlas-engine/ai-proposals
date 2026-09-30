@@ -41,7 +41,7 @@ Nil means dormant.  Example: a local LLM CLI in non-interactive mode."
 Shows a plan buffer; accept writes the value, skip drops it."
   (interactive
    (list (split-string (read-string "Propose keys (space-separated): ") " " t)))
-  (let ((buf (get-buffer-create "*Atlas AI Proposals*")))
+  (let ((buf (get-buffer-create "*Cyberdeck AI Proposals*")))
     (with-current-buffer buf
       (let ((inhibit-read-only t))
         (erase-buffer)

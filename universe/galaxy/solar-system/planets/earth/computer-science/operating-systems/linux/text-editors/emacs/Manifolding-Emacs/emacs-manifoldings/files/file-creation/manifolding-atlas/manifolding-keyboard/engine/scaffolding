@@ -1,4 +1,4 @@
-Creators and validator for the split layout. Mirrors the Atlas
+Creators and validator for the split layout. Mirrors the Cyberdeck
 blueprint-add pattern: creation writes a correctly-shaped file (loud
 on collision), discovery is free (recursive loader in mm order),
 tracking is an explicit validator (not memory). No manifest, no
@@ -34,7 +34,7 @@ Errors loudly when the file already exists."
     (when (file-exists-p path)
       (user-error "State file exists: %s" path))
     (with-temp-file path
-      (insert (format "#+title: Manifolding Keyboard — %s State\n\n* %s State :EMACS_MECHANISM:\n:PROPERTIES:\n:ID:       %s\n:END:\n\nKeys specific to the %s state. Shared bindings live in universal.org.\n** Bindings\n#+begin_src emacs-lisp\n(manifolding-keyboard-define-keys\n  :states '(\"%s\")\n  :bind\n  `((\"<key>\" . <command>)))\n#+end_src\n\n** Owned functions\n"
+      (insert (format "#+title: Cyberdeck Keyboard — %s State\n\n* %s State :EMACS_MECHANISM:\n:PROPERTIES:\n:ID:       %s\n:END:\n\nKeys specific to the %s state. Shared bindings live in universal.org.\n** Bindings\n#+begin_src emacs-lisp\n(manifolding-keyboard-define-keys\n  :states '(\"%s\")\n  :bind\n  `((\"<key>\" . <command>)))\n#+end_src\n\n** Owned functions\n"
                       (capitalize name) (capitalize name) (org-id-uuid) name name)))
     (find-file path)
     (message "State created: %s (add define-state + init routing, see header)" path)))
@@ -56,7 +56,7 @@ Errors loudly when the file already exists."
     (when (file-exists-p path)
       (user-error "Leader file exists: %s" path))
     (with-temp-file path
-      (insert (format "#+title: Manifolding Keyboard — %s Leader\n\n* %s Leader :EMACS_MECHANISM:\n:PROPERTIES:\n:ID:       %s\n:END:\n\n** %s menu\n#+begin_src emacs-lisp\n(my/defhydra-state my/%s-hydra nil \"%s\" (my/main-hydra/body \"main menu\")\n  \"Actions\"\n  ((\"<sub>\" <command> \"<desc>\" :exit t)))\n#+end_src\n"
+      (insert (format "#+title: Cyberdeck Keyboard — %s Leader\n\n* %s Leader :EMACS_MECHANISM:\n:PROPERTIES:\n:ID:       %s\n:END:\n\n** %s menu\n#+begin_src emacs-lisp\n(my/defhydra-state my/%s-hydra nil \"%s\" (my/main-hydra/body \"main menu\")\n  \"Actions\"\n  ((\"<sub>\" <command> \"<desc>\" :exit t)))\n#+end_src\n"
                       title (capitalize title) (org-id-uuid) key slug title)))
     (find-file path)
     (message "Leader created: %s" path)))

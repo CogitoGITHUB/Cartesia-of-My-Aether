@@ -34,7 +34,7 @@ Creates the file and commits to Git."
     (unless (file-exists-p path)
       (with-temp-file path
         (insert "#+TITLE: Missing Links\n")
-        (insert "#+AUTHOR: Manifolding Atlas Git VC System\n")
+        (insert "#+AUTHOR: AIU Cyberdeck Git VC System\n")
         (insert "#+DESCRIPTION: Auto-generated repair queue.")
         (insert " Broken id: links after deletion.\n")
         (insert "#+STARTUP: overview\n\n")))
@@ -59,7 +59,7 @@ Lives in `my/manifolding-atlas-root-dir'. Auto-created if missing.")
     (unless (file-exists-p path)
       (with-temp-file path
         (insert "#+TITLE: ReManifold\n")
-        (insert "#+AUTHOR: Manifolding Atlas Git VC System\n")
+        (insert "#+AUTHOR: AIU Cyberdeck Git VC System\n")
         (insert "#+DESCRIPTION: Auto-generated log of deleted .org files.\n")
         (insert "#+STARTUP: overview\n\n")))
     path))
@@ -509,7 +509,7 @@ Lives in `my/manifolding-atlas-root-dir'. Auto-created if missing.")
     (unless (file-exists-p path)
       (with-temp-file path
         (insert "#+TITLE: Broken AIU Contexts\n")
-        (insert "#+AUTHOR: Manifolding Atlas Git VC System\n")
+        (insert "#+AUTHOR: AIU Cyberdeck Git VC System\n")
         (insert "#+DESCRIPTION: Auto-generated repair queue.")
         (insert " Broken live-property AIU Context links.\n")
         (insert "#+STARTUP: overview\n\n")))
@@ -617,7 +617,7 @@ Lives in `my/manifolding-atlas-root-dir'. Auto-created if missing.")
     (unless (file-exists-p path)
       (with-temp-file path
         (insert "#+TITLE: Added Heading Blueprints\n")
-        (insert "#+AUTHOR: Manifolding Atlas Git VC System\n")
+        (insert "#+AUTHOR: AIU Cyberdeck Git VC System\n")
         (insert "#+DESCRIPTION: Auto-generated log of added heading blueprints.\n")
         (insert "#+STARTUP: overview\n\n")))
     path))
@@ -639,7 +639,7 @@ Lives in `my/manifolding-atlas-root-dir'. Auto-created if missing.")
     (unless (file-exists-p path)
       (with-temp-file path
         (insert "#+TITLE: Deleted Heading Blueprints\n")
-        (insert "#+AUTHOR: Manifolding Atlas Git VC System\n")
+        (insert "#+AUTHOR: AIU Cyberdeck Git VC System\n")
         (insert "#+DESCRIPTION: Auto-generated log of deleted heading blueprints.\n")
         (insert "#+STARTUP: overview\n\n")))
     path))
@@ -751,7 +751,7 @@ Lives in `my/manifolding-atlas-root-dir'. Auto-created if missing.")
     (unless (file-exists-p path)
       (with-temp-file path
         (insert "#+TITLE: Deleted Live Headings Blueprints\n")
-        (insert "#+AUTHOR: Manifolding Atlas Git VC System\n")
+        (insert "#+AUTHOR: AIU Cyberdeck Git VC System\n")
         (insert "#+DESCRIPTION: Auto-generated log of live values kept when their blueprint was deleted.\n")
         (insert "#+STARTUP: overview\n\n")))
     path))
@@ -922,7 +922,7 @@ keys are stripped (live leftovers are logged, never deleted).
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-links--known-keys-path ()
   "Absolute path of the last-known prompt-key record.
-Lives in admin/ next to sibling Atlas state — never in module dirs."
+Lives in admin/ next to sibling Cyberdeck state — never in module dirs."
   (expand-file-name "admin/.known-keys" (my/manifolding-atlas-root-dir)))
 
 (defun my/manifolding-atlas-links--known-keys-read ()

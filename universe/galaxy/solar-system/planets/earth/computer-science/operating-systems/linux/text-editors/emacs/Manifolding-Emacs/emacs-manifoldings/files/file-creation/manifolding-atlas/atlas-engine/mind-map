@@ -818,7 +818,7 @@ Renders the full tree as an Org buffer or a side-buffer group view.
         (erase-buffer)
         (org-mode)
         (setq-local org-return-follows-link t)
-        (insert "#+TITLE: Manifold Mind Map\n\n")
+        (insert "#+TITLE: Cyberdeck Mind Map\n\n")
         (mm/map--insert-level roots 1)
         (goto-char (point-min))
         (display-buffer (current-buffer))))))
@@ -959,7 +959,7 @@ Default: <notes-dir>/manifold-map.json"
                   (edges . ,(mm/json--edges (mm/all-edges))))))
     (with-temp-file path
       (insert (json-encode data)))
-    (message "✓ Manifold map → %s" path)))
+    (message "✓ Cyberdeck map → %s" path)))
 #+end_src
 
 **** Node building
@@ -1061,7 +1061,7 @@ the map display and the review pool agree on every keypress.
 **** Menu prefix
 #+begin_src emacs-lisp
 (transient-define-prefix mm/menu ()
-  "Manifold Mind Map controller."
+  "Cyberdeck Mind Map controller."
   [["Navigate"
     ("p" "Go to parent"    mm/goto-parent)
     ("c" "Go to child"     mm/goto-child)

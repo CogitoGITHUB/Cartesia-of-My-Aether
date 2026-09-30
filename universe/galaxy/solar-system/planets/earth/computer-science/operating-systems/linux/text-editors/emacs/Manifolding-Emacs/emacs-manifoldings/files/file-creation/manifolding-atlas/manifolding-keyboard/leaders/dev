@@ -26,10 +26,10 @@ SPC d: dev tree (literate/debug/config).
   "Config"
   (("d" (lambda () (interactive) (my/dired-here)) "modules dir"   :exit t)
    ("k" (lambda () (interactive) (my/find-file (manifolding-keyboard--module-dir))) "keyboard" :exit t))
-  "Manifold"
+  "Cyberdeck"
   (("r" manifolding-emacs-reload        "reload all"     :exit t)
    ("c" manifolding-emacs-reload-current-buffer "reload buf" :exit t)
-   ("m" (lambda () (interactive) (switch-to-buffer "*Manifolding-Emacs*")) "splash" :exit t)
+   ("m" (lambda () (interactive) (switch-to-buffer "*AIU Cyberdeck*")) "splash" :exit t)
    ("R" (lambda () (interactive) (start-process "restart-emacs" nil "herd" "restart" "emacs-daemon")) "restart server" :exit t))
   "Buffers"
   (("o" my/kill-orphaned-buffers        "kill orphaned"  :exit t)

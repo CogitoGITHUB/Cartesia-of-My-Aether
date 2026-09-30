@@ -81,7 +81,7 @@ keys are skipped (audit warns). Returns the items."
     (dolist (name names)
       (when (memq name have)
         (push (cons name (manifolding-dashboard--entry-length name)) out)))
-    ;; Unlisted manifold widgets append (registry-driven, never stock:
+    ;; Unlisted cyberdeck widgets append (registry-driven, never stock:
     ;; stock sections appear only when the order file lists them).
     (setq out (nreverse out))
     (let (extra)

@@ -90,7 +90,7 @@ line in engine/setup. Errors loudly when the file already exists."
       ;; template emits no #+title:, #+filetags: or #+property: — the
       ;; first two are ignored, and the third falsely implies a
       ;; per-file lexical-binding control that does not exist.
-      (insert (format "* Manifold %s Widget :EMACS_MECHANISM:\n:PROPERTIES:\n:ID:       %s\n:MM_PARENT: none\n:MM_ORDER:  78.4\n:END:\n\nDescribe the widget here.\n\n** Widget\n#+begin_src emacs-lisp\n(manifolding-dashboard-define-widget %s\n  :doc \"What this section shows.\"\n  :generate\n  ((insert \"\\n\")\n   (insert \"hello\")))\n#+end_src\n"
+      (insert (format "* Cyberdeck %s Widget :EMACS_MECHANISM:\n:PROPERTIES:\n:ID:       %s\n:MM_PARENT: none\n:MM_ORDER:  78.4\n:END:\n\nDescribe the widget here.\n\n** Widget\n#+begin_src emacs-lisp\n(manifolding-dashboard-define-widget %s\n  :doc \"What this section shows.\"\n  :generate\n  ((insert \"\\n\")\n   (insert \"hello\")))\n#+end_src\n"
                       (capitalize name) (org-id-uuid) name)))
     (find-file path)
     (message "Widget created: %s (add one wanted-list line in engine/setup)" path)))

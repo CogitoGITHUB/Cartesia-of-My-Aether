@@ -1,4 +1,4 @@
-#+TITLE:      Manifolding Atlas — Sidebar
+#+TITLE:      AIU Cyberdeck — Sidebar
 #+begin_comment
 Sidebar, outline, AIU Proxies, and UI configuration for manifolding-atlas.
 #+end_comment
@@ -20,13 +20,13 @@ Why: Implementation of ~manifolding-atlas-ui-sidebar-toggle~ — minimal functio
   "Buffer the sidebar follows (set on open).")
 
 (defun manifolding-atlas-ui-sidebar-toggle ()
-  "Toggle a minimal Atlas sidebar."
+  "Toggle a minimal Cyberdeck sidebar."
   (interactive)
-  (let ((win (get-buffer-window "*Atlas Sidebar*")))
+  (let ((win (get-buffer-window "*Cyberdeck Sidebar*")))
     (if win
         (delete-window win)
       (setq my/atlas-sidebar-source-buffer (current-buffer))
-      (let ((buf (get-buffer-create "*Atlas Sidebar*")))
+      (let ((buf (get-buffer-create "*Cyberdeck Sidebar*")))
         (with-current-buffer buf
           (view-mode 1))
         (my/atlas-sidebar-setup-keys)
@@ -151,15 +151,15 @@ the historical AIU Proxies section the header always promised.
            (ignore-errors (my/manifolding-atlas--buffer-note)))))
 
 (defun my/atlas-sidebar-refresh ()
-  "Fill *Atlas Sidebar* with context and AIU Proxies.  Read-only."
+  "Fill *Cyberdeck Sidebar* with context and AIU Proxies.  Read-only."
   (interactive)
-  (let ((buf (get-buffer "*Atlas Sidebar*")))
+  (let ((buf (get-buffer "*Cyberdeck Sidebar*")))
     (when (buffer-live-p buf)
       (with-current-buffer buf
         (let ((inhibit-read-only t)
               (note (my/atlas-sidebar--note-at-point)))
           (erase-buffer)
-          (insert "* Atlas Sidebar\n\n")
+          (insert "* Cyberdeck Sidebar\n\n")
           (if (null note)
               (insert "- No AIU at point (open a vault file)\n")
             (when (fboundp 'my/atlas-node-view-sections)
@@ -281,7 +281,7 @@ except nothing at all: timer starts on toggle.
 
 (defun my/atlas-sidebar-follow-tick ()
   "Refresh sidebar for the current buffer when followable."
-  (let ((sb (get-buffer "*Atlas Sidebar*")))
+  (let ((sb (get-buffer "*Cyberdeck Sidebar*")))
     (when (buffer-live-p sb)
       (let ((cur (current-buffer)))
         (when (and (not (eq cur sb))
@@ -335,7 +335,7 @@ except nothing at all: timer starts on toggle.
 
 (defun my/atlas-sidebar-goto-section (marker)
   "Jump to MARKER section in the sidebar."
-  (let ((sb (get-buffer "*Atlas Sidebar*")))
+  (let ((sb (get-buffer "*Cyberdeck Sidebar*")))
     (when (buffer-live-p sb)
       (pop-to-buffer sb)
       (goto-char (point-min))
@@ -345,7 +345,7 @@ except nothing at all: timer starts on toggle.
 
 (defun my/atlas-sidebar-setup-keys ()
   "Install the sidebar-local keymap."
-  (let ((sb (get-buffer "*Atlas Sidebar*")))
+  (let ((sb (get-buffer "*Cyberdeck Sidebar*")))
     (when (buffer-live-p sb)
       (with-current-buffer sb
         (use-local-map my/atlas-sidebar-mode-map)))))

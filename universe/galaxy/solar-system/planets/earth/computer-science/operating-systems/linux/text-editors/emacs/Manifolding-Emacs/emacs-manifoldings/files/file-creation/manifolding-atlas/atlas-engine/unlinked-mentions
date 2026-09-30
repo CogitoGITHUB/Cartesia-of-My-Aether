@@ -154,7 +154,7 @@ Works back to front so earlier positions stay valid."
   "Show unlinked mentions of NOTE with Link / Link-all / Ignore buttons."
   (interactive
    (list (manifolding-atlas-find)))
-  (let ((buf (get-buffer-create "*Atlas Mentions*"))
+  (let ((buf (get-buffer-create "*Cyberdeck Mentions*"))
         (cands (my/atlas-mentions-for-note note)))
     (with-current-buffer buf
       (let ((inhibit-read-only t))

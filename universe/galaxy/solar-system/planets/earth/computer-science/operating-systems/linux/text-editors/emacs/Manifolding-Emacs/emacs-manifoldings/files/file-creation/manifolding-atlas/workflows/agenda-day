@@ -2,7 +2,7 @@ One cross-engine due surface: AIU Run entries and protocol parents
 due today-or-overdue, grouped by engine, each annotated with the
 compliance truth its engine already owns (AIU Run streak strips from
 routine_sessions). Read-only over org: this buffer displays dates
-Atlas wrote; it never writes, advances, or reschedules anything.
+Cyberdeck wrote; it never writes, advances, or reschedules anything.
 Installation Protocol appears only as a due count pointing at the Due Reviews
 AIU Run — no duplicated due lists, no competing surfaces.
 
@@ -74,7 +74,7 @@ Installation Protocol shows only as a due count (run Due Reviews to practice)."
     (with-current-buffer (get-buffer-create "*atlas-day*")
       (erase-buffer)
       (org-mode)
-      (insert (format "* Atlas Day — %s\n\n" today))
+      (insert (format "* Cyberdeck Day — %s\n\n" today))
       (insert "** AIU Runs due\n")
       (if (null entries)
           (insert "- nothing due\n")
@@ -107,6 +107,6 @@ Installation Protocol shows only as a due count (run Due Reviews to practice)."
       (insert "\n** Agenda\n- [[elisp:(org-agenda-list)][open org agenda for today]]\n")
       (goto-char (point-min))
       (display-buffer (current-buffer)))
-    (message "Atlas day: %d entries, %d protocols due"
+    (message "Cyberdeck day: %d entries, %d protocols due"
              (length entries) (length protos))))
 #+end_src

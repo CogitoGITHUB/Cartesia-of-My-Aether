@@ -1,4 +1,4 @@
-* Atlas Query Language :EMACS_MECHANISM:
+* Cyberdeck Query Language :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       b296f1c2-7d16-4a49-9570-bb0451b907ad
 :END:
@@ -48,7 +48,7 @@ at load.
     (`(after ,iso)
      (let ((mtime (my/atlas-query--mtime note)))
        (and mtime (> mtime (my/atlas-query--iso iso)))))
-    (_ (error "atlas query: unknown operator %S" (car-safe query)))))
+    (_ (error "cyberdeck query: unknown operator %S" (car-safe query)))))
 
 (defun my/atlas-query--iso (iso)
   "ISO date string to float seconds."
@@ -132,7 +132,7 @@ at load.
   (my/atlas-query (cdr (assoc name my/atlas-saved-queries))))
 
 (defun org-babel-execute:atlas-query (body _params)
-  "Run an atlas query from a src block; returns matching titles."
+  "Run an cyberdeck query from a src block; returns matching titles."
   (let ((query (car (read-from-string body))))
     (mapcar (lambda (n) (or (ignore-errors (manifolding-atlas-note-title n))
                             "?"))

@@ -1,4 +1,4 @@
-#+title: Manifolding Atlas AIU Subnet (vendored)
+#+title: AIU Cyberdeck AIU Subnet (vendored)
 
 Vendored from https://github.com/krvkir/org-mindmap (GPL-3.0,
 krvkir, 2026). Editable ASCII AIU Subnet visualization inside org
@@ -8,7 +8,7 @@ package fetch. Complements the vault's own mm/* topology subsystem
 (atlas-engine/mind-map, order 127): that one owns vault structure,
 this one draws pictures inside AIUs.
 
-* Atlas AIU Subnet — vendored :EMACS_MECHANISM:
+* Cyberdeck AIU Subnet — vendored :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       378f6ebd-5c88-4fed-8696-ca0b306b0155
 :MM_PARENT: none
@@ -2213,7 +2213,7 @@ reach on its own."
 ;;; org-mindmap.el ends here
 #+end_src
 
-** Atlas integration
+** Cyberdeck integration
 AIUs are org buffers, so AIU Subnet regions work in them
 natively. This block is the only atlas-specific code: a one-key
 block inserter (bound in the AIU Subnet keyboard state) plus

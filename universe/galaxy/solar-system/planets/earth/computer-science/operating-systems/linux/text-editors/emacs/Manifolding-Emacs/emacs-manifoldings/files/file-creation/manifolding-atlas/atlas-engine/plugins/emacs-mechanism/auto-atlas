@@ -1,4 +1,4 @@
-* Emacs Mechanism Auto Atlas :EMACS_MECHANISM:
+* Emacs Mechanism Auto Cyberdeck :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       41910229-d0f6-4d3f-a2ca-55e1ab5048a5
 :MM_PARENT: none
@@ -8,7 +8,7 @@
 ** Auto scan
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-emacs-mechanism-auto-scan ()
-  "Tagged files that are not full Atlas files yet. Whole vault minus WIP."
+  "Tagged files that are not full Cyberdeck files yet. Whole vault minus WIP."
   (when (fboundp 'my/manifolding-atlas-root-dir)
     (let ((root (my/manifolding-atlas-root-dir)) out)
       (dolist (f (directory-files-recursively root "[^./]+$"))

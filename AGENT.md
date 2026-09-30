@@ -4,9 +4,9 @@
 that are not visible from any single file, several of them are silent when
 violated, and a few things people reasonably assume are true are not.
 
-Companion document: `CAESTRIA AGENT INTEGRATION INTO ATLAS` is the *Atlas API
-contract* (how to call the Atlas, what agents may not do). This file is the
-*Emacs build* (how the loader works, what the Atlas is, how to test). They do not
+Companion document: `CAESTRIA AGENT INTEGRATION INTO ATLAS` is the *Cyberdeck API
+contract* (how to call the Cyberdeck, what agents may not do). This file is the
+*Emacs build* (how the loader works, what the Cyberdeck is, how to test). They do not
 overlap.
 
 ---
@@ -21,7 +21,7 @@ Everything lives under one git repo:
 
 | Path | What it is |
 |---|---|
-| `universe/` | the knowledge manifold, mirrored from physical scale down (universe → galaxy → solar-system → earth → … → linux) |
+| `universe/` | the knowledge cyberdeck, mirrored from physical scale down (universe → galaxy → solar-system → earth → … → linux) |
 | `…/linux/text-editors/emacs/Manifolding-Emacs/` | the Emacs config source. Everything below this is Emacs. |
 | `Manifolding-Emacs/Manifolding-Emacs-Foundation` | Org source, tangled at every boot into `early-init.el` + `foundation-init.el` |
 | `Manifolding-Emacs/manifolding-emacs` | **the loader** (3176 lines) — discovery, ordering, extraction, compilation, caching, doctor |
@@ -134,8 +134,8 @@ say whose stock; `setup` and `macros` say nothing at all; and `dashboard` in
    `my/manifolding-atlas--…`, `manifolding-modeline--…`. A name that could
    belong to two modules belongs to neither.
 4. **Never name a file after the module that reads it** when the file means
-   something else. A drawer-order file inside the Atlas is a layout file for the
-   whole vault, not an Atlas artefact.
+   something else. A drawer-order file inside the Cyberdeck is a layout file for the
+   whole vault, not an Cyberdeck artefact.
 
 The test: **could this path be mistaken for anything else in the tree, and would
 grepping for it find only this thing?**
@@ -210,7 +210,7 @@ is not a validator.
 
 ---
 
-## 5. What the Atlas is
+## 5. What the Cyberdeck is
 
 This is the note-taking system, not the Emacs config. Under
 `emacs-manifoldings/files/file-creation/manifolding-atlas/`. Verdicts are from
@@ -229,7 +229,7 @@ src block — those are **not** implementations.
 | **Semantic search** | **dormant by design** | `atlas-engine/semantic-similar` — Ollama `/api/embed` + `bge-m3`, sidecar is a printed Elisp alist, `-similar` is a linear scan, one vector per AIU, and `my/atlas-semantic-enabled` is `nil`. The file says "Nothing here runs at load." |
 | **Export** | essentially ABSENT | Only `mm/export-json` (an AIU Subnet dump). No org-publish, no HTML, no flatten-to-headings. |
 | **LLM question-answering** | ABSENT | Nothing calls a model to answer anything. `ai-proposals` is a generic shell command with no retrieval; `agent-api` is the read/write surface for agents and stamps `PROVENANCE_*`; `plugins/citation` extracts `[@citekey]` into a `citations` table. The two halves exist, the citation-validating join does not. |
-| **Dashboard** | PLACEHOLDER | The real dashboard is a separate module under `entering-the-machine/`. Inside the Atlas, "dashboard" is only a declaration registry (§11). |
+| **Dashboard** | PLACEHOLDER | The real dashboard is a separate module under `entering-the-machine/`. Inside the Cyberdeck, "dashboard" is only a declaration registry (§11). |
 
 ### The database is fine — do not "fix" it
 
@@ -253,7 +253,7 @@ All paths relative to `Manifolding-Emacs/emacs-manifoldings/`.
 |---|---|---|
 | `entering-the-machine/manifolding-dashboard/` | 78.3–78.5 | dashboard: `engine/`, `cores/` (vendored emacs-dashboard), `widgets/`, `banner/`, `faces`. Its order file lives in `admin/`. |
 | `the-screen/modeline/` | 80.1–80.11 | multi-row mode line: `engine/`, `cores/stock`, `faces`, `widgets/`, `header`. Its order file lives in `admin/`. |
-| `files/file-creation/manifolding-atlas/` | 100+ | the Atlas — see §5 |
+| `files/file-creation/manifolding-atlas/` | 100+ | the Cyberdeck — see §5 |
 | `…/manifolding-atlas/manifolding-keyboard/` | 2.x–4.x | modal key system: `engine/` (state machine, macros, scaffolding), `states/` (15), `leaders/` (19) |
 | `the-screen/display/06-screen` | — | raw Emacs-manual prose, parked. Still holds display/windows/frames/Imenu/font-lock |
 | `org-manual/*` | — | raw Emacs-manual prose, parked |
@@ -377,7 +377,7 @@ admin/
   order/modeline widgets            modeline segment order
   order/headings blueprints drawer  drawer key order + the blueprint registry (registry NOT built — see §11)
   desktop/                          Emacs session desktop
-  manifolding-atlas.db              Atlas database, sqlite, 302 AIUs
+  manifolding-atlas.db              Cyberdeck database, sqlite, 302 AIUs
 ```
 
 The three order files are named for **what they order**, not after the module
@@ -402,8 +402,8 @@ everything else in `admin/` as generated. That document needs updating.
 | What | State |
 |---|---|
 | `bufler` / `auto-workspace` void in `the-screen/buffer-management:86` | **Pre-existing.** The loaded bufler checkout's `bufler-defgroups` macro has no `auto-workspace` clause. The unit carries an interlock (`my/bufler--macro-has-workspace-p`) that skips grouping setup instead of dying. Fix by updating the bufler checkout. This is the 1 error in an otherwise clean boot. |
-| **The blueprint registry is not built** | The design is agreed: one `:BLUEPRINT_<KEY>:` property per blueprint in `admin/order/headings blueprints drawer`, values relative to `heading-unfoldings/`, order is arrangement, and an interactive sync writes the arrangement into each file's `:MM_ORDER:` by **reusing the numbers those files already own** so no collision is possible. A first sync must report **no changes**. An earlier attempt broke two Atlas units and was reverted; `my/manifolding-atlas-dashboard-key-files` is a better host for it than `file-creation`. Do not re-derive this from scratch. |
-| `my/manifolding-atlas-dashboard-register-all` | **Confirmed dead** — the Atlas's in-dashboard registration sweep runs every boot and finds nothing, because its blueprint directory does not exist. Roughly 350 lines on the Atlas boot path. Not removed, because deleting it means touching boot. |
+| **The blueprint registry is not built** | The design is agreed: one `:BLUEPRINT_<KEY>:` property per blueprint in `admin/order/headings blueprints drawer`, values relative to `heading-unfoldings/`, order is arrangement, and an interactive sync writes the arrangement into each file's `:MM_ORDER:` by **reusing the numbers those files already own** so no collision is possible. A first sync must report **no changes**. An earlier attempt broke two Cyberdeck units and was reverted; `my/manifolding-atlas-dashboard-key-files` is a better host for it than `file-creation`. Do not re-derive this from scratch. |
+| `my/manifolding-atlas-dashboard-register-all` | **Confirmed dead** — the Cyberdeck's in-dashboard registration sweep runs every boot and finds nothing, because its blueprint directory does not exist. Roughly 350 lines on the Cyberdeck boot path. Not removed, because deleting it means touching boot. |
 | modeline left column | Segments parse but land in the right slot: `read-order` returns rows like `(1 nil (…))`. The `row-N-side` regex is **verified correct** (`row-1-left` → `1`, `left`, and `(eq 'left :left)` is true), so the fault is in the slot assignment below it — untraced. Cosmetic: the bar renders mirrored. |
 | modeline audit | Last verified failing on a `characterp` in the right-align padding; a fix landed in `manifolding-modeline-format` (rows are constructs, not strings, so they are interleaved with a literal `"\n"` rather than `mapconcat`-ed) and a follow-up in the audit's emptiness check. Both are balanced; the combination has **not** been confirmed in a boot. |
 | `manifolding-atlas-drawer-key-order` | A **second** source for the same key order the drawer file carries (`("TODO_STATE" "ID")`). They can disagree silently. Reconcile before building the registry. |
@@ -418,7 +418,7 @@ everything else in `admin/` as generated. That document needs updating.
 
 ```sh
 VAULT=/data/data/com.termux/files/home/Cartesia-of-My-Aether
-EMACS=$VAULT/universe/galaxy/solar-system/planets/earth/computer-science/operating-systems/linux/text-editors/emacs/Manifolding-Emacs
+EMACS=$VAULT/universe/galaxy/solar-system/planets/earth/computer-science/operating-systems/linux/text-editors/emacs/AIU Cyberdeck
 
 # health, after a boot
 grep -o ':status [a-z-]*' ~/.config/emacs/manifolding-emacs-errors.log.el | sort | uniq -c
@@ -432,7 +432,7 @@ grep -oE ':MM_ORDER:[ \t]+[0-9.]+' -r $VAULT/universe/ | sort | uniq -d
 # units the loader would discover
 grep -rlE '^\* .*:EMACS_MECHANISM:' $VAULT/universe/ | wc -l
 
-# Atlas database
+# Cyberdeck database
 sqlite3 $VAULT/admin/manifolding-atlas.db 'select count(*) from notes;'
 
 git -C $VAULT status --short

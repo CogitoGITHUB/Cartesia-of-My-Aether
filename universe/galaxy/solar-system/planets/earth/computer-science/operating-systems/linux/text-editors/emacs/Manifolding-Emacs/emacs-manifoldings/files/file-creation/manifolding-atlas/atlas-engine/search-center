@@ -1,4 +1,4 @@
-Universal retrieval surface for the Atlas — infrastructure, not a
+Universal retrieval surface for the Cyberdeck — infrastructure, not a
 command collection. Providers (text, structure, database, todo,
 browse) feed one candidate contract into one consult--multi
 session with progressive preview and uniform Embark actions.
@@ -24,10 +24,10 @@ The locked invariants, enforced in code below rather than docs:
 :MM_ORDER:  139.0
 :END:
 
-An Atlas Search Candidate is a plist. :id is the preferred
+An Cyberdeck Search Candidate is a plist. :id is the preferred
 invariant — title, annotations, preview, even source may change
 around it, but the id that visit/traverse/review/link consume is
-stable from find to action. Matches without Atlas identity carry a
+stable from find to action. Matches without Cyberdeck identity carry a
 :marker fallback instead; annotations may be nil but are never
 fabricated. Providers declare name, narrow key, items source (sync
 list or async pipeline), and which preview levels they can reveal;
@@ -182,8 +182,8 @@ absent — unavailable reads as empty, never as invented.
           (when out (string-join out "\n")))))))
 
 (defun my/atlas-search--render-preview (cand)
-  "Render CAND Levels 1-4 into *Atlas Preview*, returned for display."
-  (let ((buf (get-buffer-create "*Atlas Preview*")))
+  "Render CAND Levels 1-4 into *Cyberdeck Preview*, returned for display."
+  (let ((buf (get-buffer-create "*Cyberdeck Preview*")))
     (with-current-buffer buf
       (let ((inhibit-read-only t))
         (erase-buffer)
@@ -234,7 +234,7 @@ absent — unavailable reads as empty, never as invented.
     buf))
 
 (defun my/atlas-search--preview-state ()
-  "Consult :state showing the Atlas preview buffer on selection move."
+  "Consult :state showing the Cyberdeck preview buffer on selection move."
   (lambda (action cand)
     (pcase action
       ('preview
@@ -251,7 +251,7 @@ absent — unavailable reads as empty, never as invented.
 * Annotations and Embark
 One annotation shape and one verb set for every provider. Embark
 discovers candidates by the =atlas-candidate= completion category,
-so any minibuffer surface carrying our strings gets Atlas actions
+so any minibuffer surface carrying our strings gets Cyberdeck actions
 for free — including surfaces built after this file.
 
 #+begin_src emacs-lisp
@@ -277,15 +277,15 @@ for free — including surfaces built after this file.
     (define-key m (kbd "a") #'my/atlas-search-act-attest)
     (define-key m (kbd "w") #'my/atlas-search-act-copy-id)
     m)
-  "Embark verbs for Atlas candidates: open, link, branch, grade, attest, copy.")
+  "Embark verbs for Cyberdeck candidates: open, link, branch, grade, attest, copy.")
 
 (with-eval-after-load 'embark
   (add-to-list 'embark-keymap-alist '(atlas-candidate . embark-atlas-candidate-map)))
 
 (defun my/atlas-search--embark-target ()
-  "Atlas candidate at Embark's target, or user-error."
+  "Cyberdeck candidate at Embark's target, or user-error."
   (or (my/atlas-search--candidate-of (embark-target))
-      (user-error "No Atlas candidate at point")))
+      (user-error "No Cyberdeck candidate at point")))
 
 (defun my/atlas-search-act-visit ()
   "Visit the candidate AIU."
@@ -528,7 +528,7 @@ queries (by-tag, custom) are hydra launchers, not sources.")
        (let ((c (my/atlas-search--candidate-of cand)))
          (when (and c (plist-get c :path)
                     (file-exists-p (plist-get c :path)))
-           (let ((buf (get-buffer-create "*Atlas Preview*")))
+           (let ((buf (get-buffer-create "*Cyberdeck Preview*")))
              (with-current-buffer buf
                (let ((inhibit-read-only t))
                  (erase-buffer)
@@ -750,7 +750,7 @@ The hydra lives with all other hydras in =manifolding-keyboard/leaders/=
 in AIU Subnet order — referencing it here would void at compile — referencing it here would void at compile).
 Launchers below are plain commands; the hydra only points at them.
 Legacy TODO search moves from direct =SPC v s= to head =w= inside
-the menu — one search entry point for the whole Atlas.
+the menu — one search entry point for the whole Cyberdeck.
 
 ** Scoped text and file launchers
 #+begin_src emacs-lisp

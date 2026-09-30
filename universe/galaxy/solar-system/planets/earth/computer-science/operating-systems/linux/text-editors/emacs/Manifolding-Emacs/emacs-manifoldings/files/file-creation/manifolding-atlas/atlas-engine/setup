@@ -1,7 +1,7 @@
-#+TITLE:      Manifolding Atlas
+#+TITLE:      AIU Cyberdeck
 #+AIU: The manifolding-mind-map manifolding-atlas plugin and mind map web package need work
 
-* Manifolding Atlas Root Dir :EMACS_MECHANISM:
+* AIU Cyberdeck Root Dir :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       b4480d4d-75a2-488c-afa0-5fb9bbcf2e1e
 :MM_PARENT: none
@@ -77,7 +77,7 @@ Single function everything asks. Self-locating: renames never break it."
 ;;   /admin/              prompt and commit infrastructure, not AIUs
 ;;   /emacs-manifoldings/ the Emacs config tree itself
 ;;
-;; The last is load-bearing, not cosmetic. The Atlas blueprints under
+;; The last is load-bearing, not cosmetic. The Cyberdeck blueprints under
 ;; it carry 142 `** STATE :BLUEPRINT_BODY:' headings drawn from ~130
 ;; distinct state words (seasons, day-parts, cadences, the installation
 ;; spine) plus every heading of the TODO vocabulary itself. With those
@@ -98,7 +98,7 @@ Single function everything asks. Self-locating: renames never break it."
                . org-mode))
 #+end_src
 
-* Manifolding Atlas Bootstrap
+* AIU Cyberdeck Bootstrap
 
 ** Engine configuration and require
 #+begin_src emacs-lisp
@@ -154,7 +154,7 @@ Single function everything asks. Self-locating: renames never break it."
                 (ignore-errors
                  (manifolding-atlas-db-update-file f)
                  (setq n (1+ n)))))
-            (message "Atlas DB backfill: %d files re-indexed" n))))
+            (message "Cyberdeck DB backfill: %d files re-indexed" n))))
     (error nil)))
 
 (when (null my/manifolding-atlas--backfill-timer)
@@ -191,7 +191,7 @@ Runs before every connection attempt; cheap no-op once relocated."
           (progn
             (manifolding-atlas-db-close)
             (rename-file legacy target nil)
-            (message "Manifolding Atlas: relocated database to %s"
+            (message "AIU Cyberdeck: relocated database to %s"
                      target))
         (error
          (lwarn 'manifolding-atlas :warning
@@ -229,7 +229,7 @@ Tracks `.org' files AND extensionless vault files.
 (defun my/manifolding-atlas-db-sync--fswatch-sentinel (proc event)
   (unless (or (string-match-p "hangup\\|finished" event)
               (process-live-p proc))
-    (message "Manifolding Atlas: fswatch process died (%s), restarting..."
+    (message "AIU Cyberdeck: fswatch process died (%s), restarting..."
              (string-trim event))))
 
 (advice-add 'manifolding-atlas-db-sync--fswatch-sentinel :override
@@ -292,7 +292,7 @@ killing the whole poll cycle.
 #+end_src
 
 ** Sync override: parse method
-Manifolding Atlas forces non-'.org' files (extensionless vault AIUs) through
+AIU Cyberdeck forces non-'.org' files (extensionless vault AIUs) through
 `find-file', which trips over atlas-wormholes's read-only buffers.
 Always use the configured method instead.
 #+begin_src emacs-lisp
@@ -352,12 +352,12 @@ connection parses the whole vault and can block for a while.
   (run-with-idle-timer
    15 nil
    (lambda ()
-     (message "Manifolding Atlas: opening database (may pause briefly)...")
+     (message "AIU Cyberdeck: opening database (may pause briefly)...")
       (condition-case err
           (progn
             (manifolding-atlas-db)
             (manifolding-atlas-db-autosync-mode +1)
-            (message "Manifolding Atlas: database ready (%s)"
+            (message "AIU Cyberdeck: database ready (%s)"
                      (file-name-nondirectory
                       manifolding-atlas-db-location))
             (when (fboundp 'my/manifolding-atlas-emacs-mechanism-auto-run-once)
@@ -367,7 +367,7 @@ connection parses the whole vault and can block for a while.
                       (error-message-string err)))))))
 #+end_src
 
-* Manifolding Atlas Core
+* AIU Cyberdeck Core
 :PROPERTIES:
 :CATEGORY: notes
 :END:

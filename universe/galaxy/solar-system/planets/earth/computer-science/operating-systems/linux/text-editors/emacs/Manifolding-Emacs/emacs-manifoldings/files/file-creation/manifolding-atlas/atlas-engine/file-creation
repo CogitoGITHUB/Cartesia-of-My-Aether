@@ -1,4 +1,4 @@
-#+TITLE: Manifolding Atlas — File Creation
+#+TITLE: AIU Cyberdeck — File Creation
 * File Creation :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       dfa66ca4-bbca-4b87-8e75-bcbe978cf759
@@ -132,7 +132,7 @@ Returns nil when unreadable or empty."
 
 #+end_src
 
-* Atlas Config Menu
+* Cyberdeck Config Menu
 Drawer-key order lives in a blueprint file you edit directly;
 blueprint files are managed by plain commands. No transient menu.
 
@@ -557,7 +557,7 @@ anymore); yasnippet runs without a snippets dir (none exist on disk).
   (require 'doct nil t)
   (defvar my/capture-manifolding-atlas
     (doct
-     `(("Manifolding Atlas"
+     `(("AIU Cyberdeck"
         :keys "n"
         :children
         (("New AIU" :keys "n"
@@ -683,7 +683,7 @@ If :key is missing, copies :name into :key for backward compat."
 ;;
 ;;; Commentary:
 ;;
-;; Manifolding Atlas is an AIU management library for Org mode that maintains its
+;; AIU Cyberdeck is an AIU management library for Org mode that maintains its
 ;; own SQLite database for efficient querying and organization.
 ;;
 ;; Key features:
@@ -1048,7 +1048,7 @@ Why: Implementation of ~manifolding-atlas-doctor--report~.
     (string-join
      (append
       (list
-       "Manifolding Atlas Doctor"
+       "AIU Cyberdeck Doctor"
        "============="
        ""
        "Versions"
@@ -1159,7 +1159,7 @@ display the report in the *manifolding-atlas-doctor* buffer."
 
 #+begin_src emacs-lisp
 (defgroup manifolding-atlas nil
-  "Manifolding Atlas note-taking system."
+  "AIU Cyberdeck note-taking system."
   :group 'org)
 
 
@@ -1931,7 +1931,7 @@ creation; aborted captures clear the pending path. The origin buffer
 is never killed; every step is error-isolated.
 #+begin_src emacs-lisp
 (defvar my/manifolding-atlas--pending-open-after-capture nil
-  "File to offer opening after the next atlas capture finalizes.")
+  "File to offer opening after the next cyberdeck capture finalizes.")
 (defvar my/manifolding-atlas--pending-open-origin nil
   "Marker of where the user was when the new-note capture was armed.")
 (defvar my/manifolding-atlas--pending-open-note nil
@@ -3464,7 +3464,7 @@ A literate plugin for manifolding-atlas v2 providing two workflows:
 :DESCRIPTION: Select any visible text with a key-selection jump and send it to a new manifolding-atlas note.
 :END:
 
-*** Extract Org Heading into its own Manifolding Atlas AIU
+*** Extract Org Heading into its own AIU Cyberdeck AIU
 :PROPERTIES:
 :DESCRIPTION: Promote an org heading and its subtree into a standalone manifolding-atlas note file.
 :END:
@@ -5818,7 +5818,7 @@ Why: Implementation of ~my/manifolding-atlas-org-prompt--run-post-apply~.
     (condition-case err
         (funcall fn note)
       (error
-       (message "atlas prompt post-apply: %s"
+       (message "cyberdeck prompt post-apply: %s"
                 (error-message-string err))))))
 
 (defun my/manifolding-atlas--heading-stamp-planning (prop val note)
@@ -7125,7 +7125,7 @@ live AIU Context link.
     (unless (file-exists-p path)
       (with-temp-file path
         (insert "#+TITLE: Static Blueprints\n")
-        (insert "#+AUTHOR: Manifolding Atlas Git VC System\n")
+        (insert "#+AUTHOR: AIU Cyberdeck Git VC System\n")
         (insert "#+DESCRIPTION: Auto-generated - AIUs holding static defaults that want AIU Context links.\n")
         (insert "#+STARTUP: overview\n\n")))
     path))
@@ -7191,7 +7191,7 @@ Why: Implementation of ~my/manifolding-atlas-missing--write-entries~.
   (if entries
       (with-temp-file path
         (insert "#+TITLE: Static Blueprints\n")
-        (insert "#+AUTHOR: Manifolding Atlas Git VC System\n")
+        (insert "#+AUTHOR: AIU Cyberdeck Git VC System\n")
         (insert "#+DESCRIPTION: Auto-generated - AIUs holding static defaults that want AIU Context links.\n")
         (insert "#+STARTUP: overview\n\n")
         (dolist (entry entries)

@@ -3,7 +3,7 @@ extractable, routable, drillable Rule. Rules are marked via an AIU Context
 (not a tag) so presentation mode / org-tree-slide stays clean. Topics
 route the rule into one or more topic index files via live =id:=
 AIU Proxy pointers — the heading itself never moves, the vault
-tree (Manifold) stays the single source of truth. See
+tree (Cyberdeck) stays the single source of truth. See
 =plugin-guide.org= (this atlas-engine/plugins/ tree) for the conventions this file follows.
 
 Design summary (for anyone debugging this):

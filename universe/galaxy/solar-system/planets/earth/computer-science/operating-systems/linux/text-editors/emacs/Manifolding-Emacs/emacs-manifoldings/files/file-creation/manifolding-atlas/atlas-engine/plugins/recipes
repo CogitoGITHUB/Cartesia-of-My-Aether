@@ -1,4 +1,4 @@
-Manual recipe AIUs in the atlas. Recipes are authored by hand — no URL
+Manual recipe AIUs in the cyberdeck. Recipes are authored by hand — no URL
 fetch, no source-url AIU Context. They are stored under `recipes/` in the vault,
 carry recipe-specific AIU Contexts (SERVINGS, PREP_TIME, COOK_TIME,
 READY_IN) via the `recipes` body template, and can have their ingredient

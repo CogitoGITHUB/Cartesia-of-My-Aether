@@ -1,5 +1,5 @@
 (require 'cl-lib)
-#+TITLE: Manifolding Atlas — Database
+#+TITLE: AIU Cyberdeck — Database
 
 * Database :EMACS_MECHANISM:
 :PROPERTIES:
@@ -52,7 +52,7 @@ PostgreSQL has survived real sessions."
 (defcustom my/manifolding-atlas-db-pg-port 5432
   "PostgreSQL port for the pg backend."
   :type 'integer :group 'manifolding-atlas)
-(defcustom my/manifolding-atlas-db-pg-dbname "atlas"
+(defcustom my/manifolding-atlas-db-pg-dbname "cyberdeck"
   "PostgreSQL database name for the pg backend."
   :type 'string :group 'manifolding-atlas)
 (defcustom my/manifolding-atlas-db-pg-user user-login-name
@@ -103,7 +103,7 @@ signals — infrastructure state must be reportable, not exceptional."
              ((string-match-p "auth\\|password" msg)
               (cons 'AUTH-FAILED "check ~/.authinfo entry and pg_hba scram-sha-256"))
              ((string-match-p "does not exist" msg)
-              (cons 'DATABASE-MISSING "createdb atlas (after createuser)"))
+              (cons 'DATABASE-MISSING "createdb cyberdeck (after createuser)"))
              (t (cons 'DOWN msg)))))))
 
 (defun manifolding-atlas-db (&optional _args)

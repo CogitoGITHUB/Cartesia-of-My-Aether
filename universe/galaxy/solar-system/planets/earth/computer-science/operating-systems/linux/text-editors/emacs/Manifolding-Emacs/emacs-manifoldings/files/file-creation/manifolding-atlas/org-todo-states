@@ -6,7 +6,7 @@
 :CATEGORY: org
 :END:
 
-Single source of truth for the TODO vocabulary: the Atlas TODO
+Single source of truth for the TODO vocabulary: the Cyberdeck TODO
 blueprint. Every `** STATE :BLUEPRINT_BODY:' heading there is a todo
 state. Add, remove or reorder one there and `org-todo-keywords'
 follows on the next reload — nothing else needs editing.

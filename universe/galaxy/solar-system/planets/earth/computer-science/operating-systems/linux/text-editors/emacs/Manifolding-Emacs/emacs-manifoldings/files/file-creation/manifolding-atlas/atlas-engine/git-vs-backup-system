@@ -11,7 +11,7 @@
 (defvar my/manifolding-atlas-git--config-root
   (or (and (boundp 'my/emacs-root) my/emacs-root)
       (file-name-directory (directory-file-name manifolding-emacs-org-directory)))
-  "Second watched tree: atlas config. Same auto-commit mechanism as the vault.")
+  "Second watched tree: cyberdeck config. Same auto-commit mechanism as the vault.")
 
 (defvar my/manifolding-atlas-git--save-timers nil
   "Alist (ROOT . TIMER) for deferred per-repo auto-commit.
@@ -21,7 +21,7 @@ Per-repo timers so rapid writes in both trees commit independently.")
   "Alist (ROOT . FILES) of config-tree files awaiting commit.
 Vault commits keep the historical add --all catch-all; config commits
 scope `git add' to these files so unrelated dotfiles never get swept
-into atlas auto-commits.")
+into cyberdeck auto-commits.")
 #+end_src
 
 * Push Machinery :EMACS_MECHANISM:
@@ -122,7 +122,7 @@ Saving or opening a watched-tree file without a repo is blocked loudly.
 
 *** Auto-Commit on Any Mutation
 Every write/delete/rename touching a watched tree (vault AIUs dir,
-atlas config dir) schedules a debounced add+commit+push in its repo.
+cyberdeck config dir) schedules a debounced add+commit+push in its repo.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-git--root-for (file)
   "Return the watched root containing FILE, or nil (.git dirs excluded)."
@@ -388,7 +388,7 @@ it plus its orphaned AIU Contexts, then cleans up the queue entries.
                 (let ((after-save-hook nil))
                   (save-buffer))
                 (my/manifolding-atlas-links--cleanup-empty-admin-files)
-                (message "Restored %s from %s. Manifolding Atlas will re-index via fswatch."
+                (message "Restored %s from %s. AIU Cyberdeck will re-index via fswatch."
                          target-file restore-rev)
                 (when (y-or-n-p (format "Open restored file %s? " target-file))
                   (find-file (expand-file-name target-file (my/manifolding-atlas-root-dir)))))

@@ -1,6 +1,6 @@
-SPC v S: Atlas Search menu.
+SPC v S: Cyberdeck Search menu.
 
-* SPC v S — Atlas Search :EMACS_MECHANISM:
+* SPC v S — Cyberdeck Search :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       75f74667-ccfc-4ba2-8fcb-21ba2787462f
 :MM_PARENT: none
@@ -10,8 +10,8 @@ All launchers point at commands defined in
 =atlas-engine/search-center.org= (priority 16, loads before this
 file), so every head resolves at compile time.
 #+begin_src emacs-lisp
-(my/defhydra-state my/atlas-search-hydra nil "Atlas Search"
- (my/manifolding-atlas-hydra/body "atlas")
+(my/defhydra-state my/atlas-search-hydra nil "Cyberdeck Search"
+ (my/manifolding-atlas-hydra/body "cyberdeck")
  "Surface"
  (("s" my/atlas-search "unified surface" :exit t)
   ("n" my/atlas-deft "deft browser" :exit t))
