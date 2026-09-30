@@ -735,7 +735,7 @@ passed through to the underlying prompt."
 
 (defvar manifolding-atlas-db-location
   (when (fboundp 'my/manifolding-atlas-root-dir)
-    (expand-file-name "admin/manifolding-atlas.db"
+    (expand-file-name "admin/cyberdeck.db"
                       (my/manifolding-atlas-root-dir)))
   "Vault DB path. Overridden by setup.org after discovery; nil until then.")
 

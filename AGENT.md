@@ -234,7 +234,7 @@ src block — those are **not** implementations.
 ### The database is fine — do not "fix" it
 
 - `my/manifolding-atlas-db-backend` defaults to **`sqlite`**
-  (`atlas-engine/db:28`) against `admin/manifolding-atlas.db` — a real file with
+  (`atlas-engine/db:28`) against `admin/cyberdeck.db` — a real file with
   **302 AIUs**. A `pg` backend exists and is fully implemented, and
   `my/manifolding-atlas-db-health` reports `DOWN` **for pg only**. Seeing `DOWN`
   in a proot batch run means you were looking at the wrong backend.
@@ -377,7 +377,7 @@ admin/
   order/modeline widgets            modeline segment order
   order/headings blueprints drawer  drawer key order + the blueprint registry (registry NOT built — see §11)
   desktop/                          Emacs session desktop
-  manifolding-atlas.db              Cyberdeck database, sqlite, 302 AIUs
+  cyberdeck.db                   Cyberdeck database, sqlite, 302 AIUs
 ```
 
 The three order files are named for **what they order**, not after the module
@@ -433,7 +433,7 @@ grep -oE ':MM_ORDER:[ \t]+[0-9.]+' -r $VAULT/universe/ | sort | uniq -d
 grep -rlE '^\* .*:EMACS_MECHANISM:' $VAULT/universe/ | wc -l
 
 # Cyberdeck database
-sqlite3 $VAULT/admin/manifolding-atlas.db 'select count(*) from notes;'
+sqlite3 $VAULT/admin/cyberdeck.db 'select count(*) from notes;'
 
 git -C $VAULT status --short
 git -C $VAULT diff --stat

@@ -103,7 +103,7 @@ Single function everything asks. Self-locating: renames never break it."
 ** Engine configuration and require
 #+begin_src emacs-lisp
 (setq manifolding-atlas-db-location
-      (expand-file-name "admin/manifolding-atlas.db"
+      (expand-file-name "admin/cyberdeck.db"
                         (my/manifolding-atlas-root-dir)))
 
 (setq manifolding-atlas-db-sync-directories
