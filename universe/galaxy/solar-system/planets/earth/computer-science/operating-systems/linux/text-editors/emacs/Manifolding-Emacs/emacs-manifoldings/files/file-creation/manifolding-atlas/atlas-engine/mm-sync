@@ -42,38 +42,63 @@ via symbol-name. Anything else becomes nil. Never throws."
     (error nil)))
 
 (defun my/mm-db-note-rows ()
-  "Trustworthy vault note rows as (ID TITLE PATH UNFOLDINGS) plists.
-Only rows with parsed drawer data qualify: legacy bare-stored
-cells can splice extra objects into a row (shifting columns), so
-anything without unfoldings is dropped here and healed from disk
-by callers (same-directory union). UNFOLDINGS is always a list.
-One indexed query over small rows — milliseconds, no file opens.
-The DB is the index; files stay source of truth. Returns nil
-when the DB is unreachable, and callers fall back to file reads.
-Never throws."
+  "Aligned vault note rows as (ID TITLE PATH UNFOLDINGS) plists.
+Alignment rule: a returned row has exactly 4 elements. The
+driver splices every readable object of a bare-stored cell into
+the row, so bare multi-token titles shift columns (lengths 5-13
+seen in the wild); length 4 proves each cell contributed exactly
+one object, hence positions are correct. PATH is absolutized
+against the vault root: historical rows store vault-relative
+paths (arriving as symbols), and every consumer does
+file-exists-p and same-directory compares that only make sense
+absolute. UNFOLDINGS is the parsed drawer alist or nil: printed
+forms arrive decoded (strings need one more read,
+single-printed alists arrive as lists), legacy bare tokens
+become nil and heal from disk via the callers' same-directory
+union. One indexed query over small rows — milliseconds, no file
+opens. The DB is the index; files stay source of truth. Returns
+nil when the DB is unreachable, and callers fall back to file
+reads. Never throws."
   (condition-case nil
       (when (my/mm-db-ready-p)
         (let (out)
           (dolist (r (emacsql (manifolding-atlas-db)
                               [:select [id title path unfoldings]
                                :from notes]))
-            ;; Trust rule: ID is column 0 (splice-safe); the rest
-            ;; only when unfoldings parsed (proves printed storage,
-            ;; hence aligned single-object cells).
-            (let* ((unf-raw (nth 3 r))
-                   (unf (cond ((listp unf-raw) unf-raw)
-                              ((stringp unf-raw)
-                               (let ((x (ignore-errors
-                                         (car (read-from-string unf-raw)))))
-                                 (and (listp x) x)))
-                              (t nil))))
-              (when unf
+            (when (= (length r) 4)
+              (let* ((unf-raw (nth 3 r))
+                     (unf (cond ((null unf-raw) nil)
+                                ((listp unf-raw) unf-raw)
+                                ((stringp unf-raw)
+                                 (let ((x (ignore-errors
+                                           (car (read-from-string unf-raw)))))
+                                   (and (listp x) x)))
+                                (t nil)))
+                     (p (my/mm-db-text (nth 2 r))))
                 (push (list :id (my/mm-db-text (nth 0 r))
                             :title (my/mm-db-text (nth 1 r))
-                            :path (my/mm-db-text (nth 2 r))
+                            :path (my/mm-db-absolute-path p)
                             :unfoldings unf)
                       out))))
           (nreverse out)))
+    (error nil)))
+
+(defun my/mm-db-absolute-path (path)
+  "PATH absolutized against the vault root when relative.
+Historical rows store vault-relative paths; consumers need
+absolute ones for existence and directory compares. Absolute
+paths, nil, and non-strings pass through (non-strings as nil).
+Never throws."
+  (condition-case nil
+      (when (stringp path)
+        (if (file-name-absolute-p path)
+            path
+          (let ((root (and (fboundp 'my/manifolding-atlas-root-dir)
+                           (ignore-errors
+                            (my/manifolding-atlas-root-dir)))))
+            (if (and (stringp root) (file-directory-p root))
+                (expand-file-name path root)
+              path))))
     (error nil)))
 
 (defun my/mm-strip-title-tags (title)
@@ -465,21 +490,35 @@ outside the notes table). Never throws."
               (dolist (f (directory-files mapdir t "^[^.]"))
                 (when (and (file-regular-p f)
                            (null (file-name-extension f)))
-                  (let ((old (gethash f by-path)))
-                    (when (or (null old)
-                              (null (plist-get old :unfoldings)))
-                      (when (fboundp 'manifolding-atlas-db-update-file)
-                        (ignore-errors
-                         (manifolding-atlas-db-update-file f)))
-                      (let ((id (or (and old (plist-get old :id))
-                                    (my/mm-file-id f))))
-                        (when id
-                          (puthash f (list :id id :path f
-                                           :title (or (and old
-                                                           (plist-get old :title))
-                                                      (my/mm-sync-file-title f))
-                                           :unfoldings (my/mm-drawer-alist f))
-                                   by-path))))))))
+                   (let ((old (gethash f by-path)))
+                     (when (or (null old)
+                               (null (plist-get old :unfoldings)))
+                       (let* ((upd (when (fboundp 'manifolding-atlas-db-update-file)
+                                     (ignore-errors
+                                      (manifolding-atlas-db-update-file f))))
+                              ;; update-file returns 0 when it deleted
+                              ;; the row (file lost its ID drawer):
+                              ;; then the stale `old' id/title must
+                              ;; not survive — trust only the file.
+                              (trusted (and old (not (eq upd 0))))
+                              ;; One file open: the drawer alist
+                              ;; carries the ID too, so no second
+                              ;; open for it. File ID wins (files
+                              ;; are truth); db id is the fallback.
+                              (unf (my/mm-drawer-alist f))
+                              (id (or (cdr (assoc "ID" unf))
+                                      (and trusted (plist-get old :id)))))
+                         (if (null id)
+                             ;; No verifiable ID anywhere: drop the
+                             ;; raw row too, never emit a dangling
+                             ;; member link.
+                             (remhash f by-path)
+                           (puthash f (list :id id :path f
+                                            :title (or (and trusted
+                                                            (plist-get old :title))
+                                                       (my/mm-sync-file-title f))
+                                            :unfoldings unf)
+                                    by-path))))))))
         (maphash
          (lambda (f r)
            (when (and (file-exists-p f)
