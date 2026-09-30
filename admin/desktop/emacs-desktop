@@ -2,12 +2,12 @@
 ;; --------------------------------------------------------------------------
 ;; Desktop File for Emacs
 ;; --------------------------------------------------------------------------
-;; Created Wed Sep 30 07:00:18 2026
+;; Created Wed Sep 30 07:19:37 2026
 ;; Desktop file format version 208
 ;; Emacs version 30.2
 
 ;; Global section:
-(setq desktop-saved-frameset [frameset 1 (27324 35154 571076 336000) (desktop . "208") "u0_a348@localhost" nil nil ((((minibuffer . t) (tty-type . "xterm-256color") (tty . "/dev/tty") (display-type . color) (background-mode . dark) (scroll-bar-foreground) (scroll-bar-background) (menu-bar-lines . 0) (foreground-color . "#FFFFFF") (background-color . "unspecified-bg") (powerline-cache) (tab-bar-lines . 0) (height . 57) (width . 90) (modeline . t) (unsplittable) (frameset--id . "BC31-2E58-6557-E089") (frameset--mini t) (font . "tty")) ((min-height . 4) (min-width . 20) (min-height-ignore . 4) (min-width-ignore . 20) (min-height-safe . 1) (min-width-safe . 2) (min-pixel-height . 4) (min-pixel-width . 20) (min-pixel-height-ignore . 4) (min-pixel-width-ignore . 20) (min-pixel-height-safe . 1) (min-pixel-width-safe . 2)) leaf (pixel-width . 90) (pixel-height . 55) (total-width . 90) (total-height . 55) (normal-height . 1.0) (normal-width . 1.0) (buffer "testing\"</data/data/com.termux/files/home/Cartesia-of-My-Aether>" (selected . t) (hscroll . 0) (fringes 0 0 nil nil) (margins 9 . 9) (scroll-bars nil 0 t nil 0 t nil) (vscroll . 0) (dedicated) (point . 1) (start . 1)) (prev-buffers ("testing\"</data/data/com.termux/files/home/Cartesia-of-My-Aether>" 1 1) ("testing\"<data/data/com.termux/files/home/Cartesia-of-My-Aether>" 1 1) ("testing\"<org>" 1 1) ("*Help*" 1 1) ("*Compile-Log*" 1421 2505))))])
+(setq desktop-saved-frameset [frameset 1 (27324 36313 435639 174000) (desktop . "208") "u0_a348@localhost" nil nil ((((minibuffer . t) (tty-type . "xterm-256color") (tty . "/dev/tty") (display-type . color) (background-mode . dark) (scroll-bar-foreground) (scroll-bar-background) (menu-bar-lines . 0) (foreground-color . "#FFFFFF") (background-color . "unspecified-bg") (powerline-cache) (tab-bar-lines . 0) (height . 49) (width . 77) (modeline . t) (unsplittable) (frameset--id . "BC31-2E58-6557-E089") (frameset--mini t) (font . "tty")) ((min-height . 8) (min-width . 10) (min-height-ignore . 3) (min-width-ignore . 3) (min-height-safe . 2) (min-width-safe . 2) (min-pixel-height . 8) (min-pixel-width . 10) (min-pixel-height-ignore . 3) (min-pixel-width-ignore . 3) (min-pixel-height-safe . 2) (min-pixel-width-safe . 2)) vc (pixel-width . 77) (pixel-height . 47) (total-width . 77) (total-height . 47) (normal-height . 1.0) (normal-width . 1.0) (combination-limit . t) (leaf (pixel-width . 77) (pixel-height . 4) (total-width . 77) (total-height . 4) (normal-height . 0.07446808510638298) (normal-width . 1.0) (buffer "*dashboard*" (selected) (hscroll . 0) (fringes 0 0 nil nil) (margins nil) (scroll-bars nil 0 t nil 0 t nil) (vscroll . 0) (dedicated) (point . 1) (start . 1)) (prev-buffers ("operating-systems" 1 1) ("linux" 1 1) ("text-editors" 1 1) ("manifolding-emacs" 1 1) ("Manifolding-Emacs-Foundation" 1 1) ("org-mindmap" 1 1) ("manifolding-mind-map.org.disabled" 1 1) ("manifolding-emacs-agent" 1 1) ("*dashboard*" 1 1694) ("*scratch*" 1 1))) (leaf (last . t) (pixel-width . 77) (pixel-height . 43) (total-width . 77) (total-height . 43) (normal-height . 0.925531914893617) (normal-width . 1.0) (buffer "*Backtrace*" (selected . t) (hscroll . 0) (fringes 0 0 nil nil) (margins 1) (scroll-bars nil 0 t nil 0 t nil) (vscroll . 0) (dedicated) (point . 1) (start . 1)) (prev-buffers ("test" 1 1) ("CAESTRIA AGENT INTEGRATION INTO ATLAS" 1 1) ("AGENT.md" 1 1) ("universe" 1 1) ("galaxy" 1 1) ("solar-system" 1 1) ("earth" 1 1) ("life" 1 1) ("tree-of-life" 1 1) ("eukarya" 1 1) ("animalia" 1 1) ("chordata" 1 1) ("mammalia" 1 1) ("primates" 1 1) ("hominidae" 1 1) ("homo" 1 1) ("homo-sapiens" 1 1) ("self" 1 1) ("self-internal" 1 1) ("self-external" 1 1) ("computer-science" 1 1)))))])
 (setq desktop-missing-file-warning nil)
 (setq tags-file-name nil)
 (setq tags-table-list nil)
@@ -18,8 +18,8 @@
 
 ;; Buffer section -- buffers listed in same order as in buffer list:
 (desktop-create-buffer 208
-  "/data/data/com.termux/files/home/Cartesia-of-My-Aether/emacs-mechanism/manifolding-emacs-agent"
-  "manifolding-emacs-agent"
+  "/data/data/com.termux/files/home/Cartesia-of-My-Aether/Cartesia-of-My-Aether"
+  "Cartesia-of-My-Aether"
   'org-mode
   '(manifolding-keyboard-org-state-mode visual-line-mode font-lock-mode yas-minor-mode centered-cursor-mode corfu-mode org-modern-mode git-gutter-mode olivetti-mode org-appear-mode org-auto-tangle-mode org-fragtog-mode org-mindmap-mode org-sticky-header-mode org-superstar-mode atlas-wormholes-mode my/atlas-hashtag-mode)
   1
@@ -27,377 +27,353 @@
   nil
   nil
   '((tab-width . 8) (buffer-display-time) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
+  '((mark-ring nil)))
+
+(desktop-create-buffer 208
+  "/data/data/com.termux/files/home/Cartesia-of-My-Aether/emacs-mechanism/manifolding-emacs-agent"
+  "manifolding-emacs-agent"
+  'org-mode
+  '(manifolding-keyboard-org-state-mode visual-line-mode my/atlas-hashtag-mode atlas-wormholes-mode org-superstar-mode org-sticky-header-mode org-mindmap-mode org-fragtog-mode org-auto-tangle-mode org-appear-mode olivetti-mode git-gutter-mode org-modern-mode corfu-mode centered-cursor-mode yas-minor-mode font-lock-mode)
+  1
+  '(nil nil)
+  nil
+  nil
+  '((tab-width . 8) (buffer-display-time 27324 36264 797847 710000) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
   '((mark-ring nil)))
 
 (desktop-create-buffer 208
   "/data/data/com.termux/files/home/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/computer-science/operating-systems/linux/text-editors/emacs/Manifolding-Emacs/mind-maps/manifolding-mind-map.org.disabled"
   "manifolding-mind-map.org.disabled"
   'fundamental-mode
-  '(manifolding-keyboard-normal-state-mode visual-line-mode font-lock-mode yas-minor-mode centered-cursor-mode corfu-mode git-gutter-mode)
+  '(manifolding-keyboard-normal-state-mode visual-line-mode git-gutter-mode corfu-mode centered-cursor-mode yas-minor-mode font-lock-mode)
   1
   '(nil nil)
   nil
   nil
-  '((buffer-display-time) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
+  '((buffer-display-time 27324 36264 836239 402000) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
   '((mark-ring nil)))
 
 (desktop-create-buffer 208
   "/data/data/com.termux/files/home/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/computer-science/operating-systems/linux/text-editors/emacs/Manifolding-Emacs/mind-maps/org-mindmap"
   "org-mindmap"
   'org-mode
-  '(manifolding-keyboard-org-state-mode visual-line-mode font-lock-mode yas-minor-mode centered-cursor-mode corfu-mode org-modern-mode git-gutter-mode olivetti-mode org-appear-mode org-auto-tangle-mode org-fragtog-mode org-mindmap-mode org-sticky-header-mode org-superstar-mode atlas-wormholes-mode my/atlas-hashtag-mode)
+  '(manifolding-keyboard-org-state-mode visual-line-mode my/atlas-hashtag-mode atlas-wormholes-mode org-superstar-mode org-sticky-header-mode org-mindmap-mode org-fragtog-mode org-auto-tangle-mode org-appear-mode olivetti-mode git-gutter-mode org-modern-mode corfu-mode centered-cursor-mode yas-minor-mode font-lock-mode)
   1
   '(nil nil)
   nil
   nil
-  '((tab-width . 8) (buffer-display-time) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
+  '((tab-width . 8) (buffer-display-time 27324 36264 912067 172000) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
   '((mark-ring nil)))
 
 (desktop-create-buffer 208
   "/data/data/com.termux/files/home/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/computer-science/operating-systems/linux/text-editors/emacs/Manifolding-Emacs/Manifolding-Emacs-Foundation"
   "Manifolding-Emacs-Foundation"
   'org-mode
-  '(manifolding-keyboard-org-state-mode visual-line-mode font-lock-mode yas-minor-mode centered-cursor-mode corfu-mode org-modern-mode git-gutter-mode olivetti-mode org-appear-mode org-auto-tangle-mode org-fragtog-mode org-mindmap-mode org-sticky-header-mode org-superstar-mode atlas-wormholes-mode my/atlas-hashtag-mode)
+  '(manifolding-keyboard-org-state-mode visual-line-mode my/atlas-hashtag-mode atlas-wormholes-mode org-superstar-mode org-sticky-header-mode org-mindmap-mode org-fragtog-mode org-auto-tangle-mode org-appear-mode olivetti-mode git-gutter-mode org-modern-mode corfu-mode centered-cursor-mode yas-minor-mode font-lock-mode)
   1
   '(nil nil)
   nil
   nil
-  '((tab-width . 8) (buffer-display-time) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
+  '((tab-width . 8) (buffer-display-time 27324 36265 359456 95000) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
   '((mark-ring nil)))
 
 (desktop-create-buffer 208
   "/data/data/com.termux/files/home/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/computer-science/operating-systems/linux/text-editors/emacs/Manifolding-Emacs/manifolding-emacs"
   "manifolding-emacs"
   'org-mode
-  '(manifolding-keyboard-org-state-mode visual-line-mode font-lock-mode yas-minor-mode centered-cursor-mode corfu-mode org-modern-mode git-gutter-mode olivetti-mode org-appear-mode org-auto-tangle-mode org-fragtog-mode org-mindmap-mode org-sticky-header-mode org-superstar-mode atlas-wormholes-mode my/atlas-hashtag-mode)
+  '(manifolding-keyboard-org-state-mode visual-line-mode my/atlas-hashtag-mode atlas-wormholes-mode org-superstar-mode org-sticky-header-mode org-mindmap-mode org-fragtog-mode org-auto-tangle-mode org-appear-mode olivetti-mode git-gutter-mode org-modern-mode corfu-mode centered-cursor-mode yas-minor-mode font-lock-mode)
   1
   '(nil nil)
   nil
   nil
-  '((tab-width . 8) (buffer-display-time) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
+  '((tab-width . 8) (buffer-display-time 27324 36271 201739 480000) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
   '((mark-ring nil)))
 
 (desktop-create-buffer 208
   "/data/data/com.termux/files/home/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/computer-science/operating-systems/linux/text-editors/text-editors"
   "text-editors"
   'org-mode
-  '(manifolding-keyboard-org-state-mode visual-line-mode font-lock-mode yas-minor-mode centered-cursor-mode corfu-mode org-modern-mode git-gutter-mode olivetti-mode org-appear-mode org-auto-tangle-mode org-fragtog-mode org-mindmap-mode org-sticky-header-mode org-superstar-mode atlas-wormholes-mode my/atlas-hashtag-mode)
+  '(manifolding-keyboard-org-state-mode visual-line-mode my/atlas-hashtag-mode atlas-wormholes-mode org-superstar-mode org-sticky-header-mode org-mindmap-mode org-fragtog-mode org-auto-tangle-mode org-appear-mode olivetti-mode git-gutter-mode org-modern-mode corfu-mode centered-cursor-mode yas-minor-mode font-lock-mode)
   1
   '(nil nil)
   nil
   nil
-  '((tab-width . 8) (buffer-display-time) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
+  '((tab-width . 8) (buffer-display-time 27324 36271 302480 710000) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
   '((mark-ring nil)))
 
 (desktop-create-buffer 208
   "/data/data/com.termux/files/home/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/computer-science/operating-systems/linux/linux"
   "linux"
   'org-mode
-  '(manifolding-keyboard-org-state-mode visual-line-mode font-lock-mode yas-minor-mode centered-cursor-mode corfu-mode org-modern-mode git-gutter-mode olivetti-mode org-appear-mode org-auto-tangle-mode org-fragtog-mode org-mindmap-mode org-sticky-header-mode org-superstar-mode atlas-wormholes-mode my/atlas-hashtag-mode)
+  '(manifolding-keyboard-org-state-mode visual-line-mode my/atlas-hashtag-mode atlas-wormholes-mode org-superstar-mode org-sticky-header-mode org-mindmap-mode org-fragtog-mode org-auto-tangle-mode org-appear-mode olivetti-mode git-gutter-mode org-modern-mode corfu-mode centered-cursor-mode yas-minor-mode font-lock-mode)
   1
   '(nil nil)
   nil
   nil
-  '((tab-width . 8) (buffer-display-time) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
+  '((tab-width . 8) (buffer-display-time 27324 36271 366939 787000) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
   '((mark-ring nil)))
 
-(desktop-create-buffer 208
+(desktop-append-buffer-args 208
   "/data/data/com.termux/files/home/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/computer-science/operating-systems/operating-systems"
   "operating-systems"
   'org-mode
-  '(manifolding-keyboard-org-state-mode visual-line-mode font-lock-mode yas-minor-mode centered-cursor-mode corfu-mode org-modern-mode git-gutter-mode olivetti-mode org-appear-mode org-auto-tangle-mode org-fragtog-mode org-mindmap-mode org-sticky-header-mode org-superstar-mode atlas-wormholes-mode my/atlas-hashtag-mode)
+  '(manifolding-keyboard-org-state-mode visual-line-mode my/atlas-hashtag-mode atlas-wormholes-mode org-superstar-mode org-sticky-header-mode org-mindmap-mode org-fragtog-mode org-auto-tangle-mode org-appear-mode olivetti-mode git-gutter-mode org-modern-mode corfu-mode centered-cursor-mode yas-minor-mode font-lock-mode)
   1
   '(nil nil)
   nil
   nil
-  '((tab-width . 8) (buffer-display-time) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
+  '((tab-width . 8) (buffer-display-time 27324 36271 541533 941000) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
   '((mark-ring nil)))
 
 (desktop-append-buffer-args 208
   "/data/data/com.termux/files/home/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/computer-science/computer-science"
   "computer-science"
   'org-mode
-  '(manifolding-keyboard-org-state-mode visual-line-mode font-lock-mode yas-minor-mode centered-cursor-mode corfu-mode org-modern-mode git-gutter-mode olivetti-mode org-appear-mode org-auto-tangle-mode org-fragtog-mode org-mindmap-mode org-sticky-header-mode org-superstar-mode atlas-wormholes-mode my/atlas-hashtag-mode)
+  '(my/atlas-hashtag-mode atlas-wormholes-mode org-superstar-mode org-sticky-header-mode manifolding-keyboard-org-mindmap-state-mode org-mindmap-mode org-fragtog-mode org-auto-tangle-mode org-appear-mode visual-line-mode olivetti-mode git-gutter-mode org-modern-mode corfu-mode centered-cursor-mode yas-minor-mode font-lock-mode)
   1
   '(nil nil)
   nil
   nil
-  '((tab-width . 8) (buffer-display-time) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
+  '((tab-width . 8) (buffer-display-time 27324 36284 131976 96000) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
   '((mark-ring nil)))
 
 (desktop-append-buffer-args 208
   "/data/data/com.termux/files/home/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/life/tree-of-life/eukarya/animalia/chordata/mammalia/primates/hominidae/homo/homo-sapiens/self/self-external/self-external"
   "self-external"
   'org-mode
-  '(manifolding-keyboard-org-state-mode visual-line-mode font-lock-mode yas-minor-mode centered-cursor-mode corfu-mode org-modern-mode git-gutter-mode olivetti-mode org-appear-mode org-auto-tangle-mode org-fragtog-mode org-mindmap-mode org-sticky-header-mode org-superstar-mode atlas-wormholes-mode my/atlas-hashtag-mode)
+  '(my/atlas-hashtag-mode atlas-wormholes-mode org-superstar-mode org-sticky-header-mode manifolding-keyboard-org-mindmap-state-mode org-mindmap-mode org-fragtog-mode org-auto-tangle-mode org-appear-mode visual-line-mode olivetti-mode git-gutter-mode org-modern-mode corfu-mode centered-cursor-mode yas-minor-mode font-lock-mode)
   1
   '(nil nil)
   nil
   nil
-  '((tab-width . 8) (buffer-display-time) (buffer-file-coding-system . undecided-unix) (truncate-lines))
+  '((tab-width . 8) (buffer-display-time 27324 36284 548724 942000) (buffer-file-coding-system . undecided-unix) (truncate-lines))
   '((mark-ring nil)))
 
 (desktop-append-buffer-args 208
   "/data/data/com.termux/files/home/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/life/tree-of-life/eukarya/animalia/chordata/mammalia/primates/hominidae/homo/homo-sapiens/self/self-internal/self-internal"
   "self-internal"
   'org-mode
-  '(manifolding-keyboard-org-state-mode visual-line-mode font-lock-mode yas-minor-mode centered-cursor-mode corfu-mode org-modern-mode git-gutter-mode olivetti-mode org-appear-mode org-auto-tangle-mode org-fragtog-mode org-mindmap-mode org-sticky-header-mode org-superstar-mode atlas-wormholes-mode my/atlas-hashtag-mode)
+  '(my/atlas-hashtag-mode atlas-wormholes-mode org-superstar-mode org-sticky-header-mode manifolding-keyboard-org-mindmap-state-mode org-mindmap-mode org-fragtog-mode org-auto-tangle-mode org-appear-mode visual-line-mode olivetti-mode git-gutter-mode org-modern-mode corfu-mode centered-cursor-mode yas-minor-mode font-lock-mode)
   1
   '(nil nil)
   nil
   nil
-  '((tab-width . 8) (buffer-display-time) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
+  '((tab-width . 8) (buffer-display-time 27324 36284 923275 96000) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
   '((mark-ring nil)))
 
 (desktop-append-buffer-args 208
   "/data/data/com.termux/files/home/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/life/tree-of-life/eukarya/animalia/chordata/mammalia/primates/hominidae/homo/homo-sapiens/self/self"
   "self"
   'org-mode
-  '(manifolding-keyboard-org-state-mode visual-line-mode font-lock-mode yas-minor-mode centered-cursor-mode corfu-mode org-modern-mode git-gutter-mode olivetti-mode org-appear-mode org-auto-tangle-mode org-fragtog-mode org-mindmap-mode org-sticky-header-mode org-superstar-mode atlas-wormholes-mode my/atlas-hashtag-mode)
+  '(my/atlas-hashtag-mode atlas-wormholes-mode org-superstar-mode org-sticky-header-mode manifolding-keyboard-org-mindmap-state-mode org-mindmap-mode org-fragtog-mode org-auto-tangle-mode org-appear-mode visual-line-mode olivetti-mode git-gutter-mode org-modern-mode corfu-mode centered-cursor-mode yas-minor-mode font-lock-mode)
   1
   '(nil nil)
   nil
   nil
-  '((tab-width . 8) (buffer-display-time) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
+  '((tab-width . 8) (buffer-display-time 27324 36285 296675 404000) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
   '((mark-ring nil)))
 
 (desktop-append-buffer-args 208
   "/data/data/com.termux/files/home/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/life/tree-of-life/eukarya/animalia/chordata/mammalia/primates/hominidae/homo/homo-sapiens/homo-sapiens"
   "homo-sapiens"
   'org-mode
-  '(manifolding-keyboard-org-state-mode visual-line-mode font-lock-mode yas-minor-mode centered-cursor-mode corfu-mode org-modern-mode git-gutter-mode olivetti-mode org-appear-mode org-auto-tangle-mode org-fragtog-mode org-mindmap-mode org-sticky-header-mode org-superstar-mode atlas-wormholes-mode my/atlas-hashtag-mode)
+  '(my/atlas-hashtag-mode atlas-wormholes-mode org-superstar-mode org-sticky-header-mode manifolding-keyboard-org-mindmap-state-mode org-mindmap-mode org-fragtog-mode org-auto-tangle-mode org-appear-mode visual-line-mode olivetti-mode git-gutter-mode org-modern-mode corfu-mode centered-cursor-mode yas-minor-mode font-lock-mode)
   1
   '(nil nil)
   nil
   nil
-  '((tab-width . 8) (buffer-display-time) (buffer-file-coding-system . undecided-unix) (truncate-lines))
+  '((tab-width . 8) (buffer-display-time 27324 36287 313270 173000) (buffer-file-coding-system . undecided-unix) (truncate-lines))
   '((mark-ring nil)))
 
 (desktop-append-buffer-args 208
   "/data/data/com.termux/files/home/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/life/tree-of-life/eukarya/animalia/chordata/mammalia/primates/hominidae/homo/homo"
   "homo"
   'org-mode
-  '(manifolding-keyboard-org-state-mode visual-line-mode font-lock-mode yas-minor-mode centered-cursor-mode corfu-mode org-modern-mode git-gutter-mode olivetti-mode org-appear-mode org-auto-tangle-mode org-fragtog-mode org-mindmap-mode org-sticky-header-mode org-superstar-mode atlas-wormholes-mode my/atlas-hashtag-mode)
+  '(my/atlas-hashtag-mode atlas-wormholes-mode org-superstar-mode org-sticky-header-mode manifolding-keyboard-org-mindmap-state-mode org-mindmap-mode org-fragtog-mode org-auto-tangle-mode org-appear-mode visual-line-mode olivetti-mode git-gutter-mode org-modern-mode corfu-mode centered-cursor-mode yas-minor-mode font-lock-mode)
   1
   '(nil nil)
   nil
   nil
-  '((tab-width . 8) (buffer-display-time) (buffer-file-coding-system . undecided-unix) (truncate-lines))
+  '((tab-width . 8) (buffer-display-time 27324 36287 725478 173000) (buffer-file-coding-system . undecided-unix) (truncate-lines))
   '((mark-ring nil)))
 
 (desktop-append-buffer-args 208
   "/data/data/com.termux/files/home/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/life/tree-of-life/eukarya/animalia/chordata/mammalia/primates/hominidae/hominidae"
   "hominidae"
   'org-mode
-  '(manifolding-keyboard-org-state-mode visual-line-mode font-lock-mode yas-minor-mode centered-cursor-mode corfu-mode org-modern-mode git-gutter-mode olivetti-mode org-appear-mode org-auto-tangle-mode org-fragtog-mode org-mindmap-mode org-sticky-header-mode org-superstar-mode atlas-wormholes-mode my/atlas-hashtag-mode)
+  '(my/atlas-hashtag-mode atlas-wormholes-mode org-superstar-mode org-sticky-header-mode manifolding-keyboard-org-mindmap-state-mode org-mindmap-mode org-fragtog-mode org-auto-tangle-mode org-appear-mode visual-line-mode olivetti-mode git-gutter-mode org-modern-mode corfu-mode centered-cursor-mode yas-minor-mode font-lock-mode)
   1
   '(nil nil)
   nil
   nil
-  '((tab-width . 8) (buffer-display-time) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
+  '((tab-width . 8) (buffer-display-time 27324 36288 153286 481000) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
   '((mark-ring nil)))
 
 (desktop-append-buffer-args 208
   "/data/data/com.termux/files/home/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/life/tree-of-life/eukarya/animalia/chordata/mammalia/primates/primates"
   "primates"
   'org-mode
-  '(manifolding-keyboard-org-state-mode visual-line-mode font-lock-mode yas-minor-mode centered-cursor-mode corfu-mode org-modern-mode git-gutter-mode olivetti-mode org-appear-mode org-auto-tangle-mode org-fragtog-mode org-mindmap-mode org-sticky-header-mode org-superstar-mode atlas-wormholes-mode my/atlas-hashtag-mode)
+  '(my/atlas-hashtag-mode atlas-wormholes-mode org-superstar-mode org-sticky-header-mode manifolding-keyboard-org-mindmap-state-mode org-mindmap-mode org-fragtog-mode org-auto-tangle-mode org-appear-mode visual-line-mode olivetti-mode git-gutter-mode org-modern-mode corfu-mode centered-cursor-mode yas-minor-mode font-lock-mode)
   1
   '(nil nil)
   nil
   nil
-  '((tab-width . 8) (buffer-display-time) (buffer-file-coding-system . undecided-unix) (truncate-lines))
+  '((tab-width . 8) (buffer-display-time 27324 36288 683982 865000) (buffer-file-coding-system . undecided-unix) (truncate-lines))
   '((mark-ring nil)))
 
 (desktop-append-buffer-args 208
   "/data/data/com.termux/files/home/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/life/tree-of-life/eukarya/animalia/chordata/mammalia/mammalia"
   "mammalia"
   'org-mode
-  '(manifolding-keyboard-org-state-mode visual-line-mode font-lock-mode yas-minor-mode centered-cursor-mode corfu-mode org-modern-mode git-gutter-mode olivetti-mode org-appear-mode org-auto-tangle-mode org-fragtog-mode org-mindmap-mode org-sticky-header-mode org-superstar-mode atlas-wormholes-mode my/atlas-hashtag-mode)
+  '(my/atlas-hashtag-mode atlas-wormholes-mode org-superstar-mode org-sticky-header-mode manifolding-keyboard-org-mindmap-state-mode org-mindmap-mode org-fragtog-mode org-auto-tangle-mode org-appear-mode visual-line-mode olivetti-mode git-gutter-mode org-modern-mode corfu-mode centered-cursor-mode yas-minor-mode font-lock-mode)
   1
   '(nil nil)
   nil
   nil
-  '((tab-width . 8) (buffer-display-time) (buffer-file-coding-system . undecided-unix) (truncate-lines))
+  '((tab-width . 8) (buffer-display-time 27324 36289 153327 481000) (buffer-file-coding-system . undecided-unix) (truncate-lines))
   '((mark-ring nil)))
 
 (desktop-append-buffer-args 208
   "/data/data/com.termux/files/home/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/life/tree-of-life/eukarya/animalia/chordata/chordata"
   "chordata"
   'org-mode
-  '(manifolding-keyboard-org-state-mode visual-line-mode font-lock-mode yas-minor-mode centered-cursor-mode corfu-mode org-modern-mode git-gutter-mode olivetti-mode org-appear-mode org-auto-tangle-mode org-fragtog-mode org-mindmap-mode org-sticky-header-mode org-superstar-mode atlas-wormholes-mode my/atlas-hashtag-mode)
+  '(my/atlas-hashtag-mode atlas-wormholes-mode org-superstar-mode org-sticky-header-mode manifolding-keyboard-org-mindmap-state-mode org-mindmap-mode org-fragtog-mode org-auto-tangle-mode org-appear-mode visual-line-mode olivetti-mode git-gutter-mode org-modern-mode corfu-mode centered-cursor-mode yas-minor-mode font-lock-mode)
   1
   '(nil nil)
   nil
   nil
-  '((tab-width . 8) (buffer-display-time) (buffer-file-coding-system . undecided-unix) (truncate-lines))
+  '((tab-width . 8) (buffer-display-time 27324 36289 539931 173000) (buffer-file-coding-system . undecided-unix) (truncate-lines))
   '((mark-ring nil)))
 
 (desktop-append-buffer-args 208
   "/data/data/com.termux/files/home/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/life/tree-of-life/eukarya/animalia/animalia"
   "animalia"
   'org-mode
-  '(manifolding-keyboard-org-state-mode visual-line-mode font-lock-mode yas-minor-mode centered-cursor-mode corfu-mode org-modern-mode git-gutter-mode olivetti-mode org-appear-mode org-auto-tangle-mode org-fragtog-mode org-mindmap-mode org-sticky-header-mode org-superstar-mode atlas-wormholes-mode my/atlas-hashtag-mode)
+  '(my/atlas-hashtag-mode atlas-wormholes-mode org-superstar-mode org-sticky-header-mode manifolding-keyboard-org-mindmap-state-mode org-mindmap-mode org-fragtog-mode org-auto-tangle-mode org-appear-mode visual-line-mode olivetti-mode git-gutter-mode org-modern-mode corfu-mode centered-cursor-mode yas-minor-mode font-lock-mode)
   1
   '(nil nil)
   nil
   nil
-  '((tab-width . 8) (buffer-display-time) (buffer-file-coding-system . undecided-unix) (truncate-lines))
+  '((tab-width . 8) (buffer-display-time 27324 36289 919501 635000) (buffer-file-coding-system . undecided-unix) (truncate-lines))
   '((mark-ring nil)))
 
 (desktop-append-buffer-args 208
   "/data/data/com.termux/files/home/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/life/tree-of-life/eukarya/eukarya"
   "eukarya"
   'org-mode
-  '(manifolding-keyboard-org-state-mode visual-line-mode font-lock-mode yas-minor-mode centered-cursor-mode corfu-mode org-modern-mode git-gutter-mode olivetti-mode org-appear-mode org-auto-tangle-mode org-fragtog-mode org-mindmap-mode org-sticky-header-mode org-superstar-mode atlas-wormholes-mode my/atlas-hashtag-mode)
+  '(my/atlas-hashtag-mode atlas-wormholes-mode org-superstar-mode org-sticky-header-mode manifolding-keyboard-org-mindmap-state-mode org-mindmap-mode org-fragtog-mode org-auto-tangle-mode org-appear-mode visual-line-mode olivetti-mode git-gutter-mode org-modern-mode corfu-mode centered-cursor-mode yas-minor-mode font-lock-mode)
   1
   '(nil nil)
   nil
   nil
-  '((tab-width . 8) (buffer-display-time) (buffer-file-coding-system . undecided-unix) (truncate-lines))
+  '((tab-width . 8) (buffer-display-time 27324 36290 332270 250000) (buffer-file-coding-system . undecided-unix) (truncate-lines))
   '((mark-ring nil)))
 
 (desktop-append-buffer-args 208
   "/data/data/com.termux/files/home/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/life/tree-of-life/tree-of-life"
   "tree-of-life"
   'org-mode
-  '(manifolding-keyboard-org-state-mode visual-line-mode font-lock-mode yas-minor-mode centered-cursor-mode corfu-mode org-modern-mode git-gutter-mode olivetti-mode org-appear-mode org-auto-tangle-mode org-fragtog-mode org-mindmap-mode org-sticky-header-mode org-superstar-mode atlas-wormholes-mode my/atlas-hashtag-mode)
+  '(my/atlas-hashtag-mode atlas-wormholes-mode org-superstar-mode org-sticky-header-mode manifolding-keyboard-org-mindmap-state-mode org-mindmap-mode org-fragtog-mode org-auto-tangle-mode org-appear-mode visual-line-mode olivetti-mode git-gutter-mode org-modern-mode corfu-mode centered-cursor-mode yas-minor-mode font-lock-mode)
   1
   '(nil nil)
   nil
   nil
-  '((tab-width . 8) (buffer-display-time) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
+  '((tab-width . 8) (buffer-display-time 27324 36290 735127 96000) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
   '((mark-ring nil)))
 
 (desktop-append-buffer-args 208
   "/data/data/com.termux/files/home/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/life/life"
   "life"
   'org-mode
-  '(manifolding-keyboard-org-state-mode visual-line-mode font-lock-mode yas-minor-mode centered-cursor-mode corfu-mode org-modern-mode git-gutter-mode olivetti-mode org-appear-mode org-auto-tangle-mode org-fragtog-mode org-mindmap-mode org-sticky-header-mode org-superstar-mode atlas-wormholes-mode my/atlas-hashtag-mode)
+  '(my/atlas-hashtag-mode atlas-wormholes-mode org-superstar-mode org-sticky-header-mode manifolding-keyboard-org-mindmap-state-mode org-mindmap-mode org-fragtog-mode org-auto-tangle-mode org-appear-mode visual-line-mode olivetti-mode git-gutter-mode org-modern-mode corfu-mode centered-cursor-mode yas-minor-mode font-lock-mode)
   1
   '(nil nil)
   nil
   nil
-  '((tab-width . 8) (buffer-display-time) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
+  '((tab-width . 8) (buffer-display-time 27324 36291 113003 481000) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
   '((mark-ring nil)))
 
 (desktop-append-buffer-args 208
   "/data/data/com.termux/files/home/Cartesia-of-My-Aether/universe/galaxy/solar-system/planets/earth/earth"
   "earth"
   'org-mode
-  '(manifolding-keyboard-org-state-mode visual-line-mode font-lock-mode yas-minor-mode centered-cursor-mode corfu-mode org-modern-mode git-gutter-mode olivetti-mode org-appear-mode org-auto-tangle-mode org-fragtog-mode org-mindmap-mode org-sticky-header-mode org-superstar-mode atlas-wormholes-mode my/atlas-hashtag-mode)
+  '(my/atlas-hashtag-mode atlas-wormholes-mode org-superstar-mode org-sticky-header-mode manifolding-keyboard-org-mindmap-state-mode org-mindmap-mode org-fragtog-mode org-auto-tangle-mode org-appear-mode visual-line-mode olivetti-mode git-gutter-mode org-modern-mode corfu-mode centered-cursor-mode yas-minor-mode font-lock-mode)
   1
   '(nil nil)
   nil
   nil
-  '((tab-width . 8) (buffer-display-time) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
+  '((tab-width . 8) (buffer-display-time 27324 36291 479324 19000) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
   '((mark-ring nil)))
 
 (desktop-append-buffer-args 208
   "/data/data/com.termux/files/home/Cartesia-of-My-Aether/universe/galaxy/solar-system/solar-system"
   "solar-system"
   'org-mode
-  '(manifolding-keyboard-org-state-mode visual-line-mode font-lock-mode yas-minor-mode centered-cursor-mode corfu-mode org-modern-mode git-gutter-mode olivetti-mode org-appear-mode org-auto-tangle-mode org-fragtog-mode org-mindmap-mode org-sticky-header-mode org-superstar-mode atlas-wormholes-mode my/atlas-hashtag-mode)
+  '(my/atlas-hashtag-mode atlas-wormholes-mode org-superstar-mode org-sticky-header-mode manifolding-keyboard-org-mindmap-state-mode org-mindmap-mode org-fragtog-mode org-auto-tangle-mode org-appear-mode visual-line-mode olivetti-mode git-gutter-mode org-modern-mode corfu-mode centered-cursor-mode yas-minor-mode font-lock-mode)
   1
   '(nil nil)
   nil
   nil
-  '((tab-width . 8) (buffer-display-time) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
+  '((tab-width . 8) (buffer-display-time 27324 36291 875084 404000) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
   '((mark-ring nil)))
 
 (desktop-append-buffer-args 208
   "/data/data/com.termux/files/home/Cartesia-of-My-Aether/universe/galaxy/galaxy"
   "galaxy"
   'org-mode
-  '(manifolding-keyboard-org-state-mode visual-line-mode font-lock-mode yas-minor-mode centered-cursor-mode corfu-mode org-modern-mode git-gutter-mode olivetti-mode org-appear-mode org-auto-tangle-mode org-fragtog-mode org-mindmap-mode org-sticky-header-mode org-superstar-mode atlas-wormholes-mode my/atlas-hashtag-mode)
+  '(my/atlas-hashtag-mode atlas-wormholes-mode org-superstar-mode org-sticky-header-mode manifolding-keyboard-org-mindmap-state-mode org-mindmap-mode org-fragtog-mode org-auto-tangle-mode org-appear-mode visual-line-mode olivetti-mode git-gutter-mode org-modern-mode corfu-mode centered-cursor-mode yas-minor-mode font-lock-mode)
   1
   '(nil nil)
   nil
   nil
-  '((tab-width . 8) (buffer-display-time) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
+  '((tab-width . 8) (buffer-display-time 27324 36292 266336 712000) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
   '((mark-ring nil)))
 
 (desktop-append-buffer-args 208
   "/data/data/com.termux/files/home/Cartesia-of-My-Aether/universe/universe"
   "universe"
   'org-mode
-  '(manifolding-keyboard-org-state-mode visual-line-mode font-lock-mode yas-minor-mode centered-cursor-mode corfu-mode org-modern-mode git-gutter-mode olivetti-mode org-appear-mode org-auto-tangle-mode org-fragtog-mode org-mindmap-mode org-sticky-header-mode org-superstar-mode atlas-wormholes-mode my/atlas-hashtag-mode)
+  '(my/atlas-hashtag-mode atlas-wormholes-mode org-superstar-mode org-sticky-header-mode manifolding-keyboard-org-mindmap-state-mode org-mindmap-mode org-fragtog-mode org-auto-tangle-mode org-appear-mode visual-line-mode olivetti-mode git-gutter-mode org-modern-mode corfu-mode centered-cursor-mode yas-minor-mode font-lock-mode)
   1
   '(nil nil)
   nil
   nil
-  '((tab-width . 8) (buffer-display-time) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
+  '((tab-width . 8) (buffer-display-time 27324 36293 64844 404000) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
   '((mark-ring nil)))
 
 (desktop-append-buffer-args 208
   "/data/data/com.termux/files/home/Cartesia-of-My-Aether/AGENT.md"
   "AGENT.md"
   'fundamental-mode
-  '(manifolding-keyboard-normal-state-mode visual-line-mode font-lock-mode yas-minor-mode centered-cursor-mode corfu-mode git-gutter-mode)
+  '(git-gutter-mode corfu-mode centered-cursor-mode yas-minor-mode font-lock-mode visual-line-mode manifolding-keyboard-normal-state-mode)
   1
   '(nil nil)
   nil
   nil
-  '((buffer-display-time) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
+  '((buffer-display-time 27324 36293 459772 712000) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
   '((mark-ring nil)))
 
 (desktop-append-buffer-args 208
   "/data/data/com.termux/files/home/Cartesia-of-My-Aether/CAESTRIA AGENT INTEGRATION INTO ATLAS"
   "CAESTRIA AGENT INTEGRATION INTO ATLAS"
   'org-mode
-  '(manifolding-keyboard-org-state-mode visual-line-mode font-lock-mode yas-minor-mode centered-cursor-mode corfu-mode org-modern-mode git-gutter-mode olivetti-mode org-appear-mode org-auto-tangle-mode org-fragtog-mode org-mindmap-mode org-sticky-header-mode org-superstar-mode atlas-wormholes-mode my/atlas-hashtag-mode)
+  '(my/atlas-hashtag-mode atlas-wormholes-mode org-superstar-mode org-sticky-header-mode manifolding-keyboard-org-mindmap-state-mode org-mindmap-mode org-fragtog-mode org-auto-tangle-mode org-appear-mode visual-line-mode olivetti-mode git-gutter-mode org-modern-mode corfu-mode centered-cursor-mode yas-minor-mode font-lock-mode)
   1
   '(nil nil)
   nil
   nil
-  '((tab-width . 8) (buffer-display-time) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
+  '((tab-width . 8) (buffer-display-time 27324 36293 855257 19000) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
   '((mark-ring nil)))
 
 (desktop-append-buffer-args 208
   "/data/data/com.termux/files/home/Cartesia-of-My-Aether/test"
   "test"
   'org-mode
-  '(manifolding-keyboard-org-state-mode visual-line-mode font-lock-mode yas-minor-mode centered-cursor-mode corfu-mode org-modern-mode git-gutter-mode olivetti-mode org-appear-mode org-auto-tangle-mode org-fragtog-mode org-mindmap-mode org-sticky-header-mode org-superstar-mode atlas-wormholes-mode my/atlas-hashtag-mode)
+  '(my/atlas-hashtag-mode atlas-wormholes-mode org-superstar-mode org-sticky-header-mode manifolding-keyboard-org-mindmap-state-mode org-mindmap-mode org-fragtog-mode org-auto-tangle-mode org-appear-mode visual-line-mode olivetti-mode git-gutter-mode org-modern-mode corfu-mode centered-cursor-mode yas-minor-mode font-lock-mode)
   1
   '(nil nil)
   nil
   nil
-  '((tab-width . 8) (buffer-display-time) (buffer-file-coding-system . undecided-unix) (truncate-lines))
-  '((mark-ring nil)))
-
-(desktop-append-buffer-args 208
-  "/data/data/com.termux/files/home/Cartesia-of-My-Aether/\"/data/data/com.termux/files/home/Cartesia-of-My-Aether/testing\""
-  "testing\""
-  'org-mode
-  '(font-lock-mode yas-minor-mode centered-cursor-mode corfu-mode org-modern-mode manifolding-keyboard-org-state-mode visual-line-mode olivetti-mode org-appear-mode org-auto-tangle-mode org-fragtog-mode org-mindmap-mode org-sticky-header-mode org-superstar-mode atlas-wormholes-mode my/atlas-hashtag-mode)
-  1
-  '(nil nil)
-  nil
-  nil
-  '((tab-width . 8) (buffer-display-time 27324 35152 57647 336000) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
-  '((mark-ring nil)))
-
-(desktop-append-buffer-args 208
-  "/data/data/com.termux/files/home/Cartesia-of-My-Aether/\"/data/data/com.termux/files/home/Cartesia-of-My-Aether/\"/data/data/com.termux/files/home/Cartesia-of-My-Aether/testing\""
-  "testing\""
-  'org-mode
-  '(font-lock-mode yas-minor-mode centered-cursor-mode corfu-mode org-modern-mode manifolding-keyboard-org-state-mode visual-line-mode olivetti-mode org-appear-mode org-auto-tangle-mode org-fragtog-mode org-mindmap-mode org-sticky-header-mode org-superstar-mode atlas-wormholes-mode my/atlas-hashtag-mode)
-  1
-  '(nil nil)
-  nil
-  nil
-  '((tab-width . 8) (buffer-display-time 27324 35078 421590 717000) (truncate-lines))
-  '((mark-ring nil)))
-
-(desktop-append-buffer-args 208
-  "/data/data/com.termux/files/home/org/\"/data/data/com.termux/files/home/Cartesia-of-My-Aether/testing\""
-  "testing\""
-  'fundamental-mode
-  '(font-lock-mode yas-minor-mode centered-cursor-mode corfu-mode visual-line-mode manifolding-keyboard-normal-state-mode)
-  1
-  '(nil nil)
-  nil
-  nil
-  '((buffer-display-time 27324 35076 386511 24000) (buffer-file-coding-system . utf-8-unix) (truncate-lines))
+  '((tab-width . 8) (buffer-display-time 27324 36295 203897 327000) (buffer-file-coding-system . undecided-unix) (truncate-lines))
   '((mark-ring nil)))
 
