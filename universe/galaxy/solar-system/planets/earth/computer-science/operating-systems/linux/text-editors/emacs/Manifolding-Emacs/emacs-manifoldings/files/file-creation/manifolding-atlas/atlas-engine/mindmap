@@ -3,10 +3,10 @@
 Vendored from https://github.com/krvkir/org-mindmap (GPL-3.0,
 krvkir, 2026). Editable ASCII mindmap visualization inside org
 buffers: `#+begin_mindmap` regions render as box-drawing trees and
-stay editable in place. Ships inline so atlas notes never wait on a
+stay editable in place. Ships inline so AIUs never wait on a
 package fetch. Complements the vault's own mm/* topology subsystem
 (atlas-engine/mind-map, order 127): that one owns vault structure,
-this one draws pictures inside notes.
+this one draws pictures inside AIUs.
 
 * Atlas Mindmap — vendored :EMACS_MECHANISM:
 :PROPERTIES:
@@ -2214,7 +2214,7 @@ reach on its own."
 #+end_src
 
 ** Atlas integration
-Atlas notes are org buffers, so mindmap regions work in them
+AIUs are org buffers, so mindmap regions work in them
 natively. This block is the only atlas-specific code: a one-key
 block inserter (bound in the mindmap keyboard state) plus
 auto-activation of `org-mindmap-mode' inside mindmap regions, so

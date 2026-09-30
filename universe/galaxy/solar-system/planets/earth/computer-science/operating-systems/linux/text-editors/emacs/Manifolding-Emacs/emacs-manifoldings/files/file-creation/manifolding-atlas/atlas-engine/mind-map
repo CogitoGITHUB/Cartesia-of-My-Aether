@@ -11,7 +11,7 @@ two readers.
 Model:
 - Files → parent-child tree (the skeleton)
 - Headings → siblings within their file (the flesh on each bone)
-- Group → one file + all its heading notes = one visual card
+- Group → one file + all its heading AIUs = one visual card
 
 Edges (three distinct layers):
 - structural — file parent-child (drives layout, deterministic)
@@ -22,7 +22,7 @@ Ordering: ORDER_KEY real float per node → O(1) insert-between, zero cascade.
 =mm/repack= normalises floats → clean integers when gaps < mm/epsilon.
 
 Scale: All queries hit =mm_nodes= via indexed SQL. No Elisp-side sorting.
-ON DELETE CASCADE auto-removes map entries when notes are deleted.
+ON DELETE CASCADE auto-removes map entries when AIUs are deleted.
 
 Status: the unified STATUS unfolding — ACTIVE | SUSPENDED | ARCHIVED
 | DORMANT — owned semantically by mastering's lifecycle, read here
@@ -40,7 +40,7 @@ are relationship, and =mm_nodes= records only how a relationship
 participates in this map — placement, order, card grouping. Graph
 traversal itself belongs to the substrate (=db-descendants= and
 friends); map-tree walking (=mm/subtree-of= and friends) belongs
-here. One day a note may join several maps at once (biology, AI,
+here. One day an AIU may join several maps at once (biology, AI,
 personal, project) with no substrate change at all — only a
 map-scoped index beside this one.
 
@@ -51,7 +51,7 @@ map-scoped index beside this one.
 :MM_ORDER:  127.0
 :END:
 Creates the =mm_nodes= table in the manifolding-atlas DB and registers an extractor
-that auto-adds each synced note as a node on first insert.
+that auto-adds each synced AIU as a node on first insert.
 
 **** Table and registration
 #+begin_src emacs-lisp
@@ -91,8 +91,8 @@ that auto-adds each synced note as a node on first insert.
 #+end_src
 
 **** Extractor
-File notes (level 0): parent-id nil — user assigns position explicitly.
-Heading notes (level > 0): parent-id auto-set to the file's root note.
+File AIUs (level 0): parent-id nil — user assigns position explicitly.
+Heading AIUs (level > 0): parent-id auto-set to the file's root AIU.
 Never overwrites existing rows — user-set positions are preserved.
 The insert is a plain conditional insert, deliberately backend-neutral:
 the old SQLite-only =INSERT OR IGNORE= spelling cannot compile on
@@ -301,13 +301,13 @@ Three distinct connection layers queried independently.
 Reparenting and order-key manipulation.
 
 **** File drawer sync
-Writes live mm state back into the note file so files stay
+Writes live mm state back into the AIU file so files stay
 authoritative for boot order. Best-effort: never signals.
 #+begin_src emacs-lisp
 (defun mm/sync-file-drawer (note-id)
   "Write NOTE-ID's mm parent/order into its own heading drawer.
 Jumps to the heading carrying NOTE-ID's :ID:, so file and heading
-notes each update exactly their own drawer."
+AIUs each update exactly their own drawer."
   (condition-case err
       (let* ((row (mm/node-at note-id))
              (rec (and row (car (emacsql (manifolding-atlas-db)
@@ -575,19 +575,19 @@ so map and review agree immediately."
 #+end_src
 
 *** Interactive Assignment
-Commands to position notes in the tree interactively.
+Commands to position AIUs in the tree interactively.
 
 **** Parent assignment
 #+begin_src emacs-lisp
 (defun mm/assign-parent ()
-  "Set the parent of the current note in the mind map."
+  "Set the parent of the current AIU in the mind map."
   (interactive)
   (let* ((note      (my/manifolding-atlas--buffer-note))
          (note-id   (manifolding-atlas-note-id note))
          (parent    (manifolding-atlas-select "Parent: " :require-match t))
          (parent-id (manifolding-atlas-note-id parent)))
     (when (string= note-id parent-id)
-      (user-error "A note cannot be its own parent"))
+      (user-error "An AIU cannot be its own parent"))
     (mm/reparent note-id parent-id)
     (message "✓ %s → parent: %s"
              (manifolding-atlas-note-title note)
@@ -598,7 +598,7 @@ Commands to position notes in the tree interactively.
 Both reuse the order-key machinery so repack triggers automatically.
 #+begin_src emacs-lisp
 (defun mm/assign-after ()
-  "Place the current note immediately after a chosen sibling."
+  "Place the current AIU immediately after a chosen sibling."
   (interactive)
   (let* ((note      (my/manifolding-atlas--buffer-note))
          (note-id   (manifolding-atlas-note-id note))
@@ -613,7 +613,7 @@ Both reuse the order-key machinery so repack triggers automatically.
     (message "✓ Placed after: %s" (manifolding-atlas-note-title sibling))))
 
 (defun mm/assign-between ()
-  "Place the current note between two chosen siblings."
+  "Place the current AIU between two chosen siblings."
   (interactive)
   (let* ((note    (my/manifolding-atlas--buffer-note))
          (note-id (manifolding-atlas-note-id note))
@@ -632,7 +632,7 @@ Both reuse the order-key machinery so repack triggers automatically.
              (manifolding-atlas-note-title after))))
 
 (defun mm/make-root-interactive ()
-  "Make the current note a root node (remove its parent)."
+  "Make the current AIU a root node (remove its parent)."
   (interactive)
   (let ((note (my/manifolding-atlas--buffer-note)))
     (mm/make-root (manifolding-atlas-note-id note))
@@ -645,7 +645,7 @@ Quick movement between related nodes.
 **** Direct-relative jumps
 #+begin_src emacs-lisp
 (defun mm/goto-parent ()
-  "Visit the parent of the current note in the map."
+  "Visit the parent of the current AIU in the map."
   (interactive)
   (let* ((note      (my/manifolding-atlas--buffer-note))
          (parent-id (mm/parent-of (manifolding-atlas-note-id note))))
@@ -654,7 +654,7 @@ Quick movement between related nodes.
       (message "Root node — no parent."))))
 
 (defun mm/goto-root ()
-  "Visit the root ancestor of the current note."
+  "Visit the root ancestor of the current AIU."
   (interactive)
   (let* ((note (my/manifolding-atlas--buffer-note))
          (id   (manifolding-atlas-note-id note)))
@@ -726,7 +726,7 @@ so from a heading this ascends to the file card first — s/n then
 walks the tree proper. A leaf reports instead of guessing."
   (interactive)
   (let* ((note (my/manifolding-atlas--buffer-note)))
-    (unless note (user-error "No note at point"))
+    (unless note (user-error "No AIU at point"))
     (if (> (manifolding-atlas-note-level note) 0)
         (let ((file-note (car (emacsql (manifolding-atlas-db)
                                [:select [id] :from notes
@@ -747,7 +747,7 @@ walks the tree proper. A leaf reports instead of guessing."
 The mindmap keyboard state (defined in manifolding-keyboard/states/mindmap.org)
 turns single keys into topology moves. Entry is explicit — never by
 major-mode hook — so traverse mode can't hijack help, dired, or
-minibuffer flows. Entering over the current note also raises the map
+minibuffer flows. Entering over the current AIU also raises the map
 beside the vault so you see where you stand.
 #+begin_src emacs-lisp
 (defun my/mindmap-traverse-enter ()
@@ -755,7 +755,7 @@ beside the vault so you see where you stand.
 Shows the map beside the vault when it isn't already visible."
   (interactive)
   (unless (my/manifolding-atlas--buffer-note)
-    (user-error "No note at point"))
+    (user-error "No AIU at point"))
   (unless (get-buffer "*manifold-map*")
     (ignore-errors (mm/map-display)))
   (manifolding-keyboard-set-state "mindmap")
@@ -771,7 +771,7 @@ Shows the map beside the vault when it isn't already visible."
 Picker jumps for non-adjacent targets — the counterpart to stepping.
 #+begin_src emacs-lisp
 (defun mm/goto-child ()
-  "Select and visit a direct child of the current note."
+  "Select and visit a direct child of the current AIU."
   (interactive)
   (let* ((note     (my/manifolding-atlas--buffer-note))
          (children (mm/children-of (manifolding-atlas-note-id note))))
@@ -787,7 +787,7 @@ Picker jumps for non-adjacent targets — the counterpart to stepping.
       (when target (manifolding-atlas-visit target)))))
 
 (defun mm/goto-sibling ()
-  "Select and visit a sibling of the current note."
+  "Select and visit a sibling of the current AIU."
   (interactive)
   (let* ((note     (my/manifolding-atlas--buffer-note))
          (siblings (mm/siblings-of (manifolding-atlas-note-id note))))
@@ -828,7 +828,7 @@ Renders the full tree as an Org buffer or a side-buffer group view.
 Headings render one level below their file; children indent deeper
 when headings exist so the group stays visually coherent. Each line
 carries its mastering stage (a display read — the map owns none of
-it) plus a status flag whenever the note isn't ACTIVE.
+it) plus a status flag whenever the AIU isn't ACTIVE.
 #+begin_src emacs-lisp
 (defun mm/map--stage-of (note-id)
   "Stage token of NOTE-ID for display, defaulting to AWARE.
@@ -897,7 +897,7 @@ below. Pure read over mm/* + stage lookups."
     (cons at (length all))))
 
 (defun mm/group-display ()
-  "Display the Group of the current buffer note in a side buffer."
+  "Display the Group of the current buffer AIU in a side buffer."
   (interactive)
   (let* ((note  (my/manifolding-atlas--buffer-note))
          (group (mm/group-of (manifolding-atlas-note-id note))))
@@ -1009,7 +1009,7 @@ Default: <notes-dir>/manifold-map.json"
 #+end_src
 
 *** Init
-One-shot bootstrap from all existing vault notes. Safe to run repeatedly.
+One-shot bootstrap from all existing vault AIUs. Safe to run repeatedly.
 
 #+begin_src emacs-lisp
 (defun mm/init ()
@@ -1027,7 +1027,7 @@ Safe to run repeatedly — never overwrites existing entries."
                         :path  (manifolding-atlas-note-path note)
                         :pos   (manifolding-atlas-note-pos note)))
       (setq count (1+ count)))
-    (message "mm/init: %d notes registered. Build the tree with mm/assign-parent."
+    (message "mm/init: %d AIUs registered. Build the tree with mm/assign-parent."
              count)))
 #+end_src
 
@@ -1086,16 +1086,16 @@ the map display and the review pool agree on every keypress.
 #+end_src
 
 *** Auto-Prompt on Create
-Prompts to assign the new note in the mind map after every file-level
-note creation — mandatory choice between parent, child, sibling, or
+Prompts to assign the new AIU in the mind map after every file-level
+AIU creation — mandatory choice between parent, child, sibling, or
 unknown. Headings auto-parent to their file, no prompt for those.
 
 **** Placement branches
 Each interactive placement swallows its own quit so a C-g during
-selection never aborts note creation.
+selection never aborts AIU creation.
 #+begin_src emacs-lisp
 (defun mm/--place-under (note)
-  "Pick an existing child and reparent it under NOTE."
+  "Pick an existing child and reparent it under AIU."
   (let ((note-id (manifolding-atlas-note-id note)))
     (condition-case nil
         ;; let*: child-id reads the just-selected child (plain let
@@ -1111,7 +1111,7 @@ selection never aborts note creation.
       (quit (message "Placement cancelled.")))))
 
 (defun mm/--place-under-parent (note)
-  "Pick a parent and file NOTE under it."
+  "Pick a parent and file AIU under it."
   (let ((note-id (manifolding-atlas-note-id note)))
     (condition-case nil
         ;; let*: see above.
@@ -1126,7 +1126,7 @@ selection never aborts note creation.
       (quit (message "Placement cancelled.")))))
 
 (defun mm/--place-after-sibling (note)
-  "Pick a sibling and place NOTE immediately after it."
+  "Pick a sibling and place AIU immediately after it."
   (let ((note-id (manifolding-atlas-note-id note)))
     (condition-case nil
         ;; let*: see above.
@@ -1147,7 +1147,7 @@ selection never aborts note creation.
 **** Placement dispatcher
 #+begin_src emacs-lisp
 (defun mm/--prompt-placement (note)
-  "Prompt to place NOTE in the mind map — parent/child/sibling/unknown."
+  "Prompt to place AIU in the mind map — parent/child/sibling/unknown."
   (let ((note-id (manifolding-atlas-note-id note))
         (file    (manifolding-atlas-note-path note)))
     (when (and file (file-exists-p file))

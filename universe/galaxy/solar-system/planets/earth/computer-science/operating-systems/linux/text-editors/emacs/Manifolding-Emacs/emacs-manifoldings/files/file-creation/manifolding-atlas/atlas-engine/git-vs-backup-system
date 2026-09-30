@@ -33,7 +33,7 @@ into atlas auto-commits.")
 :STRAIGHT: (magit :type git :host github :repo "magit/magit" :depends (git-gutter) :files ("lisp/magit*.el" "lisp/git-*.el" "docs/magit.texi" "docs/AUTHORS.md" "LICENSE" ".dir-locals.el" ("githooks" "githooks/*") ("git-hooks" "git-hooks/*") (:exclude "lisp/magit-section.el") "magit-pkg.el"))
 :CATEGORY: git
 :END:
-Async push with a sentinel that logs failures to the notes .git dir
+Async push with a sentinel that logs failures to the AIUs .git dir
 and retries once if a save landed mid-flight.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-git--repo-top (root)
@@ -121,7 +121,7 @@ Saving or opening a watched-tree file without a repo is blocked loudly.
 #+end_src
 
 *** Auto-Commit on Any Mutation
-Every write/delete/rename touching a watched tree (vault notes dir,
+Every write/delete/rename touching a watched tree (vault AIUs dir,
 atlas config dir) schedules a debounced add+commit+push in its repo.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-git--root-for (file)
@@ -157,7 +157,7 @@ in both trees commit independently."
                 my/manifolding-atlas-git--save-timers))))))
 
 (defun my/manifolding-atlas-git--in-notes-p (path)
-  "Return non-nil when PATH is inside the notes directory (not its .git)."
+  "Return non-nil when PATH is inside the AIUs directory (not its .git)."
   (and (stringp path)
        (not (string-empty-p path))
        (let ((f (expand-file-name path)))
@@ -225,13 +225,13 @@ since the last commit so unrelated dotfiles never get swept in."
         (message "Git auto-commit error: %s" (error-message-string err))))))
 
 (defun my/manifolding-atlas-git--tracked-p (file)
-  "Return t if FILE is tracked by git in the notes repo."
+  "Return t if FILE is tracked by git in the AIUs repo."
   (= 0 (call-process magit-git-executable nil nil nil
                      "-C" (my/manifolding-atlas-root-dir)
                      "ls-files" "--error-unmatch" file)))
 
 (defun my/manifolding-atlas-git--check-delete (file)
-  "Warn if FILE is in notes dir and not git-tracked."
+  "Warn if FILE is in AIUs dir and not git-tracked."
   (when (and file
              (file-in-directory-p file (my/manifolding-atlas-root-dir))
              (not (my/manifolding-atlas-git--tracked-p file)))
@@ -240,7 +240,7 @@ since the last commit so unrelated dotfiles never get swept in."
       (user-error "Delete cancelled"))))
 
 (defun my/manifolding-atlas-git--before-dired-delete ()
-  "Check each marked dired file in notes dir is git-tracked."
+  "Check each marked dired file in AIUs dir is git-tracked."
   (dolist (f (dired-get-marked-files))
     (my/manifolding-atlas-git--check-delete f)))
 
@@ -345,11 +345,11 @@ Removes both the file-match and id-match entries after a successful restore.
 #+end_src
 
 *** Restore command
-Searches history for the commit carrying the note's :ID:, restores
+Searches history for the commit carrying the AIU's :ID:, restores
 it plus its orphaned unfoldings, then cleans up the queue entries.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-links-restore ()
-  "Restore a deleted note from Git history."
+  "Restore a deleted AIU from Git history."
   (interactive)
   (let ((deleted-id (org-entry-get (point) "DELETED_ID")))
     (unless deleted-id

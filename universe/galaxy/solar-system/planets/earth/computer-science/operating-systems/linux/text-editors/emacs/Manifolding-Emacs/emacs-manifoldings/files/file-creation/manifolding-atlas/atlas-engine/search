@@ -2,18 +2,18 @@ Search TODO/FIXME/BUG/HACK keywords scoped to the atlas only. Vendored
 engine: the consult-todo package is embedded below as loader-managed
 source (no straight) with all symbols renamed `consult-todo-*` →
 `atlas-search-todo-*` so the original straight `consult-todo` module is
-untouched. Search scope is the notes directory `(my/manifolding-atlas-root-dir)`.
+untouched. Search scope is the AIUs directory `(my/manifolding-atlas-root-dir)`.
 
 Depends on `hl-todo` (still a straight package, provides
 `hl-todo--search`, `hl-todo--regexp`, `hl-todo-keyword-faces`) and `consult`.
 
 Commands:
-- `atlas-search-todo-all` — scan buffers visiting files in the notes directory
-- `atlas-search-todo-dir` — scan TODO keywords in the notes directory
+- `atlas-search-todo-all` — scan buffers visiting files in the AIUs directory
+- `atlas-search-todo-dir` — scan TODO keywords in the AIUs directory
 - `atlas-search-todo` — current buffer
 - `atlas-search-todo-clear-cache` — clear the dir search cache
 
-NOTE: vault notes are EXTENSIONLESS (no `.org`). `atlas-search-todo--dir-files`
+AIU: vault AIUs are EXTENSIONLESS (no `.org`). `atlas-search-todo--dir-files`
 accepts extensionless files AND `.org`, and skips `.git`/`admin`/`.cache`.
 Scanning is pure-Lisp (`re-search-forward` on `hl-todo--regexp`) — do NOT use
 `rgrep`, whose shell pipeline chokes on the hl-todo regexp (`expected operator`),
@@ -249,7 +249,7 @@ Return the location marker."
 
 #+begin_src emacs-lisp
 (defun atlas-search-todo--notes-directory ()
-  "Return the atlas notes directory (with trailing slash)."
+  "Return the AIUs directory (with trailing slash)."
   (file-name-as-directory (my/manifolding-atlas-root-dir)))
 
 
@@ -258,14 +258,14 @@ Return the location marker."
 #+begin_src emacs-lisp
 (defvar atlas-search-todo--skip-dirs
   '(".git" ".cache" "admin" "WIP")
-  "Directories under the notes directory to skip when scanning.")
+  "Directories under the AIUs directory to skip when scanning.")
 
 
 #+end_src
 
 #+begin_src emacs-lisp
 (defun atlas-search-todo--dir-files (dir)
-  "Return note files under DIR, skipping `atlas-search-todo--skip-dirs'."
+  "Return AIU files under DIR, skipping `atlas-search-todo--skip-dirs'."
   (cl-remove-if
    (lambda (file)
      (or (cl-some (lambda (sub)
@@ -355,7 +355,7 @@ Return the location marker."
 
 #+begin_src emacs-lisp
 (defun atlas-search-todo-dir (&optional directory)
-  "Jump to hl-todo keywords in the notes DIRECTORY."
+  "Jump to hl-todo keywords in the AIUs DIRECTORY."
   (interactive)
   (let ((dir (or directory (atlas-search-todo--notes-directory))))
     (atlas-search-todo--dir
@@ -406,5 +406,5 @@ If BUFFERS is nil, use current buffer instead."
         (?f . "FIXME")
         (?b . "BUG")
         (?h . "HACK")
-        (?n . "NOTE")))
+        (?n . "AIU")))
 #+end_src

@@ -35,7 +35,7 @@
 ** Indexed predicate
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-emacs-mechanism--indexed-p (id)
-  "Non-nil when ID has both notes and mm-nodes rows. Nil-safe without DB."
+  "Non-nil when ID has both AIUs and mm-nodes rows. Nil-safe without DB."
   (and id (fboundp 'manifolding-atlas-db)
        (condition-case nil
            (let ((db (manifolding-atlas-db)))

@@ -14,7 +14,7 @@ calls the owning command.  Nothing here runs at load.
 (require 'seq)
 
 (defun my/atlas-node-view-sections (note)
-  "Alist (LABEL . VALUE-STRING) describing NOTE."
+  "Alist (LABEL . VALUE-STRING) describing AIU."
   (let ((title (or (ignore-errors (manifolding-atlas-note-title note)) "?"))
         (path (ignore-errors (manifolding-atlas-note-path note)))
         (tags (ignore-errors (manifolding-atlas-note-tags note)))
@@ -25,7 +25,7 @@ calls the owning command.  Nothing here runs at load.
           (cons "ID" (or id "-")))))
 
 (defun my/atlas-node-view-backlinks (note)
-  "Backlinks to NOTE grouped by kind, as strings."
+  "Backlinks to AIU grouped by kind, as strings."
   (let ((id (ignore-errors (manifolding-atlas-note-id note)))
         (out nil))
     (when (and id (fboundp 'manifolding-atlas-db-query-links-to))
@@ -34,7 +34,7 @@ calls the owning command.  Nothing here runs at load.
     (nreverse out)))
 
 (defun my/atlas-node-view (note)
-  "Show the node page for NOTE in a side window."
+  "Show the node page for AIU in a side window."
   (interactive
    (list (manifolding-atlas-find)))
   (let ((buf (get-buffer-create "*Atlas Node*")))

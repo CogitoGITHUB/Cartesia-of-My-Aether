@@ -4,7 +4,7 @@
 :END:
 
 Multi-parent tag graph (`:extends`), kept SEPARATE from the mind-map
-single-parent topology by design: mm owns note placement, this owns
+single-parent topology by design: mm owns AIU placement, this owns
 tag meaning.  Transitive queries (stream, search, manager) consult
 this graph; nothing else changes.  Slash paths entered via inline
 hashtags feed parents here.  Tag renames flow through the hook below

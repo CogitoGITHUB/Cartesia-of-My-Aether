@@ -1,7 +1,7 @@
 Keys for editable ASCII mindmap regions (`#+begin_mindmap`) from
 the vendored atlas-engine/mindmap unit. Separate state from the mm/*
 topology chord: that one drives vault structure, this one drives
-pictures inside notes. Shared bindings live in universal.org.
+pictures inside AIUs. Shared bindings live in universal.org.
 
 * State definition :EMACS_MECHANISM:
 :PROPERTIES:

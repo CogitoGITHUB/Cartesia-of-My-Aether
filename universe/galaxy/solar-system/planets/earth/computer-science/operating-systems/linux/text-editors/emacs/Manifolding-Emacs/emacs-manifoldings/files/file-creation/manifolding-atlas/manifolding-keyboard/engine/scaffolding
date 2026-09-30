@@ -88,7 +88,7 @@ those are never lazy-loading artifacts.
   "Command prefixes treated as external (warn, never error, when unbound)."
   :type '(repeat string)
   :group 'manifolding-keyboard)
-;; NOTE: my/dired-* (dired.org), my/mindmap-* (mind-map.org) resolve at
+;; AIU: my/dired-* (dired.org), my/mindmap-* (mind-map.org) resolve at
 ;; boot from sibling modules — covered here, not flagged.
 
 (defun manifolding-keyboard--defined-hydras ()

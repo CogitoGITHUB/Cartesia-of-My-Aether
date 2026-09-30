@@ -16,7 +16,7 @@ here runs at load.
 
 (defun my/atlas-tags-census ()
   "Alist (TAG COUNT SOURCES) over note tags and inline hashtags.
-SOURCES is a subset of (note inline)."
+SOURCES is a subset of (AIU inline)."
   (let ((counts (make-hash-table :test 'equal))
         (srcs (make-hash-table :test 'equal)))
     (dolist (n (ignore-errors (manifolding-atlas-db-query)))
@@ -199,7 +199,7 @@ Edits back to front per file.  Returns files changed."
 
 (defun my/atlas-tag-preview (occurrences new &optional notes)
   "Show OCCURRENCES with replacement NEW in a preview buffer.
-NOTES are extra report lines (curated files, never edited)."
+AIUS are extra report lines (curated files, never edited)."
   (let ((buf (get-buffer-create "*Atlas Tag Preview*")))
     (with-current-buffer buf
       (let ((inhibit-read-only t))

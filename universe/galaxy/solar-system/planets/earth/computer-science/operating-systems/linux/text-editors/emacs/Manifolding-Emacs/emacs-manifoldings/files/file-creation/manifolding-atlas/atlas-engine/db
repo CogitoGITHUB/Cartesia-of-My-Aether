@@ -121,7 +121,7 @@ signals — infrastructure state must be reportable, not exceptional."
             (emacsql-sqlite-builtin manifolding-atlas-db-location))))
   (when (and manifolding-atlas-db--connection
              (not (bound-and-true-p my/manifolding-atlas--notes-table-ready)))
-    ;; Guarantee `notes' exists for every caller (find/query/create),
+    ;; Guarantee `AIUs' exists for every caller (find/query/create),
     ;; not just update-file path. Direct emacsql on connection avoids
     ;; recursing via ensure-notes-table -> (manifolding-atlas-db).
     (ignore-errors
@@ -178,7 +178,7 @@ Wire-format law above: TEXT cells are raw strings."
 ;; Missing core shims — extractor/parse-ctx structs, notes table, and workers
 ;; These are normally provided by the external `manifolding-atlas' package;
 ;; when that package is absent (as in this Termux checkout) we provide
-;; minimal compatible implementations so `notes' actually populates.
+;; minimal compatible implementations so `AIUs' actually populates.
 
 (unless (fboundp 'make-manifolding-atlas-parse-ctx)
   (cl-defstruct (manifolding-atlas-parse-ctx (:constructor make-manifolding-atlas-parse-ctx))
@@ -300,7 +300,7 @@ when file missing."
                           (unless (member tag tags)
                             (push tag tags))))
                       (nreverse tags)))))
-        ;; upsert notes row
+        ;; upsert AIUs row
         (ignore-errors (emacsql (manifolding-atlas-db) [:delete :from notes :where (= id $s1)] id))
         (emacsql (manifolding-atlas-db)
                  [:insert :into notes :values $v1]
@@ -364,7 +364,7 @@ loaded yet — boot timers fire before it; the idle repeat catches up."
           (ignore-errors (manifolding-atlas-db--update-file p))
           (setq pruned (1+ pruned)))))
     (when (> pruned 0)
-      (message "db orphans: pruned %d note(s) for deleted files" pruned))
+      (message "db orphans: pruned %d AIU(s) for deleted files" pruned))
     pruned)))
 
 (defun manifolding-atlas-db-query (&optional filter)
@@ -675,7 +675,7 @@ acted on: some extractors historically wrote relative paths."
                   (setq removed (1+ removed)))
               (error (setq skipped (1+ skipped))))))))
     (when (or (called-interactively-p 'any) (> skipped 0))
-      (message "manifolding-atlas: pruned %d stale note(s), skipped %d malformed row(s)"
+      (message "manifolding-atlas: pruned %d stale AIU(s), skipped %d malformed row(s)"
                removed skipped))
     removed))
 
@@ -1931,7 +1931,7 @@ are stored upcased, so a lowercase or mixed-case
 #+end_src
 
 
-** Note Selection
+** AIU Selection
 
 #+begin_src emacs-lisp
 #+end_src
@@ -1976,7 +1976,7 @@ are stored upcased, so a lowercase or mixed-case
 #+end_src
 
 
-** Note Structure
+** AIU Structure
 
 #+begin_src emacs-lisp
 #+end_src

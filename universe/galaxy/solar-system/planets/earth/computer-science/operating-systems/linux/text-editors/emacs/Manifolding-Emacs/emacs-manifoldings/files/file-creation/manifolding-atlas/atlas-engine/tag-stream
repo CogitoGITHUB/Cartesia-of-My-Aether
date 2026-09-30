@@ -23,7 +23,7 @@ store.  Read-only.  Nothing here runs at load.
     (list tag)))
 
 (defun my/atlas-stream-notes (tag)
-  "Notes carrying TAG (transitive), newest file first."
+  "AIUs carrying TAG (transitive), newest file first."
   (let* ((tags (my/atlas-stream-tags tag))
          (notes (seq-filter
                  (lambda (n)
@@ -44,7 +44,7 @@ store.  Read-only.  Nothing here runs at load.
                    0))))))
 
 (defun my/atlas-stream-day (note)
-  "Day string for NOTE's file mtime."
+  "Day string for AIU's file mtime."
   (let ((p (ignore-errors (manifolding-atlas-note-path note))))
     (if (and p (file-exists-p p))
         (format-time-string "%Y-%m-%d"

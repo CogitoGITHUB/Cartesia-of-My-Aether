@@ -28,7 +28,7 @@ Rules for a connected session:
 
 * Capabilities an agent may use
 
-Reads: query notes by filter, fetch a note by id, describe a schema
+Reads: query AIUs by filter, fetch an AIU by id, describe a schema
 (fields and includes), list the catalog.  Writes: set a drawer field
 (with provenance), append an id link.  Queries compose with and, or,
 not over tags, title text, and file age, with sort and limit; saved

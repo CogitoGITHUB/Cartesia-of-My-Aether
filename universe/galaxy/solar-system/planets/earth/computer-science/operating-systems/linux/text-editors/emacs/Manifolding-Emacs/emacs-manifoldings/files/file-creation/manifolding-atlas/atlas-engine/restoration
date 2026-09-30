@@ -136,7 +136,7 @@ RET follows links; saves trigger the cleanup sweep.
 #+end_src
 
 **** Added-entry jump to property in capture
-RET on an Added Heading Blueprints entry opens the note in an
+RET on an Added Heading Blueprints entry opens the AIU in an
 org-capture buffer positioned on the added :KEY: line (widened,
 point on the value). The admin TODO is left untouched — mark DONE
 manually. Deleted Heading Blueprints keeps plain file-open.
@@ -231,10 +231,10 @@ unfolding for later restore."
 *** Internal State
 #+begin_src emacs-lisp
 (defvar my/manifolding-atlas-links--deleted-id nil
-  "ID of the note being deleted. Captured before deletion.")
+  "ID of the AIU being deleted. Captured before deletion.")
 
 (defvar my/manifolding-atlas-links--deleted-title nil
-  "Title of the note being deleted. Captured before deletion.")
+  "Title of the AIU being deleted. Captured before deletion.")
 
 (defvar my/manifolding-atlas-links--deleted-unfoldings nil
   "Relative paths of unfolding notes deleted alongside the current note.
@@ -253,7 +253,7 @@ Captured before deletion so the file can be scanned while it still exists.")
       (re-search-forward re nil t))))
 
 (defun my/manifolding-atlas-links--unfolding-id-p (id)
-  "Non-nil when ID names an unfolding note under admin/unfoldings/."
+  "Non-nil when ID names an unfolding AIU under admin/unfoldings/."
   (when-let ((note (manifolding-atlas-db-get-by-id id)))
     (let ((path (manifolding-atlas-note-path note)))
       (and path
@@ -316,7 +316,7 @@ falls back to full vault scan."
         orphaned))))
 
 (defun my/manifolding-atlas-links--unfolding-rel-path (unfolding-id)
-  "Return relative path (from vault root) of the unfolding note UNFOLDING-ID."
+  "Return relative path (from vault root) of the unfolding AIU UNFOLDING-ID."
   (when-let ((note (manifolding-atlas-db-get-by-id unfolding-id)))
     (let ((path (manifolding-atlas-note-path note)))
       (and path
@@ -324,7 +324,7 @@ falls back to full vault scan."
 #+end_src
 
 **** Orphan collection for a file
-Used to delete unfoldings alongside a deleted note without breaking other
+Used to delete unfoldings alongside a deleted AIU without breaking other
 notes that share the same closed-vocab unfolding.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-links--orphaned-unfoldings-for (file)
@@ -561,7 +561,7 @@ Lives in `my/manifolding-atlas-root-dir'. Auto-created if missing.")
                             (my/manifolding-atlas-links--unfoldings-dir))))
 
 (defun my/manifolding-atlas-links--note-path-of (id)
-  "Return vault path for note ID, or nil."
+  "Return vault path for AIU ID, or nil."
   (when-let ((note (ignore-errors (manifolding-atlas-db-get-by-id id))))
     (ignore-errors (manifolding-atlas-note-path note))))
 
@@ -825,7 +825,7 @@ Lives in `my/manifolding-atlas-root-dir'. Auto-created if missing.")
           nil)))))
 
 (defun my/manifolding-atlas-links--write-added-property-to-note (key file value)
-  "Append `Added property KEY to NOTE' heading (deduped by logged-p)."
+  "Append `Added property KEY to AIU' heading (deduped by logged-p)."
   (unless (my/manifolding-atlas-links--added-property-logged-p key file)
     (let* ((path (my/manifolding-atlas-links--ensure-added-blueprints-file))
            (abs (expand-file-name file))
@@ -847,7 +847,7 @@ Lives in `my/manifolding-atlas-root-dir'. Auto-created if missing.")
         (kill-buffer (current-buffer))))))
 
 (defun my/manifolding-atlas-links--log-added-properties (file pairs)
-  "Write one Added heading per (KEY . VALUE) in PAIRS for note FILE."
+  "Write one Added heading per (KEY . VALUE) in PAIRS for AIU FILE."
   (let ((abs (and (stringp file) (expand-file-name file))))
     (when abs
       (dolist (kv pairs)
@@ -1151,12 +1151,12 @@ a second boot with no changes is a no-op. Returns (NEW . GONE)."
                              (my/manifolding-atlas-links--peer-title link peer-key))
                            links)))
         (if (y-or-n-p
-             (format "%s %s %d note%s: %s. Delete anyway? "
+             (format "%s %s %d AIU%s: %s. Delete anyway? "
                      deleted-title verb count plural
                      (string-join names ", ")))
             (my/manifolding-atlas-links--write-direction-todos
              deleted-id deleted-title links peer-key direction)
-          (user-error "Deletion cancelled: %s %s %d note%s"
+          (user-error "Deletion cancelled: %s %s %d AIU%s"
                       deleted-title verb count plural))))))
 #+end_src
 
@@ -1167,7 +1167,7 @@ recording TODO entries for broken links. n — cancels deletion.
 (defun my/manifolding-atlas-links--guard-deletion (deleted-id deleted-title)
   "Guard deletion of DELETED-ID / DELETED-TITLE.
 1. Incoming: notes that link TO this note (incl. wormholes).
-2. Outgoing: notes that this note links TO."
+2. Outgoing: notes that this AIU links TO."
   (when (and deleted-id deleted-title)
     ;; Check 1: incoming links and wormholes
     (let ((incoming (manifolding-atlas-db-query-links-to deleted-id)))
@@ -1187,7 +1187,7 @@ recording TODO entries for broken links. n — cancels deletion.
 Skips admin files, unfolding files, and non-org files.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-links--deletion-guardable-p (expanded)
-  "Non-nil when EXPANDED is a deletable vault note file."
+  "Non-nil when EXPANDED is a deletable vault AIU file."
   (and (file-exists-p expanded)
        (file-in-directory-p expanded (my/manifolding-atlas-root-dir))
        (not (file-in-directory-p

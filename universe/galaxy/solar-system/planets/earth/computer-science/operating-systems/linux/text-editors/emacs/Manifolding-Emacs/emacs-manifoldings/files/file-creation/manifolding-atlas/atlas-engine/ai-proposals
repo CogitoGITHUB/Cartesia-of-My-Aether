@@ -48,7 +48,7 @@ Shows a plan buffer; accept writes the value, skip drops it."
         (insert "AI proposals (accept writes drawer, skip drops):\n\n")
         (dolist (key kinds)
           (let ((cands (my/atlas-ai-complete
-                        (format "Suggest a value for note property %s (one per line):" key))))
+                        (format "Suggest a value for AIU property %s (one per line):" key))))
             (insert (format "%s:\n" key))
             (if (null cands)
                 (insert "  (no candidates: provider dormant or failed)\n")

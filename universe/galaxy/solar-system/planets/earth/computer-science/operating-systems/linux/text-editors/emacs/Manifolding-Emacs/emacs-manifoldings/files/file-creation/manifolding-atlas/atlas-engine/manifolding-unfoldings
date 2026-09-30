@@ -6,7 +6,7 @@
 :CATEGORY: editing
 :END:
 
-Replaces static property values with Org links to canonical or scoped unfolding notes.
+Replaces static property values with Org links to canonical or scoped unfolding AIUs.
 Three unfolding types: ~'closed~ (shared, deduped), ~'scoped~ (per-entity), ~nil~ (plain string).
 
 ** Canonicalize Value
@@ -40,11 +40,11 @@ Three unfolding types: ~'closed~ (shared, deduped), ~'scoped~ (per-entity), ~nil
   (format "[[id:%s][%s]]" id label))
 #+end_src
 
-** Note ID by Path
+** AIU ID by Path
 
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas--note-id-by-path (path)
-  "Return the ID of the note at PATH, or nil."
+  "Return the ID of the AIU at PATH, or nil."
   (when (file-exists-p path)
     (with-temp-buffer
       (insert-file-contents path)
@@ -68,7 +68,7 @@ key conversion it owns.
                             property-type))))
 #+end_src
 
-** Ensure Unfolding Note (closed vocab)
+** Ensure Unfolding AIU (closed vocab)
 
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas--ensure-unfolding-note (property-type value &optional note)
@@ -76,7 +76,7 @@ key conversion it owns.
 When a parent note can be determined (via _NOTE, session, or point),
 creates a *scoped* unique file per parent (via `create-scoped-note`);
 otherwise falls back to shared vocab file. This makes each unfolding
-unique per parent so per-file notes don't leak."
+unique per parent so per-file AIUs don't leak."
   (when (and value (not (string-equal value "WARNING")))
     (let* ((parent-note (or note
                             (and (bound-and-true-p my/manifolding-atlas-org-prompt--session)
@@ -89,7 +89,7 @@ unique per parent so per-file notes don't leak."
                                 note))))
            (parent-id (and parent-note (ignore-errors (manifolding-atlas-note-id parent-note)))))
       (if parent-id
-          ;; Unique per parent — scoped file holds notes for *this* parent only
+          ;; Unique per parent — scoped file holds AIUs for *this* parent only
           (my/manifolding-atlas--create-scoped-note property-type value parent-id note)
         ;; Fallback shared (legacy / no parent context)
         (let* ((slug (my/manifolding-atlas--canonicalize value))
@@ -112,14 +112,14 @@ unique per parent so per-file notes don't leak."
 ** Scoped To-Plist Factory
 
 *** Cross-buffer unfolding writer
-NOTE may reside in a different buffer than the one being edited:
+AIU may reside in a different buffer than the one being edited:
 locate its heading by file, level, and pos first.
 Uses drawer-put directly for unfoldings domain's wormhole handling.
 #+begin_src emacs-lisp
 (require 'cl-lib)
 
 (defun my/manifolding-atlas--property-put (note key value)
-  "Set property KEY to VALUE in NOTE's file on disk using drawer-put."
+  "Set property KEY to VALUE in AIU's file on disk using drawer-put."
   (let* ((file (manifolding-atlas-note-path note))
          (level (manifolding-atlas-note-level note))
          (pos   (manifolding-atlas-note-pos note)))
@@ -389,7 +389,7 @@ Wormhole rendering is stripped first so the drawer edits see raw
 #+begin_src emacs-lisp :lexical t
 (defun my/manifolding-atlas--apply-state-post (property-type drawer-value unfolding-id note)
   "Post-apply wrapper for an unfolding state.
-Navigates by NOTE's own path, so it works from any buffer."
+Navigates by AIU's own path, so it works from any buffer."
   (when-let ((file (manifolding-atlas-note-path note)))
     (with-current-buffer (find-file-noselect file)
       (let ((re-render (bound-and-true-p atlas-wormholes-mode))
@@ -451,7 +451,7 @@ Navigates by NOTE's own path, so it works from any buffer."
              (my/manifolding-atlas--make-id-link (manifolding-atlas-note-id note) value)))))))
 #+end_src
 
-** Default Filter — Hide unfolding notes from manifolding-atlas-find
+** Default Filter — Hide unfolding AIUs from manifolding-atlas-find
 
 *** Hidden-path predicate
 #+begin_src emacs-lisp
@@ -485,13 +485,13 @@ replacing it.
 (advice-add 'manifolding-atlas-select :around #'my/manifolding-atlas--select-filter-advice)
 #+end_src
 
-** Open unfolding notes in capture by default
+** Open unfolding AIUs in capture by default
 
 *** Capture-style file editor
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas--edit-file-in-capture (file)
   (let* ((org-capture-templates
-          `(("v" "Edit note body"
+          `(("v" "Edit AIU body"
              plain
              (file+function
               ,file
@@ -527,7 +527,7 @@ in capture instead of plain visit.
 (advice-add 'org-id-open :around #'my/manifolding-atlas--open-unfolding-link)
 #+end_src
 
-** Index wormhole-in-drawer notes
+** Index wormhole-in-drawer AIUs
 
 *** Parse tolerance flag
 #+begin_src emacs-lisp
@@ -613,9 +613,9 @@ Puts the raw wormhole lines back exactly where they were.
 Press RET on a property line inside a :PROPERTIES: drawer. The
 registered declarative spec for that key opens as a picking session
 (letters jump+mark, RET advances); on finish, the picked value is
-linked as an unfolding note and its file opens directly so writing
+linked as an unfolding AIU and its file opens directly so writing
 can start immediately. If the property already holds an unfolding
-link, choose to update the linked note directly or change to a
+link, choose to update the linked AIU directly or change to a
 different option. Missing spec is a loud error naming the key --
 never a silent empty picker. Everywhere else, RET behaves normally.
 #+begin_src emacs-lisp
@@ -692,7 +692,7 @@ modus-vivendi without hardcoded single-theme colors."
      (2 'my/manifolding-atlas-context-value-face)))
   "Font-lock rules highlighting live-property wormhole lines
 (\"KEY > :tag:\"), wherever they render -- including inside an
-origin note's transclusion, not just unfolding note files.")
+origin AIU's transclusion, not just unfolding AIU files.")
 
 (defun my/manifolding-atlas--context-line-fontify ()
   "Enable live-property line highlighting in any org buffer."
@@ -779,7 +779,7 @@ inserted or repaired."
   "Make FINAL-TITLE live for KEY at MARKER, then open it for editing.
 Create/reuse the unfolding note, replace KEY's drawer entry with a
 live `#+wormhole:' line via `my/manifolding-atlas--refresh-property-wormhole',
-save the origin, and open the unfolding note in a capture."
+save the origin, and open the unfolding AIU in a capture."
   (let ((buf (marker-buffer marker)))
     (unless (buffer-live-p buf)
       (user-error "Origin buffer gone"))
@@ -791,7 +791,7 @@ save the origin, and open the unfolding note in a capture."
                       property-type final-title parent-note))
                (unfolding-id (my/manifolding-atlas--id-from-link link)))
           (unless unfolding-id
-            (user-error "Could not create a reference note for %s" final-title))
+            (user-error "Could not create a reference AIU for %s" final-title))
           (save-window-excursion
             (save-excursion
               (goto-char marker)
@@ -859,7 +859,7 @@ such a capture just finalized. Fully error-isolated."
   "RET on a property: pick from the registered declarative spec, then
 link the picked unfolding note and open it directly. If the property
 already holds an unfolding link, ask whether to update the linked
-note directly or change to a different option."
+AIU directly or change to a different option."
   (interactive)
   (let ((key (my/manifolding-atlas--current-property-key)))
     (unless key
@@ -876,7 +876,7 @@ note directly or change to a different option."
              (existing-link (my/manifolding-atlas--unfolding-link-value raw))
              (existing-id (car existing-link)))
         (if existing-id
-            (if (y-or-n-p (format "%s is set -- update the note (y) or change the option (n)? " key))
+            (if (y-or-n-p (format "%s is set -- update the AIU (y) or change the option (n)? " key))
                 (my/manifolding-atlas--open-unfolding-file-capture existing-id)
               (my/manifolding-atlas--property-pick-live key property-type))
           (my/manifolding-atlas--property-pick-live key property-type))))))

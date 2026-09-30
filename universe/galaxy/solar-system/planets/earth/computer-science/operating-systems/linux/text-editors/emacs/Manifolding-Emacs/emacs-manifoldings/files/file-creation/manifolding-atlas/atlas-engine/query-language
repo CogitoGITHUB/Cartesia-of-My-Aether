@@ -3,7 +3,7 @@
 :ID:       b296f1c2-7d16-4a49-9570-bb0451b907ad
 :END:
 
-Composable S-expr queries over notes, read-only.  Operators cover
+Composable S-expr queries over AIUs, read-only.  Operators cover
 what the indexes honestly support: tags, title text, file age, and
 the boolean combinators, plus sort and limit.  Saved queries persist
 in cache; org-babel blocks execute them in place.  Nothing here runs
@@ -22,7 +22,7 @@ at load.
                    (file-attributes p))))))
 
 (defun my/atlas-query--match-p (note query)
-  "Non-nil when NOTE satisfies QUERY sexp."
+  "Non-nil when AIU satisfies QUERY sexp."
   (pcase query
     (`(and . ,rest) (cl-every (lambda (q) (my/atlas-query--match-p note q)) rest))
     (`(or . ,rest) (cl-some (lambda (q) (my/atlas-query--match-p note q)) rest))
@@ -32,7 +32,7 @@ at load.
        (if (and (fboundp 'my/atlas-tag-transitive)
                 (boundp 'my/atlas-tag-extends)
                 (> (hash-table-count my/atlas-tag-extends) 0))
-           ;; Transitive: note matches on TAG or any descendant.
+           ;; Transitive: AIU matches on TAG or any descendant.
            (seq-intersection
             (ignore-errors (my/atlas-tag-transitive tag)) tags)
          (member tag tags))))
@@ -55,7 +55,7 @@ at load.
   (float-time (date-to-time (concat iso "T00:00:00"))))
 
 (defun my/atlas-query (query &rest kwargs)
-  "Notes matching QUERY, with :sort (title|mtime), :order, :limit."
+  "AIUs matching QUERY, with :sort (title|mtime), :order, :limit."
   (let* ((sort-key (plist-get kwargs :sort))
          (order (or (plist-get kwargs :order) '<))
          (limit (plist-get kwargs :limit))
@@ -125,7 +125,7 @@ at load.
   (my/atlas-queries-save))
 
 (defun my/atlas-query-run-saved (name)
-  "Notes matching saved query NAME."
+  "AIUs matching saved query NAME."
   (interactive
    (list (completing-read "Run query: "
                           (mapcar #'car my/atlas-saved-queries))))

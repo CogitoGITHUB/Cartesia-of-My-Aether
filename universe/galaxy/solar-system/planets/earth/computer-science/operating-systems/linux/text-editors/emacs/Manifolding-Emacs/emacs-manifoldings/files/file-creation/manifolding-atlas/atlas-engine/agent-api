@@ -47,7 +47,7 @@ default: dormant is the normal state, no need to announce it.")
 ** Reads
 #+begin_src emacs-lisp
 (defun my/atlas-api-query (&optional filter)
-  "Notes as plists, optionally filtered by FILTER plist (:tag T ...)."
+  "AIUs as plists, optionally filtered by FILTER plist (:tag T ...)."
   (let ((notes (ignore-errors (manifolding-atlas-db-query))))
     (if (null filter)
         notes
@@ -60,7 +60,7 @@ default: dormant is the normal state, no need to announce it.")
           notes)))))
 
 (defun my/atlas-api-node (id)
-  "Note plist for ID, or nil."
+  "AIU plist for ID, or nil."
   (and (fboundp 'manifolding-atlas-db-get-by-id)
        (ignore-errors (manifolding-atlas-db-get-by-id id))))
 
@@ -93,13 +93,13 @@ default: dormant is the normal state, no need to announce it.")
 ** Writes with provenance
 #+begin_src emacs-lisp
 (defmacro my/atlas-api--with-note (id &rest body)
-  "Run BODY in the buffer at note ID's heading."
+  "Run BODY in the buffer at AIU ID's heading."
   (declare (indent 1) (debug t))
   `(let* ((me-note (my/atlas-api-node ,id))
           (me-id (ignore-errors (manifolding-atlas-note-id me-note)))
           (me-marker (and me-id (ignore-errors (org-id-find me-id t)))))
      (unless (and me-marker (marker-buffer me-marker))
-       (error "agent api: note %s not found" ,id))
+       (error "agent api: AIU %s not found" ,id))
      (with-current-buffer (marker-buffer me-marker)
        (save-excursion
          (goto-char me-marker)

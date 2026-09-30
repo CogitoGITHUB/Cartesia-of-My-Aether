@@ -3,7 +3,7 @@
 :ID:       31386909-86c4-4ca3-a634-02e05cd6c0fc
 :END:
 
-Serendipitous rereading: random full-body note cards, vault search,
+Serendipitous rereading: random full-body AIU cards, vault search,
 history, and quote capture back to where you started.  Read paths go
 through the standard find/visit machinery; the only write is an
 explicit yank.  Nothing here runs at load.
@@ -14,18 +14,18 @@ explicit yank.  Nothing here runs at load.
 (require 'seq)
 
 (defvar my/atlas-discovery-history nil
-  "Note ids shown, newest first (max 100).")
+  "AIU ids shown, newest first (max 100).")
 
 (defvar my/atlas-discovery-count 10
   "Cards per discovery batch.")
 
 (defun my/atlas-discovery-sample (&optional n)
-  "N random notes (default `my/atlas-discovery-count')."
+  "N random AIUs (default `my/atlas-discovery-count')."
   (let ((notes (ignore-errors (manifolding-atlas-db-query))))
     (seq-take (seq-shuffle notes) (or n my/atlas-discovery-count))))
 
 (defun my/atlas-discovery-note-text (note)
-  "Title plus up to 1500 chars of body for NOTE."
+  "Title plus up to 1500 chars of body for AIU."
   (let* ((title (or (ignore-errors (manifolding-atlas-note-title note)) "?"))
          (path (ignore-errors (manifolding-atlas-note-path note)))
          (body (when (and path (file-exists-p path))
@@ -35,7 +35,7 @@ explicit yank.  Nothing here runs at load.
     (format "%s\n%s" title (substring (or body "") 0 (min 1500 (length (or body "")))))))
 
 (defun my/atlas-discovery ()
-  "Show a batch of random note cards."
+  "Show a batch of random AIU cards."
   (interactive)
   (let ((buf (get-buffer-create "*Atlas Discovery*"))
         (cards (my/atlas-discovery-sample)))

@@ -87,17 +87,17 @@ strings and would silently accumulate duplicates on re-register)."
 #+end_src
 
 * Candidate builders
-Notes already carry everything the contract needs; these lift them
+AIUs already carry everything the contract needs; these lift them
 (and org-ql elements, and grep hits) into candidates. The note-id
 lookup cache keeps per-session annotation cheap: one DB hit per
 file, not per candidate redraw.
 
 #+begin_src emacs-lisp
 (defvar-local my/atlas-search--file-id-cache nil
-  "Session cache: file path -> note id, for annotate enrichment.")
+  "Session cache: file path -> AIU id, for annotate enrichment.")
 
 (defun my/atlas-search--note-id-for-file (file)
-  "Note id for FILE, cached per search session."
+  "AIU id for FILE, cached per search session."
   (unless my/atlas-search--file-id-cache
     (setq my/atlas-search--file-id-cache (make-hash-table :test 'equal)))
   (or (gethash file my/atlas-search--file-id-cache)
@@ -119,7 +119,7 @@ file, not per candidate redraw.
         (list :stage (nth 0 row) :status (nth 1 row) :due (nth 2 row))))))
 
 (defun my/atlas-search-candidate-from-note (note source)
-  "Lift manifolding-atlas NOTE object into a candidate from SOURCE."
+  "Lift manifolding-atlas AIU object into a candidate from SOURCE."
   (let* ((id (manifolding-atlas-note-id note))
          (sched (my/atlas-search--schedule-for id))
          (tags (ignore-errors (manifolding-atlas-note-tags note))))
@@ -288,7 +288,7 @@ for free — including surfaces built after this file.
       (user-error "No Atlas candidate at point")))
 
 (defun my/atlas-search-act-visit ()
-  "Visit the candidate note."
+  "Visit the candidate AIU."
   (interactive)
   (let ((c (my/atlas-search--embark-target)))
     (manifolding-atlas-visit (manifolding-atlas-db-get-by-id (plist-get c :id)))))
@@ -338,7 +338,7 @@ reveal, and stage context rides along in annotations.
 ** Shared consult glue
 #+begin_src emacs-lisp
 (defun my/atlas-search--visit-candidate (cand)
-  "Visit display CAND: note id when known, marker jump otherwise."
+  "Visit display CAND: AIU id when known, marker jump otherwise."
   (let ((c (my/atlas-search--candidate-of cand)))
     (cond ((and c (plist-get c :id))
            (manifolding-atlas-visit
@@ -366,7 +366,7 @@ most providers today) and returns display strings."
         :state (my/atlas-search--preview-state)))
 
 (defun my/atlas-search--note-items (notes source)
-  "Display strings for NOTE objects as SOURCE candidates."
+  "Display strings for AIU objects as SOURCE candidates."
   (let ((cands (mapcar (lambda (n) (my/atlas-search-candidate-from-note n source))
                        notes)))
     (my/atlas-search--assert-candidates source cands)
@@ -510,7 +510,7 @@ queries (by-tag, custom) are hydra launchers, not sources.")
 ** Files provider (registered through the public API)
 #+begin_src emacs-lisp
 (defun my/atlas-search--vault-files ()
-  "Vault note files, skipping .git/admin/cache noise."
+  "Vault AIU files, skipping .git/admin/cache noise."
   (let ((root (my/manifolding-atlas-root-dir)))
     (seq-filter
      (lambda (f)
@@ -606,7 +606,7 @@ prompt over an existing query.
         (when sel (my/atlas-search--visit-candidate sel))))))
 
 (defun my/atlas-search-by-tag ()
-  "Notes carrying a chosen tag."
+  "AIUs carrying a chosen tag."
   (interactive)
   (let* ((tag (completing-read
                "Tag: " (ignore-errors (manifolding-atlas-db-query-tags)) nil t))
@@ -614,7 +614,7 @@ prompt over an existing query.
     (my/atlas-search--pick-notes (format "Tag %s: " tag) notes "tag")))
 
 (defun my/atlas-search-by-stage ()
-  "Notes at a chosen spine stage."
+  "AIUs at a chosen spine stage."
   (interactive)
   (let* ((stage (completing-read
                  "Stage: " my/manifolding-atlas-mastering--stages nil t))
@@ -626,7 +626,7 @@ prompt over an existing query.
     (my/atlas-search--pick-notes (format "Stage %s: " stage) notes "stage")))
 
 (defun my/atlas-search-by-status ()
-  "Notes in a chosen workflow status."
+  "AIUs in a chosen workflow status."
   (interactive)
   (let* ((status (completing-read
                   "Status: " my/manifolding-atlas-mastering--statuses nil t))
@@ -639,10 +639,10 @@ prompt over an existing query.
     (my/atlas-search--pick-notes (format "Status %s: " status) notes "status")))
 
 (defun my/atlas-search-backlinks ()
-  "Notes linking to the note at point."
+  "AIUs linking to the AIU at point."
   (interactive)
   (let* ((note (my/manifolding-atlas--buffer-note)))
-    (unless note (user-error "No note at point"))
+    (unless note (user-error "No AIU at point"))
     (let ((ids (mapcar (lambda (l) (plist-get l :source))
                        (manifolding-atlas-db-query-links-to
                         (manifolding-atlas-note-id note)))))
@@ -654,10 +654,10 @@ prompt over an existing query.
        "backlinks"))))
 
 (defun my/atlas-search-forward-links ()
-  "Notes the note at point links to."
+  "AIUs the AIU at point links to."
   (interactive)
   (let* ((note (my/manifolding-atlas--buffer-note)))
-    (unless note (user-error "No note at point"))
+    (unless note (user-error "No AIU at point"))
     (let ((ids (mapcar (lambda (l) (plist-get l :dest))
                        (manifolding-atlas-db-query-links-from
                         (manifolding-atlas-note-id note)))))
@@ -669,10 +669,10 @@ prompt over an existing query.
        "links"))))
 
 (defun my/atlas-search-component ()
-  "Connected component of the note at point (graph neighborhood)."
+  "Connected component of the AIU at point (graph neighborhood)."
   (interactive)
   (let* ((note (my/manifolding-atlas--buffer-note)))
-    (unless note (user-error "No note at point"))
+    (unless note (user-error "No AIU at point"))
     (let ((ids (manifolding-atlas-db-component
                 (manifolding-atlas-note-id note))))
       (my/atlas-search--pick-notes
@@ -683,10 +683,10 @@ prompt over an existing query.
        "component"))))
 
 (defun my/atlas-search-path ()
-  "Shortest link path from the note at point to a chosen note."
+  "Shortest link path from the AIU at point to a chosen AIU."
   (interactive)
   (let* ((note (my/manifolding-atlas--buffer-note)))
-    (unless note (user-error "No note at point"))
+    (unless note (user-error "No AIU at point"))
     (let* ((from (manifolding-atlas-note-id note))
            (to-note (manifolding-atlas-select "Path to: " :require-match t))
            (to (manifolding-atlas-note-id to-note))

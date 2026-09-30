@@ -1,11 +1,11 @@
-Manual recipe notes in the atlas. Recipes are authored by hand — no URL
+Manual recipe AIUs in the atlas. Recipes are authored by hand — no URL
 fetch, no source-url unfolding. They are stored under `recipes/` in the vault,
 carry recipe-specific unfoldings (SERVINGS, PREP_TIME, COOK_TIME,
 READY_IN) via the `recipes` body template, and can have their ingredient
 quantities rescaled to a new serving count.
 
 Commands:
-- `my/manifolding-atlas-recipe-create` — create a new recipe note
+- `my/manifolding-atlas-recipe-create` — create a new recipe AIU
 - `my/manifolding-atlas-recipes-edit-servings` — rescale ingredient quantities
 
 * State :EMACS_MECHANISM:
@@ -17,7 +17,7 @@ Commands:
 #+begin_src emacs-lisp
 (defvar my/manifolding-atlas-recipes-directory
   (expand-file-name "recipes/" (my/manifolding-atlas-root-dir))
-  "Directory (inside the vault) where recipe notes live.")
+  "Directory (inside the vault) where recipe AIUs live.")
 #+end_src
 
 * Helpers
@@ -46,7 +46,7 @@ Commands:
       "unknown"))
 
 (defun my/manifolding-atlas-recipes--store-template (note)
-  "Store TEMPLATE and TEMPLATE_HASH unfoldings on NOTE."
+  "Store TEMPLATE and TEMPLATE_HASH unfoldings on AIU."
   (my/manifolding-atlas--unfolding-put note "TEMPLATE" "recipes")
   (my/manifolding-atlas--unfolding-put note "TEMPLATE_HASH"
                             (my/manifolding-atlas-recipes--template-hash)))
@@ -177,7 +177,7 @@ the quantities in the Ingredients list to match."
 #+end_src
 
 * Schema
-Requires SERVINGS, PREP_TIME, COOK_TIME and READY_IN on notes
+Requires SERVINGS, PREP_TIME, COOK_TIME and READY_IN on AIUs
 tagged =recipe=.
 #+begin_src emacs-lisp
 (with-eval-after-load 'manifolding-atlas

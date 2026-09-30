@@ -4,7 +4,7 @@
 :MM_PARENT: none
 :MM_ORDER:  14.0
 :END:
-Why: Store arbitrary key-value metadata on notes. Used by manifolding-atlas queries,
+Why: Store arbitrary key-value metadata on AIUs. Used by manifolding-atlas queries,
 org queries, and custom workflows. Press blank key to stop adding more.
 Unfoldings become queryable in the manifolding-atlas DB.
 

@@ -237,7 +237,7 @@ flows stay fresh via autosync plus explicit updates. Never throws."
         (org-entry-get (point) key)))))
 
 (defun my/mm-file-id (file)
-  "Note id of FILE from its drawer."
+  "AIU id of FILE from its drawer."
   (my/mm-file-drawer-get file "ID"))
 
 (defun my/mm-default-map (file)
@@ -414,7 +414,7 @@ renders all titles fresh. Never throws.
   "Re-entrancy guard: bound t while a sync writes.")
 
 (defun my/mm-vault-file-p (file)
-  "Non-nil when FILE is a syncable vault note (extensionless, tracked)."
+  "Non-nil when FILE is a syncable vault AIU (extensionless, tracked)."
   (and file (stringp file)
        (let ((root (and (fboundp 'my/manifolding-atlas-root-dir)
                         (ignore-errors (my/manifolding-atlas-root-dir)))))

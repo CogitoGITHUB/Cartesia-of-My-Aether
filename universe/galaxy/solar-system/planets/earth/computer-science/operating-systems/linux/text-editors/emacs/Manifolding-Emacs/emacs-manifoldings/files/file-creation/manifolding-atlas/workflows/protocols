@@ -87,7 +87,7 @@ Migrates older schemas by adding recurrence columns when missing."
 
 *** DB Extractor
 Records protocol bookkeeping (topics, order, level, routed files) for
-notes carrying a PROTOCOL unfolding.
+AIUs carrying a PROTOCOL unfolding.
 
 **** Extractor
 #+begin_src emacs-lisp
@@ -131,7 +131,7 @@ notes carrying a PROTOCOL unfolding.
 #+end_src
 
 *** Schema
-Requires PROTOCOL_TOPICS, PROTOCOL_ORDER and PROTOCOL_LEVEL on notes
+Requires PROTOCOL_TOPICS, PROTOCOL_ORDER and PROTOCOL_LEVEL on AIUs
 with a PROTOCOL unfolding.
 #+begin_src emacs-lisp
 (manifolding-atlas-blueprint-define
@@ -266,7 +266,7 @@ to its protocol file."
 **** Route every protocol step
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-protocols-route-all ()
-  "Re-route every note marked PROTOCOL: t. Run manually after bulk edits."
+  "Re-route every AIU marked PROTOCOL: t. Run manually after bulk edits."
   (interactive)
   (let ((notes (manifolding-atlas-db-query-by-unfolding "PROTOCOL" "t")))
     (dolist (note notes)

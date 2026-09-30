@@ -4,7 +4,7 @@
 :MM_PARENT: none
 :MM_ORDER:  9.0
 :END:
-Why: Plan when to start or finish a note. ~SCHEDULED~ appears in the agenda
+Why: Plan when to start or finish an AIU. ~SCHEDULED~ appears in the agenda
 from that date onward; ~DEADLINE~ appears as due.  Enter org timestamps like
 ~<2025-06-01 Sun>~ or leave blank for none.
 

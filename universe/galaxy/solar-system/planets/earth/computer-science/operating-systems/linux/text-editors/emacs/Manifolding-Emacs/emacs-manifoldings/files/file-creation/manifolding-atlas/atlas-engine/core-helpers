@@ -1,6 +1,6 @@
 Shared utility functions used across multiple domains.
 
-* Buffer Note Helper :EMACS_MECHANISM:
+* Buffer AIU Helper :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       a2acea7c-6215-4bed-8f4b-0feb5191682d
 :MM_PARENT: none
@@ -11,7 +11,7 @@ Shared utility functions used across multiple domains.
 Walks up to the enclosing heading if the cursor is in the body/drawer.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas--note-at-point ()
-  "Return the manifolding-atlas note for the heading under (or enclosing) point."
+  "Return the AIU for the heading under (or enclosing) point."
   (when (derived-mode-p 'org-mode)
     (unless (org-at-heading-p)
       (ignore-errors (org-back-to-heading t)))
@@ -20,10 +20,10 @@ Walks up to the enclosing heading if the cursor is in the body/drawer.
 #+end_src
 
 ** Buffer fallback
-Prefers the note under the cursor, falls back to the deepest note at or before point in the file.
+Prefers the AIU under the cursor, falls back to the deepest AIU at or before point in the file.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas--buffer-note ()
-  "Return the manifolding-atlas note for the current buffer, or nil."
+  "Return the AIU for the current buffer, or nil."
   (or (my/manifolding-atlas--note-at-point)
       (when-let ((file (buffer-file-name))
                  (notes (manifolding-atlas-db-query-by-file-path (file-truename file))))

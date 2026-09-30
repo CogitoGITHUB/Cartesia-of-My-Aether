@@ -50,13 +50,13 @@ SPC o: Org tree (org/agenda/tasks/clock/edit/capture/atlas).
    ("c" org-capture                   "capture"       :exit t)))
 (my/defhydra-state my/org-capture-hydra nil "Org › Capture" (my/org-hydra/body "org")
   "Capture"
-  (("n" (lambda () (interactive) (org-capture nil "vn")) "manifolding-atlas note"  :exit t)
+  (("n" (lambda () (interactive) (org-capture nil "vn")) "AIU"  :exit t)
    ("h" my/manifolding-atlas-capture-heading              "heading"      :exit t)
    ("t" (lambda () (interactive) (org-capture nil "t"))  "task"         :exit t)
    ("c" org-capture                                       "capture menu" :exit t)))
 (my/defhydra-state my/org-manifolding-atlas-hydra nil "Org › Manifolding Atlas" (my/org-hydra/body "org")
   "Manifolding Atlas"
-  (("f" manifolding-atlas-find              "find note"    :exit t)
+  (("f" manifolding-atlas-find              "find AIU"    :exit t)
    ("i" my/manifolding-atlas-insert-link-at-point            "insert link"  :exit t)
    ("r" my/manifolding-atlas-rename-link    "rename link"  :exit t)
    ("u" manifolding-atlas-ui-sidebar-toggle "sidebar"      :exit t)))

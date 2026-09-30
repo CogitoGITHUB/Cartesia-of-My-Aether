@@ -1,5 +1,5 @@
 Modular routines system for the atlas, modeled on the mastering plugin.
-A routine is an atlas note tagged =routine= whose child headings are
+A routine is an AIU tagged =routine= whose child headings are
 routine entries referencing sources via =SOURCE=, =ROUTINE_ID= and
 =ROUTINE_ORDER= unfoldings. Every mutation dual-writes the org drawer
 and the SQLite index, so queries run against the DB without re-parsing
@@ -42,13 +42,13 @@ its life domain (SELF-CARE through CUSTOM), and its temporal rhythm
 #+end_src
 
 *** Directory state
-Three directories: routine notes live under =routines/=, rendered
+Three directories: routine AIUs live under =routines/=, rendered
 files go to =routines/generated/=, and session journals nest into
 =sessions/<Y>/<Q>/<m>/<W>/= at the vault root.
 #+begin_src emacs-lisp
 (defvar my/manifolding-atlas-routines-directory
   (expand-file-name "routines/" (my/manifolding-atlas-root-dir))
-  "Directory inside the vault where routine notes live.")
+  "Directory inside the vault where routine AIUs live.")
 
 (defvar my/manifolding-atlas-routines-generated-directory
   (expand-file-name "generated/" my/manifolding-atlas-routines-directory)
@@ -78,7 +78,7 @@ organized with the same year/quarter/month/week nesting as the journal.")
 #+end_src
 
 *** Database Tables
-Three tables: =routines= indexes routine notes by type/domain/temporal,
+Three tables: =routines= indexes routine AIUs by type/domain/temporal,
 =routine_entries= maps entry headings to their parent routine with
 ordering, and =routine_sessions= journals each run with done/skip counts.
 
@@ -170,9 +170,9 @@ portable ALTER, errors swallowed.
 #+end_src
 
 *** DB Extractor
-Indexes ROUTINE_* unfoldings from NOTE-DATA. Routine notes land in
+Indexes ROUTINE_* unfoldings from NOTE-DATA. Routine AIUs land in
 =routines=; entry headings carrying ROUTINE_ID, SOURCE and
-ROUTINE_ORDER land in =routine_entries=. Session notes with SESSION_OF
+ROUTINE_ORDER land in =routine_entries=. Session AIUs with SESSION_OF
 and SESSION_DATE land in =routine_sessions=.
 
 **** Routine row extraction
@@ -264,9 +264,9 @@ SOURCE and ROUTINE_ORDER land in `routine_entries'."
 #+end_src
 
 *** Schema
-Two schemas: =routine= requires ROUTINE_TYPE/DOMAIN/TEMPORAL on notes
+Two schemas: =routine= requires ROUTINE_TYPE/DOMAIN/TEMPORAL on AIUs
 tagged =routine= (but not =session=); =routines-session= requires the
-SESSION_* unfoldings on notes tagged =session=.
+SESSION_* unfoldings on AIUs tagged =session=.
 
 **** Validator factories
 Every field validates as required, optionally constrained to a
@@ -478,14 +478,14 @@ the routine file.
 **** Browsing
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-routines-all ()
-  "Return list of all routine notes known to the DB."
+  "Return list of all routine AIUs known to the DB."
   (let ((ids (mapcar #'car
                      (emacsql (manifolding-atlas-db)
                               [:select [note-id] :from routines]))))
     (seq-map #'manifolding-atlas-db-get-by-id ids)))
 
 (defun my/manifolding-atlas-routines-find ()
-  "Browse and open routine notes."
+  "Browse and open routine AIUs."
   (interactive)
   (let ((ids (mapcar #'car
                      (emacsql (manifolding-atlas-db)
@@ -512,7 +512,7 @@ the routine file.
               candidates)))
 
 (defun my/manifolding-atlas-routines--select-routine-interactive (prompt)
-  "Prompt for a routine and return the note."
+  "Prompt for a routine and return the AIU."
   (let ((candidates (my/manifolding-atlas-routines--routine-candidates)))
     (when (null candidates) (user-error "No routines defined yet"))
     (manifolding-atlas-db-get-by-id
@@ -636,7 +636,7 @@ interval days anchor next)."
 #+end_src
 
 *** Session Journaling
-Each run creates or updates a session note under
+Each run creates or updates a session AIU under
 =sessions/<Y>/<Q>/<m>/<W>/<date>-<slug>= with per-step results.
 Idempotent per day: same routine + date rewrites in place, preserving ID.
 
@@ -654,7 +654,7 @@ Idempotent per day: same routine + date rewrites in place, preserving ID.
 **** Session lookup and path
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-routines--session-note-for (routine-id date-int)
-  "Return today's existing session note for ROUTINE-ID on DATE-INT, or nil."
+  "Return today's existing session AIU for ROUTINE-ID on DATE-INT, or nil."
   (let ((row (caar (emacsql (manifolding-atlas-db)
                      [:select [note-id] :from routine_sessions
                       :where (and (= routine-id $s1)
@@ -1058,7 +1058,7 @@ the recursive-edit, so an unexpected quit can never strand the session."
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-routines--mastery-status (sid)
   "Return (BADGE . DUE-P) for SID from mastering_schedule.
-BADGE is nil when the note is not in the review pool."
+BADGE is nil when the AIU is not in the review pool."
   (condition-case nil
       (when (fboundp 'my/manifolding-atlas-mastering--today-int)
         (let ((row (car (emacsql (manifolding-atlas-db)
@@ -1145,7 +1145,7 @@ Empty input finishes; duplicates and unknown picks are ignored.
          (temporal (my/manifolding-atlas-prompt-routine-temporal))
          (unfoldings (my/manifolding-atlas-routines--context-unfoldings
                  rtype domain temporal)))
-    (message "Select source headings. b=key sel this buffer, v=vault notes.")
+    (message "Select source headings. b=key sel this buffer, v=vault AIUs.")
     (let* ((collected (my/manifolding-atlas-routines--collect))
            (ordered (my/manifolding-atlas-routines--reorder collected))
            (details (my/manifolding-atlas-routines--prompt-details ordered)))
@@ -1340,7 +1340,7 @@ themselves routines.
                            report)
                      nil))))
     (unless note
-      (push (format "%s: routine row without resolvable note" rid) report))
+      (push (format "%s: routine row without resolvable AIU" rid) report))
     (when entries
       (dolist (entry entries)
         (unless (manifolding-atlas-db-get-by-id (nth 0 entry))
@@ -1632,8 +1632,8 @@ to journal the session.
       (insert (format "[[id:%s][open]]\n" sid)))))
 #+end_src
 **** Open-note followup prompt
-After opening a step's note, the user is asked again; returns
-'done-learn, 'done, 'skip, 'quit, or nil when there is no note.
+After opening a step's AIU, the user is asked again; returns
+'done-learn, 'done, 'skip, 'quit, or nil when there is no AIU.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-routines--open-followup (snote _sid due-p)
   "Open SNOTE for SID and ask what to do next."
@@ -1815,7 +1815,7 @@ end, offer to journal the session."
 *** Add Entry & Due Reviews
 
 **** Entry source selection
-Heading at point when inside a vault note, else vault-wide pick.
+Heading at point when inside a vault AIU, else vault-wide pick.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-routines--add-entry-source ()
   "Return (id . title) for a new entry source."

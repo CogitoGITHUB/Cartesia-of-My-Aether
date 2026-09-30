@@ -3,7 +3,7 @@
 :ID:       6ad746ae-d0fd-4c70-9907-1609209a6554
 :END:
 
-Find bodies that mention a note's title without linking it, and act:
+Find bodies that mention an AIU's title without linking it, and act:
 link one occurrence, link them all, or ignore that source for that
 target.  Read-only until you act; actions reuse the standard link
 builder.  Hint overlays (mention-hints-mode) highlight known titles
@@ -100,7 +100,7 @@ already-linked occurrences.  Code blocks are skipped best-effort."
 #+begin_src emacs-lisp
 (defun my/atlas-mention-link-at (target-note file pos &optional title)
   "Replace the occurrence at POS in FILE with an id: link to TARGET-NOTE.
-TITLE is the matched text (title or alias); defaults to the note title."
+TITLE is the matched text (title or alias); defaults to the AIU title."
   (let ((text (or title (ignore-errors
                          (manifolding-atlas-note-title target-note)) "")))
     (with-current-buffer (find-file-noselect file)
@@ -187,7 +187,7 @@ Works back to front so earlier positions stay valid."
   "Idle timer refreshing hint overlays in this buffer.")
 
 (defun my/atlas-mention-hints-refresh ()
-  "Highlight known note titles in the current buffer (hints only)."
+  "Highlight known AIU titles in the current buffer (hints only)."
   (when (derived-mode-p 'org-mode)
     (unless my/atlas-mention-hint-titles
       (let (titles)
@@ -205,7 +205,7 @@ Works back to front so earlier positions stay valid."
       (when font-lock-mode (font-lock-flush)))))
 
 (define-minor-mode my/atlas-mention-hints-mode
-  "Highlight known note titles as non-writing hints."
+  "Highlight known AIU titles as non-writing hints."
   :lighter " ?"
   (if my/atlas-mention-hints-mode
       (progn (setq my/atlas-mention-hints-timer

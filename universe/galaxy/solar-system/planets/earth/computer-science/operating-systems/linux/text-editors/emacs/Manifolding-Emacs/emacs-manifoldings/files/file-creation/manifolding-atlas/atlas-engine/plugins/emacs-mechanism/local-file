@@ -9,7 +9,7 @@
 #+begin_src emacs-lisp
 (defvar my/manifolding-atlas-emacs-mechanism-directory
   (expand-file-name "emacs-mechanism/" (my/manifolding-atlas-root-dir))
-  "Vault subdir where mechanism notes live.")
+  "Vault subdir where mechanism AIUs live.")
 #+end_src
 
 ** Template body
@@ -30,7 +30,7 @@
 ** Store template
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-emacs-mechanism--store-template (note kind)
-  "Stamp TEMPLATE + TEMPLATE_HASH unfoldings on NOTE."
+  "Stamp TEMPLATE + TEMPLATE_HASH unfoldings on AIU."
   (my/manifolding-atlas--unfolding-put note "TEMPLATE" kind)
   (my/manifolding-atlas--unfolding-put note "TEMPLATE_HASH"
     (my/manifolding-atlas-emacs-mechanism--template-hash kind)))
@@ -39,7 +39,7 @@
 ** Headline tag
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-emacs-mechanism--ensure-headline-tag (note)
-  "Ensure NOTE's first headline has :ID: and :EMACS_MECHANISM: tag."
+  "Ensure AIU's first headline has :ID: and :EMACS_MECHANISM: tag."
   (let ((path (manifolding-atlas-note-path note)))
     (with-current-buffer (find-file-noselect path)
       (goto-char (point-min))
@@ -54,7 +54,7 @@
 ** Body capture opener
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-emacs-mechanism--open-capture (note body)
-  "Open org-capture for NOTE's body with BODY template."
+  "Open org-capture for AIU's body with BODY template."
   (let ((org-capture-templates
          `(("v" "Edit mechanism body"
             plain (file+function ,(manifolding-atlas-note-path note)
@@ -66,7 +66,7 @@
 ** Create command
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-emacs-mechanism-local-create (title)
-  "Create a local mechanism note for TITLE in the mechanism subdir."
+  "Create a local mechanism AIU for TITLE in the mechanism subdir."
   (interactive (list (read-string "Mechanism file title: ")))
   (make-directory my/manifolding-atlas-emacs-mechanism-directory t)
   (let* ((slug (downcase (replace-regexp-in-string "[^a-z0-9]+" "-" title)))

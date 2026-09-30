@@ -4,7 +4,7 @@
 :END:
 
 `#tag` completion and indexing for org buffers.  Tags stay plain text
-(a `#tag` token); the index is a sidecar that never touches note
+(a `#tag` token); the index is a sidecar that never touches AIU
 content or the DB schema, so this amplifies the drawer-tag system
 without conflicting with it.  Entering a slash path (`a/b/c`) inserts
 the leaf and notifies `my/atlas-hashtag-recorded-functions` (used by

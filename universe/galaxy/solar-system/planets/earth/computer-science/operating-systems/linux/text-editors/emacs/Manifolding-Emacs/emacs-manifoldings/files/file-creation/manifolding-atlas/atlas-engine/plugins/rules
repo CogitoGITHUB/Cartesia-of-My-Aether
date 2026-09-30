@@ -1,4 +1,4 @@
-Turns any heading (new or existing, in any manifolding-atlas note) into an
+Turns any heading (new or existing, in any AIU) into an
 extractable, routable, drillable Rule. Rules are marked via an unfolding
 (not a tag) so presentation mode / org-tree-slide stays clean. Topics
 route the rule into one or more topic index files via live =id:=
@@ -50,7 +50,7 @@ of this mapping is a reasonable future upgrade, not required now."
 
 * Database Table
 Bookkeeping table keyed by note-id: topics, primary-topic, origin,
-and routed-files per rule note.
+and routed-files per rule AIU.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-rules--ensure-table ()
   "Create the rules bookkeeping table if it does not exist."
@@ -164,7 +164,7 @@ into FILE, unless present."
       (save-buffer))))
 #+end_src
 
-** Route a single rule note (write pointers for every topic)
+** Route a single rule AIU (write pointers for every topic)
 
 *** Routed-files recording
 Keeps the DB row current so unmark/goto can rely on it later.
@@ -180,7 +180,7 @@ Keeps the DB row current so unmark/goto can rely on it later.
 *** Routing command
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-rules--route-note (note)
-  "Route NOTE (a manifolding-atlas-note already marked RULE: t) to its topic files."
+  "Route AIU (a manifolding-atlas-note already marked RULE: t) to its topic files."
   (let* ((unfoldings    (manifolding-atlas-note-unfoldings note))
          (topics   (split-string (or (cdr (assoc "RULE_TOPICS" unfoldings)) "") " " t))
          (override (cdr (assoc "RULE_FILE" unfoldings)))
@@ -206,7 +206,7 @@ Keeps the DB row current so unmark/goto can rely on it later.
 ** Route every rule in the vault (manual, on-demand — not on every save)
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-rules-route-all ()
-  "Re-route every note marked RULE: t. Run manually after bulk edits."
+  "Re-route every AIU marked RULE: t. Run manually after bulk edits."
   (interactive)
   (let ((notes (manifolding-atlas-db-query-by-unfolding "RULE" "t")))
     (dolist (note notes)

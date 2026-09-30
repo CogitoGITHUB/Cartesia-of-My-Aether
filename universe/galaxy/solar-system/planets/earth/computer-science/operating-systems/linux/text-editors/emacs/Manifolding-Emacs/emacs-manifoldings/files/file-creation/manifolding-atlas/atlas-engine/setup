@@ -1,5 +1,5 @@
 #+TITLE:      Manifolding Atlas
-#+NOTE: The manifolding-mind-map manifolding-atlas plugin and mind map web package need work
+#+AIU: The manifolding-mind-map manifolding-atlas plugin and mind map web package need work
 
 * Manifolding Atlas Root Dir :EMACS_MECHANISM:
 :PROPERTIES:
@@ -71,10 +71,10 @@ the upward search) once poisoned this cache for the whole session."
 Single function everything asks. Self-locating: renames never break it."
   (my/cartesia-root-dir))
 
-;; Scope the agenda to notes. Excluded:
+;; Scope the agenda to AIUs. Excluded:
 ;;   /.git/               internals
-;;   /WIP/                raw drift captures, not notes
-;;   /admin/              prompt and commit infrastructure, not notes
+;;   /WIP/                raw drift captures, not AIUs
+;;   /admin/              prompt and commit infrastructure, not AIUs
 ;;   /emacs-manifoldings/ the Emacs config tree itself
 ;;
 ;; The last is load-bearing, not cosmetic. The Atlas blueprints under
@@ -122,7 +122,7 @@ Single function everything asks. Self-locating: renames never break it."
 ;; Mind-map queries read the DB, so saved files must land there:
 ;; enable per-buffer autosync in every org buffer (the after-save
 ;; entry itself gates by sync-directories, so non-vault files are
-;; untouched). Vault notes visit in org-mode via auto-mode-alist.
+;; untouched). Vault AIUs visit in org-mode via auto-mode-alist.
 ;; Deferred past the db unit: load order must never matter here.
 (with-eval-after-load 'manifolding-atlas-db
   (when (fboundp 'manifolding-atlas--autosync-mode)
@@ -173,7 +173,7 @@ trigger another close/reopen cycle.")
 #+end_src
 
 ** DB relocation guard
-Guarantees the vault DB always lives beside the notes even if a
+Guarantees the vault DB always lives beside the AIUs even if a
 stale session opened it elsewhere.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-db--relocate-legacy ()
@@ -292,7 +292,7 @@ killing the whole poll cycle.
 #+end_src
 
 ** Sync override: parse method
-Manifolding Atlas forces non-'.org' files (extensionless vault notes) through
+Manifolding Atlas forces non-'.org' files (extensionless vault AIUs) through
 `find-file', which trips over atlas-wormholes's read-only buffers.
 Always use the configured method instead.
 #+begin_src emacs-lisp
@@ -383,9 +383,9 @@ connection parses the whole vault and can block for a while.
 ** Navigation
 
 #+begin_src emacs-lisp
-;; manifolding-atlas-find         - find and open a note (creates if missing)
-;; manifolding-atlas-insert       - insert an id: link to a note at point
-;; manifolding-atlas-find-backlink - completion over notes that link TO the current note;
+;; manifolding-atlas-find         - find and open an AIU (creates if missing)
+;; manifolding-atlas-insert       - insert an id: link to an AIU at point
+;; manifolding-atlas-find-backlink - completion over notes that link TO the current AIU;
 ;;                        useful for discovering connections and refactoring.
 ;; Bind these to keys in your bindings file.
 #+end_src

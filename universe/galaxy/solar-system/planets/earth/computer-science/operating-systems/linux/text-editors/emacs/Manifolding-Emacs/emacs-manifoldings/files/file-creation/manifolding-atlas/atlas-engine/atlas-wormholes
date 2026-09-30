@@ -1,5 +1,5 @@
 Use [[id:UUID][TITLE]] links. Safe because org-agenda-files is
-scoped to the notes directory only (see Notes Directory above),
+scoped to the AIUs directory only (see AIUs Directory above),
 so org-id-find never scans straight build symlinks.
 
 Vendored engine: the atlas-wormholes package and its wormhole-clone
@@ -891,7 +891,7 @@ does not support all the elements.
            (link (atlas-wormholes-wrap-path-to-link
                   (or link-path
                       (user-error "atlas-wormholes: #+wormhole here has no link"))))
-           ;; Note 2025-01-03 Retrospectively, PAYLOAD feels redundant now that
+           ;; AIU 2025-01-03 Retrospectively, PAYLOAD feels redundant now that
            ;; `atlas-wormholes-add' is being refactored. For
            ;; backword-compatibility, I am keeping PAYLOAD.
            (payload (run-hook-with-args-until-success
@@ -1591,13 +1591,13 @@ marker at 1 to ensure line-based wormholes calculate
 offsets from file beginning, not from cursor position."
   ;; Assume the point now is the wormholing buffer
 
-  ;; Note 2025-12-18 `org-link-open' does not necessarily obey
+  ;; AIU 2025-12-18 `org-link-open' does not necessarily obey
   ;; `display-buffer-alist' and can open the target buffer in the currently
   ;; selected window. This is disruptive for users. We want wormholes to
   ;; keep the current buffer in the current window. To do this, it seems
   ;; `save-window-excursion' is the only way.
 
-  ;; Note 2026-03-07 For `org-link-open', instead of relying on
+  ;; AIU 2026-03-07 For `org-link-open', instead of relying on
   ;; `save-window-excursion', we are now using display-buffer-alist with its
   ;; ACTION `display-buffer-no-window' and allow-no-window being non-nil. This
   ;; is originally conceived as a fix for GitHub issue #299, but it looks like
@@ -3068,14 +3068,14 @@ the current heading:
         (atlas-wormholes-mode 1)))
     (atlas-wormholes-add)))
 
-;; Wormholed unfolding notes show as collapsed headings — do NOT auto-unfold
+;; Wormholed unfolding AIUs show as collapsed headings — do NOT auto-unfold
 ;; them, so the unfolding's property drawer / ID stays hidden and you just see
 ;; "* Unfolding" closed at point.
 (remove-hook 'atlas-wormholes-after-add-functions
              #'my/atlas-wormholes-show-subtree)
 
 ;; Auto-enable atlas-wormholes-mode in org files.
-;; Safe now — org-agenda-files is scoped to notes directory only,
+;; Safe now — org-agenda-files is scoped to AIUs directory only,
 ;; so org-id-find never scans straight build symlinks.
 (setq atlas-wormholes-add-all-on-activate t)
 ;; Hide unfolding property drawers inside wormholed headings so an unfolding
@@ -3087,7 +3087,7 @@ the current heading:
 ;; Re-add wormholes after revert (e.g. auto-revert triggered by git ops).
 (add-hook 'after-revert-hook #'atlas-wormholes-add-all)
 
-;; RET on a wormhole opens its source.  Unfolding notes (admin/unfoldings/*) open
+;; RET on a wormhole opens its source.  Unfolding AIUs (admin/unfoldings/*) open
 ;; in an org-capture edit buffer for fast metadata edits; anything else
 ;; falls back to atlas-wormholes's own source opener.
 ;; atlas-wormholes.el reads `atlas-wormholes-indent-mode' as a
@@ -3257,7 +3257,7 @@ Also provides a text-based scanner for files not yet indexed by manifolding-atla
 
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-db-query-wormhole-links-to (target-id)
-  "Return list of source note IDs that wormhole TARGET-ID."
+  "Return list of source AIU IDs that wormhole TARGET-ID."
   (mapcar #'car
           (emacsql (manifolding-atlas-db)
                    [:select [source] :from wormhole_links

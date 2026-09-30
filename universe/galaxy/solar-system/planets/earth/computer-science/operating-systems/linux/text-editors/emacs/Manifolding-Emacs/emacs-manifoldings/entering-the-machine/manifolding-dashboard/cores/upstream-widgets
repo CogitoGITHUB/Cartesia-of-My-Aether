@@ -575,7 +575,7 @@ installed."
     (projects  . 5)
     (agenda    . 5)
     (registers . 5))
-  ;; NOTE (split): upstream default restored byte-true. The manifold
+  ;; AIU (split): upstream default restored byte-true. The manifold
   ;; composition lives in engine/setup, built from the widget registry
   ;; so deleting a widgets/ file unregisters it next boot.
   "Association list of items to show in the startup buffer.

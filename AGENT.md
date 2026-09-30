@@ -219,14 +219,14 @@ src block — those are **not** implementations.
 
 | Area | State | Detail |
 |---|---|---|
-| **Note factory** | WORKING | `atlas-engine/file-creation` — 8040 lines, 252 src blocks, the largest real implementation. `manifolding-atlas-create/-find/-insert/-visit`, prompt registry, `${var}` / `%(elisp)` template expansion, blueprint add/edit/nest. |
+| **AIU factory** | WORKING | `atlas-engine/file-creation` — 8040 lines, 252 src blocks, the largest real implementation. `manifolding-atlas-create/-find/-insert/-visit`, prompt registry, `${var}` / `%(elisp)` template expansion, blueprint add/edit/nest. |
 | **Blueprints** | WORKING | `blueprints/heading-unfoldings/` — ~45 files. Most are **pure vocabulary**: a `:DRAWER_BLUEPRINT:` heading plus `** VALUE :BLUEPRINT_BODY:` children, zero src blocks. `todo` defines 22 TODO states, `mastery` the stage spine, `status` the lifecycle. |
 | **Database** | WORKING | `atlas-engine/db` — 371 src blocks. emacsql. `notes` (id, title, path, level, pos, unfoldings, tags) + `links`. Extractor registry with priority. Traversal: `db--bfs`, `db-ancestors`, `db-component`, `db-shortest-path`, `db-isolated`. |
 | **Search** | WORKING | `atlas-engine/search-center` (827 lines) — the real surface. `my/atlas-search` is one `consult--multi` over Text (rg, async), DB, Org-ql (7 presets) and Files. **Extensible**: `my/atlas-search-register-provider`, with the candidate contract asserted in code. |
 | **Keyword scan** | WORKING | `atlas-engine/search` — vendored `consult-todo`, deliberately not `rgrep` or `hl-todo--search`. |
 | **Query language** | WORKING, narrow | `atlas-engine/query-language` — and/or/not, tag, title-match, recent-days, before/after, sort/limit. **No full-text operator.** |
 | **Context UI** | WORKING | `sidebar` (20% window, Context/Backlinks/Outline/Due, 2s idle follow), `node-view`, `search-center` preview, `mind-map`. `sidebar` has an empty `** Implementation` section from a split-out refactor. |
-| **Semantic search** | **dormant by design** | `atlas-engine/semantic-similar` — Ollama `/api/embed` + `bge-m3`, sidecar is a printed Elisp alist, `-similar` is a linear scan, one vector per note, and `my/atlas-semantic-enabled` is `nil`. The file says "Nothing here runs at load." |
+| **Semantic search** | **dormant by design** | `atlas-engine/semantic-similar` — Ollama `/api/embed` + `bge-m3`, sidecar is a printed Elisp alist, `-similar` is a linear scan, one vector per AIU, and `my/atlas-semantic-enabled` is `nil`. The file says "Nothing here runs at load." |
 | **Export** | essentially ABSENT | Only `mm/export-json` (a mind-map dump). No org-publish, no HTML, no flatten-to-headings. |
 | **LLM question-answering** | ABSENT | Nothing calls a model to answer anything. `ai-proposals` is a generic shell command with no retrieval; `agent-api` is the read/write surface for agents and stamps `PROVENANCE_*`; `plugins/citation` extracts `[@citekey]` into a `citations` table. The two halves exist, the citation-validating join does not. |
 | **Dashboard** | PLACEHOLDER | The real dashboard is a separate module under `entering-the-machine/`. Inside the Atlas, "dashboard" is only a declaration registry (§11). |
@@ -235,7 +235,7 @@ src block — those are **not** implementations.
 
 - `my/manifolding-atlas-db-backend` defaults to **`sqlite`**
   (`atlas-engine/db:28`) against `admin/manifolding-atlas.db` — a real file with
-  **302 notes**. A `pg` backend exists and is fully implemented, and
+  **302 AIUs**. A `pg` backend exists and is fully implemented, and
   `my/manifolding-atlas-db-health` reports `DOWN` **for pg only**. Seeing `DOWN`
   in a proot batch run means you were looking at the wrong backend.
 - **Sync is poll-based on purpose** (`setup:115-120`: "fswatch rarely exists on
@@ -377,7 +377,7 @@ admin/
   order/modeline widgets            modeline segment order
   order/headings blueprints drawer  drawer key order + the blueprint registry (registry NOT built — see §11)
   desktop/                          Emacs session desktop
-  manifolding-atlas.db              Atlas database, sqlite, 302 notes
+  manifolding-atlas.db              Atlas database, sqlite, 302 AIUs
 ```
 
 The three order files are named for **what they order**, not after the module

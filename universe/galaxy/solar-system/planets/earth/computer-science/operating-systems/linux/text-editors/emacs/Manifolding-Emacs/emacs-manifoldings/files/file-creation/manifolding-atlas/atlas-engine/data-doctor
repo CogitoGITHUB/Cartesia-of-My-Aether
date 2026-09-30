@@ -56,7 +56,7 @@ repair confirms each fix with y-or-n.  Nothing here runs at load.
 #+begin_src emacs-lisp
 (defun my/atlas-data-doctor-repair (label)
   "Repair LABEL's issue with confirmation.  Only cache-grade data is
-ever deleted (everything rebuilds on reload); notes are never touched."
+ever deleted (everything rebuilds on reload); AIUs are never touched."
   (interactive
    (list (completing-read "Repair: " '("discovery-index" "eval-cache-dir"))))
   (let ((home (expand-file-name "~")))

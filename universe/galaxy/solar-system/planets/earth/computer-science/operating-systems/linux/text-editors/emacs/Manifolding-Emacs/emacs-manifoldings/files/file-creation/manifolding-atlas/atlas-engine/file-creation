@@ -498,7 +498,7 @@ existing KEY. Registers the prompt when the capture finalizes."
     (let ((famdir (expand-file-name (concat "admin/unfoldings/" (downcase key) "/")
                                     (my/manifolding-atlas-root-dir))))
       (when (file-directory-p famdir)
-        (push (format "vault data: %s (%d notes)"
+        (push (format "vault data: %s (%d AIUs)"
                       famdir (length (directory-files famdir nil "^[^.]")))
               report)))
     (nreverse report)))
@@ -527,7 +527,7 @@ Also deletes orphaned vault data dir on the same confirm."
                    (file-name-nondirectory file)
                    (if report (format "\nRefs:\n- %s" (string-join report "\n- ")) "")
                    (if (> famcount 0)
-                       (format "\nPlus %d vault note(s) in %s" famcount famdir)
+                       (format "\nPlus %d vault AIU(s) in %s" famcount famdir)
                      "")))
       (when (and (> famcount 0) (file-directory-p famdir))
         (delete-directory famdir t))
@@ -560,7 +560,7 @@ anymore); yasnippet runs without a snippets dir (none exist on disk).
      `(("Manifolding Atlas"
         :keys "n"
         :children
-        (("New note" :keys "n"
+        (("New AIU" :keys "n"
           :type plain
           :function (lambda () (my/manifolding-atlas-capture-new-file))
           :unnarrowed t)
@@ -650,7 +650,7 @@ If :key is missing, copies :name into :key for backward compat."
 ** Version
 
 #+begin_src emacs-lisp
-;;; manifolding-atlas.el --- Note management library for Org mode -*- lexical-binding: t; -*-
+;;; manifolding-atlas.el --- AIU management library for Org mode -*- lexical-binding: t; -*-
 ;;
 ;; Copyright (c) 2015-2026 Boris Buliga <boris@d12frosted.io>
 ;;
@@ -683,15 +683,15 @@ If :key is missing, copies :name into :key for backward compat."
 ;;
 ;;; Commentary:
 ;;
-;; Manifolding Atlas is a note management library for Org mode that maintains its
+;; Manifolding Atlas is an AIU management library for Org mode that maintains its
 ;; own SQLite database for efficient querying and organization.
 ;;
 ;; Key features:
-;; - Fast note lookup via SQLite database with automatic sync
-;; - Rich note structure: titles, aliases, tags, links, unfoldings, metadata
+;; - Fast AIU lookup via SQLite database with automatic sync
+;; - Rich AIU structure: titles, aliases, tags, links, unfoldings, metadata
 ;; - Flexible querying by tags, links, unfoldings, dates, and more
 ;; - Metadata system using Org description lists
-;; - Note creation with customizable templates
+;; - AIU creation with customizable templates
 ;; - Selection interface with filtering and alias expansion
 ;;
 ;; Quick start:
@@ -699,11 +699,11 @@ If :key is missing, copies :name into :key for backward compat."
 ;;   (manifolding-atlas-db-sync-start)
 ;;
 ;; Main entry points:
-;; - `manifolding-atlas-find' - find and open a note
-;; - `manifolding-atlas-insert' - insert a link to a note
-;; - `manifolding-atlas-create' - create a new note
-;; - `manifolding-atlas-db-query' - query notes with a predicate
-;; - `manifolding-atlas-select' - select a note with completion
+;; - `manifolding-atlas-find' - find and open an AIU
+;; - `manifolding-atlas-insert' - insert a link to an AIU
+;; - `manifolding-atlas-create' - create a new AIU
+;; - `manifolding-atlas-db-query' - query AIUs with a predicate
+;; - `manifolding-atlas-select' - select an AIU with completion
 ;;
 ;; See https://github.com/d12frosted/vulpea for documentation.
 ;;
@@ -923,7 +923,7 @@ Why: Implementation of ~manifolding-atlas-doctor--issues~.
     (if (null manifolding-atlas-db-sync-directories)
         (push (concat "`manifolding-atlas-db-sync-directories' is empty - nothing will"
                       " be indexed. Set it (or `org-directory') to where"
-                      " your notes live.")
+                      " your AIUs live.")
               issues)
       (dolist (dir manifolding-atlas-db-sync-directories)
         (unless (file-directory-p dir)
@@ -951,7 +951,7 @@ Why: Implementation of ~manifolding-atlas-doctor--issues~.
     ;; Sync state
     (unless manifolding-atlas-db-autosync-mode
       (push (concat "`manifolding-atlas-db-autosync-mode' is disabled - the database"
-                    " will not stay up to date as notes change. Enable it"
+                    " will not stay up to date as AIUs change. Enable it"
                     " with (manifolding-atlas-db-autosync-mode +1).")
             issues))
     (when (and manifolding-atlas-db-autosync-mode
@@ -968,9 +968,9 @@ Why: Implementation of ~manifolding-atlas-doctor--issues~.
                     " M-x manifolding-atlas-db-sync-full-scan to build it.")
             issues))
      ((and notes (zerop notes))
-      (push (concat "Database exists but contains no notes. Run"
+      (push (concat "Database exists but contains no AIUs. Run"
                     " M-x manifolding-atlas-db-sync-full-scan; if it stays empty,"
-                    " check that your notes have ID unfoldings and live"
+                    " check that your AIUs have ID unfoldings and live"
                     " under `manifolding-atlas-db-sync-directories'.")
             issues)))
     ;; Extractor plugins
@@ -1022,7 +1022,7 @@ Why: Implementation of ~manifolding-atlas-doctor--issues~.
               issues))
       (when (and (eq manifolding-atlas-db-async-extraction 'full)
                  (not (manifolding-atlas-db-worker--filters-inert-p)))
-        (push (concat "Full-write mode is configured but note index"
+        (push (concat "Full-write mode is configured but AIU index"
                       " filters are active (schema validation with a"
                       " non-silent action, or a custom filter) - degraded"
                       " to extract-only so the filters keep running in"
@@ -1073,10 +1073,10 @@ Why: Implementation of ~manifolding-atlas-doctor--report~.
        "Database"
        (funcall line "file" (manifolding-atlas-doctor--db-file-info))
        (funcall line "schema version" (format "%s" manifolding-atlas-db-version))
-       (funcall line "notes" (if notes (format "%d" notes) "n/a"))
+       (funcall line "AIUs" (if notes (format "%d" notes) "n/a"))
        (funcall line "cached files"
                 (if stats (format "%d" (car stats)) "n/a"))
-       (funcall line "files without notes"
+       (funcall line "files without AIUs"
                 (if stats (format "%d" (cdr stats)) "n/a"))
        ""
        "Sync"
@@ -1205,7 +1205,7 @@ override these defaults.
 
 These defaults seed file-level note creation only.  When
 `manifolding-atlas-create' is called with a non-nil `:parent' (a heading-level
-note), this function is not called and no defaults are applied."
+AIU), this function is not called and no defaults are applied."
   :type '(choice (const :tag "Use template instead" nil)
           (function :tag "Function returning plist"))
   :group 'manifolding-atlas)
@@ -1262,7 +1262,7 @@ Template variables for :file-name:
   ${title}     - Note title
   ${slug}      - URL-friendly version of title
   ${timestamp} - Current timestamp (%Y%m%d%H%M%S)
-  ${id}        - Note ID (UUID)"
+  ${id}        - AIU ID (UUID)"
   :type 'plist
   :group 'manifolding-atlas)
 
@@ -1495,7 +1495,7 @@ from org-capture as they don't make sense for programmatic creation."
     ;; SECURITY: expand the active directives (%(elisp) and %<format>)
     ;; on the raw template FIRST, before substituting ${var} and context
     ;; values.  The directives are written by the template author and are
-    ;; trusted; the substituted values (note title, slug, id, context)
+    ;; trusted; the substituted values (AIU title, slug, id, context)
     ;; are data and may be untrusted.  Substituting first and scanning
     ;; afterwards would let a value containing "%(...)" be evaluated as
     ;; code - an arbitrary code execution hazard.  Expanding before
@@ -1822,7 +1822,7 @@ This is the default value of `manifolding-atlas-find-default-create-fn'."
                            :unfoldings default-unfoldings))
           (file-path (manifolding-atlas-note-path note)))
       ;; 2b. Mind-map ownership: map first, then placement (forced order).
-      ;; HARD INVARIANT: no note survives mappeless. A missing map
+      ;; HARD INVARIANT: no AIU survives mappeless. A missing map
       ;; aborts the whole creation and the fresh file is removed;
       ;; placement quit keeps the mapped file with WARNING instead.
       ;; Machine truth lands in MM_* drawers (mm-sync reads those).
@@ -1838,8 +1838,8 @@ This is the default value of `manifolding-atlas-find-default-create-fn'."
             (progn
               (ignore-errors (kill-buffer (find-buffer-visiting file-path)))
               (ignore-errors (delete-file file-path))
-              (user-error "Creation aborted: every note needs a mind-map parent (file removed)"))
-          ;; New notes sort last in their map by default (max
+              (user-error "Creation aborted: every AIU needs a mind-map parent (file removed)"))
+          ;; New AIUs sort last in their map by default (max
           ;; member MM_ORDER + 1); placement may adjust hierarchy
           ;; later via the db ops. Never throws.
           (let ((next-order
@@ -1883,7 +1883,7 @@ This is the default value of `manifolding-atlas-find-default-create-fn'."
                                 "WARNING")))
                   (my/manifolding-atlas--set-drawer-line
                    file-path "MIND_MAP_PLACEMENT" disp)))))
-          ;; Initial sync so the map shows the note right away;
+          ;; Initial sync so the map shows the AIU right away;
           ;; later saves keep it fresh.
           (when (and (fboundp 'my/mm-map-file-by-id)
                      (fboundp 'my/mm-sync-map))
@@ -1903,7 +1903,7 @@ This is the default value of `manifolding-atlas-find-default-create-fn'."
             my/manifolding-atlas--last-created-file file-path)
       (message "Open offer armed: %s" (file-name-nondirectory file-path))
      (let ((org-capture-templates
-            `(("n" "New Note" plain (file ,file-path) "" :unnarrowed t :empty-lines 1 :kill-buffer t))))
+            `(("n" "New AIU" plain (file ,file-path) "" :unnarrowed t :empty-lines 1 :kill-buffer t))))
        (org-capture nil "n")
        (delete-other-windows)
        (my/manifolding-atlas-org-prompt--write-at-heading
@@ -1921,7 +1921,7 @@ This is the default value of `manifolding-atlas-find-default-create-fn'."
 #+end_src
 
 ** Re-open offer after new-note capture
-After C-c C-c finalizes a new note ("n" template), arrange its drawer
+After C-c C-c finalizes a new AIU ("n" template), arrange its drawer
 per `my/manifolding-atlas-drawer-key-order', then offer a completing-read
 menu: open (capture) (the default) or open (buffer); the same two opens
 combined with link insertion at origin; link insertion alone;
@@ -1935,9 +1935,9 @@ is never killed; every step is error-isolated.
 (defvar my/manifolding-atlas--pending-open-origin nil
   "Marker of where the user was when the new-note capture was armed.")
 (defvar my/manifolding-atlas--pending-open-note nil
-  "Cons (ID . TITLE) of the note created by the pending capture.")
+  "Cons (ID . TITLE) of the AIU created by the pending capture.")
 (defvar my/manifolding-atlas--last-created-file nil
-  "File of the most recently created note (for on-demand open menu).")
+  "File of the most recently created AIU (for on-demand open menu).")
 
 (defun my/manifolding-atlas--arrange-drawer-per-order (file &optional order)
   "Arrange the first level-1 drawer in FILE per ORDER list.
@@ -2010,13 +2010,13 @@ Defaults to \"open (capture)\" (capture visit, origin stays visible)."
                    "insert link + rename + open (capture)"
                    "insert link + rename + open (buffer)"
                    "skip")))
-    (completing-read (format "New note %s: " (file-name-nondirectory fname))
+    (completing-read (format "New AIU %s: " (file-name-nondirectory fname))
                      actions nil t nil nil "open (capture)")))
 
 (defun my/manifolding-atlas--open-offer-open-capture (f)
   "Open new-note file F via org-capture, point at end."
   (let ((org-capture-templates
-         `(("p" "Visit new note"
+         `(("p" "Visit new AIU"
             plain (file+function ,f (lambda () (goto-char (point-max))))
             "%?" :kill-buffer t :unnarrowed t :empty-lines 0))))
     (org-capture nil "p")))
@@ -2039,14 +2039,14 @@ Dead origin reports loudly; nil origin stays silent (no promise made)."
                      id (or title (file-name-base f))))))
       (when (markerp origin)
         (message "Origin buffer no longer exists; link not inserted%s"
-                 (if id "" " (no note id)"))))))
+                 (if id "" " (no AIU id)"))))))
 
 (defun my/manifolding-atlas--open-offer-rename-open (f _origin note open-fn)
   "Rename NOTE's title, propagate, then call OPEN-FN with the final path.
 Title applied via `manifolding-atlas-buffer-title-set'; inbound
 links and file rename handled by `manifolding-atlas-propagate-title-change'
 (run as-is, old title pre-supplied). Any quit/error in the rename
-step is reported and OPEN-FN still runs — the note exists regardless."
+step is reported and OPEN-FN still runs — the AIU exists regardless."
   (let* ((id (car note)) (title (cdr note))
          (old-title (or title (file-name-base f)))
          (final-path f))
@@ -2149,7 +2149,7 @@ On-demand fallback when a capture ended without finalizing."
   (let ((f (or my/manifolding-atlas--pending-open-after-capture
                my/manifolding-atlas--last-created-file)))
     (unless (and f (file-exists-p f))
-      (user-error "No created note file to act on"))
+      (user-error "No created AIU file to act on"))
     (let ((origin my/manifolding-atlas--pending-open-origin)
           (note my/manifolding-atlas--pending-open-note))
       (setq my/manifolding-atlas--pending-open-after-capture nil
@@ -2233,7 +2233,7 @@ for the original title and once for each alias."
               (set-marker
                (make-marker) (region-end))))))
          (note (manifolding-atlas-select-from
-                "Note"
+                "AIU"
                 (funcall
                  (or
                   candidates-fn
@@ -2245,9 +2245,9 @@ for the original title and once for each alias."
                 :initial-prompt region-text
                 :expand-aliases expand-aliases)))
     (if (manifolding-atlas-note-id note)
-        ;; Existing note - visit it
+        ;; Existing AIU - visit it
         (manifolding-atlas-visit note other-window)
-      ;; New note - create it
+      ;; New AIU - create it
       (when (not require-match)
         (let ((new-note (funcall (or create-fn
                                      manifolding-atlas-find-default-create-fn)
@@ -2286,23 +2286,23 @@ Why: Implementation of ~manifolding-atlas-find-backlink~.
 Point lands on the first link pointing back to the current note,
 so you see the mention itself instead of the beginning of the
 selected note. When the link cannot be found in the buffer (e.g.
-the file changed since the last sync), point stays at the note."
+the file changed since the last sync), point stays at the AIU."
   (interactive)
   (let* ((id (or (org-entry-get nil "ID" t)
                  (user-error "Current location has no ID unfolding")))
          (_ (unless (manifolding-atlas-db-get-by-id id)
               (user-error
-               "%s is not a known note" id)))
+               "%s is not a known AIU" id)))
          (backlinks (manifolding-atlas-db-query-by-links-some
                      (list (cons "id" id)))))
     (unless backlinks
-      (user-error "There are no backlinks to the current note"))
-    (let ((note (manifolding-atlas-select-from "Note" backlinks
+      (user-error "There are no backlinks to the current AIU"))
+    (let ((note (manifolding-atlas-select-from "AIU" backlinks
                                     :require-match t
                                     :expand-aliases t)))
       (when (manifolding-atlas-note-id note)
         (manifolding-atlas-visit note)
-        ;; Land on the link itself rather than the beginning of the note
+        ;; Land on the link itself rather than the beginning of the AIU
         (when (re-search-forward
                (format "\\[\\[id:%s[]\\[]" (regexp-quote id))
                nil t)
@@ -2339,12 +2339,12 @@ Why: Implementation of ~manifolding-atlas-visit~.
 (defun manifolding-atlas-visit (note-or-id &optional other-window)
   "Visit NOTE-OR-ID.
 
-If OTHER-WINDOW, visit the NOTE in another window."
+If OTHER-WINDOW, visit the AIU in another window."
   (let* ((note (if (manifolding-atlas-note-p note-or-id)
                    note-or-id
                  (manifolding-atlas-db-get-by-id note-or-id))))
     (unless note
-      (user-error "Cannot find note with ID: %s"
+      (user-error "Cannot find AIU with ID: %s"
                   (if (manifolding-atlas-note-p note-or-id)
                       (manifolding-atlas-note-id note-or-id)
                     note-or-id)))
@@ -2354,7 +2354,7 @@ If OTHER-WINDOW, visit the NOTE in another window."
       (if (or current-prefix-arg other-window)
           (find-file-other-window file)
         (find-file file))
-      ;; Go to the note position
+      ;; Go to the AIU position
       (if (= (manifolding-atlas-note-level note) 0)
           ;; File-level note: go to beginning
           (goto-char (point-min))
@@ -2405,7 +2405,7 @@ an id: link).
 This mirrors `manifolding-atlas-find-default-create-fn' for \"capture on
 empty\" workflows. Note that, unlike the `manifolding-atlas-find' hook, this
 function must perform the link insertion itself, since inserting a
-link is what `manifolding-atlas-insert' does with a new note.")
+link is what `manifolding-atlas-insert' does with a new AIU.")
 
 
 #+end_src
@@ -2470,13 +2470,13 @@ for the original title and once for each alias."
                (notes (funcall (or candidates-fn
                                    manifolding-atlas-insert-default-candidates-source)
                                (or filter-fn manifolding-atlas-insert-default-filter)))
-               (note (manifolding-atlas-select-from "Note" notes
+               (note (manifolding-atlas-select-from "AIU" notes
                                          :initial-prompt region-text
                                          :expand-aliases expand-aliases))
                (description (or region-text
                                 (manifolding-atlas-note-title note))))
           (if (manifolding-atlas-note-id note)
-              ;; Existing note - insert link immediately
+              ;; Existing AIU - insert link immediately
               (progn
                 (when region-text
                   (delete-region beg end)
@@ -2488,11 +2488,11 @@ for the original title and once for each alias."
                 (run-hook-with-args
                  'manifolding-atlas-insert-handle-functions
                  note))
-            ;; New note - create it then insert link
+            ;; New AIU - create it then insert link
             (let ((cfn (or create-fn manifolding-atlas-insert-default-create-fn)))
               (if cfn
                   (funcall cfn (manifolding-atlas-note-title note) nil)
-                ;; Create the note programmatically
+                ;; Create the AIU programmatically
                 (let ((new-note (manifolding-atlas-create (manifolding-atlas-note-title note))))
                   (when region-text
                     (delete-region beg end)
@@ -2595,7 +2595,7 @@ only positions point; surrounding blank lines are managed by
      ((stringp after)
       (let ((sibling-pos (org-id-find after 'marker)))
         (unless sibling-pos
-          (error "manifolding-atlas-create: Sibling note with ID %s not found" after))
+          (error "manifolding-atlas-create: Sibling AIU with ID %s not found" after))
         (goto-char sibling-pos)
         ;; Move past the sibling's entire subtree
         (org-end-of-subtree t))
@@ -2740,15 +2740,15 @@ Note: Does not support %a or %i from org-capture."
   (let* ((id (or id (org-id-new)))
          (context (or context nil)))
     (let ((note (if parent
-                    ;; Heading-level note creation
+                    ;; Heading-level AIU creation
                     (manifolding-atlas--create-heading title id parent after
                                            body tags unfoldings context)
-                  ;; File-level note creation (original behavior)
+                  ;; File-level AIU creation (original behavior)
                   (manifolding-atlas--create-file title file-name id head meta body
                                        tags unfoldings context))))
-      ;; Fundamental mastering: every created note enrolls at birth
+      ;; Fundamental mastering: every created AIU enrolls at birth
       ;; (admin/ paths excluded inside). Runs after the DB row exists
-      ;; so init/sync see a real note; returns the note unchanged.
+      ;; so init/sync see a real AIU; returns the AIU unchanged.
       (my/manifolding-atlas--enroll-new-note note)
       note)))
 
@@ -2836,12 +2836,12 @@ are as documented in `manifolding-atlas-create'."
     ;; Update database with the new file
     (let ((update-count (or (manifolding-atlas-db-update-file file-path) 0)))
       (when (zerop update-count)
-        (error "manifolding-atlas-create: No notes extracted from file %s (expected ID %s)"
+        (error "manifolding-atlas-create: No AIUs extracted from file %s (expected ID %s)"
                file-path id)))
 
-    ;; Return the note
+    ;; Return the AIU
     (or (manifolding-atlas-db-get-by-id id)
-        (error "manifolding-atlas-create: Note with ID %s not found in database after creation" id))))
+        (error "manifolding-atlas-create: AIU with ID %s not found in database after creation" id))))
 
 
 
@@ -2896,18 +2896,18 @@ BODY, TAGS, UNFOLDINGS, and CONTEXT are as in `manifolding-atlas-create'."
     ;; Update database
     (manifolding-atlas-db-update-file file-path)
 
-    ;; Return the note
+    ;; Return the AIU
     (or (manifolding-emacs-db-get-by-id id)
-        (error "manifolding-atlas-create: Heading note with ID %s not found in database after creation" id))))
+        (error "manifolding-atlas-create: Heading AIU with ID %s not found in database after creation" id))))
 #+end_src
 
 ** Birth enrollment (mastering fundamental)
-Every note is born into the review pool — learn it all or
+Every AIU is born into the review pool — learn it all or
 deliberately suspend it, no third state. The single seam is the
 public `manifolding-atlas-create' above (both file and heading
 branches funnel through it), so specialized creators (recipes,
 dictionary, routines, journal, unfolding-notes) need no individual
-wiring. Notes under =admin/= (unfolding-notes, Journal, admin
+wiring. AIUs under =admin/= (unfolding-notes, Journal, admin
 queues) are metadata or logs, not knowledge cards, and are excluded
 by path — reviewing them would pollute sessions with machinery.
 Anything enrolled later by hand (mark-review, attest, encounter)
@@ -2932,7 +2932,7 @@ Covers admin/unfoldings/, admin/Journal/, and admin queues alike."
   "Enroll NOTE in mastering at birth: STAGE=AWARE, STATUS=ACTIVE.
 Skips admin/ paths. Never downgrades an existing stage (transplants
 may arrive with one); only fills in what is missing, ensures the
-schedule row exists, and syncs the first tag. Returns NOTE."
+schedule row exists, and syncs the first tag. Returns AIU."
   (when (and note
              (fboundp 'my/manifolding-atlas-mastering--init-schedule)
              (fboundp 'my/manifolding-atlas-mastering--sync-stage-tag))
@@ -3049,7 +3049,7 @@ Interactive flow:
 3. Partial matches shown with option to open files"
   (interactive)
   (let* ((dry-run current-prefix-arg)
-         ;; Determine the note
+         ;; Determine the AIU
          (note (cond
                 ((manifolding-atlas-note-p note-or-id) note-or-id)
                 ((stringp note-or-id) (manifolding-atlas-db-get-by-id note-or-id))
@@ -3099,7 +3099,7 @@ Interactive flow:
       (message "Dry-run complete. See *manifolding-atlas-propagate-preview* buffer.")
       (cl-return-from manifolding-atlas-propagate-title-change))
 
-    ;; Offer file rename for file-level notes
+    ;; Offer file rename for file-level AIUs
     (when (and (= (manifolding-atlas-note-level note) 0)
                (y-or-n-p
                 (format "Rename file \"%s\" → \"%s\"? "
@@ -3189,7 +3189,7 @@ Returns the new file path.
 Signals an error if:
 - The note cannot be found
 - The target file already exists
-- The note is a heading-level note (level > 0)"
+- The AIU is a heading-level AIU (level > 0)"
   (let* ((note (if (manifolding-atlas-note-p note-or-id)
                    note-or-id
                  (manifolding-atlas-db-get-by-id note-or-id)))
@@ -3198,12 +3198,12 @@ Signals an error if:
          (new-filename (concat (manifolding-atlas-title-to-slug new-title) ".org"))
          (new-path (when dir (expand-file-name new-filename dir))))
     (unless note
-      (error "manifolding-atlas-rename-file: Cannot find note with ID: %s"
+      (error "manifolding-atlas-rename-file: Cannot find AIU with ID: %s"
              (if (manifolding-atlas-note-p note-or-id)
                  (manifolding-atlas-note-id note-or-id)
                note-or-id)))
     (when (> (manifolding-atlas-note-level note) 0)
-      (error "manifolding-atlas-rename-file: Cannot rename file for heading-level note"))
+      (error "manifolding-atlas-rename-file: Cannot rename file for heading-level AIU"))
     (when (file-exists-p new-path)
       (error "manifolding-atlas-rename-file: Target file already exists: %s" new-path))
     ;; Kill buffer if file is open
@@ -3450,8 +3450,8 @@ This is the headless building block UIs use to offer one-key fixes for a
 
 
 A literate plugin for manifolding-atlas v2 providing two workflows:
-1. Select text via key selection → create a new manifolding-atlas note
-2. Extract current org heading → promote it into its own manifolding-atlas note file
+1. Select text via key selection → create a new AIU
+2. Extract current org heading → promote it into its own AIU file
 
 *** Dependencies
 #+begin_src emacs-lisp
@@ -3464,7 +3464,7 @@ A literate plugin for manifolding-atlas v2 providing two workflows:
 :DESCRIPTION: Select any visible text with a key-selection jump and send it to a new manifolding-atlas note.
 :END:
 
-*** Extract Org Heading into its own Manifolding Atlas Note
+*** Extract Org Heading into its own Manifolding Atlas AIU
 :PROPERTIES:
 :DESCRIPTION: Promote an org heading and its subtree into a standalone manifolding-atlas note file.
 :END:
@@ -3475,7 +3475,7 @@ Put point anywhere inside a heading and call
 1. Grab the heading title and body
 2. Strip the heading from the current file
 3. Write a new manifolding-atlas-compatible org file with that content
-4. Insert a link back to the new note in place of the old heading
+4. Insert a link back to the new AIU in place of the old heading
 
 **** Create file wrapper
 ** my/manifolding-atlas--create-file-wrapper
@@ -3536,14 +3536,14 @@ Why: Implementation of ~my/manifolding-atlas--delete-heading~.
 **** Main command — heading → file
 
 ***** Body transplant
-Replaces the freshly created note's default body with the extracted
+Replaces the freshly created AIU's default body with the extracted
 heading content, parking after the property drawer.
 ** my/manifolding-atlas--transplant-body
 Why: Implementation of ~my/manifolding-atlas--transplant-body~.
 
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas--transplant-body (note body)
-  "Write BODY as NOTE's content, replacing any default."
+  "Write BODY as AIU's content, replacing any default."
   (manifolding-atlas-visit note)
   (goto-char (point-min))
   (when (looking-at ":PROPERTIES:")
@@ -3564,7 +3564,7 @@ Why: Implementation of ~my/manifolding-atlas--finish-heading-extraction~.
 
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas--finish-heading-extraction (note title)
-  "Ask whether to leave a backlink to NOTE or delete the heading at point."
+  "Ask whether to leave a backlink to AIU or delete the heading at point."
   (org-back-to-heading t)
   (if (string= (read-answer "Insert backlink? "
                   '(("yes" ?y "insert backlink")
@@ -3594,13 +3594,13 @@ Prompts for backlink — yes inserts a link, no deletes the heading."
     (org-back-to-heading t))
   (let* ((heading-id (org-id-get))
          (pair       (my/manifolding-atlas--heading-subtree-text))
-         (title      (read-string "Note title: " (car pair)))
+         (title      (read-string "AIU title: " (car pair)))
          (body       (cdr pair))
          (note       (manifolding-atlas-create title nil))
          (original-buffer (current-buffer)))
     ;; Record source relationship pointing back to original heading.
-    ;; Uses the cross-buffer property writer (same (note key value)
-    ;; shape as the old call); the extracted note enrolls in mastering
+    ;; Uses the cross-buffer property writer (same (AIU key value)
+    ;; shape as the old call); the extracted AIU enrolls in mastering
     ;; through the core create path above.
     (when (and note heading-id)
       (my/manifolding-atlas--property-put note "SOURCE" heading-id))
@@ -3627,7 +3627,7 @@ Why: Implementation of ~my/manifolding-atlas--new-note~.
 #+begin_src emacs-lisp
 (defvar my/manifolding-atlas--new-note nil
   "The note object when a new note was just created by manifolding-atlas-create.
-Used by `my/manifolding-atlas-find-advice' to detect new notes.")
+Used by `my/manifolding-atlas-find-advice' to detect new AIUs.")
 #+end_src
 
 ** my/manifolding-atlas--skip-open-prompt
@@ -3696,7 +3696,7 @@ Level 3 skips the body editor and asks to open the file instead."
 Why: Implementation of ~my/manifolding-atlas-capture--select-parent~.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-capture--select-parent ()
-  "Pick a parent note: current buffer's note, or search."
+  "Pick a parent note: current buffer's AIU, or search."
   (let ((buffer-note (my/manifolding-atlas--buffer-note)))
     (if buffer-note
         (if (member (read-char-choice
@@ -3718,7 +3718,7 @@ If a note with that title exists, use it.  Otherwise create a new one
 with all standard prompts (subdir, tags, etc.) and open an org-capture
 buffer for body editing."
   (interactive)
-  (let* ((title  (read-string "Note title: "))
+  (let* ((title  (read-string "AIU title: "))
          (note   (or (car (manifolding-atlas-db-query
                            (lambda (n)
                              (string= (manifolding-atlas-note-title n) title))))
@@ -3776,7 +3776,7 @@ Why: Implementation of ~my/manifolding-atlas-rename-link~.
 Why: Implementation of ~my/manifolding-atlas-capture-heading~.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-capture-heading ()
-  "Select a parent note, create a heading under it, then open via org-capture."
+  "Select a parent AIU, create a heading under it, then open via org-capture."
   (interactive)
   (let (manifolding-atlas-create-default-function parent title prompts note fast)
     (setq manifolding-atlas-create-default-function (lambda (_) '()))
@@ -4102,7 +4102,7 @@ Why: Implementation of ~my/manifolding-atlas-prompt-template--apply~.
 
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-prompt-template--apply (val note)
-  "Post-apply: add VAL as a tag on NOTE."
+  "Post-apply: add VAL as a tag on AIU."
   (when (and note val
              (not (member val (list "WARNING"
                                     my/manifolding-atlas-prompt-template--none))))
@@ -4807,7 +4807,7 @@ Why: Implementation of ~my/manifolding-atlas-org-prompt--register~.
 (defvar my/manifolding-atlas-org-prompt--buffer-result nil)
 (defvar my/manifolding-atlas-org-prompt--buffer-marks nil)
 (defvar-local my/manifolding-atlas-org-prompt--applied nil
-  "Value currently applied to the target note from this picker.")
+  "Value currently applied to the target AIU from this picker.")
 
 (defun my/manifolding-atlas-org-prompt--buffer-refresh-marks ()
   (remove-overlays (point-min) (point-max) 'atlas-mark t)
@@ -4885,7 +4885,7 @@ m key: apply or un-apply the option at point, immediately to disk.
 
 *** Collection kinds toggle
 Multi/tags accumulate marks; clearing the last mark removes the
-unfolding from the note entirely.
+unfolding from the AIU entirely.
 ** my/manifolding-atlas-org-prompt--toggle-collection
 Why: Implementation of ~my/manifolding-atlas-org-prompt--toggle-collection~.
 
@@ -4916,7 +4916,7 @@ Why: Implementation of ~my/manifolding-atlas-org-prompt--toggle-scalar~.
 
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-org-prompt--toggle-scalar (title)
-  "Apply TITLE to the session note, or remove it when already applied."
+  "Apply TITLE to the session AIU, or remove it when already applied."
   (if (and my/manifolding-atlas-org-prompt--applied
            (string= my/manifolding-atlas-org-prompt--applied title))
       (progn
@@ -4927,7 +4927,7 @@ Why: Implementation of ~my/manifolding-atlas-org-prompt--toggle-scalar~.
     (my/manifolding-atlas-org-prompt--session-apply title)
     (setq my/manifolding-atlas-org-prompt--applied title)
     (my/manifolding-atlas-org-prompt--highlight-applied title)
-    (message "%s → note" title)))
+    (message "%s → AIU" title)))
 #+end_src
 *** Dispatcher
 ** my/manifolding-atlas-org-prompt--toggle-apply
@@ -4937,7 +4937,7 @@ Why: Implementation of ~my/manifolding-atlas-org-prompt--toggle-apply~.
 (defun my/manifolding-atlas-org-prompt--toggle-apply ()
   "Apply the option at point to the target note — or remove it when
 it was the one already applied.  Unfolding: every change lands on disk and
-shows in the note window immediately."
+shows in the AIU window immediately."
   (let* ((req (plist-get my/manifolding-atlas-org-prompt--session :current))
          (spec (plist-get req :spec))
          (kind (plist-get spec :kind))
@@ -4966,7 +4966,7 @@ Why: Implementation of ~my/manifolding-atlas-org-prompt--unfolding-finalized~.
 Upgrades a pick into an unfolding and opens its capture.
 
 *** Unfolding path resolution
-When the DB has no row for the unfolding yet, a minimal note file is
+When the DB has no row for the unfolding yet, a minimal AIU file is
 created on the spot so the capture target always exists.
 ** my/manifolding-atlas-org-prompt--unfolding-path
 Why: Implementation of ~my/manifolding-atlas-org-prompt--unfolding-path~.
@@ -4994,11 +4994,11 @@ Why: Implementation of ~my/manifolding-atlas-org-prompt--capture-unfolding-conte
 
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-org-prompt--capture-unfolding-content (unfolding-path)
-  "Open UNFOLDING-PATH capture-style so the unfolding note gets its content."
+  "Open UNFOLDING-PATH capture-style so the unfolding AIU gets its content."
   (add-hook 'org-capture-after-finalize-hook
             #'my/manifolding-atlas-org-prompt--unfolding-finalized)
   (let ((org-capture-templates
-         `(("l" "Unfolding note" plain
+         `(("l" "Unfolding AIU" plain
             (file+function ,unfolding-path
                            (lambda () (goto-char (point-max))))
             "\n%?\n" :kill-buffer t :unnarrowed t)))
@@ -5040,7 +5040,7 @@ the rest of the prompts."
                      (error nil)))
          (unfolding-path (my/manifolding-atlas-org-prompt--unfolding-path
                     family val unfolding-id unfolding-note)))
-    ;; Upgrade the plain value to an id-link on the target note.
+    ;; Upgrade the plain value to an id-link on the target AIU.
     (let ((my/manifolding-atlas--quiet t))
       (my/manifolding-atlas-org-prompt--apply-to-note
        note (list (cons key link)) nil nil))
@@ -5169,14 +5169,14 @@ Standalone pickers keep classic multi-mark behavior."
 
 #+end_src
 ** Session cancel
-Drops queued prompts and deletes the draft note.
+Drops queued prompts and deletes the draft AIU.
 ** my/manifolding-atlas-org-prompt--session-cancel
 Why: Implementation of ~my/manifolding-atlas-org-prompt--session-cancel~.
 
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-org-prompt--session-cancel ()
   "Cancel the entire capture: drop every queued prompt and delete
-the draft note file.  The finalizer never runs."
+the draft AIU file.  The finalizer never runs."
   (let* ((note (plist-get my/manifolding-atlas-org-prompt--session :note))
          (file (and note (manifolding-atlas-note-path note))))
     (setq my/manifolding-atlas-org-prompt--pending-create nil)
@@ -5259,13 +5259,13 @@ Why: Implementation of ~my/manifolding-atlas-org-prompt--buffer-abort~.
 #+end_src
 ** Session state variables
 One plist per active session, plus the parking list for prompts
-collected before their note exists.
+collected before their AIU exists.
 #+begin_src emacs-lisp
 (defvar my/manifolding-atlas-org-prompt--session nil
-  "Active async session plist: :pending, :current, :note, :finalize.")
+  "Active async session plist: :pending, :current, :AIU, :finalize.")
 
 (defvar my/manifolding-atlas-org-prompt--pending-create nil
-  "Parked deferred prompts awaiting note creation in default-function flows.")
+  "Parked deferred prompts awaiting AIU creation in default-function flows.")
 
 (defvar-local my/manifolding-atlas-org-prompt--session-p nil
   "Non-nil in picker buffers driven by an async session.")
@@ -5286,7 +5286,7 @@ Why: Implementation of ~my/manifolding-atlas-org-prompt--base-key~.
   "Move the deferred queue into the pending-create parking list.
 Used by creation paths where the note does not exist yet when prompts
 are collected (default-function flows); the parked queue is started by
-the post-create advice once the note exists."
+the post-create advice once the AIU exists."
   (setq my/manifolding-atlas-org-prompt--pending-create
         (append my/manifolding-atlas-org-prompt--pending-create
                 my/manifolding-atlas-org-prompt--deferred
@@ -5328,7 +5328,7 @@ Why: Implementation of ~my/manifolding-atlas-org-prompt--session-begin~.
 
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-org-prompt--session-begin (queue note finalize)
-  "Start answering QUEUE for NOTE; call FINALIZE when drained."
+  "Start answering QUEUE for AIU; call FINALIZE when drained."
   (setq my/manifolding-atlas-org-prompt--session
         (list :note note :pending queue :answered nil
               :finalize finalize))
@@ -5468,7 +5468,7 @@ SKIP ALL · NO BODY mode (fast level 3) skips every queued prompt."
       (when finalize (funcall finalize)))))
 #+end_src
 ** Parked session start
-Same gate for default-function flows (note created after collection).
+Same gate for default-function flows (AIU created after collection).
 ** my/manifolding-atlas-org-prompt--session-start-parked
 Why: Implementation of ~my/manifolding-atlas-org-prompt--session-start-parked~.
 
@@ -5538,7 +5538,7 @@ window currently has focus (dired, an org buffer, etc.)."
        (window-min-height . 4)))))
 #+end_src
 ** Session display
-Bottom strip under the note window.
+Bottom strip under the AIU window.
 ** my/manifolding-atlas-org-prompt--session-display
 Why: Implementation of ~my/manifolding-atlas-org-prompt--session-display~.
 
@@ -5703,12 +5703,12 @@ Why: Implementation of ~my/manifolding-atlas-org-prompt--session-value~.
             (my/manifolding-atlas-org-prompt--default-for-spec spec)))
       (t title))))
 #+end_src
-** Apply to note
-Writes unfoldings/tags/todo at the note heading and parks the view.
+** Apply to AIU
+Writes unfoldings/tags/todo at the AIU heading and parks the view.
 
 *** Heading writer
 All entry writes happen inside one save-excursion; the returned
-position is where the note window should be parked afterwards.
+position is where the AIU window should be parked afterwards.
 ** my/manifolding-atlas-org-prompt--write-at-heading
 Why: Implementation of ~my/manifolding-atlas-org-prompt--write-at-heading~.
 
@@ -5757,7 +5757,7 @@ REMOVE-PROPS lists unfolding keys to delete instead."
       (org-back-to-heading t)
       (point))))
 #+end_src
-*** Note application
+*** AIU application
 ** my/manifolding-atlas-org-prompt--apply-to-note
 Why: Implementation of ~my/manifolding-atlas-org-prompt--apply-to-note~.
 
@@ -5806,14 +5806,14 @@ cleared, TODO keywords are removed from the heading."
             note nil nil nil (list unfolding))))))))
 #+end_src
 ** Post-apply hooks
-Fragment hooks run after the note writes; one broken hook must not
+Fragment hooks run after the AIU writes; one broken hook must not
 kill the rest of the pick.
 ** my/manifolding-atlas-org-prompt--run-post-apply
 Why: Implementation of ~my/manifolding-atlas-org-prompt--run-post-apply~.
 
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-org-prompt--run-post-apply (post note)
-  "Run POST hooks against NOTE, reporting each failure."
+  "Run POST hooks against AIU, reporting each failure."
   (dolist (fn post)
     (condition-case err
         (funcall fn note)
@@ -5827,7 +5827,7 @@ Plain planning-line edit (same house pattern as the routines advance
 writer): no org-schedule call, no hooks — org only displays the date."
   (let ((id (manifolding-atlas-note-id note)))
     (unless (and (stringp id) (not (string-empty-p id)))
-      (error "post-apply: note has no id"))
+      (error "post-apply: AIU has no id"))
     (let ((m (org-id-find id 'marker)))
       (unless (and m (marker-buffer m))
         (error "post-apply: id %s not found" id))
@@ -5848,11 +5848,11 @@ writer): no org-schedule call, no hooks — org only displays the date."
           (save-buffer))))))
 
 (defun my/manifolding-atlas--heading-schedule-apply (val note)
-  "Post-apply: stamp SCHEDULED VAL on NOTE's heading."
+  "Post-apply: stamp SCHEDULED VAL on AIU's heading."
   (my/manifolding-atlas--heading-stamp-planning "SCHEDULED" val note))
 
 (defun my/manifolding-atlas--heading-deadline-apply (val note)
-  "Post-apply: stamp DEADLINE VAL on NOTE's heading."
+  "Post-apply: stamp DEADLINE VAL on AIU's heading."
   (my/manifolding-atlas--heading-stamp-planning "DEADLINE" val note))
 #+end_src
 ** Session apply
@@ -5862,7 +5862,7 @@ Why: Implementation of ~my/manifolding-atlas-org-prompt--session-apply~.
 
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-org-prompt--session-apply (val)
-  "Apply VAL for the current request directly to the session note."
+  "Apply VAL for the current request directly to the session AIU."
   (let* ((req (plist-get my/manifolding-atlas-org-prompt--session :current))
          (spec (plist-get req :spec))
          (note (plist-get my/manifolding-atlas-org-prompt--session :note))
@@ -6146,7 +6146,7 @@ one-map-per-directory validator signals, caught here). The map
 title is NAME (default \"Mind Map\"); the headline carries the
 :mindmap: tag so maps stay searchable by tag. The locked law says
 every file is a node, so creation flows call this to bootstrap a
-missing map instead of leaving notes mappeless."
+missing map instead of leaving AIUs mappeless."
   (condition-case nil
       (when (and (stringp dir) (file-directory-p dir))
         (my/mm-validate-map-dir dir)
@@ -6175,7 +6175,7 @@ missing map instead of leaving notes mappeless."
 (defun my/mm-create-map ()
   "Create a mind-map file (dir picked, validator enforced). Returns id.
 Inside a creation flow the target directory is the default, so RET
-creates where the note is going."
+creates where the AIU is going."
   (let* ((root (and (fboundp 'my/manifolding-atlas-root-dir)
                     (ignore-errors (my/manifolding-atlas-root-dir))))
          (defdir (or (my/mm-target-dir-or-nil)
@@ -6319,7 +6319,7 @@ Why: Implementation of ~my/manifolding-atlas-org-prompt--ask-minibuffer~.
 
 * Fragments
 A pick becomes a fragment plist (:unfoldings/:tags/:todo/
-:post-apply) that the session applier knows how to land on a note.
+:post-apply) that the session applier knows how to land on an AIU.
 
 ** Simple fragments
 Todo, tags, tagopt and template — each maps one kind's value.
@@ -6474,7 +6474,7 @@ Why: Implementation of ~my/manifolding-atlas-org-prompt--fragment-scoped~.
 #+end_src
 ** Mindmap fragment
 Root placement stores WARNING (nothing to link); real placements get
-an unfolding note and a post-apply that moves the note into place.
+an unfolding AIU and a post-apply that moves the AIU into place.
 ** my/manifolding-atlas-org-prompt--fragment-mindmap
 Why: Implementation of ~my/manifolding-atlas-org-prompt--fragment-mindmap~.
 
@@ -6508,7 +6508,7 @@ Why: Implementation of ~my/manifolding-atlas-org-prompt--fragment-mm-map-select~
 #+end_src
 ** Unfolding fragment
 Skips clear outstanding state transcriptions; real picks resolve to
-unfolding notes and apply through the state post hook.
+unfolding AIUs and apply through the state post hook.
 ** my/manifolding-atlas-org-prompt--fragment-unfolding
 Why: Implementation of ~my/manifolding-atlas-org-prompt--fragment-unfolding~.
 
@@ -7101,7 +7101,7 @@ sites (this numeric contract) working now that the speed menu is gone."
 #+end_src
 
 *** Static Blueprints Management
-Manages Static Blueprints — an auto-generated file tracking notes
+Manages Static Blueprints — an auto-generated file tracking AIUs
 holding static default values (or missing them) that want proper
 unfolding use: answer the prompt, or press ~l~ to make the value a
 live unfolding link.
@@ -7110,7 +7110,7 @@ live unfolding link.
 
 #+begin_src emacs-lisp
 (defvar my/manifolding-atlas-missing--file "admin/Static Blueprints"
-  "Filename for tracking notes with static unfolding values.")
+  "Filename for tracking AIUs with static unfolding values.")
 (setq my/manifolding-atlas-missing--file "admin/Static Blueprints")
 
 (defun my/manifolding-atlas-missing--path ()
@@ -7126,14 +7126,14 @@ live unfolding link.
       (with-temp-file path
         (insert "#+TITLE: Static Blueprints\n")
         (insert "#+AUTHOR: Manifolding Atlas Git VC System\n")
-        (insert "#+DESCRIPTION: Auto-generated - notes holding static defaults that want unfolding links.\n")
+        (insert "#+DESCRIPTION: Auto-generated - AIUs holding static defaults that want unfolding links.\n")
         (insert "#+STARTUP: overview\n\n")))
     path))
 #+end_src
 
 **** Health aggregation
-Violations from every schema collapse into one entry per note so a
-note failing three schemas appears once with all of them listed.
+Violations from every schema collapse into one entry per AIU so a
+AIU failing three schemas appears once with all of them listed.
 
 ** my/manifolding-atlas-missing--aggregate-health
 Why: Implementation of ~my/manifolding-atlas-missing--aggregate-health~.
@@ -7148,7 +7148,7 @@ are excluded — those stay visible via flymake and the doctor, and
 must not dilute a queue about static values.")
 
 (defun my/manifolding-atlas-missing--aggregate-health ()
-  "Return static-needing violation entries aggregated by note id."
+  "Return static-needing violation entries aggregated by AIU id."
   (let ((by-id (make-hash-table :test #'equal)))
     (dolist (health (manifolding-atlas-blueprint-collection-health))
       (let ((schema-name (manifolding-atlas-blueprint-health-schema health)))
@@ -7192,7 +7192,7 @@ Why: Implementation of ~my/manifolding-atlas-missing--write-entries~.
       (with-temp-file path
         (insert "#+TITLE: Static Blueprints\n")
         (insert "#+AUTHOR: Manifolding Atlas Git VC System\n")
-        (insert "#+DESCRIPTION: Auto-generated - notes holding static defaults that want unfolding links.\n")
+        (insert "#+DESCRIPTION: Auto-generated - AIUs holding static defaults that want unfolding links.\n")
         (insert "#+STARTUP: overview\n\n")
         (dolist (entry entries)
           (insert (format "* TODO [[id:%s][%s]]\n"
@@ -7247,7 +7247,7 @@ Error-isolated: a failure warns but never breaks finalize hooks."
 #+end_src
 
 *** Startup rebuild with DB retry
-Retries on a 5s idle timer until the database actually has notes,
+Retries on a 5s idle timer until the database actually has AIUs,
 then cancels itself.
 
 ** my/manifolding-atlas-missing--startup-rebuild
@@ -7255,7 +7255,7 @@ Why: Implementation of ~my/manifolding-atlas-missing--startup-rebuild~.
 
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-missing--startup-rebuild ()
-  "Run rebuild-from-health if manifolding-atlas DB has notes; retry later if not."
+  "Run rebuild-from-health if manifolding-atlas DB has AIUs; retry later if not."
   (condition-case nil
       (if (> (length (manifolding-atlas-db-query)) 0)
           (progn
@@ -7498,7 +7498,7 @@ When called interactively, prompt for tags to remove from current tags."
     (unless current-tags
       (user-error
        (if (and (> (org-outline-level) 0) (manifolding-atlas-buffer-tags-get))
-           "No local tags to remove (note has inherited tags only)"
+           "No local tags to remove (AIU has inherited tags only)"
          "No tags to remove")))
     (let* ((tags (or (if (listp tags) tags (list tags))
                      (completing-read-multiple "Remove tag: " current-tags)))
@@ -8475,7 +8475,7 @@ Why: Implementation of ~manifolding-atlas-buffer-meta-format~.
          (string-match-p (concat "^" manifolding-atlas-utils--uuid-regexp "$") value))
     (if-let* ((note (manifolding-atlas-db-get-by-id value)))
         (manifolding-atlas-utils-link-make-string note)
-      (user-error "Note with id \"%s\" does not exist" value)))
+      (user-error "AIU with id \"%s\" does not exist" value)))
    ((stringp value)
     (let ((domain (ignore-errors
                     (url-domain (url-generic-parse-url value)))))

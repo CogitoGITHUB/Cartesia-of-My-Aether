@@ -1,6 +1,6 @@
-Spaced-repetition review for manifolding-atlas notes, built on a
+Spaced-repetition review for AIUs, built on a
 10-state mastery spine (UNSEEN → CONTRIBUTING) with STATUS kept
-orthogonal (ACTIVE / SUSPENDED / ARCHIVED / DORMANT). Each note is a
+orthogonal (ACTIVE / SUSPENDED / ARCHIVED / DORMANT). Each AIU is a
 reviewable card; its position lives in org unfoldings (=STAGE=,
 =STATUS=, =MASTERING_*= schedule state) and is indexed into a
 =mastering_schedule= table by a DB extractor for fast due-queries.
@@ -32,7 +32,7 @@ current capability vs attainment) belongs to a later phase.
 *** Mastery Spine
 The spine answers one question: how far has this knowledge object
 progressed from ignorance to original contribution? Ten states,
-numbered 0–9, each a single tag-safe token that doubles as the note's
+numbered 0–9, each a single tag-safe token that doubles as the AIU's
 first org tag. The order below is canonical — indices are compared,
 so never reorder without migrating stored values.
 
@@ -40,7 +40,7 @@ so never reorder without migrating stored values.
   representation exists yet. Reserved for mapped, imported, or
   inferred nodes. Never a birth state, never reviewable.
 - 1 AWARE: the domain is an identified object of possible knowledge.
-  Birth state of every human-created note — capture itself is the
+  Birth state of every human-created AIU — capture itself is the
   awareness gate.
 - 2 ACQUIRING: building blocks accumulating; retrieval works on
   familiar questions. First successful review promotes here.
@@ -59,7 +59,7 @@ so never reorder without migrating stored values.
   keeps moving.
 
 STATUS (ACTIVE / SUSPENDED / ARCHIVED / DORMANT) is not on this
-ladder: it says what the mapper is doing with the note, not how far
+ladder: it says what the mapper is doing with the AIU, not how far
 the knowledge developed. A suspended expert is still an expert.
 #+begin_src emacs-lisp
 (defconst my/manifolding-atlas-mastering--stages
@@ -305,8 +305,8 @@ mastering_schedule. A retired MASTERING unfolding is translated
 one-way when STAGE is absent (REVIEW/TODO → AWARE+ACTIVE, SUSPEND →
 AWARE+SUSPENDED, WARNING → unenrolled); no writer emits those values
 anymore. Initializes a default schedule when a stage is set but
-schedule unfoldings are missing, so enrolled notes are never dropped.
-UNSEEN notes get a row (schedule stays warm) but due queries exclude
+schedule unfoldings are missing, so enrolled AIUs are never dropped.
+UNSEEN AIUs get a row (schedule stays warm) but due queries exclude
 them — first contact, not the scheduler, promotes out of UNSEEN.
 
 **** Extractor
@@ -315,7 +315,7 @@ them — first contact, not the scheduler, promotes out of UNSEEN.
   "Extract STAGE/STATUS/MASTERING_* unfoldings from NOTE-DATA
 into mastering_schedule. Initializes a default schedule when a
 stage is set but schedule unfoldings are missing, so enrolled
-notes are never dropped."
+AIUs are never dropped."
   (let* ((note-id (plist-get note-data :id))
          (unfoldings (plist-get note-data :unfoldings))
          (lookup (lambda (k) (cdr (assoc k unfoldings))))
@@ -469,7 +469,7 @@ Returns CURRENT unless a gate fires. Never demotes."
   (let ((_idx (my/manifolding-atlas-mastering--stage-index current)))
     (cond
      ;; First contact of any kind is recognition: UNSEEN cannot survive
-     ;; a human opening a review on the note.
+     ;; a human opening a review on the AIU.
      ((string-equal current "UNSEEN")
       (if (and success (>= (1+ t-success) 1)) "ACQUIRING" "AWARE"))
      ;; First demonstrated retrieval starts acquisition. A failed
@@ -480,8 +480,8 @@ Returns CURRENT unless a gate fires. Never demotes."
 #+end_src
 
 **** First-tag sync
-The stage token is the note's first org tag (first =#\+filetags:=
-entry for file notes): the human-facing abstraction, queryable via
+The stage token is the AIU's first org tag (first =#\+filetags:=
+entry for file AIUs): the human-facing abstraction, queryable via
 tag search, always mirroring the drawer value. STATUS stays
 drawer-only in phase 1 so the tagline carries exactly one system
 claim. Legacy tokens (TODO, WARNING, REVIEW) are stripped wherever
@@ -544,7 +544,7 @@ these fields.
 The recognition itself is the gate — no test, no evidence."
   (interactive)
   (let ((note (my/manifolding-atlas--buffer-note)))
-    (unless note (user-error "No note at point"))
+    (unless note (user-error "No AIU at point"))
     (my/manifolding-atlas-mastering--put note "STAGE" "AWARE")
     (my/manifolding-atlas-mastering--sync-stage-tag note "AWARE")
     (message "Encountered: stage AWARE.")))
@@ -556,10 +556,10 @@ Assessment gates require a written evidence summary, stored with
 today's date in the drawer. Refusal is silent: no evidence, no stage."
   (interactive)
   (let* ((note (my/manifolding-atlas--buffer-note)))
-    (unless note (user-error "No note at point"))
+    (unless note (user-error "No AIU at point"))
     (let* ((file (manifolding-atlas-note-path note))
            (id (manifolding-atlas-note-id note)))
-      (unless file (user-error "Note has no file"))
+      (unless file (user-error "AIU has no file"))
       (with-current-buffer (find-file-noselect file)
         (save-excursion
           (let* ((level (manifolding-atlas-note-level note))
@@ -716,11 +716,11 @@ ACQUIRING and never demotes."
 Due = ACTIVE status, a seen stage (UNSEEN excluded — the scheduler
 cannot test what has no representation), and next-rev ≤ today.
 Overdue additionally requires at least one prior review (n > 0).
-UNSEEN notes are counted separately for mapping triage, never mixed
+UNSEEN AIUs are counted separately for mapping triage, never mixed
 into review sessions.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-mastering--due-note-ids ()
-  "Return note IDs due for review today."
+  "Return AIU IDs due for review today."
   (let ((today (my/manifolding-atlas-mastering--today-int)))
     (mapcar #'car
             (emacsql (manifolding-atlas-db)
@@ -730,7 +730,7 @@ into review sessions.
               today "ACTIVE" "UNSEEN"))))
 
 (defun my/manifolding-atlas-mastering--overdue-note-ids ()
-  "Return note IDs overdue (reviewed at least once, due before today)."
+  "Return AIU IDs overdue (reviewed at least once, due before today)."
   (let ((today (my/manifolding-atlas-mastering--today-int)))
     (mapcar #'car
             (emacsql (manifolding-atlas-db)
@@ -740,7 +740,7 @@ into review sessions.
               today "ACTIVE" "UNSEEN"))))
 
 (defun my/manifolding-atlas-mastering--unseen-note-ids ()
-  "Return note IDs mapped but never encountered (triage list, not reviews)."
+  "Return AIU IDs mapped but never encountered (triage list, not reviews)."
   (mapcar #'car
           (emacsql (manifolding-atlas-db)
             [:select [note-id] :from mastering_schedule
@@ -748,7 +748,7 @@ into review sessions.
             "UNSEEN")))
 
 (defun my/manifolding-atlas-mastering--due-count ()
-  "Number of due notes."
+  "Number of due AIUs."
   (length (my/manifolding-atlas-mastering--due-note-ids)))
 #+end_src
 
@@ -757,7 +757,7 @@ Foundations first: the due queue walks the mind-map depth-first so
 prerequisites grade before dependents and failures cascade visibly
 instead of surfacing as downstream confusion. This is consumption,
 not ownership — every position fact comes from mm/* queries, and no
-topology is stored or mutated here. Unmapped notes sink to the end
+topology is stored or mutated here. Unmapped AIUs sink to the end
 rather than blocking; headings follow their file card directly.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-mastering--map-sort-key (note-id)
@@ -774,7 +774,7 @@ card's depth and sort by their own order key right after it."
         (list depth order title)))))
 
 (defun my/manifolding-atlas-mastering--ordered-due-note-ids ()
-  "Due note IDs in map order: parents before children, stable by title."
+  "Due AIU IDs in map order: parents before children, stable by title."
   (sort (my/manifolding-atlas-mastering--due-note-ids)
         (lambda (a b)
           (let ((ka (my/manifolding-atlas-mastering--map-sort-key a))
@@ -793,7 +793,7 @@ Reports \"branch clear\" with counts when nothing is due — an empty
 branch is information, not an error."
   (interactive)
   (let* ((note (my/manifolding-atlas--buffer-note)))
-    (unless note (user-error "No note at point"))
+    (unless note (user-error "No AIU at point"))
     (unless (fboundp 'mm/subtree-of)
       (user-error "Mind-map engine not loaded"))
     (let* ((id (manifolding-atlas-note-id note))
@@ -817,11 +817,11 @@ branch is information, not an error."
 #+end_src
 
 *** Review Session
-Sequential review in a dedicated buffer. Each note shows its title and
+Sequential review in a dedicated buffer. Each AIU shows its title and
 an open link; grading with n/f/s runs the algorithm and dual-writes the
 schedule table and org drawer.
 
-**** Note display and suspend toggle
+**** AIU display and suspend toggle
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-mastering--display-note (id)
   "Display note ID in review buffer, with its stage and status.
@@ -931,7 +931,7 @@ The budget stops the session when it runs out; it never grades."
 #+end_src
 
 **** Review session loop
-The open action visits the note, then offers an inline re-grade.
+The open action visits the AIU, then offers an inline re-grade.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-mastering--review-session (ids)
   "Review NOTE-IDS in sequence, grading with algorithm."
@@ -969,7 +969,7 @@ The open action visits the note, then offers an inline re-grade.
                 (find-file (manifolding-atlas-note-path note))
                 (let ((inhibit-read-only t))
                   (with-current-buffer buf (erase-buffer)))
-                (when (y-or-n-p "Grade this note? ")
+                (when (y-or-n-p "Grade this AIU? ")
                   (catch 'inline-graded
                     (while t
                       (pcase (read-char-choice "n=next f=fail s=suspend t=type q=quit: "
@@ -1204,9 +1204,9 @@ per-chunk metadata for the scope tag."
 this property believes the last thing that happened — not the best,
 not the latest good. Warm-ups overwrite real attempts."
   (let ((note (manifolding-atlas-db-get-by-id id)))
-    (unless note (user-error "Drill note gone"))
+    (unless note (user-error "Drill AIU gone"))
     (let ((file (manifolding-atlas-note-path note)))
-      (unless file (user-error "Drill note has no file"))
+      (unless file (user-error "Drill AIU has no file"))
       (with-current-buffer (find-file-noselect file)
         (save-excursion
           (let ((level (manifolding-atlas-note-level note))
@@ -1228,9 +1228,9 @@ speed-type session on the assembled text. Completion records the
 stats; quitting leaves no trace. Returns nil (never grades)."
   (my/manifolding-atlas-mastering--ensure-drill-capture)
   (let ((note (manifolding-atlas-db-get-by-id id)))
-    (unless note (user-error "No note for drill"))
+    (unless note (user-error "No AIU for drill"))
     (let ((file (manifolding-atlas-note-path note)))
-      (unless file (user-error "Drill note has no file"))
+      (unless file (user-error "Drill AIU has no file"))
       (with-current-buffer (find-file-noselect file)
         (save-excursion
           (let ((level (manifolding-atlas-note-level note))
@@ -1255,14 +1255,14 @@ stats; quitting leaves no trace. Returns nil (never grades)."
                     (goto-char (point-min)))
                   (pop-to-buffer-same-window buf)
                   (speed-type-region (point-min) (point-max))
-                  (message "Drill scope %s — complete it; stats land on the note." tag)))))))))
+                  (message "Drill scope %s — complete it; stats land on the AIU." tag)))))))))
   nil)
 
 (defun my/manifolding-atlas-mastering-type-drill ()
-  "Drill the note at point outside any review session."
+  "Drill the AIU at point outside any review session."
   (interactive)
   (let ((note (my/manifolding-atlas--buffer-note)))
-    (unless note (user-error "No note at point"))
+    (unless note (user-error "No AIU at point"))
     (my/manifolding-atlas-mastering--type-drill-for
      (manifolding-atlas-note-id note))))
 #+end_src
@@ -1297,19 +1297,19 @@ below that they move on their own.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-mastering-review ()
   "Start mastering review session for due notes, in map order.
-Foundations grade before dependents; unmapped notes sink to the end."
+Foundations grade before dependents; unmapped AIUs sink to the end."
   (interactive)
   (let ((ids (my/manifolding-atlas-mastering--ordered-due-note-ids)))
     (if (null ids)
-        (message "No due notes.")
+        (message "No due AIUs.")
       (my/manifolding-atlas-mastering--review-session ids))))
 
 (defun my/manifolding-atlas-mastering-review-overdue ()
-  "Start mastering review session for overdue notes."
+  "Start mastering review session for overdue AIUs."
   (interactive)
   (let ((ids (my/manifolding-atlas-mastering--overdue-note-ids)))
     (if (null ids)
-        (message "No overdue notes.")
+        (message "No overdue AIUs.")
       (my/manifolding-atlas-mastering--review-session ids))))
 #+end_src
 
@@ -1321,7 +1321,7 @@ Enrolls the note first when it has no schedule row (birth state
 AWARE+ACTIVE), so grading never meets an unenrolled card."
   (interactive "P")
   (let ((note (my/manifolding-atlas--buffer-note)))
-    (unless note (user-error "No note at point"))
+    (unless note (user-error "No AIU at point"))
     (let ((id (manifolding-atlas-note-id note)))
       (unless (car (emacsql (manifolding-atlas-db)
                     [:select [note-id] :from mastering_schedule
@@ -1329,7 +1329,7 @@ AWARE+ACTIVE), so grading never meets an unenrolled card."
         (my/manifolding-atlas-mastering--init-schedule nil note))
       (my/manifolding-atlas-mastering--update id (not arg)
        (my/manifolding-atlas-mastering--review-algorithm id (not arg)))
-      (message "Note marked %s." (if arg "failed" "reviewed")))))
+      (message "AIU marked %s." (if arg "failed" "reviewed")))))
 
 (defun my/manifolding-atlas-mastering-toggle-participation ()
   "Flip current note between ACTIVE and SUSPENDED.
@@ -1338,7 +1338,7 @@ pause button, not an exit. Resuming restores exactly where the
 knowledge left off."
   (interactive)
   (let ((note (my/manifolding-atlas--buffer-note)))
-    (unless note (user-error "No note at point"))
+    (unless note (user-error "No AIU at point"))
     (let* ((id (manifolding-atlas-note-id note))
            (row (car (emacsql (manifolding-atlas-db)
                       [:select [suspend] :from mastering_schedule

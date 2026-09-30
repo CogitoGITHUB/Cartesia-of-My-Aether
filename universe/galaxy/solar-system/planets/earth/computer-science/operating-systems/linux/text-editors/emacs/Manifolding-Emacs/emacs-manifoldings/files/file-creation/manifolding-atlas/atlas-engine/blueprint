@@ -216,7 +216,7 @@ Slots:
 (defun manifolding-atlas-blueprint--call-or-value (spec note)
   "Resolve SPEC for NOTE: call it when a function, otherwise return it.
 Used for field keys like :required and :one-of that accept either a
-literal or a function of the note."
+literal or a function of the AIU."
   (if (functionp spec) (funcall spec note) spec))
 
 (defun manifolding-atlas-blueprint--coerce (raw type)
@@ -293,14 +293,14 @@ custom :validate function.  Returns the first problem found."
             (manifolding-atlas-blueprint--violation
              note schema field 'wrong-type
              (format "Field %S expected an id link, got %S" key raw) raw))
-           ;; `link' fields only check the id-link shape; `note' fields
+           ;; `link' fields only check the id-link shape; `AIU' fields
            ;; additionally resolve the target and enforce :target-tags.
            ((eq type 'note)
             (let ((target (manifolding-atlas-db-get-by-id id)))
               (if (not target)
                   (manifolding-atlas-blueprint--violation
                    note schema field 'invalid-reference
-                   (format "Field %S references missing note %s" key id) id)
+                   (format "Field %S references missing AIU %s" key id) id)
                 (manifolding-atlas-blueprint--target-tags-violation
                  target id field note schema))))))))
      ;; allowed values (not meaningful for note/link references)
@@ -323,7 +323,7 @@ custom :validate function.  Returns the first problem found."
             typed)))))))
 
 (defun manifolding-atlas-blueprint--field-violations (note field schema)
-  "Return the list of violations for FIELD on NOTE against SCHEMA."
+  "Return the list of violations for FIELD on AIU against SCHEMA."
   (let* ((key (plist-get field :key))
          (required (manifolding-atlas-blueprint--call-or-value (plist-get field :required) note))
          (raws (manifolding-atlas-note-meta-get-list note key 'string)))
@@ -376,7 +376,7 @@ a schema applies to, filter with
 
 Notes are selected with the schema's predicate, then validated.
 This is sugar for `manifolding-atlas-blueprint-validate-notes'
-over the matching notes."
+over the matching AIUs."
   (let ((schema (manifolding-atlas-blueprint--resolve schema-or-name)))
     (manifolding-atlas-blueprint-validate-notes
      (manifolding-atlas-db-query (lambda (note) (manifolding-atlas-blueprint-applies-p note schema)))
@@ -397,7 +397,7 @@ Required fields come first (in declared order), then optional ones;
 with REQUIRED-ONLY non-nil only required fields are returned.
 Requiredness is evaluated against NOTE, so a function :required is
 honored.  A field counts as present when NOTE has any value for its
-:key, so this never proposes a field the note already carries."
+:key, so this never proposes a field the AIU already carries."
   (let ((schema (manifolding-atlas-blueprint--resolve schema-or-name))
         (required nil)
         (optional nil))
@@ -501,7 +501,7 @@ one applies to the note - otherwise it does nothing.
             fixed and re-synced.
 
 Because files are the source of truth, none of these touch the file;
-they only control whether the database mirrors a violating note."
+they only control whether the database mirrors a violating AIU."
   :type '(choice (const :tag "Index silently" silent)
                  (const :tag "Index and warn" warning)
                  (const :tag "Skip and warn" error))
@@ -509,7 +509,7 @@ they only control whether the database mirrors a violating note."
 
 (defun manifolding-atlas-db-blueprint-validation--format (note violations)
   "Format VIOLATIONS of NOTE into a human-readable warning string."
-  (format "Note %S (%s) violates its schema:\n%s"
+  (format "AIU %S (%s) violates its schema:\n%s"
           (manifolding-atlas-note-title note)
           (manifolding-atlas-note-id note)
           (mapconcat
@@ -588,7 +588,7 @@ and is nil for file-level metadata."
   "Return (BEG . END) in the current buffer for VIOLATION.
 DATA is the extraction plist of the offending note and LEVEL its level.
 A value violation points at its field's line; a missing required field
-\(which has no line) points at the note's header line."
+\(which has no line) points at the AIU's header line."
   (let ((field (manifolding-atlas-violation-field violation))
         (bound (when (and level (> level 0)) (plist-get data :pos))))
     (or (and field
@@ -854,7 +854,7 @@ unfoldings keep matching their schemas."
     count))
 
 (defun my/manifolding-atlas-blueprint--migrate-file-warnings (file notes)
-  "Delete WARNING-valued unfoldings for NOTES in FILE; return count."
+  "Delete WARNING-valued unfoldings for AIUS in FILE; return count."
   (let ((count 0))
     (with-current-buffer (find-file-noselect file)
       (dolist (info notes)
@@ -881,7 +881,7 @@ Deleting the WARNING sentinel lets the description-list metadata
     (user-error "Aborted"))
   (let ((count 0)
         (files (make-hash-table :test #'equal)))
-    ;; Group notes by file so we only visit each file once
+    ;; Group AIUs by file so we only visit each file once
     (dolist (note (manifolding-atlas-db-query))
       (let ((file (manifolding-atlas-note-path note)))
         (when (and file (file-exists-p file))
@@ -994,7 +994,7 @@ the DB and we grade fresh data, not pre-save state."
   (add-hook 'manifolding-atlas-db-worker-done-functions
             #'my/manifolding-atlas-reinforce--on-worker-done))
 (defun my/manifolding-atlas-reinforce--enable-in-vault ()
-  "Enable save guard and debounced sweeps in vault note buffers."
+  "Enable save guard and debounced sweeps in vault AIU buffers."
   (when (and buffer-file-name
              (string-prefix-p (expand-file-name
                                (my/manifolding-atlas-root-dir))

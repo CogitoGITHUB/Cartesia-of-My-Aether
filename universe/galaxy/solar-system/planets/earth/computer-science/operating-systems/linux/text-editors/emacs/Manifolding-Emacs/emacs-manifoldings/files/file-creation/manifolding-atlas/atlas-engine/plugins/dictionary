@@ -7,7 +7,7 @@
 #+begin_src emacs-lisp
 (defvar my/manifolding-atlas-dictionary-directory
   (expand-file-name "dictionary/" (my/manifolding-atlas-root-dir))
-  "Directory (inside the vault) where word notes live.")
+  "Directory (inside the vault) where word AIUs live.")
 
 (defvar my/manifolding-atlas-dictionary-pws-file
   (expand-file-name "dictionary.pws" my/manifolding-atlas-dictionary-directory)
@@ -99,8 +99,8 @@ title — no AST walk needed, so this stays fast and worker-eligible.
 
 * Word Capture
 Dedicated capture command rather than the global prompt registry —
-POS/SOURCE prompts should only ever fire for dictionary notes, not every
-file-level note in the vault.
+POS/SOURCE prompts should only ever fire for dictionary AIUs, not every
+file-level AIU in the vault.
 
 ** Slugify helper
 #+begin_src emacs-lisp
@@ -114,9 +114,9 @@ file-level note in the vault.
 ** Body capture opener
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-dictionary--open-body-capture (note body)
-  "Open org-capture for NOTE's body with BODY template."
+  "Open org-capture for AIU's body with BODY template."
   (let ((org-capture-templates
-         `(("v" "Edit note body"
+         `(("v" "Edit AIU body"
              plain
              (file+function
               ,(manifolding-atlas-note-path note)
@@ -131,7 +131,7 @@ file-level note in the vault.
 #+end_src
 
 ** New word command
-Creates a new dictionary note for WORD. Tags are set automatically:
+Creates a new dictionary AIU for WORD. Tags are set automatically:
 `dictionary', the slugified WORD, and each subdirectory level under
 `dictionary/'.
 #+begin_src emacs-lisp
@@ -177,7 +177,7 @@ general prompts (state, tags, etc.)."
     (sort (delete-dups (mapcar #'car rows)) #'string<)))
 
 (defun my/manifolding-atlas-dictionary-regenerate-dictionary ()
-  "Rebuild the flat ispell .pws file from all notes tagged \"dictionary\"."
+  "Rebuild the flat ispell .pws file from all AIUs tagged \"dictionary\"."
   (interactive)
   (make-directory (file-name-directory my/manifolding-atlas-dictionary-pws-file) t)
   (let ((words (my/manifolding-atlas-dictionary--all-words)))
@@ -203,7 +203,7 @@ general prompts (state, tags, etc.)."
 * Org-Drill Integration
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-dictionary--note-files ()
-  "Return file paths of all notes tagged \"dictionary\"."
+  "Return file paths of all AIUs tagged \"dictionary\"."
   (mapcar #'manifolding-atlas-note-path
           (manifolding-atlas-db-query-by-tags-some '("dictionary"))))
 
@@ -213,7 +213,7 @@ general prompts (state, tags, etc.)."
   (require 'org-drill)
   (let ((files (my/manifolding-atlas-dictionary--note-files)))
     (unless files
-      (user-error "No dictionary notes found"))
+      (user-error "No dictionary AIUs found"))
     (org-drill files)))
 #+end_src
 

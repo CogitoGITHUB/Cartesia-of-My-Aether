@@ -1,7 +1,7 @@
 This blueprint defines the mastery spine: the single answer to "how far
 has this knowledge object progressed from ignorance to original
 contribution?" Ten states, numbered 0–9. Every state is a single
-uppercase token so it doubles as the note's first org tag.
+uppercase token so it doubles as the AIU's first org tag.
 
 The spine is deliberately narrow. It does not measure teaching skill,
 creativity, research independence, judgment, or impact — those are
@@ -10,8 +10,8 @@ workflow states either: SUSPENDED / ARCHIVED / DORMANT live in the
 separate STATUS blueprint, because you can suspend a beginner subject
 or an expert one. Stage and status are orthogonal by design.
 
-How a note moves along the spine is governed by gates, not scores.
-Birth sets AWARE (creating the note proves the domain entered your
+How an AIU moves along the spine is governed by gates, not scores.
+Birth sets AWARE (creating the AIU proves the domain entered your
 awareness). The first successful review promotes AWARE → ACQUIRING
 automatically. Everything above ACQUIRING advances only through
 explicit attestation with recorded evidence — the review machinery
@@ -30,14 +30,14 @@ The domain is absent from the map. Not "bad at the subject" — the
 subject simply doesn't occupy working attention yet: no vocabulary, no
 questions, no recognized boundary. Reserved for mapped, imported, or
 inferred nodes not yet consciously examined. Never a birth state for
-human-created notes; never reviewable (the scheduler cannot test what
+human-created AIUs; never reviewable (the scheduler cannot test what
 has no representation). First contact promotes to AWARE.
 ** AWARE :BLUEPRINT_BODY:
 The domain has become an identified object of possible knowledge: "I
 know there is something here that I do not yet know." Questions begin
 to exist — the learner can say "I don't understand X" rather than
 staring through X. This is the birth state of every human-created
-note, because the act of capture is itself the awareness gate. Due for
+AIU, because the act of capture is itself the awareness gate. Due for
 review immediately: the first successful retrieval starts acquisition.
 ** ACQUIRING :BLUEPRINT_BODY:
 The learner is accumulating and retrieving the building blocks:

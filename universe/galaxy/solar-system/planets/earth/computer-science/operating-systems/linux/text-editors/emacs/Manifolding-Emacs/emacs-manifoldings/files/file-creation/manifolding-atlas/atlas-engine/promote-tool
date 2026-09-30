@@ -3,7 +3,7 @@
 :ID:       f4e80f89-ebe9-4078-933c-eb1ad79d7b6f
 :END:
 
-Turn a selection or heading into a linked note via named templates:
+Turn a selection or heading into a linked AIU via named templates:
 template data plus a macro that generates one command per template.
 Reuse-or-create by title; the selection becomes an ordinary id: link.
 Built on the standard find/create/link primitives, not a parallel
@@ -26,7 +26,7 @@ pipeline.  Nothing here runs at load.
   "Define interactive command NAME promoting via template KEY."
   (declare (indent 1))
   `(defun ,name (text)
-     ,(format "Promote TEXT to a linked note via template %s." key)
+     ,(format "Promote TEXT to a linked AIU via template %s." key)
      (interactive
       (list (if (region-active-p)
                 (buffer-substring-no-properties (region-beginning) (region-end))
@@ -34,13 +34,13 @@ pipeline.  Nothing here runs at load.
      (my/atlas-promote text ,key)))
 
 (defun my/atlas-promote-find-note (title)
-  "Existing note titled TITLE, or nil."
+  "Existing AIU titled TITLE, or nil."
   (cl-find title (ignore-errors (manifolding-atlas-db-query))
            :key (lambda (n) (ignore-errors (manifolding-atlas-note-title n)))
            :test #'string=))
 
 (defun my/atlas-promote (text key)
-  "Promote TEXT to a linked note via template KEY (reuse or create)."
+  "Promote TEXT to a linked AIU via template KEY (reuse or create)."
   (interactive
    (list (if (region-active-p)
              (buffer-substring-no-properties (region-beginning) (region-end))
@@ -53,7 +53,7 @@ pipeline.  Nothing here runs at load.
                         (ignore-errors
                          (manifolding-atlas-find-create-note text))))))
     (if (null note)
-        (message "promote: could not create note for '%s'" text)
+        (message "promote: could not create AIU for '%s'" text)
       (when (region-active-p)
         (delete-region (region-beginning) (region-end)))
       (insert (manifolding-atlas-utils-link-make-string note text))

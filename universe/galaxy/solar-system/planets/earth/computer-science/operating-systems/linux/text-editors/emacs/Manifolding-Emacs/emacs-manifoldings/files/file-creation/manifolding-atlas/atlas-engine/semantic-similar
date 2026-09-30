@@ -33,10 +33,10 @@ Nothing here runs at load.
   "Persisted ID -> vector sidecar (disposable).")
 
 (defvar my/atlas-semantic-index (make-hash-table :test 'equal)
-  "Note ID -> embedding vector (list of floats).")
+  "AIU ID -> embedding vector (list of floats).")
 
 (defun my/atlas-semantic-text (note)
-  "Embeddable text for NOTE: title plus body head."
+  "Embeddable text for AIU: title plus body head."
   (let* ((title (or (ignore-errors (manifolding-atlas-note-title note)) ""))
          (path (ignore-errors (manifolding-atlas-note-path note)))
          (body (when (and path (file-exists-p path))
@@ -71,7 +71,7 @@ Nothing here runs at load.
       (/ dot (* (sqrt na) (sqrt nb))))))
 
 (defun my/atlas-semantic-rebuild ()
-  "Embed all notes into the sidecar index.  Slow; run rarely."
+  "Embed all AIUs into the sidecar index.  Slow; run rarely."
   (interactive)
   (clrhash my/atlas-semantic-index)
   (let ((n 0))
@@ -95,7 +95,7 @@ Nothing here runs at load.
     (message "semantic: rebuilt %d vectors" n)))
 
 (defun my/atlas-semantic-similar (note &optional top)
-  "Titles most similar to NOTE (uses index; embeds NOTE live)."
+  "Titles most similar to AIU (uses index; embeds AIU live)."
   (let ((vec (my/atlas-semantic-embed (my/atlas-semantic-text note)))
         (scored nil))
     (when vec
