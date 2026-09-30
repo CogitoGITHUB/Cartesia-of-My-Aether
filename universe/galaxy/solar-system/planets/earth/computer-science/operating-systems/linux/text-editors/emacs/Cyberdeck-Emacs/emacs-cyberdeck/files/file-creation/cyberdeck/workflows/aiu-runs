@@ -1057,12 +1057,12 @@ the recursive-edit, so an unexpected quit can never strand the session."
 **** installation status badge
 #+begin_src emacs-lisp
 (defun my/cyberdeck-aiu-runs--mastery-status (sid)
-  "Return (BADGE . DUE-P) for SID from mastering_schedule.
+  "Return (BADGE . DUE-P) for SID from installation-schedule.
 BADGE is nil when the AIU is not in the review pool."
   (condition-case nil
       (when (fboundp 'my/cyberdeck-installation-protocol--today-int)
         (let ((row (car (emacsql (cyberdeck-db)
-                           [:select [next-rev n suspend] :from mastering_schedule
+                           [:select [next-rev n suspend] :from installation-schedule
                             :where (= aiu-id $s1)] sid))))
           (when row
             (let* ((next (nth 0 row))

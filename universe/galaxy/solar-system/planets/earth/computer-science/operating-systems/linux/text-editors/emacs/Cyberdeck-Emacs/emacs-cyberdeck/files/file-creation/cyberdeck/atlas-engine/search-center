@@ -112,7 +112,7 @@ file, not per candidate redraw.
   (when id
     (let ((row (car (ignore-errors
                        (emacsql (cyberdeck-db)
-                         [:select [stage status next-rev] :from mastering_schedule
+                         [:select [stage status next-rev] :from installation-schedule
                           :where (= aiu-id $s1)]
                          id)))))
       (when row

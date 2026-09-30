@@ -10,7 +10,7 @@
 
 The substrate law: org files are the durable truth; =notes= and
 =links= are the machine-readable structural substrate — identity
-plus relations plus traversal. =mm_nodes=, =mastering_schedule=, and
+plus relations plus traversal. =aiu-subnet-nodes=, =installation-schedule=, and
 every plugin table are peer disposable indexes over that substrate,
 each rebuilt from files without touching the others. Higher-level
 queries compose indexes; no index is authoritative over another, and
@@ -512,7 +512,7 @@ answers "What is contained beneath this node in this map?" Those sets
 sometimes look alike but mean different things — semantic
 reachability versus positional containment — so the substrate
 traverses links and the map traverses placement, and neither knows
-about the other's tables. No defun here may reference =mm_nodes=,
+about the other's tables. No defun here may reference =aiu-subnet-nodes=,
 stages, order keys, or parent ids; substrate purity is what keeps
 later composition powerful (ordered review, orphan triage, relation
 tracing, cluster layout — all compose these primitives with domain

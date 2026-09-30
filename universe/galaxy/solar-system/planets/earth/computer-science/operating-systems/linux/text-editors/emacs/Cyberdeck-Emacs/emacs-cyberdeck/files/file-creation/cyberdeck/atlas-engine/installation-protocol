@@ -3,7 +3,7 @@ Spaced-repetition review for AIUs, built on a
 orthogonal (ACTIVE / SUSPENDED / ARCHIVED / DORMANT). Each AIU is a
 reviewable card; its position lives in org AIU Contexts (=STAGE=,
 =STATUS=, =MASTERING_*= schedule state) and is indexed into a
-=mastering_schedule= table by a DB extractor for fast due-queries.
+=installation-schedule= table by a DB extractor for fast due-queries.
 
 The architecture rule that governs this whole file: reviews measure
 memory performance, and memory performance alone never proves
@@ -240,7 +240,7 @@ resets the interval.
 #+end_src
 
 *** Database Table
-Single =mastering_schedule= table keyed by aiu-id with the full SM-2
+Single =installation-schedule= table keyed by aiu-id with the full SM-2
 state (next/last review dates, success/fail counters,
 plus/minus/synolon scores), the suspend flag, and the spine position
 (=stage= text, =status= text). The schedule columns drive review
@@ -254,10 +254,10 @@ introspection is the one dialect branch in this file: SQLite answers
 is portable and shared.
 #+begin_src emacs-lisp
 (defun my/cyberdeck-installation-protocol--ensure-table ()
-  "Create mastering_schedule table if it does not exist.
+  "Create installation-schedule table if it does not exist.
 Migrates older schemas by adding stage/status columns when missing."
   (emacsql (cyberdeck-db)
-    [:create :table :if :not :exists mastering_schedule
+    [:create :table :if :not :exists installation-schedule
      ([(aiu-id :not-null)
        (next-rev :not-null)
        (last-rev :not-null)
@@ -281,9 +281,9 @@ Migrates older schemas by adding stage/status columns when missing."
          (info (condition-case nil
                    (if pg
                        (emacsql (cyberdeck-db)
-                         "SELECT column_name FROM information_schema.columns WHERE table_name = 'mastering_schedule'")
+                         "SELECT column_name FROM information_schema.columns WHERE table_name = 'installation-schedule'")
                      (emacsql (cyberdeck-db)
-                       "PRAGMA table_info(mastering_schedule)"))
+                       "PRAGMA table_info(installation-schedule)"))
                  (error nil)))
          ;; PRAGMA rows are (cid name type ...); information_schema
          ;; rows are single-column (name). First string found wins.
@@ -294,14 +294,14 @@ Migrates older schemas by adding stage/status columns when missing."
       (unless (member col cols)
         (condition-case nil
             (emacsql (cyberdeck-db)
-              (format "ALTER TABLE mastering_schedule ADD COLUMN %s TEXT NOT NULL DEFAULT '%s'"
+              (format "ALTER TABLE installation-schedule ADD COLUMN %s TEXT NOT NULL DEFAULT '%s'"
                       col (if (string-equal col "stage") "AWARE" "ACTIVE")))
           (error nil))))))
 #+end_src
 
 *** DB Extractor
 Indexes STAGE/STATUS/MASTERING_* AIU Contexts from NOTE-DATA into
-mastering_schedule. A retired INSTALLATION PROTOCOL AIU Context is translated
+installation-schedule. A retired INSTALLATION PROTOCOL AIU Context is translated
 one-way when STAGE is absent (REVIEW/TODO → AWARE+ACTIVE, SUSPEND →
 AWARE+SUSPENDED, WARNING → unenrolled); no writer emits those values
 anymore. Initializes a default schedule when a stage is set but
@@ -313,7 +313,7 @@ them — first contact, not the scheduler, promotes out of UNSEEN.
 #+begin_src emacs-lisp
 (defun my/cyberdeck-installation-protocol--extract (_ctx aiu-data)
   "Extract STAGE/STATUS/MASTERING_* unfoldings from NOTE-DATA
-into mastering_schedule. Initializes a default schedule when a
+into installation-schedule. Initializes a default schedule when a
 stage is set but schedule unfoldings are missing, so enrolled
 AIUs are never dropped."
   (let* ((aiu-id (plist-get aiu-data :id))
@@ -330,11 +330,11 @@ AIUs are never dropped."
          (today (my/cyberdeck-installation-protocol--today-int))
          (to-int (lambda (k) (string-to-number (or (funcall lookup k) "0")))))
     (emacsql (cyberdeck-db)
-      [:delete :from mastering_schedule :where (= aiu-id $s1)]
+      [:delete :from installation-schedule :where (= aiu-id $s1)]
       aiu-id)
     (when (and aiu-id stage)
       (emacsql (cyberdeck-db)
-        [:insert :into mastering_schedule :values $v1]
+        [:insert :into installation-schedule :values $v1]
         (vector aiu-id
                 (if next-rev (funcall to-int "MASTERING_NEXT_REV") today)
                 (if (funcall lookup "MASTERING_LAST_REV") (funcall to-int "MASTERING_LAST_REV") today)
@@ -439,10 +439,10 @@ stage first, and inserts the schedule row when absent."
       (my/cyberdeck-installation-protocol--put note "MASTERING_SYNOLON" "1.3")
       (my/cyberdeck-installation-protocol--sync-stage-tag note "AWARE")
       (unless (car (emacsql (cyberdeck-db)
-                    [:select [aiu-id] :from mastering_schedule
+                    [:select [aiu-id] :from installation-schedule
                      :where (= aiu-id $s1)] id))
         (emacsql (cyberdeck-db)
-          [:insert :into mastering_schedule :values $v1]
+          [:insert :into installation-schedule :values $v1]
           (vector id today today 0 0 0 0 0 0.35 0.30 1.3
                   (if suspend 1 0) "AWARE"
                   (if suspend "SUSPENDED" "ACTIVE")))))))
@@ -590,7 +590,7 @@ today's date in the drawer. Refusal is silent: no evidence, no stage."
                      (number-to-string (my/cyberdeck-installation-protocol--today-int)))
                     (save-buffer)
                     (emacsql (cyberdeck-db)
-                      [:update mastering_schedule :set stage = $s2
+                      [:update installation-schedule :set stage = $s2
                        :where (= aiu-id $s1)] id stage)
                     (my/cyberdeck-installation-protocol--sync-stage-tag note stage)
                     (message "Attested %s." stage)))))))))))
@@ -605,7 +605,7 @@ today's date in the drawer. Refusal is silent: no evidence, no stage."
   (let* ((row (car (emacsql (cyberdeck-db)
                    [:select [t-success c-success c-fails last-rev next-rev
                              n t-fails plus minus synolon]
-                    :from mastering_schedule :where (= aiu-id $s1)]
+                    :from installation-schedule :where (= aiu-id $s1)]
                    aiu-id)))
          (t-success (nth 0 row))
          (c-success (nth 1 row))
@@ -647,7 +647,7 @@ today's date in the drawer. Refusal is silent: no evidence, no stage."
 
 #+begin_src emacs-lisp
 (defun my/cyberdeck-installation-protocol--update (aiu-id success result)
-  "Update mastering_schedule and note unfoldings for NOTE-ID review.
+  "Update installation-schedule and note unfoldings for NOTE-ID review.
 Dates and scores move freely with every grade; the stage moves only
 through the automatic gates (first contact, first success) — anything
 higher requires attestation, so this function never promotes past
@@ -662,7 +662,7 @@ ACQUIRING and never demotes."
          (t-fails (alist-get 't-fails log))
          (today (my/cyberdeck-installation-protocol--today-int)))
     (emacsql (cyberdeck-db)
-      [:update mastering_schedule :set
+      [:update installation-schedule :set
        last-rev = $s2, next-rev = $s3, n = $s4,
        c-success = $s5, c-fails = $s6, t-success = $s7, t-fails = $s8,
        plus = $s9, minus = $s10, synolon = $s11
@@ -694,7 +694,7 @@ ACQUIRING and never demotes."
                       (my/cyberdeck--drawer-put "STAGE" gated)
                       (save-buffer)
                       (emacsql (cyberdeck-db)
-                        [:update mastering_schedule :set stage = $s2
+                        [:update installation-schedule :set stage = $s2
                          :where (= aiu-id $s1)] aiu-id gated)
                       (my/cyberdeck-installation-protocol--sync-stage-tag note gated)
                       (message "Stage gate: %s → %s." current gated))))))))))
@@ -724,7 +724,7 @@ into review sessions.
   (let ((today (my/cyberdeck-installation-protocol--today-int)))
     (mapcar #'car
             (emacsql (cyberdeck-db)
-              [:select [aiu-id] :from mastering_schedule
+              [:select [aiu-id] :from installation-schedule
                :where (and (<= next-rev $s1) (= suspend 0)
                            (= status $s2) (!= stage $s3))]
               today "ACTIVE" "UNSEEN"))))
@@ -734,7 +734,7 @@ into review sessions.
   (let ((today (my/cyberdeck-installation-protocol--today-int)))
     (mapcar #'car
             (emacsql (cyberdeck-db)
-              [:select [aiu-id] :from mastering_schedule
+              [:select [aiu-id] :from installation-schedule
                :where (and (> n 0) (= suspend 0) (< next-rev $s1)
                            (= status $s2) (!= stage $s3))]
               today "ACTIVE" "UNSEEN"))))
@@ -743,7 +743,7 @@ into review sessions.
   "Return AIU IDs mapped but never encountered (triage list, not reviews)."
   (mapcar #'car
           (emacsql (cyberdeck-db)
-            [:select [aiu-id] :from mastering_schedule
+            [:select [aiu-id] :from installation-schedule
              :where (= stage $s1)]
             "UNSEEN")))
 
@@ -835,7 +835,7 @@ every grade decision grounded in where the knowledge stands."
                         (if note (cyberdeck-aiu-title note) id)))
         (when note
           (let ((row (car (emacsql (cyberdeck-db)
-                           [:select [stage status] :from mastering_schedule
+                           [:select [stage status] :from installation-schedule
                             :where (= aiu-id $s1)]
                            id))))
             (insert (format "[%s / %s]\n"
@@ -862,7 +862,7 @@ other than SUSPENDED clears the flag."
                   (goto-char (point-min)))
                 (setq status (or (my/cyberdeck--drawer-get "STATUS") "ACTIVE")))))))
       (emacsql (cyberdeck-db)
-        [:update mastering_schedule :set suspend = $s2, status = $s3
+        [:update installation-schedule :set suspend = $s2, status = $s3
          :where (= aiu-id $s1)]
         id (if (string-equal status "SUSPENDED") 1 0) status))))
 
@@ -873,7 +873,7 @@ workflow decision, never a demotion. Resuming restores exactly where
 the knowledge left off."
   (let ((status (if value "SUSPENDED" "ACTIVE")))
     (emacsql (cyberdeck-db)
-      [:update mastering_schedule :set suspend = $s2, status = $s3
+      [:update installation-schedule :set suspend = $s2, status = $s3
        :where (= aiu-id $s1)]
       aiu-id (if value 1 0) status)
     (let ((note (cyberdeck-db-get-by-id aiu-id)))
@@ -1324,7 +1324,7 @@ AWARE+ACTIVE), so grading never meets an unenrolled card."
     (unless note (user-error "No AIU at point"))
     (let ((id (cyberdeck-aiu-id note)))
       (unless (car (emacsql (cyberdeck-db)
-                    [:select [aiu-id] :from mastering_schedule
+                    [:select [aiu-id] :from installation-schedule
                      :where (= aiu-id $s1)] id))
         (my/cyberdeck-installation-protocol--init-schedule nil note))
       (my/cyberdeck-installation-protocol--update id (not arg)
@@ -1341,7 +1341,7 @@ knowledge left off."
     (unless note (user-error "No AIU at point"))
     (let* ((id (cyberdeck-aiu-id note))
            (row (car (emacsql (cyberdeck-db)
-                      [:select [suspend] :from mastering_schedule
+                      [:select [suspend] :from installation-schedule
                        :where (= aiu-id $s1)] id))))
       (unless row
         (my/cyberdeck-installation-protocol--init-schedule nil note)

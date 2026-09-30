@@ -3206,9 +3206,9 @@ Also provides a text-based scanner for files not yet indexed by cyberdeck DB.
 
 #+begin_src emacs-lisp
 (defun my/aiu-proxy-links-ensure-table ()
-  "Create the wormhole_links table if it does not exist."
+  "Create the aiu-proxy-links table if it does not exist."
   (emacsql (cyberdeck-db)
-           [:create :table :if :not :exists wormhole_links
+           [:create :table :if :not :exists aiu-proxy-links
             ([(source :not-null)
               (dest   :not-null)]
              (:primary-key [source dest])
@@ -3235,10 +3235,10 @@ Also provides a text-based scanner for files not yet indexed by cyberdeck DB.
     (when found
       (let ((unique (delete-dups (nreverse found))))
         (emacsql (cyberdeck-db)
-                 [:delete :from wormhole_links :where (= source $s1)]
+                 [:delete :from aiu-proxy-links :where (= source $s1)]
                  aiu-id)
         (emacsql (cyberdeck-db)
-                 [:insert :into wormhole_links :values $v1]
+                 [:insert :into aiu-proxy-links :values $v1]
                  (mapcar (lambda (d) (vector aiu-id d)) unique))
         (plist-put aiu-data :aiu-proxy-links unique)))
     aiu-data))
@@ -3260,7 +3260,7 @@ Also provides a text-based scanner for files not yet indexed by cyberdeck DB.
   "Return list of source AIU IDs that AIU Proxy TARGET-ID."
   (mapcar #'car
           (emacsql (cyberdeck-db)
-                   [:select [source] :from wormhole_links
+                   [:select [source] :from aiu-proxy-links
                     :where (= dest $s1)]
                    target-id)))
 

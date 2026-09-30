@@ -21,7 +21,7 @@ Edges (three distinct layers):
 Ordering: ORDER_KEY real float per node → O(1) insert-between, zero cascade.
 =mm/repack= normalises floats → clean integers when gaps < mm/epsilon.
 
-Scale: All queries hit =mm_nodes= via indexed SQL. No Elisp-side sorting.
+Scale: All queries hit =aiu-subnet-nodes= via indexed SQL. No Elisp-side sorting.
 ON DELETE CASCADE auto-removes map entries when AIUs are deleted.
 
 Status: the unified STATUS AIU Context — ACTIVE | SUSPENDED | ARCHIVED
@@ -36,7 +36,7 @@ source of truth: it may read stage, status, topology, and headings,
 and own none of them.
 
 The architectural knife applied here: =notes= are identity, =links=
-are relationship, and =mm_nodes= records only how a relationship
+are relationship, and =aiu-subnet-nodes= records only how a relationship
 participates in this map — placement, order, card grouping. Graph
 traversal itself belongs to the substrate (=db-descendants= and
 friends); map-tree walking (=mm/subtree-of= and friends) belongs
@@ -50,7 +50,7 @@ map-scoped index beside this one.
 :MM_PARENT: none
 :MM_ORDER:  127.0
 :END:
-Creates the =mm_nodes= table in the cyberdeck DB and registers an extractor
+Creates the =aiu-subnet-nodes= table in the cyberdeck DB and registers an extractor
 that auto-adds each synced AIU as a node on first insert.
 
 **** Table and registration
@@ -58,10 +58,10 @@ that auto-adds each synced AIU as a node on first insert.
 (defconst mm/epsilon 1e-10
   "Minimum ORDER_KEY gap before mm/repack is triggered automatically.")
 
-(defun mm/ensure-table ()
-  "Create mm_nodes table and indexes in cyberdeck DB if they do not exist."
+(defun aiu-subnet/ensure-table ()
+  "Create aiu-subnet-nodes table and indexes in cyberdeck DB if they do not exist."
   (emacsql (cyberdeck-db)
-           [:create :table :if :not :exists mm-nodes
+           [:create :table :if :not :exists aiu-subnet-nodes
             ([(aiu-id :text :primary-key :not-null)
               (parent-id :text)
               (order-key :real :not-null)
@@ -70,24 +70,24 @@ that auto-adds each synced AIU as a node on first insert.
              (:foreign-key [aiu-id] :references notes [id]
               :on-delete :cascade))])
   (emacsql (cyberdeck-db)
-           [:create :index :if :not :exists mm-idx-parent
-            :on mm-nodes [parent-id order-key]])
+           [:create :index :if :not :exists aiu-subnet-idx-parent
+            :on aiu-subnet-nodes [parent-id order-key]])
   (emacsql (cyberdeck-db)
-           [:create :index :if :not :exists mm-idx-depth
-            :on mm-nodes [depth]]))
+           [:create :index :if :not :exists aiu-subnet-idx-depth
+            :on aiu-subnet-nodes [depth]]))
 
-(defun mm/ensure-and-register ()
+(defun aiu-subnet/ensure-and-register ()
   "Ensure schema exists and register mm extractor with cyberdeck."
-  (mm/ensure-table)
+  (aiu-subnet/ensure-table)
   (cyberdeck-db-register-extractor
    (make-cyberdeck-extractor
-    :name       'mm-nodes
+    :name       'aiu-subnet-nodes
     :version    1
     :priority   70
     :extract-fn #'mm/extract)))
 
 (with-eval-after-load 'cyberdeck
-  (mm/ensure-and-register))
+  (aiu-subnet/ensure-and-register))
 #+end_src
 
 **** Extractor
@@ -101,7 +101,7 @@ single-user case (a concurrent-insert race, if it ever happened,
 is absorbed by ignore-errors rather than risking a duplicate row).
 #+begin_src emacs-lisp
 (defun mm/extract (_ctx aiu-data)
-  "Manifolding Atlas extractor: register note in mm_nodes on DB sync.
+  "Manifolding Atlas extractor: register note in aiu-subnet-nodes on DB sync.
 File notes (level 0): parent-id nil — user assigns position explicitly.
 Heading notes (level > 0): parent-id auto-set to the file's root note.
 Never overwrites existing rows — user-set positions are preserved."
@@ -110,7 +110,7 @@ Never overwrites existing rows — user-set positions are preserved."
          (file-path (plist-get aiu-data :path))
          (node-type (if (> level 0) "heading" "file"))
          (existing  (caar (emacsql (cyberdeck-db)
-                                   [:select [aiu-id] :from mm-nodes
+                                   [:select [aiu-id] :from aiu-subnet-nodes
                                     :where (= aiu-id $s1)]
                                    aiu-id))))
     (unless existing
@@ -124,7 +124,7 @@ Never overwrites existing rows — user-set positions are preserved."
              (depth
               (if parent-id
                   (1+ (or (caar (emacsql (cyberdeck-db)
-                                         [:select [depth] :from mm-nodes
+                                         [:select [depth] :from aiu-subnet-nodes
                                           :where (= aiu-id $s1)]
                                          parent-id))
                           0))
@@ -135,7 +135,7 @@ Never overwrites existing rows — user-set positions are preserved."
                 0.0)))
         (ignore-errors
           (emacsql (cyberdeck-db)
-                   [:insert :into mm-nodes
+                   [:insert :into aiu-subnet-nodes
                     :values $v1]
                    (vector aiu-id parent-id order-key node-type depth)))))
     aiu-data))
@@ -150,7 +150,7 @@ All return raw EMACSQL rows. Callers lift into =cyberdeck-aiu= objects as needed
   "Return mm row (aiu-id parent-id order-key node-type depth) or nil."
   (car (emacsql (cyberdeck-db)
                 [:select [aiu-id parent-id order-key node-type depth]
-                 :from mm-nodes
+                 :from aiu-subnet-nodes
                  :where (= aiu-id $s1)]
                 aiu-id)))
 
@@ -158,7 +158,7 @@ All return raw EMACSQL rows. Callers lift into =cyberdeck-aiu= objects as needed
   "Return list of (aiu-id order-key) for all root file nodes."
   (emacsql (cyberdeck-db)
            [:select [aiu-id order-key]
-            :from mm-nodes
+            :from aiu-subnet-nodes
             :where (and (is parent-id nil)
                         (= node-type "file"))
             :order-by [(asc order-key)]]))
@@ -167,7 +167,7 @@ All return raw EMACSQL rows. Callers lift into =cyberdeck-aiu= objects as needed
   "Return list of (aiu-id order-key) for direct file children of NOTE-ID."
   (emacsql (cyberdeck-db)
            [:select [aiu-id order-key]
-            :from mm-nodes
+            :from aiu-subnet-nodes
             :where (and (= parent-id $s1)
                         (= node-type "file"))
             :order-by [(asc order-key)]]
@@ -177,7 +177,7 @@ All return raw EMACSQL rows. Callers lift into =cyberdeck-aiu= objects as needed
   "Return list of (aiu-id order-key) for heading siblings in file NOTE-ID."
   (emacsql (cyberdeck-db)
            [:select [aiu-id order-key]
-            :from mm-nodes
+            :from aiu-subnet-nodes
             :where (and (= parent-id $s1)
                         (= node-type "heading"))
             :order-by [(asc order-key)]]
@@ -195,7 +195,7 @@ Excludes NOTE-ID itself."
       (if parent-id
           (emacsql (cyberdeck-db)
                    [:select [aiu-id order-key]
-                    :from mm-nodes
+                    :from aiu-subnet-nodes
                     :where (and (= parent-id $s1)
                                 (= node-type $s2)
                                 (!= aiu-id $s3))
@@ -203,7 +203,7 @@ Excludes NOTE-ID itself."
                    parent-id node-type aiu-id)
         (emacsql (cyberdeck-db)
                  [:select [aiu-id order-key]
-                  :from mm-nodes
+                  :from aiu-subnet-nodes
                   :where (and (is parent-id nil)
                               (= node-type $s1)
                               (!= aiu-id $s2))
@@ -221,7 +221,7 @@ Excludes NOTE-ID itself."
   "Return list of (aiu-id) for all file nodes at DEPTH."
   (emacsql (cyberdeck-db)
            [:select [aiu-id]
-            :from mm-nodes
+            :from aiu-subnet-nodes
             :where (and (= depth $s1)
                         (= node-type "file"))
             :order-by [(asc order-key)]]
@@ -275,13 +275,13 @@ Three distinct connection layers queried independently.
           (mapcar (lambda (row) (cons (car row) (cadr row)))
                   (emacsql (cyberdeck-db)
                            [:select [aiu-id parent-id]
-                            :from mm-nodes
+                            :from aiu-subnet-nodes
                             :where (and (is-not parent-id nil)
                                         (= node-type "file"))])))
          (semantic
           (let (edges)
             (dolist (row (emacsql (cyberdeck-db)
-                                  [:select [aiu-id] :from mm-nodes]))
+                                  [:select [aiu-id] :from aiu-subnet-nodes]))
               (dolist (dest (mm/semantic-links-from (car row)))
                 (push (cons (car row) dest) edges)))
             (nreverse edges)))
@@ -364,7 +364,7 @@ AIUs each update exactly their own drawer."
   (let* ((parent-row   (mm/node-at parent-id))
          (parent-depth (if parent-row (nth 4 parent-row) 0)))
     (emacsql (cyberdeck-db)
-             [:update mm-nodes
+             [:update aiu-subnet-nodes
               :set [(= parent-id $s1) (= depth $s2)]
               :where (= aiu-id $s3)]
              parent-id (1+ parent-depth) aiu-id)
@@ -374,7 +374,7 @@ AIUs each update exactly their own drawer."
 (defun mm/make-root (aiu-id)
   "Remove parent of NOTE-ID, making it a root file node."
   (emacsql (cyberdeck-db)
-           [:update mm-nodes
+           [:update aiu-subnet-nodes
             :set [(= parent-id nil) (= depth 0)]
             :where (= aiu-id $s1)]
            aiu-id)
@@ -385,7 +385,7 @@ AIUs each update exactly their own drawer."
   "Recursively recompute depths for all file children of NOTE-ID."
   (dolist (child-id (mapcar #'car (mm/children-of aiu-id)))
     (emacsql (cyberdeck-db)
-             [:update mm-nodes
+             [:update aiu-subnet-nodes
               :set [(= depth $s1)]
               :where (= aiu-id $s2)]
              child-depth child-id)
@@ -394,7 +394,7 @@ AIUs each update exactly their own drawer."
 (defun mm/set-order-key (aiu-id key)
   "Set ORDER_KEY of NOTE-ID to KEY (a float)."
   (emacsql (cyberdeck-db)
-           [:update mm-nodes
+           [:update aiu-subnet-nodes
             :set [(= order-key $s1)]
             :where (= aiu-id $s2)]
            key aiu-id)
@@ -408,7 +408,7 @@ Shared by the insert-after logic; re-read after a repack invalidates keys.
   "Smallest sibling ORDER_KEY above CUR-KEY, or nil when none."
   (caar (emacsql (cyberdeck-db)
                  [:select [(funcall min order-key)]
-                  :from mm-nodes
+                  :from aiu-subnet-nodes
                   :where (and (= parent-id $s1)
                               (= node-type $s2)
                               (> order-key $s3))]
@@ -466,7 +466,7 @@ Otherwise append at end with order-key = max + 1.0."
              (mm/order-key-after after-id)
            (let ((max-key (caar (emacsql (cyberdeck-db)
                                          [:select [(funcall max order-key)]
-                                          :from mm-nodes
+                                          :from aiu-subnet-nodes
                                           :where (= parent-id $s1)]
                                          new-parent-id))))
              (+ (or max-key 0.0) 1.0)))))
@@ -484,7 +484,7 @@ Normalises floats to clean integers when gaps approach =mm/epsilon=.
 Assigns 1.0, 2.0, 3.0, ... in current sorted order."
   (let ((siblings (emacsql (cyberdeck-db)
                            [:select [aiu-id]
-                            :from mm-nodes
+                            :from aiu-subnet-nodes
                             :where (and (= parent-id $s1)
                                         (= node-type $s2))
                             :order-by [(asc order-key)]]
@@ -492,7 +492,7 @@ Assigns 1.0, 2.0, 3.0, ... in current sorted order."
         (i 1.0))
     (dolist (row siblings)
       (emacsql (cyberdeck-db)
-               [:update mm-nodes
+               [:update aiu-subnet-nodes
                 :set [(= order-key $s1)]
                 :where (= aiu-id $s2)]
                i (car row))
@@ -508,7 +508,7 @@ Assigns 1.0, 2.0, 3.0, ... in current sorted order."
         (i 1.0))
     (dolist (row roots)
       (emacsql (cyberdeck-db)
-               [:update mm-nodes
+               [:update aiu-subnet-nodes
                 :set [(= order-key $s1)]
                 :where (= aiu-id $s2)]
                i (car row))
@@ -519,7 +519,7 @@ Assigns 1.0, 2.0, 3.0, ... in current sorted order."
   (interactive)
   (let ((groups (emacsql (cyberdeck-db)
                          [:select :distinct [parent-id node-type]
-                          :from mm-nodes
+                          :from aiu-subnet-nodes
                           :where (is-not parent-id nil)])))
     (dolist (row groups)
       (mm/repack (car row) (cadr row))))
@@ -682,14 +682,14 @@ Negative goes toward earlier siblings, positive toward later ones."
     (let* ((sibs (if parent-id
                      (emacsql (cyberdeck-db)
                               [:select [aiu-id]
-                               :from mm-nodes
+                               :from aiu-subnet-nodes
                                :where (and (= parent-id $s1)
                                            (= node-type $s2))
                                :order-by [(asc order-key)]]
                               parent-id node-type)
                    (emacsql (cyberdeck-db)
                             [:select [aiu-id]
-                             :from mm-nodes
+                             :from aiu-subnet-nodes
                              :where (and (is parent-id nil)
                                          (= node-type $s1))
                              :order-by [(asc order-key)]]
@@ -835,7 +835,7 @@ it) plus a status flag whenever the AIU isn't ACTIVE.
 Reads the schedule row (fast, indexed); falls back to the drawer."
   (or (caar (condition-case nil
                 (emacsql (cyberdeck-db)
-                         [:select [stage] :from mastering_schedule
+                         [:select [stage] :from installation-schedule
                           :where (= aiu-id $s1)]
                          aiu-id)
               (error nil)))
@@ -982,7 +982,7 @@ Default: <aius-dir>/cyberdeck-map.json"
   "Build list of JSON node alists for all file nodes."
   (let ((rows (emacsql (cyberdeck-db)
                        [:select [aiu-id parent-id order-key depth]
-                        :from mm-nodes
+                        :from aiu-subnet-nodes
                         :where (= node-type "file")
                         :order-by [(asc depth) (asc order-key)]]))
         nodes)
@@ -1013,7 +1013,7 @@ One-shot bootstrap from all existing vault AIUs. Safe to run repeatedly.
 
 #+begin_src emacs-lisp
 (defun mm/init ()
-  "Bootstrap mm_nodes from all existing vault notes.
+  "Bootstrap aiu-subnet-nodes from all existing vault notes.
 Headings auto-parent to their file's root note.
 File notes get parent-id nil — build the tree via mm/assign-parent.
 Safe to run repeatedly — never overwrites existing entries."

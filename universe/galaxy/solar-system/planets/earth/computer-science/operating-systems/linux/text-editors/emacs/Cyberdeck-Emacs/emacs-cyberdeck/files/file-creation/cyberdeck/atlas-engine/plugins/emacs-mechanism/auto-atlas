@@ -35,12 +35,12 @@
 ** Indexed predicate
 #+begin_src emacs-lisp
 (defun my/cyberdeck-emacs-mechanism--indexed-p (id)
-  "Non-nil when ID has both AIUs and mm-nodes rows. Nil-safe without DB."
+  "Non-nil when ID has both AIUs and aiu-subnet-nodes rows. Nil-safe without DB."
   (and id (fboundp 'cyberdeck-db)
        (condition-case nil
            (let ((db (cyberdeck-db)))
              (and (car (emacsql db [:select [id] :from notes :where (= id $s1)] id))
-                  (car (emacsql db [:select [aiu-id] :from mm-nodes :where (= aiu-id $s1)] id))))
+                  (car (emacsql db [:select [aiu-id] :from aiu-subnet-nodes :where (= aiu-id $s1)] id))))
          (error nil))))
 #+end_src
 
@@ -102,15 +102,15 @@ drawer, index rows, mm row. Returns the converted id list."
 ** Ensure mm row
 #+begin_src emacs-lisp
 (defun my/cyberdeck-emacs-mechanism--ensure-mm-row (id parent-id)
-  "Insert mm-nodes root row for ID (or under PARENT-ID) when missing."
+  "Insert aiu-subnet-nodes root row for ID (or under PARENT-ID) when missing."
   (when (and id (fboundp 'cyberdeck-db)
              (not (my/cyberdeck-emacs-mechanism--indexed-p id)))
     (condition-case err
         (let* ((db (cyberdeck-db))
                (depth (if parent-id 1 0))
                (maxk (or (caar (emacsql db [:select [(funcall max order-key)]
-                                               :from mm-nodes])) 0.0)))
-          (emacsql db [:insert :into mm-nodes :values $v1]
+                                               :from aiu-subnet-nodes])) 0.0)))
+          (emacsql db [:insert :into aiu-subnet-nodes :values $v1]
                    (vector id parent-id (+ maxk 1.0) "file" depth)))
       (error (message "auto-atlas mm row failed [%s]: %s"
                       id (error-message-string err))))))

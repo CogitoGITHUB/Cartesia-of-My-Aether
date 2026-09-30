@@ -618,7 +618,7 @@ rows without touching vendor node objects."
   acc)
 
 (defun my/aiu-subnet-node-live-p (id)
-  "Non-nil when ID still exists in mm_nodes. Missing mm = no writes."
+  "Non-nil when ID still exists in aiu-subnet-nodes. Missing AIU Subnet entry = no writes."
   (and (fboundp 'mm/node-at)
        (condition-case nil
            (not (null (mm/node-at id)))
@@ -648,7 +648,7 @@ touched by substitution."
 ADDED is member ids with no row, REMOVED leftover rows, ROOT-OK
 non-nil when exactly one parent-less row holds the map title,
 SUBS ((ROW COL WIDTH TITLE)) fitting in-place renames. The vendor
-registry (mm_nodes) is ephemeral per session, so a missing id only
+registry (aiu-subnet-nodes) is ephemeral per session, so a missing id only
 routes a pair to the structural path; files stay source of truth
 and the rebuild renders every title fresh anyway. Never throws."
   (condition-case nil
