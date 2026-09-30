@@ -102,7 +102,9 @@ artifacts which stay under user-emacs-directory (~/.config/emacs).
   "Directory holding the loader. Derived, never hardcoded.")
 
 (defvar cyberdeck-emacs-vault-root
-  (let ((start (or (and (boundp 'cyberdeck--foundation-org)
+  (let ((start (or (and (boundp 'manifold--foundation-org)
+                        manifold--foundation-org)
+                   (and (boundp 'cyberdeck--foundation-org)
                         cyberdeck--foundation-org)
                    (and (boundp 'my/emacs-root) my/emacs-root)
                    load-file-name buffer-file-name default-directory)))
@@ -120,7 +122,7 @@ own directory, which lives under a different git tree (.config).
 No name literal.")
 
 (defcustom cyberdeck-emacs-org-directory
-  (expand-file-name "modules" cyberdeck-emacs-loader-dir)
+  (expand-file-name "emacs-cyberdeck" cyberdeck-emacs-loader-dir)
   "Directory where the Org files are stored."
   :type 'string :group 'cyberdeck-emacs)
 
@@ -140,7 +142,7 @@ No name literal.")
   :type 'string :group 'cyberdeck-emacs)
 
 (defcustom cyberdeck-emacs-todo-file
-  (expand-file-name "modules/TODO" cyberdeck-emacs-loader-dir)
+  (expand-file-name "emacs-cyberdeck/TODO" cyberdeck-emacs-loader-dir)
   "Org file that boot errors get filed to by
 `cyberdeck-emacs-add-error-to-todo'."
   :type 'string :group 'cyberdeck-emacs)

@@ -1,0 +1,3 @@
+* TODO Expand /news opencode command variants (2026-09-30)
+** TODO /news-tech variant — always scoped to tech sources
+** TODO Background /news version (subagent: true) that keeps working while chatting

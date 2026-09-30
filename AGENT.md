@@ -270,8 +270,8 @@ prose across as you go. Do not "fix" a parked unit.
 ### The fast loop: seconds, not nine minutes
 
 ```sh
-emacs --batch -Q --load /tmp/kilo/bc.el  <file> [<file>…]   # BALANCED / BROKEN
-emacs --batch -Q --load /tmp/kilo/bc2.el <file> [<file>…]   # per-block, names the block
+neomacs --batch -Q --load /tmp/kilo/bc.el  <file> [<file>…]   # BALANCED / BROKEN
+neomacs --batch -Q --load /tmp/kilo/bc2.el <file> [<file>…]   # per-block, names the block
 ```
 
 `bc.el` extracts each `#+begin_src emacs-lisp` block and byte-compiles it, which
@@ -292,7 +292,7 @@ worth believing.
 ### The authoritative loop: the real boot
 
 ```sh
-emacs --batch -Q --load /root/.config/emacs/init.el --load /tmp/kilo/noquit.el
+neomacs --batch -Q --load /root/.config/emacs/init.el --load /tmp/kilo/noquit.el
 ```
 
 Takes **6–8 minutes**: ~400 files read, ~300 units compiled. Run it in the
@@ -424,7 +424,7 @@ EMACS=$VAULT/universe/galaxy/solar-system/planets/earth/computer-science/operati
 grep -o ':status [a-z-]*' ~/.config/emacs/cyberdeck-emacs-errors.log.el | sort | uniq -c
 
 # paren check — use this, not a boot
-emacs --batch -Q --load /tmp/kilo/bc.el "$EMACS/emacs-cyberdeck/<file>"
+neomacs --batch -Q --load /tmp/kilo/bc.el "$EMACS/emacs-cyberdeck/<file>"
 
 # duplicate MM_ORDER (should print nothing)
 grep -oE ':MM_ORDER:[ \t]+[0-9.]+' -r $VAULT/universe/ | sort | uniq -d

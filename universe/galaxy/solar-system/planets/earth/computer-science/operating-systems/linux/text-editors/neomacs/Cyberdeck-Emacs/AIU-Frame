@@ -329,8 +329,8 @@ Must be here — cyberdeck-emacs-boot generates leaf forms.
 
 ** Literate loader
 Loads the package manager source from next to this file (extensionless
-~cyberdeck-emacs~ preferred, legacy ~cyberdeck-emacs.org~
-fallback), tangles to ~.el~ in ~.config/emacs~, then loads it.
+~cyberdeck~ preferred, ~cyberdeck-emacs~ backcompat, legacy ~.org~
+fallbacks), tangles to ~.el~ in ~.config/emacs~, then loads it.
 ~lisp/~, ~straight/~ and all generated dirs stay under
 ~user-emacs-directory~ (~/.config/emacs) — only the literate sources
 live in the vault.
@@ -338,7 +338,9 @@ live in the vault.
 #+begin_src emacs-lisp
 (defvar my/emacs-root
   (file-name-directory
-   (or (and (boundp 'cyberdeck--foundation-org)
+   (or (and (boundp 'manifold--foundation-org)
+            manifold--foundation-org)
+       (and (boundp 'cyberdeck--foundation-org)
             cyberdeck--foundation-org)
        load-file-name buffer-file-name))
   "Directory holding the AIU Frame org. Derived, never hardcoded.")
@@ -347,7 +349,11 @@ live in the vault.
   "Tangle the loader org to ~/.config/emacs/cyberdeck-emacs.el, then load it."
   (or file (setq file
                  (let ((dir my/emacs-root))
-                   (or (let ((f (expand-file-name "cyberdeck-emacs" dir)))
+                   (or (let ((f (expand-file-name "cyberdeck" dir)))
+                         (when (file-exists-p f) f))
+                       (let ((f (expand-file-name "cyberdeck-emacs" dir)))
+                         (when (file-exists-p f) f))
+                       (let ((f (expand-file-name "cyberdeck.org" dir)))
                          (when (file-exists-p f) f))
                        (expand-file-name "cyberdeck-emacs.org" dir)))))
   (unless (file-exists-p file)
@@ -384,8 +390,7 @@ live in the vault.
 
 (setq cyberdeck-emacs-package-method 'leaf
       cyberdeck-emacs-org-directory
-      (or cyberdeck-emacs-vault-root
-          (expand-file-name "modules" my/emacs-root))
+      (expand-file-name "emacs-cyberdeck" my/emacs-root)
       cyberdeck-emacs-output-directory
       (expand-file-name "cyberdeck-emacs" user-emacs-directory))
 (setq inhibit-startup-screen t)
@@ -400,7 +405,7 @@ live in the vault.
 #+end_src
 
 #+begin_src emacs-lisp
-;; Everything else lives in <my/emacs-root>/modules (extensionless).
+;; Everything else lives in <my/emacs-root>/emacs-cyberdeck (extensionless).
 ;; See keyboard leaders for keybindings.
 ;; See buffer-management for buffer lifecycle.
 
