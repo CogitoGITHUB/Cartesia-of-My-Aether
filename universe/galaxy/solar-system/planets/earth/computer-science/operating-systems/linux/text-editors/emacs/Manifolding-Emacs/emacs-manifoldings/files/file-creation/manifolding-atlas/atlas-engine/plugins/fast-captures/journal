@@ -8,7 +8,7 @@ Fast journal entry capture. Creates a timestamped heading in Journal.org.
 :END:
 
 ** Date and path resolution
-Journal AIUs nest into admin/Journal/<Y>/<Q>/<m>/<W>/ like routines.
+Journal AIUs nest into admin/Journal/<Y>/<Q>/<m>/<W>/ like AIU Runs.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-quick-journal--date ()
   (format-time-string "%Y-%m-%d" (org-read-date nil t nil "Journal date")))

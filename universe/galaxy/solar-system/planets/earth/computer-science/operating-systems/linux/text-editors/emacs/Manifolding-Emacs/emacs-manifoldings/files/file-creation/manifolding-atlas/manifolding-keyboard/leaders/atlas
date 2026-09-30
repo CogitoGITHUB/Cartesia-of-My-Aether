@@ -29,7 +29,7 @@ SPC v: Manifolding Atlas menu.
    ("i" my/manifolding-atlas-find-protocols "find protocols" :exit t))
   "Vocab"
    (("w" my/manifolding-atlas-dictionary-menu "dictionary" :exit t))
-   "Mastering"
+   "Installation Protocol"
   (("g" my/manifolding-atlas-mastering-review "review due" :exit t)
    ("G" my/manifolding-atlas-mastering-review-overdue "review overdue" :exit t)
    ("M" my/manifolding-atlas-mastering-mark-review "mark reviewed" :exit t)
@@ -42,10 +42,10 @@ SPC v: Manifolding Atlas menu.
   (("n" my/manifolding-atlas-recipe-create "new recipe" :exit t)
    ("e" my/manifolding-atlas-recipes-edit-servings "edit servings" :exit t)
    ("f" my/manifolding-atlas-recipes-menu "recipes" :exit t))
-  "Routines"
-  (("N" my/manifolding-atlas-routines-create "new routine" :exit t)
+  "AIU Runs"
+  (("N" my/manifolding-atlas-routines-create "new AIU Run" :exit t)
    ("J" my/manifolding-atlas-routines-chain-create "new chain" :exit t)
-   ("F" my/manifolding-atlas-routines-find "find routine" :exit t)
+   ("F" my/manifolding-atlas-routines-find "find AIU Run" :exit t)
    ("B" my/manifolding-atlas-routines-generate "generate" :exit t)
    ("X" my/manifolding-atlas-routines-run "run" :exit t)
    ("!" my/manifolding-atlas-routines-validate "validate" :exit t)

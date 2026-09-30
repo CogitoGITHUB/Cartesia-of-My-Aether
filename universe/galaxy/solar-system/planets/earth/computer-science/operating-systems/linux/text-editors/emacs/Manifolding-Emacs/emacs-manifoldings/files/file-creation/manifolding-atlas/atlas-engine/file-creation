@@ -2746,7 +2746,7 @@ Note: Does not support %a or %i from org-capture."
                   ;; File-level AIU creation (original behavior)
                   (manifolding-atlas--create-file title file-name id head meta body
                                        tags unfoldings context))))
-      ;; Fundamental mastering: every created AIU enrolls at birth
+      ;; Fundamental Installation Protocol: every created AIU enrolls at birth
       ;; (admin/ paths excluded inside). Runs after the DB row exists
       ;; so init/sync see a real AIU; returns the AIU unchanged.
       (my/manifolding-atlas--enroll-new-note note)
@@ -2901,12 +2901,12 @@ BODY, TAGS, UNFOLDINGS, and CONTEXT are as in `manifolding-atlas-create'."
         (error "manifolding-atlas-create: Heading AIU with ID %s not found in database after creation" id))))
 #+end_src
 
-** Birth enrollment (mastering fundamental)
+** Birth enrollment (Installation Protocol fundamental)
 Every AIU is born into the review pool — learn it all or
 deliberately suspend it, no third state. The single seam is the
 public `manifolding-atlas-create' above (both file and heading
 branches funnel through it), so specialized creators (recipes,
-dictionary, routines, journal, unfolding-notes) need no individual
+dictionary, AIU Runs, journal, unfolding-notes) need no individual
 wiring. AIUs under =admin/= (unfolding-notes, Journal, admin
 queues) are metadata or logs, not knowledge cards, and are excluded
 by path — reviewing them would pollute sessions with machinery.
@@ -3600,7 +3600,7 @@ Prompts for AIU Proxy — yes inserts a link, no deletes the heading."
          (original-buffer (current-buffer)))
     ;; Record source relationship pointing back to original heading.
     ;; Uses the cross-buffer property writer (same (AIU key value)
-    ;; shape as the old call); the extracted AIU enrolls in mastering
+    ;; shape as the old call); the extracted AIU enrolls in Installation Protocol
     ;; through the core create path above.
     (when (and note heading-id)
       (my/manifolding-atlas--property-put note "SOURCE" heading-id))
@@ -3839,8 +3839,8 @@ AIU Context; deleting a file removes it. Files that contain src blocks
 are treated as legacy elisp prompts and skipped.
 
 Tag vocabulary on the level-1 heading, e.g. ~* MY_KEY :unfolding:file:heading:~:
-KIND (first match wins): AIU Context|inline|todo|multi|tags|tagopt|template|free|scoped|mastering|mindmap|body   (default: AIU Context)
-CONTEXTS (all matches, space-joined): file|heading|task|routine|dictionary|contact|recipe|rule   (default: file heading)
+KIND (first match wins): AIU Context|inline|todo|multi|tags|tagopt|template|free|scoped|Installation Protocol|mindmap|body   (default: AIU Context)
+CONTEXTS (all matches, space-joined): file|heading|task|AIU Run|dictionary|contact|recipe|rule   (default: file heading)
 Unknown tags are ignored. No #+ file keywords; no :LABEL: (KEY is the label).
 A :PROPERTIES: drawer holding only :ID: may follow the heading.
 
@@ -5972,7 +5972,7 @@ Why: Implementation of ~my/manifolding-atlas-org-prompt--ask-buffer~.
 #+end_src
 ** UI dispatch
 Chooses buffer picker vs minibuffer per kind. `scoped' and
-`mastering' are listed among the buffer-picker kinds deliberately —
+`Installation Protocol' are listed among the buffer-picker kinds deliberately —
 every other option-based kind already got the buffer-style picker,
 and these two would otherwise fall through to the minibuffer even
 when `my/manifolding-atlas-org-prompt-ui' is `buffer'.
@@ -6404,7 +6404,7 @@ Clearing the keyword resets to the first TODO option."
                      #'my/manifolding-atlas-prompt-template--apply
                      v)))))
 #+end_src
-** Mastering fragment
+** Installation Protocol fragment
 The STAGE picker is clamped, not free: capture-time picks may only
 land on UNSEEN (declined to engage — honest, unenrolled-warm) or
 AWARE (birth state). Anything higher is downgraded to AWARE with a
@@ -6443,7 +6443,7 @@ Why: Implementation of ~my/manifolding-atlas-org-prompt--fragment-mastering~.
 STATUS picks write the AIU Context and immediately mirror the suspend
 flag into the schedule row, so a capture-time SUSPENDED takes effect
 without waiting for the next index pass. The flag-sync helper lives
-in the mastering engine next to its siblings.
+in the Installation Protocol engine next to its siblings.
 ** my/manifolding-atlas-org-prompt--fragment-status
 Why: Implementation of ~my/manifolding-atlas-org-prompt--fragment-status~.
 

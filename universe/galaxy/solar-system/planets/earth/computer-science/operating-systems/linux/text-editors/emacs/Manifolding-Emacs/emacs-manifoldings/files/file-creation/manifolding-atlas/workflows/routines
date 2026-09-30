@@ -1,9 +1,9 @@
-Modular routines system for the atlas, modeled on the mastering plugin.
-A routine is an AIU tagged =routine= whose child headings are
-routine entries referencing sources via =SOURCE=, =ROUTINE_ID= and
+Modular AIU Runs system for the atlas, modeled on the Installation Protocol plugin.
+An AIU Run is an AIU tagged =routine= whose child headings are
+AIU Run entries referencing sources via =SOURCE=, =ROUTINE_ID= and
 =ROUTINE_ORDER= AIU Contexts. Every mutation dual-writes the org drawer
 and the SQLite index, so queries run against the DB without re-parsing
-org. Chains are routines whose sources are themselves routines.
+org. Chains are AIU Runs whose sources are themselves AIU Runs.
 
 * Require :EMACS_MECHANISM:
 :PROPERTIES:
@@ -19,7 +19,7 @@ org. Chains are routines whose sources are themselves routines.
 #+end_src
 
 *** Vocabulary Constants
-Three axes define every routine: its type (atomic/composite/chain),
+Three axes define every AIU Run: its type (atomic/composite/chain),
 its life domain (SELF-CARE through CUSTOM), and its temporal rhythm
 (HOUR through YEARLY, plus day-parts and seasons).
 #+begin_src emacs-lisp
@@ -42,17 +42,17 @@ its life domain (SELF-CARE through CUSTOM), and its temporal rhythm
 #+end_src
 
 *** Directory state
-Three directories: routine AIUs live under =routines/=, rendered
+Three directories: AIU Run AIUs live under =routines/=, rendered
 files go to =routines/generated/=, and session journals nest into
 =sessions/<Y>/<Q>/<m>/<W>/= at the vault root.
 #+begin_src emacs-lisp
 (defvar my/manifolding-atlas-routines-directory
   (expand-file-name "routines/" (my/manifolding-atlas-root-dir))
-  "Directory inside the vault where routine AIUs live.")
+  "Directory inside the vault where AIU Run AIUs live.")
 
 (defvar my/manifolding-atlas-routines-generated-directory
   (expand-file-name "generated/" my/manifolding-atlas-routines-directory)
-  "Directory where generated routine files are written.")
+  "Directory where generated AIU Run files are written.")
 
 (defvar my/manifolding-atlas-routines-sessions-directory
   (expand-file-name "sessions/" (my/manifolding-atlas-root-dir))
@@ -78,11 +78,11 @@ organized with the same year/quarter/month/week nesting as the journal.")
 #+end_src
 
 *** Database Tables
-Three tables: =routines= indexes routine AIUs by type/domain/temporal,
-=routine_entries= maps entry headings to their parent routine with
+Three tables: =routines= indexes AIU Run AIUs by type/domain/temporal,
+=routine_entries= maps entry headings to their parent AIU Run with
 ordering, and =routine_sessions= journals each run with done/skip counts.
 
-**** Routines table
+**** AIU Runs table
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-routines--ensure-table-routines ()
   (emacsql (manifolding-atlas-db)
@@ -115,7 +115,7 @@ ordering, and =routine_sessions= journals each run with done/skip counts.
 #+end_src
 **** Entries column migration
 =CREATE IF NOT EXISTS= never adds columns to an existing table, so —
-like mastering's stage/status migration — the ensure function
+like Installation Protocol's stage/status migration — the ensure function
 inspects the schema and alters when an older one is found. Same
 dialect branch (SQLite =PRAGMA=, PostgreSQL =information_schema=),
 portable ALTER, errors swallowed.
@@ -170,15 +170,15 @@ portable ALTER, errors swallowed.
 #+end_src
 
 *** DB Extractor
-Indexes ROUTINE_* AIU Contexts from NOTE-DATA. Routine AIUs land in
+Indexes ROUTINE_* AIU Contexts from NOTE-DATA. AIU Run AIUs land in
 =routines=; entry headings carrying ROUTINE_ID, SOURCE and
 ROUTINE_ORDER land in =routine_entries=. Session AIUs with SESSION_OF
 and SESSION_DATE land in =routine_sessions=.
 
-**** Routine row extraction
+**** AIU Run row extraction
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-routines--extract-routine (note-id unfoldings)
-  "Index the routine row for NOTE-ID from PROPS."
+  "Index the AIU Run row for NOTE-ID from PROPS."
   (let ((rtype (cdr (assoc "ROUTINE_TYPE" unfoldings))))
     (emacsql (manifolding-atlas-db)
       [:delete :from routines :where (= note-id $s1)]
@@ -286,12 +286,12 @@ vocabulary — one factory per shape keeps both schemas terse.
           ((not (member val allowed)) bad-msg)
           (t t))))
 #+end_src
-**** Routine schema
+**** AIU Run schema
 #+begin_src emacs-lisp
 (manifolding-atlas-blueprint-define
  'routine
  :predicate (lambda (note)
-              (and (member "routine" (manifolding-atlas-note-tags note))
+              (and (member "AIU Run" (manifolding-atlas-note-tags note))
                    (not (member "session" (manifolding-atlas-note-tags note)))))
  :include 'base
  :fields
@@ -473,19 +473,19 @@ immediate routine_entries rows."
 *** Queries
 Entries are read from the DB index first (fast), falling back to a
 direct org scan when unsynced. Workout detail always reads live from
-the routine file.
+the AIU Run file.
 
 **** Browsing
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-routines-all ()
-  "Return list of all routine AIUs known to the DB."
+  "Return list of all AIU Run AIUs known to the DB."
   (let ((ids (mapcar #'car
                      (emacsql (manifolding-atlas-db)
                               [:select [note-id] :from routines]))))
     (seq-map #'manifolding-atlas-db-get-by-id ids)))
 
 (defun my/manifolding-atlas-routines-find ()
-  "Browse and open routine AIUs."
+  "Browse and open AIU Run AIUs."
   (interactive)
   (let ((ids (mapcar #'car
                      (emacsql (manifolding-atlas-db)
@@ -494,10 +494,10 @@ the routine file.
      :filter-fn (lambda (note)
                   (member (manifolding-atlas-note-id note) ids)))))
 #+end_src
-**** Routine selection helpers
+**** AIU Run selection helpers
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-routines--routine-candidates ()
-  "Return alist of (label . note-id) for every known routine."
+  "Return alist of (label . note-id) for every known AIU Run."
   (mapcar (lambda (row)
             (cons (format "%s (%s)" (cadr row) (car row)) (car row)))
           (emacsql (manifolding-atlas-db)
@@ -507,19 +507,19 @@ the routine file.
                     :on (= routines:note-id notes:id)])))
 
 (defun my/manifolding-atlas-routines--select-routine (prompt candidates)
-  "Completing-read a routine from PROMPT and CANDIDATES, return its id."
+  "Completing-read an AIU Run from PROMPT and CANDIDATES, return its id."
   (cdr (assoc (completing-read prompt (mapcar #'car candidates) nil nil)
               candidates)))
 
 (defun my/manifolding-atlas-routines--select-routine-interactive (prompt)
-  "Prompt for a routine and return the AIU."
+  "Prompt for an AIU Run and return the AIU."
   (let ((candidates (my/manifolding-atlas-routines--routine-candidates)))
-    (when (null candidates) (user-error "No routines defined yet"))
+    (when (null candidates) (user-error "No AIU Runs defined yet"))
     (manifolding-atlas-db-get-by-id
      (my/manifolding-atlas-routines--select-routine prompt candidates))))
 #+end_src
 **** Org fallback reader
-Used when the DB index has no rows for a routine.
+Used when the DB index has no rows for an AIU Run.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-routines--entries-org (routine)
   "Read entries of ROUTINE directly from org as fallback.
@@ -612,7 +612,7 @@ Joins one DB row with its live workout extras and source title.
 #+end_src
 **** Entries dispatcher
 Ordering and groups come from the DB index; workout detail is read
-live from the routine file.
+live from the AIU Run file.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-routines--entries (routine)
   "Return ordered entries of ROUTINE as
@@ -638,7 +638,7 @@ interval days anchor next)."
 *** Session Journaling
 Each run creates or updates a session AIU under
 =sessions/<Y>/<Q>/<m>/<W>/<date>-<slug>= with per-step results.
-Idempotent per day: same routine + date rewrites in place, preserving ID.
+Idempotent per day: same AIU Run + date rewrites in place, preserving ID.
 
 **** Date conversion
 #+begin_src emacs-lisp
@@ -732,7 +732,7 @@ Tolerates FK timing like entry rows.
 #+end_src
 **** Session create/update
 Dual-writes the org file and the routine_sessions table. Idempotent
-per day: an existing session for the same routine and date is
+per day: an existing session for the same AIU Run and date is
 rewritten in place, preserving its ID.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-routines--session-create (routine results done skipped elapsed)
@@ -793,7 +793,7 @@ newest first."
 
 *** Streaks
 Temporal-aware streak counting: the period unit derives from the
-routine's TEMPORAL AIU Context. A streak survives if the current or
+AIU Run's TEMPORAL AIU Context. A streak survives if the current or
 previous period has a session.
 
 **** Period mapping and bucketing
@@ -856,7 +856,7 @@ Opens =*routines-report*= in an org buffer.
 **** Per-routine section
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-routines--report-section (row today)
-  "Return the report section text for one routines ROW."
+  "Return the report section text for one AIU Runs ROW."
   (let* ((rid (nth 0 row))
          (note (manifolding-atlas-db-get-by-id rid))
          (title (if note (manifolding-atlas-note-title note) rid))
@@ -893,16 +893,16 @@ Opens =*routines-report*= in an org buffer.
     (with-current-buffer (get-buffer-create "*routines-report*")
       (erase-buffer)
       (org-mode)
-      (insert "* Routine Compliance\n\n")
+      (insert "* AIU Run Compliance\n\n")
       (dolist (row (emacsql (manifolding-atlas-db)
                      [:select [note-id rtype domain temporal] :from routines]))
         (insert (my/manifolding-atlas-routines--report-section row today)))
       (display-buffer (current-buffer)))
-    (message "Routine report updated")))
+    (message "AIU Run report updated")))
 #+end_src
 
 *** Agenda Facet
-Read-only org surface for routines. Atlas writes SCHEDULED planning
+Read-only org surface for AIU Runs. Atlas writes SCHEDULED planning
 lines (sole writer); agenda only displays them. No org repeaters on
 any Atlas-managed timestamp — that rule also excludes =org-habit=,
 which structurally requires a TODO keyword, a repeater, and
@@ -960,7 +960,7 @@ dangle."
                  (ks-goto-line)
                  (unless (org-at-heading-p) (user-error "Not a heading"))
                  (org-id-get-create)
-                 ;; Persist the new ID now — the routine will reference
+                 ;; Persist the new ID now — the AIU Run will reference
                  ;; it from another file the moment collection ends.
                  (when buffer-file-name
                    (ignore-errors (save-buffer)))
@@ -1039,7 +1039,7 @@ the recursive-edit, so an unexpected quit can never strand the session."
     (with-current-buffer buf
       (erase-buffer)
       (org-mode)
-      (insert "# Reorder routine entries\n")
+      (insert "# Reorder AIU Run entries\n")
       (insert "# Move lines, then C-c C-c to confirm or C-c C-k to abort\n")
       (dolist (item items)
         (insert (format "- %s :: id:%s\n" (cdr item) (car item))))
@@ -1052,9 +1052,9 @@ the recursive-edit, so an unexpected quit can never strand the session."
       (recursive-edit))))
 #+end_src
 
-*** Mastering Bridge
+*** Installation Protocol Bridge
 
-**** Mastery status badge
+**** installation status badge
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-routines--mastery-status (sid)
   "Return (BADGE . DUE-P) for SID from mastering_schedule.
@@ -1087,12 +1087,12 @@ Return `next, `fail, or nil when grading did not happen."
       (my/manifolding-atlas-mastering--update
        sid success
        (my/manifolding-atlas-mastering--review-algorithm sid success))
-      (message "Mastering updated: %s" (if success "next" "fail"))
+      (message "Installation Protocol updated: %s" (if success "next" "fail"))
       (if success 'next 'fail))))
 #+end_src
 
 *** Creation
-Creates an atomic or composite routine from interactively selected
+Creates an atomic or composite AIU Run from interactively selected
 headings. Entry source: b = key selection over the current buffer,
 v = vault-wide selection via completing-read.
 
@@ -1130,15 +1130,15 @@ Empty input finishes; duplicates and unknown picks are ignored.
 **** Atomic/composite creation
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-routines-create ()
-  "Create an atomic or composite routine from interactively selected headings."
+  "Create an atomic or composite AIU Run from interactively selected headings."
   (interactive)
-  (let* ((title (read-string "Routine title: "))
+  (let* ((title (read-string "AIU Run title: "))
          (slug (manifolding-atlas-title-to-slug title))
          (subdir (my/manifolding-atlas-choose-subdir
                   my/manifolding-atlas-routines-directory
                   "Subdirectory under routines/: "))
          (fname (concat "routines/" subdir slug))
-         (rtype (completing-read "Routine type: "
+         (rtype (completing-read "AIU Run type: "
                                  (remove "chain" my/manifolding-atlas-routines--types)
                                  nil t "atomic"))
          (domain (my/manifolding-atlas-prompt-routine-domain))
@@ -1151,21 +1151,21 @@ Empty input finishes; duplicates and unknown picks are ignored.
            (details (my/manifolding-atlas-routines--prompt-details ordered)))
       (unless details (user-error "No entries selected"))
       (let ((note (my/manifolding-atlas--create-file-wrapper
-                   title fname '("routine") unfoldings "")))
+                   title fname '("AIU Run") unfoldings "")))
         (my/manifolding-atlas-routines--write-entries note details)
         (my/manifolding-atlas-routines-generate note)
-        (message "Created routine %s (%d entries)" title (length details))
+        (message "Created AIU Run %s (%d entries)" title (length details))
         note))))
 #+end_src
 **** Chain creation
-Composes existing routines; members AIU Proxy through generated files.
+Composes existing AIU Runs; members AIU Proxy through generated files.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-routines-chain-create ()
-  "Create a chain routine composing existing routines."
+  "Create a chain AIU Run composing existing AIU Runs."
   (interactive)
   (let* ((candidates (my/manifolding-atlas-routines--routine-candidates))
          (picked (progn
-                   (when (null candidates) (user-error "No routines defined yet"))
+                   (when (null candidates) (user-error "No AIU Runs defined yet"))
                    (my/manifolding-atlas-routines--pick-members candidates))))
     (unless (> (length picked) 1)
       (user-error "A chain needs at least two members"))
@@ -1187,7 +1187,7 @@ Composes existing routines; members AIU Proxy through generated files.
              (unfoldings (my/manifolding-atlas-routines--context-unfoldings
                      "chain" domain temporal))
              (note (my/manifolding-atlas--create-file-wrapper
-                    title fname '("routine") unfoldings "")))
+                    title fname '("AIU Run") unfoldings "")))
         (my/manifolding-atlas-routines--write-entries note details)
         (my/manifolding-atlas-routines-generate note)
         (message "Created chain %s (%d members)" title (length details))
@@ -1195,13 +1195,13 @@ Composes existing routines; members AIU Proxy through generated files.
 #+end_src
 
 *** Generation
-Renders the routine's entries as wormholed headings in a generated
+Renders the AIU Run's entries as wormholed headings in a generated
 org file under routines/generated/. Preserves the existing ID and TODO
 state across regenerations. Chain members are wormholed through
-their generated files' heading IDs so nested routines render fully.
+their generated files' heading IDs so nested AIU Runs render fully.
 
 **** Generated index scanner
-Maps routine source ids to their generated heading ids by scanning
+Maps AIU Run source ids to their generated heading ids by scanning
 the rendered files on disk.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-routines--generated-index ()
@@ -1240,7 +1240,7 @@ Regeneration must not churn IDs or TODO state.
     (list old-id old-todo)))
 #+end_src
 **** Entry rendering
-One routine entry becomes an AIU Proxy line plus an optional
+One AIU Run entry becomes an AIU Proxy line plus an optional
 group/prescription label.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-routines--render-entry (entry gindex)
@@ -1268,11 +1268,11 @@ group/prescription label.
   "Generate the rendered org file for ROUTINE (or prompt for one).
 Preserves the existing ID and TODO state across regenerations. Chain
 members are wormholed through their generated files' heading IDs so
-nested routines render fully."
+nested AIU Runs render fully."
   (interactive)
   (let* ((routine (or routine
                       (my/manifolding-atlas-routines--select-routine-interactive
-                       "Generate routine: ")))
+                       "Generate AIU Run: ")))
          (unfoldings (manifolding-atlas-note-unfoldings routine))
          (rtype (or (cdr (assoc "ROUTINE_TYPE" unfoldings)) "atomic"))
          (domain (cdr (assoc "ROUTINE_DOMAIN" unfoldings)))
@@ -1287,7 +1287,7 @@ nested routines render fully."
          (old-todo (nth 1 prev))
          (gindex (when (equal rtype "chain")
                    (my/manifolding-atlas-routines--generated-index))))
-    (unless entries (user-error "Routine has no entries"))
+    (unless entries (user-error "AIU Run has no entries"))
     (make-directory my/manifolding-atlas-routines-generated-directory t)
     (let ((gid (or old-id (org-id-new)))
           (todo-state (or old-todo "TODO")))
@@ -1310,9 +1310,9 @@ nested routines render fully."
 #+end_src
 
 *** Validation
-Validates all routines and reports: unresolvable sources, duplicate or
+Validates all AIU Runs and reports: unresolvable sources, duplicate or
 non-contiguous ROUTINE_ORDER values, and chain members that are not
-themselves routines.
+themselves AIU Runs.
 
 **** Ordering and chain checks
 #+begin_src emacs-lisp
@@ -1330,7 +1330,7 @@ themselves routines.
 **** Per-routine validation
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-routines--validate-one (rid rtype report)
-  "Validate routine RID; return extended REPORT."
+  "Validate AIU Run RID; return extended REPORT."
   (let* ((note (manifolding-atlas-db-get-by-id rid))
          (title (if note (manifolding-atlas-note-title note) rid))
          (entries (condition-case err
@@ -1340,7 +1340,7 @@ themselves routines.
                            report)
                      nil))))
     (unless note
-      (push (format "%s: routine row without resolvable AIU" rid) report))
+      (push (format "%s: AIU Run row without resolvable AIU" rid) report))
     (when entries
       (dolist (entry entries)
         (unless (manifolding-atlas-db-get-by-id (nth 0 entry))
@@ -1354,7 +1354,7 @@ themselves routines.
                           [:select [note-id] :from routines
                            :where (= note-id $s1)]
                           (nth 0 entry)))
-            (push (format "%s: chain member id:%s is not a routine"
+            (push (format "%s: chain member id:%s is not an AIU Run"
                           title (nth 0 entry))
                   report)))))
     report))
@@ -1362,7 +1362,7 @@ themselves routines.
 **** Validate command
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-routines-validate ()
-  "Validate all routines and report problems."
+  "Validate all AIU Runs and report problems."
   (interactive)
   (let ((report nil)
         (count 0))
@@ -1373,12 +1373,12 @@ themselves routines.
                     (nth 0 row) (nth 1 row) report)))
     (with-current-buffer (get-buffer-create "*routines-validation*")
       (erase-buffer)
-      (insert (format "Routines validated: %d\nProblems: %d\n\n"
+      (insert (format "AIU Runs validated: %d\nProblems: %d\n\n"
                       count (length report)))
       (dolist (line (nreverse report))
         (insert line "\n"))
       (display-buffer (current-buffer)))
-    (message "Validated %d routines, %d problem(s)" count (length report))))
+    (message "Validated %d AIU Runs, %d problem(s)" count (length report))))
 #+end_src
 
 *** Anchored Rescheduling
@@ -1386,7 +1386,7 @@ Elisp-native port of the reschedule-by-rule idea: a stable anchor
 (last completion date) plus an interval and/or weekday set decide the
 next due date, immune to manual drag-drift. No Python, no croniter.
 Computed at session completion for done entries; skipped entries
-never advance. Each engine owns its copy of this logic — routines and
+never advance. Each engine owns its copy of this logic — AIU Runs and
 protocols intentionally do not share it.
 
 **** Interval and weekday parsing
@@ -1609,7 +1609,7 @@ string (nil when absent). Return nil when the entry has no cadence."
 
 *** Run Session
 Step-by-step execution in a review buffer. Steps that are in the
-mastering pool show their review status; due steps can be graded with
+Installation Protocol pool show their review status; due steps can be graded with
 l (learn) or r (review-only) before being practiced. At the end, offers
 to journal the session.
 
@@ -1621,7 +1621,7 @@ to journal the session.
       (erase-buffer)
       (insert (format "[%d/%d] %s\n\n" step total title))
       (when badge
-        (insert (format "mastering: %s\n" badge)))
+        (insert (format "Installation Protocol: %s\n" badge)))
       (when planned
         (insert (format "timer: %s planned%s\n"
                         (atlas-timer-format-seconds planned)
@@ -1765,9 +1765,9 @@ end, offer to journal the session."
   (interactive)
   (let* ((routine (or routine
                       (my/manifolding-atlas-routines--select-routine-interactive
-                       "Run routine: ")))
+                       "Run AIU Run: ")))
          (entries (my/manifolding-atlas-routines--entries routine)))
-    (unless entries (user-error "Routine has no entries"))
+    (unless entries (user-error "AIU Run has no entries"))
     (let ((buf (get-buffer-create "*manifolding-atlas-routines-run*"))
           (total (length entries))
           (done 0)
@@ -1807,7 +1807,7 @@ end, offer to journal the session."
                                      done skipped learned)))
           (my/manifolding-atlas-routines--session-create
            routine (nreverse results) done skipped elapsed))
-        (message "Routine finished: %d done, %d skipped, %d learned in %s"
+        (message "AIU Run finished: %d done, %d skipped, %d learned in %s"
                  done skipped learned
                  (atlas-timer-format-seconds elapsed))))))
 #+end_src
@@ -1842,7 +1842,7 @@ write-entries assigns sequential orders; a manual append forces the
 next free order instead.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-routines--fix-entry-order (routine next-order)
-  "Rewrite the last entry's ROUTINE_ORDER on ROUTINE to NEXT-ORDER."
+  "Rewrite the last entry's ROUTINE_ORDER on AIU RUN to NEXT-ORDER."
   (with-current-buffer (find-file-noselect
                         (manifolding-atlas-note-path routine))
     (goto-char (point-max))
@@ -1861,7 +1861,7 @@ vault-wide selection.  Regenerates the rendered file afterwards."
   (interactive)
   (let* ((routine (or routine
                       (my/manifolding-atlas-routines--select-routine-interactive
-                       "Add entry to routine: ")))
+                       "Add entry to AIU Run: ")))
          (sid (my/manifolding-atlas-routines--add-entry-source))
          (existing (my/manifolding-atlas-routines--entries-org routine))
          (next-order (1+ (or (car (sort (mapcar (lambda (e) (nth 2 e)) existing)
@@ -1895,12 +1895,12 @@ Due Reviews rewrites in place, so old child headings go first.
 (defun my/manifolding-atlas-routines-due-reviews ()
   "Create or refresh the \"Due Reviews\" composite routine from
 today's due mastering notes.  Stable ID across refreshes; renders
-like any other routine and appears in streaks/report."
+like any other AIU Run and appears in streaks/report."
   (interactive)
   (let ((ids (my/manifolding-atlas-mastering--due-note-ids)))
     (when (null ids) (user-error "Nothing due today"))
     (let* ((title "Due Reviews")
-           ;; Reuse an existing Due Reviews routine if present.
+           ;; Reuse an existing Due Reviews AIU Run if present.
            (rows (emacsql (manifolding-atlas-db)
                           [:select [routines:note-id notes:title]
                            :from routines
@@ -1913,7 +1913,7 @@ like any other routine and appears in streaks/report."
                    (my/manifolding-atlas--create-file-wrapper
                     title
                     (concat "routines/due-reviews")
-                    '("routine")
+                    '("AIU Run")
                     '(("ROUTINE_TYPE" . "composite"))
                     "")))
            (items (mapcar (lambda (id)
@@ -1934,13 +1934,13 @@ like any other routine and appears in streaks/report."
 *** Menu
 #+begin_src emacs-lisp
 (transient-define-prefix my/manifolding-atlas-routines-menu ()
-  "Routines actions."
+  "AIU Runs actions."
   [["Create"
-    ("r" "New routine" my/manifolding-atlas-routines-create)
+    ("r" "New AIU Run" my/manifolding-atlas-routines-create)
     ("c" "New chain" my/manifolding-atlas-routines-chain-create)
     ("a" "Add entry" my/manifolding-atlas-routines-add-entry)]
    ["Use"
-    ("f" "Find routine" my/manifolding-atlas-routines-find)
+    ("f" "Find AIU Run" my/manifolding-atlas-routines-find)
     ("g" "Generate" my/manifolding-atlas-routines-generate)
     ("x" "Run" my/manifolding-atlas-routines-run)
     ("d" "Due reviews" my/manifolding-atlas-routines-due-reviews)]

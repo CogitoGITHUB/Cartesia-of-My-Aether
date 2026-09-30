@@ -262,7 +262,7 @@ counts plus the next few items.  Full detail lives in `agenda-day`.
     (let ((entries (ignore-errors (my/manifolding-atlas-agenda--due-entries)))
           (protos (ignore-errors (my/manifolding-atlas-agenda--due-protocols))))
       (insert "-- Due --\n")
-      (insert (format "routines due: %d \u00b7 protocols due: %d\n"
+      (insert (format "AIU Runs due: %d \u00b7 protocols due: %d\n"
                       (length entries) (length protos)))
       (dolist (e (seq-take entries 3))
         (insert (format "  - %s\n" (nth 1 e))))

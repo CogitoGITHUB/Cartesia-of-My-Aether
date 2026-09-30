@@ -3,8 +3,8 @@ Controller layer for the vault's visual mind map.
 Ownership (architectural law — see README): this subsystem owns
 TOPOLOGY, ORDER, PARENT/CHILD and SIBLING relationships, ROOTS,
 HEADINGS, node location, MAP DISPLAY, and TRAVERSAL. It reads
-mastering data (stage, status) for display only — reading never
-constitutes ownership. The single shared surface with mastering is
+Installation Protocol data (stage, status) for display only — reading never
+constitutes ownership. The single shared surface with Installation Protocol is
 the STATUS drawer value plus the schedule suspend flag: one key,
 two readers.
 
@@ -25,7 +25,7 @@ Scale: All queries hit =mm_nodes= via indexed SQL. No Elisp-side sorting.
 ON DELETE CASCADE auto-removes map entries when AIUs are deleted.
 
 Status: the unified STATUS AIU Context — ACTIVE | SUSPENDED | ARCHIVED
-| DORMANT — owned semantically by mastering's lifecycle, read here
+| DORMANT — owned semantically by Installation Protocol's lifecycle, read here
 for display. A leftover MM_STATUS drawer translates one-way
 (active→ACTIVE, deprecated→DORMANT, archived→ARCHIVED); no writer
 emits MM_STATUS anymore.
@@ -528,7 +528,7 @@ Assigns 1.0, 2.0, 3.0, ... in current sorted order."
 #+end_src
 
 *** Status Management
-Unified STATUS AIU Context, shared with mastering: ACTIVE | SUSPENDED
+Unified STATUS AIU Context, shared with Installation Protocol: ACTIVE | SUSPENDED
 | ARCHIVED | DORMANT. This subsystem reads it for display and writes
 it on explicit user action — the drawer value is shared data, while
 review behavior stays mastering-owned. A leftover MM_STATUS drawer
@@ -827,7 +827,7 @@ Renders the full tree as an Org buffer or a side-buffer group view.
 **** Recursive level inserter
 Headings render one level below their file; children indent deeper
 when headings exist so the group stays visually coherent. Each line
-carries its mastering stage (a display read — the map owns none of
+carries its Installation Protocol stage (a display read — the map owns none of
 it) plus a status flag whenever the AIU isn't ACTIVE.
 #+begin_src emacs-lisp
 (defun mm/map--stage-of (note-id)
@@ -886,7 +886,7 @@ below. Pure read over mm/* + stage lookups."
          (all (append scope headings))
          (at 0))
     (unless (fboundp 'my/manifolding-atlas-mastering--stage-index)
-      (error "Mastering engine not loaded"))
+      (error "Installation Protocol engine not loaded"))
     (dolist (id all)
       (let ((idx (my/manifolding-atlas-mastering--stage-index
                   (mm/map--stage-of id))))

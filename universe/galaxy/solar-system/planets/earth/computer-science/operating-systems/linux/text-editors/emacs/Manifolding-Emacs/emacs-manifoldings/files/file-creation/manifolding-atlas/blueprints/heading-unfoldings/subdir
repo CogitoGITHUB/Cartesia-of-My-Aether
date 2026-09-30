@@ -42,7 +42,7 @@ With a prefix argument, clear it."
 
 ** Choose Subdirectory (Core)
 Implements the actual browsing/selection used by every caller (prompt-subdir,
-dictionary, recipes, routines). Returns a relative path string ending in
+dictionary, recipes, AIU Runs). Returns a relative path string ending in
 "/" (or "" for ROOT itself), so callers can safely (concat prefix subdir slug).
 Free-text input is sanitized (trim, unquote, absolutize-if-inside) so a
 pasted quoted path can never create garbage directories.

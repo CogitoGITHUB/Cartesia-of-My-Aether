@@ -1,5 +1,5 @@
 Spaced-repetition review for AIUs, built on a
-10-state mastery spine (UNSEEN → CONTRIBUTING) with STATUS kept
+10-state installation spine (UNSEEN → CONTRIBUTING) with STATUS kept
 orthogonal (ACTIVE / SUSPENDED / ARCHIVED / DORMANT). Each AIU is a
 reviewable card; its position lives in org AIU Contexts (=STAGE=,
 =STATUS=, =MASTERING_*= schedule state) and is indexed into a
@@ -29,7 +29,7 @@ current capability vs attainment) belongs to a later phase.
 (defvar my/manifolding-atlas-mastering--last-drill-stats)
 #+end_src
 
-*** Mastery Spine
+*** installation Spine
 The spine answers one question: how far has this knowledge object
 progressed from ignorance to original contribution? Ten states,
 numbered 0–9, each a single tag-safe token that doubles as the AIU's
@@ -65,7 +65,7 @@ the knowledge developed. A suspended expert is still an expert.
 (defconst my/manifolding-atlas-mastering--stages
   '("UNSEEN" "AWARE" "ACQUIRING" "UNDERSTANDING" "CAPABLE"
     "PROFICIENT" "EXPERT" "ADAPTIVE" "GENERATIVE" "CONTRIBUTING")
-  "Mastery spine in canonical order. Indices compare; do not reorder.")
+  "installation spine in canonical order. Indices compare; do not reorder.")
 
 (defconst my/manifolding-atlas-mastering--statuses
   '("ACTIVE" "SUSPENDED" "ARCHIVED" "DORMANT")
@@ -91,7 +91,7 @@ Returns nil for values that meant unenrolled (WARNING)."
   "Proto intervals for the first successful reviews.")
 
 (defvar my/manifolding-atlas-mastering--mastering-value '(0.35 0.30 1.3)
-  "Starting mastering score (plus minus synolon).")
+  "Starting Installation Protocol score (plus minus synolon).")
 
 (defvar my/manifolding-atlas-mastering--amnesia 0.5
   "Failure interval multiplier; closer to 1 = more memory loss.")
@@ -195,7 +195,7 @@ resets the interval.
 #+begin_src emacs-lisp
 (cl-defun my/manifolding-atlas-mastering--next-mastering
     (&key mastering success epignosis agnoia anagnosis c-successes c-failures lethe)
-  "Return new MASTERING value (plus minus synolon)."
+  "Return new INSTALLATION PROTOCOL value (plus minus synolon)."
   (let* ((g-plus (nth 0 mastering))
          (g-minus (nth 1 mastering))
          (g-synolon (nth 2 mastering))
@@ -301,7 +301,7 @@ Migrates older schemas by adding stage/status columns when missing."
 
 *** DB Extractor
 Indexes STAGE/STATUS/MASTERING_* AIU Contexts from NOTE-DATA into
-mastering_schedule. A retired MASTERING AIU Context is translated
+mastering_schedule. A retired INSTALLATION PROTOCOL AIU Context is translated
 one-way when STAGE is absent (REVIEW/TODO → AWARE+ACTIVE, SUSPEND →
 AWARE+SUSPENDED, WARNING → unenrolled); no writer emits those values
 anymore. Initializes a default schedule when a stage is set but
@@ -321,10 +321,10 @@ AIUs are never dropped."
          (lookup (lambda (k) (cdr (assoc k unfoldings))))
          (stage (or (funcall lookup "STAGE")
                     (car (my/manifolding-atlas-mastering--legacy-mastering-to-stage
-                          (funcall lookup "MASTERING")))))
+                          (funcall lookup "INSTALLATION PROTOCOL")))))
          (status (or (funcall lookup "STATUS")
                      (cdr (my/manifolding-atlas-mastering--legacy-mastering-to-stage
-                           (funcall lookup "MASTERING")))
+                           (funcall lookup "INSTALLATION PROTOCOL")))
                      "ACTIVE"))
          (next-rev (funcall lookup "MASTERING_NEXT_REV"))
          (today (my/manifolding-atlas-mastering--today-int))
@@ -752,7 +752,7 @@ into review sessions.
   (length (my/manifolding-atlas-mastering--due-note-ids)))
 #+end_src
 
-*** Map-Ordered Review (mastering reads the map)
+*** Map-Ordered Review (Installation Protocol reads the map)
 Foundations first: the due queue walks the mind-map depth-first so
 prerequisites grade before dependents and failures cascade visibly
 instead of surfacing as downstream confusion. This is consumption,
@@ -995,7 +995,7 @@ The open action visits the AIU, then offers an inline re-grade.
 #+end_src
 
 *** Typing Drills
-Typing practice on top of mastering: drill any material by hand,
+Typing practice on top of Installation Protocol: drill any material by hand,
 record the stats as a TYPING_LAST drawer property, reuse them as
 attest evidence. Typing suggests nothing and grades nothing — SM-2
 only ever sees manual n/f. Transcription fluency is not recall;
@@ -1305,7 +1305,7 @@ Foundations grade before dependents; unmapped AIUs sink to the end."
       (my/manifolding-atlas-mastering--review-session ids))))
 
 (defun my/manifolding-atlas-mastering-review-overdue ()
-  "Start mastering review session for overdue AIUs."
+  "Start Installation Protocol review session for overdue AIUs."
   (interactive)
   (let ((ids (my/manifolding-atlas-mastering--overdue-note-ids)))
     (if (null ids)

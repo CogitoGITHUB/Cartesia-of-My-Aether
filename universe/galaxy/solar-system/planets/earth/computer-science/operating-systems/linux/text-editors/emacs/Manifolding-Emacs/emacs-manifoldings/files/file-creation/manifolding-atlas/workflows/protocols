@@ -485,8 +485,8 @@ pointers for each selected step."
 
 *** Recurrence
 Protocol-level anchored rescheduling. This is an owned copy of the
-routines anchor lattice — same behavior, no shared code: each engine
-owns its schedule, and a change to routines timing must never move a
+AIU Runs anchor lattice — same behavior, no shared code: each engine
+owns its schedule, and a change to AIU Runs timing must never move a
 protocol date. Keep the two in sync by hand; do not merge.
 
 A protocol parent (PROTOCOL=t, PROTOCOL_ORDER=0) carrying

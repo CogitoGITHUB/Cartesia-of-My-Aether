@@ -224,10 +224,10 @@ absent — unavailable reads as empty, never as invented.
                                (and links (format "Links: %d" (length links))))))))
           (when struct
             (insert "── Structure ──\n" (string-join struct "\n") "\n\n")))
-        ;; L4 mastering row.
+        ;; L4 Installation Protocol row.
         (let ((sched (my/atlas-search--schedule-for (plist-get cand :id))))
           (when sched
-            (insert (format "── Mastering ──\nNext review: %s\n"
+            (insert (format "── Installation Protocol ──\nNext review: %s\n"
                             (or (plist-get sched :due) "—")))))
         (goto-char (point-min))
         (setq buffer-read-only t)))
@@ -300,7 +300,7 @@ for free — including surfaces built after this file.
     (insert (format "[[id:%s][%s]]" (plist-get c :id) (plist-get c :title)))))
 
 (defun my/atlas-search-act-branch-review ()
-  "Review the candidate's map branch (MAP→MASTERING transition)."
+  "Review the candidate's map branch (MAP→INSTALLATION PROTOCOL transition)."
   (interactive)
   (let ((c (my/atlas-search--embark-target)))
     (manifolding-atlas-visit (manifolding-atlas-db-get-by-id (plist-get c :id)))

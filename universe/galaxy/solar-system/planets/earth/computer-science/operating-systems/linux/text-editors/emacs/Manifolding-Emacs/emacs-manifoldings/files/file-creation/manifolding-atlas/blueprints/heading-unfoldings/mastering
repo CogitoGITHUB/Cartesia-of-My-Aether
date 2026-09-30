@@ -1,4 +1,4 @@
-This blueprint defines the mastery spine: the single answer to "how far
+This blueprint defines the installation spine: the single answer to "how far
 has this knowledge object progressed from ignorance to original
 contribution?" Ten states, numbered 0–9. Every state is a single
 uppercase token so it doubles as the AIU's first org tag.

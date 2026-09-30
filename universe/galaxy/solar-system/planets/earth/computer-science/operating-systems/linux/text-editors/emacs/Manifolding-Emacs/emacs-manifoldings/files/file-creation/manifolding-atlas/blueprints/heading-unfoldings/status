@@ -1,6 +1,6 @@
 Workflow state for an AIU's participation in active practice. This is
 deliberately a separate blueprint from STAGE: lifecycle states are not
-mastery states. You can suspend a beginner subject, an expert subject,
+installation states. You can suspend a beginner subject, an expert subject,
 an unfinished research question, or a dormant skill — the stage
 attainment survives underneath, and resuming restores exactly where
 the knowledge left off. Stage says how far the knowledge developed;

@@ -79,7 +79,7 @@ Single function everything asks. Self-locating: renames never break it."
 ;;
 ;; The last is load-bearing, not cosmetic. The Atlas blueprints under
 ;; it carry 142 `** STATE :BLUEPRINT_BODY:' headings drawn from ~130
-;; distinct state words (seasons, day-parts, cadences, the mastery
+;; distinct state words (seasons, day-parts, cadences, the installation
 ;; spine) plus every heading of the TODO vocabulary itself. With those
 ;; states live as todo keywords — which `org-todo-states' now does —
 ;; an unfiltered agenda would list the blueprint definitions as if
