@@ -5,7 +5,7 @@ krvkir, 2026). Editable ASCII AIU Subnet visualization inside org
 buffers: `#+begin_mindmap` regions render as box-drawing trees and
 stay editable in place. Ships inline so AIUs never wait on a
 package fetch. Complements the vault's own mm/* topology subsystem
-(atlas-engine/mind-map, order 127): that one owns vault structure,
+(atlas-engine/aiu-subnet, order 127): that one owns vault structure,
 this one draws pictures inside AIUs.
 
 * Cyberdeck AIU Subnet — vendored :EMACS_MECHANISM:

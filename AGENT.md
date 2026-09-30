@@ -219,7 +219,7 @@ src block — those are **not** implementations.
 
 | Area | State | Detail |
 |---|---|---|
-| **AIU factory** | WORKING | `atlas-engine/file-creation` — 8040 lines, 252 src blocks, the largest real implementation. `manifolding-atlas-create/-find/-insert/-visit`, prompt registry, `${var}` / `%(elisp)` template expansion, blueprint add/edit/nest. |
+| **AIU factory** | WORKING | `atlas-engine/aiu-registration` — 8040 lines, 252 src blocks, the largest real implementation. `manifolding-atlas-create/-find/-insert/-visit`, prompt registry, `${var}` / `%(elisp)` template expansion, blueprint add/edit/nest. |
 | **Blueprints** | WORKING | `blueprints/heading-unfoldings/` — ~45 files. Most are **pure vocabulary**: a `:DRAWER_BLUEPRINT:` heading plus `** VALUE :BLUEPRINT_BODY:` children, zero src blocks. `todo` defines 22 TODO states, `mastery` the stage spine, `status` the lifecycle. |
 | **Database** | WORKING | `atlas-engine/db` — 371 src blocks. emacsql. `notes` (id, title, path, level, pos, AIU Contexts, tags) + `links`. Extractor registry with priority. Traversal: `db--bfs`, `db-ancestors`, `db-component`, `db-shortest-path`, `db-isolated`. |
 | **Search** | WORKING | `atlas-engine/search-center` (827 lines) — the real surface. `my/atlas-search` is one `consult--multi` over Text (rg, async), DB, Org-ql (7 presets) and Files. **Extensible**: `my/atlas-search-register-provider`, with the candidate contract asserted in code. |
@@ -410,7 +410,7 @@ everything else in `admin/` as generated. That document needs updating.
 | `manifolding-emacs-todo-file` | Points at `modules/TODO`, which does not exist. Only affects the interactive "file this boot error as a TODO" escape hatch. |
 | `/root/modules` | Dangling symlink to `~/.config/emacs/modules/`, which does not exist. Nothing references it. |
 | `links` table empty | 0 rows while `mm-nodes` has data. May be expected; worth a look separately. |
-| ~128 compiler warnings | Nearly all in `atlas-engine/file-creation`: free variables, docstring width, an obsolete `max-specpdl-size`, a duplicate `manifolding-atlas-insert`. Pre-existing, surfaced whenever that file recompiles. |
+| ~128 compiler warnings | Nearly all in `atlas-engine/aiu-registration`: free variables, docstring width, an obsolete `max-specpdl-size`, a duplicate `manifolding-atlas-insert`. Pre-existing, surfaced whenever that file recompiles. |
 
 ---
 
