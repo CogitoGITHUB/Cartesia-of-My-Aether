@@ -84,11 +84,11 @@ those are never lazy-loading artifacts.
     "outline-" "rectangle-" "mark-" "kill-" "save-" "other-" "beginning-" "save-buffer"
     "scroll-" "forward-" "backward-" "next-" "previous-" "goto-" "move-" "copy-"
     "delete-" "split-" "switch-" "find-" "query-" "flush-" "describe-" "ghostel"
-    "evil-show-digraphs" "my/dired-" "my/mindmap-")
+    "evil-show-digraphs" "my/dired-" "my/aiu-subnet-")
   "Command prefixes treated as external (warn, never error, when unbound)."
   :type '(repeat string)
   :group 'cyberdeck-keyboard)
-;; AIU: my/dired-* (dired.org), my/mindmap-* (AIU Subnet.org) resolve at
+;; AIU: my/dired-* (dired.org), my/aiu-subnet-* (states/aiu-subnet) resolve at
 ;; boot from sibling modules — covered here, not flagged.
 
 (defun cyberdeck-keyboard--defined-hydras ()
