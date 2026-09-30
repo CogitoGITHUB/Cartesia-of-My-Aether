@@ -22,7 +22,7 @@ Everything lives under one git repo:
 | Path | What it is |
 |---|---|
 | `universe/` | the knowledge cyberdeck, mirrored from physical scale down (universe → galaxy → solar-system → earth → … → linux) |
-| `…/linux/text-editors/emacs/Cyberdeck-Emacs/` | the Emacs config source. Everything below this is Emacs. |
+| `…/linux/text-editors/neomacs/Cyberdeck-Emacs/` | the Emacs config source. Everything below this is Emacs. |
 | `Cyberdeck-Emacs/AIU-Frame` | Org source, tangled at every boot into `early-init.el` + `foundation-init.el` |
 | `Cyberdeck-Emacs/cyberdeck-emacs` | **the loader** (3176 lines) — discovery, ordering, extraction, compilation, caching, doctor |
 | `Cyberdeck-Emacs/emacs-cyberdeck/` | the unit tree: ~400 files, ~300 tagged units |
@@ -418,7 +418,7 @@ everything else in `admin/` as generated. That document needs updating.
 
 ```sh
 VAULT=/data/data/com.termux/files/home/Subnet
-EMACS=$VAULT/universe/galaxy/solar-system/planets/earth/computer-science/operating-systems/linux/text-editors/emacs/AIU Cyberdeck
+EMACS=$VAULT/universe/galaxy/solar-system/planets/earth/computer-science/operating-systems/linux/text-editors/neomacs/AIU Cyberdeck
 
 # health, after a boot
 grep -o ':status [a-z-]*' ~/.config/emacs/cyberdeck-emacs-errors.log.el | sort | uniq -c
