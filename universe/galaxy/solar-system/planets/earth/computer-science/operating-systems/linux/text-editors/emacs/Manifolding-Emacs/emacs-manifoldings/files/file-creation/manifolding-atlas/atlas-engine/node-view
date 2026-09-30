@@ -3,7 +3,7 @@
 :ID:       a93d47e9-99eb-40c6-9cd3-f2ef58d9c98d
 :END:
 
-Rich side-window page for one note: masthead, tags, backlinks
+Rich side-window page for one note: masthead, tags, AIU Proxies
 grouped by kind, unlinked mentions, and similar notes when the
 semantic module is enabled.  Strictly read-only; every action button
 calls the owning command.  Nothing here runs at load.
@@ -25,7 +25,7 @@ calls the owning command.  Nothing here runs at load.
           (cons "ID" (or id "-")))))
 
 (defun my/atlas-node-view-backlinks (note)
-  "Backlinks to AIU grouped by kind, as strings."
+  "AIU Proxies to AIU grouped by kind, as strings."
   (let ((id (ignore-errors (manifolding-atlas-note-id note)))
         (out nil))
     (when (and id (fboundp 'manifolding-atlas-db-query-links-to))
@@ -45,7 +45,7 @@ calls the owning command.  Nothing here runs at load.
                         (or (ignore-errors (manifolding-atlas-note-title note)) "?")))
         (dolist (sec (my/atlas-node-view-sections note))
           (insert (format "%s: %s\n" (car sec) (cdr sec))))
-        (insert "\n-- Backlinks --\n")
+        (insert "\n-- AIU Proxies --\n")
         (let ((bl (my/atlas-node-view-backlinks note)))
           (if bl
               (dolist (b bl) (insert b "\n"))

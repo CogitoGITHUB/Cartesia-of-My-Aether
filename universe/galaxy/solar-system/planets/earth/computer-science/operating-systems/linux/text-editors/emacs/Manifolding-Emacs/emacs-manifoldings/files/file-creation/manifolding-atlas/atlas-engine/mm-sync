@@ -639,7 +639,7 @@ as continuation text (proven: last child parses as \"C #+wormhole:
 address the node's own span, so the directive line is never
 touched by substitution."
   (if (and (stringp text)
-           (string-match " #\\+wormhole:" text))
+           (string-match " #\\+AIU Proxy:" text))
       (substring text 0 (match-beginning 0))
     text))
 
@@ -863,7 +863,7 @@ anchor is the parent-less node, never a text search."
                 (error nil)))))))))
 #+end_src
 
-** Nested embedding (wormhole variant)
+** Nested embedding (AIU Proxy variant)
 Lower maps embed as sibling directives, never nested rendering
 (the renderer forbids it). The ⟦ MAP: name ⟧ description makes the
 line obvious in source; a strip filter keeps inner directives out
@@ -905,7 +905,7 @@ Directives live at the end of the region, sorted by child MM_ORDER."
 
 (defun my/mm-sync--directive-lines (map-file)
   "Line numbers of wormhole directives inside the map region.
-Other wormholes in the file belong to other business."
+Other AIU Proxies in the file belong to other business."
   (with-current-buffer (find-file-noselect map-file)
     (save-excursion
       (goto-char (point-min))
@@ -917,7 +917,7 @@ Other wormholes in the file belong to other business."
             (setq rend (line-number-at-pos)))
           (when rend
             (goto-char (point-min))
-            (while (re-search-forward "^[ \t]*#\\+wormhole:.*$" nil t)
+            (while (re-search-forward "^[ \t]*#\\+AIU Proxy:.*$" nil t)
               (let ((ln (line-number-at-pos)))
                 (when (and (> ln rstart) (< ln rend))
                   (push ln gone))))
@@ -956,10 +956,10 @@ Other wormholes in the file belong to other business."
       1e18)))
 
 (defun my/mm-embed-format-strip-nested (_type content _values)
-  "Drop inner wormhole directives from transcluded CONTENT."
+  "Drop inner AIU Proxy directives from transcluded CONTENT."
   (mapconcat #'identity
              (cl-remove-if (lambda (l)
-                             (string-match-p "^[ \t]*#\\+wormhole:" l))
+                             (string-match-p "^[ \t]*#\\+AIU Proxy:" l))
                            (split-string content "\n"))
              "\n"))
 

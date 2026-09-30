@@ -28,7 +28,7 @@ file), so every head resolves at compile time.
  (("t" my/atlas-search-by-tag "by tag" :exit t)
   ("m" my/atlas-search-by-stage "by stage" :exit t)
   ("u" my/atlas-search-by-status "by status" :exit t)
-  ("b" my/atlas-search-backlinks "backlinks" :exit t)
+  ("b" my/atlas-search-backlinks "AIU Proxies" :exit t)
   ("f" my/atlas-search-forward-links "forward" :exit t)
   ("D" my/atlas-search-by-due "due" :exit t)
   ("O" my/atlas-search-by-overdue "overdue" :exit t)

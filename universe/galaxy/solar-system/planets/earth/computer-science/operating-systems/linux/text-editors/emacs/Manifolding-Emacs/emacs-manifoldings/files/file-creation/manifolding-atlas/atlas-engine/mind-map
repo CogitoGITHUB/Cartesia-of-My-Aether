@@ -16,7 +16,7 @@ Model:
 Edges (three distinct layers):
 - structural — file parent-child (drives layout, deterministic)
 - semantic — id: links (intellectual connections, overlay)
-- presentational — wormhole links (content embedding, overlay)
+- presentational — AIU Proxy links (content embedding, overlay)
 
 Ordering: ORDER_KEY real float per node → O(1) insert-between, zero cascade.
 =mm/repack= normalises floats → clean integers when gaps < mm/epsilon.

@@ -647,11 +647,11 @@ prompt over an existing query.
                        (manifolding-atlas-db-query-links-to
                         (manifolding-atlas-note-id note)))))
       (my/atlas-search--pick-notes
-       "Backlinks: "
+       "AIU Proxies: "
        (delq nil (mapcar (lambda (id)
                            (ignore-errors (manifolding-atlas-db-get-by-id id)))
                          ids))
-       "backlinks"))))
+       "AIU Proxies"))))
 
 (defun my/atlas-search-forward-links ()
   "AIUs the AIU at point links to."

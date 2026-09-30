@@ -54,7 +54,7 @@ section before every use.
 (defvar org-capture-templates)
 (defvar org-capture-use-indirect-buffer)
 (defvar org-capture-window-setup)
-;; Wormholes unit, yasnippet.
+;; AIU Proxies unit, yasnippet.
 (defvar atlas-wormholes-mode)
 (defvar atlas-wormholes-add-all-on-activate)
 (defvar yas-verbosity)
@@ -700,7 +700,7 @@ If :key is missing, copies :name into :key for backward compat."
 ;;
 ;; Main entry points:
 ;; - `manifolding-atlas-find' - find and open an AIU
-;; - `manifolding-atlas-insert' - insert a link to an AIU
+;; - `manifolding-atlas-insert' - insert an AIU Proxy to an AIU
 ;; - `manifolding-atlas-create' - create a new AIU
 ;; - `manifolding-atlas-db-query' - query AIUs with a predicate
 ;; - `manifolding-atlas-select' - select an AIU with completion
@@ -2296,7 +2296,7 @@ the file changed since the last sync), point stays at the AIU."
          (backlinks (manifolding-atlas-db-query-by-links-some
                      (list (cons "id" id)))))
     (unless backlinks
-      (user-error "There are no backlinks to the current AIU"))
+      (user-error "There are no AIU Proxies to the current AIU"))
     (let ((note (manifolding-atlas-select-from "AIU" backlinks
                                     :require-match t
                                     :expand-aliases t)))
@@ -3512,7 +3512,7 @@ excluding the property drawer."
       (cons title body))))
 #+end_src
 
-**** Delete heading and insert backlink
+**** Delete heading and insert AIU Proxy
 ** my/manifolding-atlas--delete-heading
 Why: Implementation of ~my/manifolding-atlas--delete-heading~.
 
@@ -3564,10 +3564,10 @@ Why: Implementation of ~my/manifolding-atlas--finish-heading-extraction~.
 
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas--finish-heading-extraction (note title)
-  "Ask whether to leave a backlink to AIU or delete the heading at point."
+  "Ask whether to leave an AIU Proxy to AIU or delete the heading at point."
   (org-back-to-heading t)
-  (if (string= (read-answer "Insert backlink? "
-                  '(("yes" ?y "insert backlink")
+  (if (string= (read-answer "Insert AIU Proxy? "
+                  '(("yes" ?y "insert AIU Proxy")
                     ("no"  ?n "delete heading without link")))
                "yes")
       (let* ((desc (read-string "Description (blank = title): "))
@@ -3588,7 +3588,7 @@ Uses `manifolding-atlas-create' for all standard prompts (subdir, file name,
 aliases, tags, unfoldings, todo, priority, schedule, deadline),
 then fills the body with the extracted heading content.
 Records the original heading as \='source'.
-Prompts for backlink — yes inserts a link, no deletes the heading."
+Prompts for AIU Proxy — yes inserts a link, no deletes the heading."
   (interactive)
   (unless (org-at-heading-p)
     (org-back-to-heading t))
@@ -3606,7 +3606,7 @@ Prompts for backlink — yes inserts a link, no deletes the heading."
       (my/manifolding-atlas--property-put note "SOURCE" heading-id))
     ;; Replace the default body with the extracted heading content
     (my/manifolding-atlas--transplant-body note body)
-    ;; Backlink or delete — work in the original buffer
+    ;; AIU Proxy or delete — work in the original buffer
     (with-current-buffer original-buffer
       (save-excursion
         (my/manifolding-atlas--finish-heading-extraction note title)))
@@ -4112,7 +4112,7 @@ Why: Implementation of ~my/manifolding-atlas-prompt-template--apply~.
       (save-buffer))))
 #+end_src
 
-** Blueprint nesting (wormhole at point)
+** Blueprint nesting (AIU Proxy at point)
 
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-blueprint--names ()
@@ -5040,7 +5040,7 @@ the rest of the prompts."
                      (error nil)))
          (unfolding-path (my/manifolding-atlas-org-prompt--unfolding-path
                     family val unfolding-id unfolding-note)))
-    ;; Upgrade the plain value to an id-link on the target AIU.
+    ;; Upgrade the plain value to an AIU Proxy on the target AIU.
     (let ((my/manifolding-atlas--quiet t))
       (my/manifolding-atlas-org-prompt--apply-to-note
        note (list (cons key link)) nil nil))

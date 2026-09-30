@@ -114,7 +114,7 @@ unique per parent so per-file AIUs don't leak."
 *** Cross-buffer AIU Context writer
 AIU may reside in a different buffer than the one being edited:
 locate its heading by file, level, and pos first.
-Uses drawer-put directly for AIU Contexts domain's wormhole handling.
+Uses drawer-put directly for AIU Contexts domain's AIU Proxy handling.
 #+begin_src emacs-lisp
 (require 'cl-lib)
 
@@ -174,7 +174,7 @@ Uses drawer-put directly for AIU Contexts domain's wormhole handling.
                          #'my/manifolding-atlas--apply-aliases-post labels)))))))
 #+end_src
 
-** Wormhole AIU Contexts into the owning file
+** AIU Proxy AIU Contexts into the owning file
 
 *** Link and anchor helpers
 #+begin_src emacs-lisp
@@ -198,7 +198,7 @@ Uses drawer-put directly for AIU Contexts domain's wormhole handling.
 #+end_src
 
 *** Heading property scan
-Reads plain drawer entries AND in-drawer wormhole lines as
+Reads plain drawer entries AND in-drawer AIU Proxy lines as
 uniform (KEY . VALUE) pairs.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas--props-in-region (beg end props)
@@ -212,7 +212,7 @@ uniform (KEY . VALUE) pairs.
           props))
   (goto-char beg)
   (while (re-search-forward
-          "^#\\+wormhole: \\[\\[id:\\([^]]+\\)\\]\\[\\([^]]*\\)\\]\\]"
+          "^#\\+AIU Proxy: \\[\\[id:\\([^]]+\\)\\]\\[\\([^]]*\\)\\]\\]"
           end t)
     (let ((key (my/manifolding-atlas--key-from-label
                 (match-string-no-properties 2))))
@@ -245,10 +245,10 @@ uniform (KEY . VALUE) pairs.
     props))
 #+end_src
 
-** State Property Factory (plain value, no automatic wormholes)
-Nothing is a wormhole by default: the create-time advice that
-wormholed every id-link was removed, and session applies below write
-plain id-link drawer entries. Wormholes are created explicitly only.
+** State Property Factory (plain value, no automatic AIU Proxies)
+Nothing is an AIU Proxy by default: the create-time advice that
+wormholed every AIU Proxy was removed, and session applies below write
+plain AIU Proxy drawer entries. AIU Proxies are created explicitly only.
 
 *** Link and type predicates
 #+begin_src emacs-lisp :lexical t
@@ -264,16 +264,16 @@ plain id-link drawer entries. Wormholes are created explicitly only.
       (expand-file-name file))))
 #+end_src
 
-*** Wormhole removal sweep
-Drops stale :property wormhole lines of this type, keeping UNFOLDING-ID,
+*** AIU Proxy removal sweep
+Drops stale :property AIU Proxy lines of this type, keeping UNFOLDING-ID,
 and reports which ids were removed for later cleanup.
 #+begin_src emacs-lisp :lexical t
 (defun my/manifolding-atlas--remove-other-type-wormholes (property-type unfolding-id)
-  "Delete UNFOLDING-TYPE wormhole lines except UNFOLDING-ID; return removed ids."
+  "Delete UNFOLDING-TYPE AIU Proxy lines except UNFOLDING-ID; return removed ids."
   (let (removed)
     (goto-char (point-min))
     (while (re-search-forward
-            "^#\\+wormhole: \\[\\[id:\\([^]]+\\)\\]\\[" nil t)
+            "^#\\+AIU Proxy: \\[\\[id:\\([^]]+\\)\\]\\[" nil t)
       (let ((lid (match-string-no-properties 1)))
         (when (and (my/manifolding-atlas--unfolding-of-type-p property-type lid)
                    (not (string-equal lid unfolding-id)))
@@ -291,7 +291,7 @@ position it already occupies in the drawer, whether a plain value
 line or a legacy wormhole -- instead of always appending at
 the bottom of the drawer. Writes a `#+wormhole:' line so
 `atlas-wormholes-add-all' can render it live; re-picking also
-clears legacy wormholes of this type."
+clears legacy AIU Proxies of this type."
   (let (removed insert-marker)
     (save-excursion
       (org-back-to-heading t)
@@ -310,7 +310,7 @@ clears legacy wormholes of this type."
             (let (found)
               (while (and (not found)
                           (re-search-forward
-                           "^#\\+wormhole: \\[\\[id:\\([^]]+\\)\\]\\[\\([^]]*\\)\\]\\]"
+                           "^#\\+AIU Proxy: \\[\\[id:\\([^]]+\\)\\]\\[\\([^]]*\\)\\]\\]"
                            (cdr r) t))
                 (let ((label (match-string-no-properties 2)))
                   (when (string-equal key (my/manifolding-atlas--key-from-label label))
@@ -384,8 +384,8 @@ clears legacy wormholes of this type."
 *** State post-apply
 The state is represented ONLY by an in-drawer #+wormhole: line, so
 this drops the plain drawer entry and refreshes that transcription.
-Wormhole rendering is stripped first so the drawer edits see raw
-# Wormhole directives live here as documentation text; after-save-hook re-renders them.
+AIU Proxy rendering is stripped first so the drawer edits see raw
+# AIU Proxy directives live here as documentation text; after-save-hook re-renders them.
 #+begin_src emacs-lisp :lexical t
 (defun my/manifolding-atlas--apply-state-post (property-type drawer-value unfolding-id note)
   "Post-apply wrapper for an unfolding state.
@@ -411,7 +411,7 @@ Navigates by AIU's own path, so it works from any buffer."
   (save-excursion
     (goto-char (point-min))
     (while (re-search-forward
-            "^#\\+wormhole: \\[\\[id:\\([^]]+\\)\\]\\[" nil t)
+            "^#\\+AIU Proxy: \\[\\[id:\\([^]]+\\)\\]\\[" nil t)
       (let ((lid (match-string-no-properties 1)))
         (when (my/manifolding-atlas--unfolding-of-type-p property-type lid)
           (delete-region (line-beginning-position)
@@ -539,11 +539,11 @@ in capture instead of plain visit.
 #+end_src
 
 *** Per-drawer stripping
-Swaps each in-drawer wormhole line for a plain `:KEY:` synonym so
+Swaps each in-drawer AIU Proxy line for a plain `:KEY:` synonym so
 org's parser sees ordinary properties; returns a restore cell.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas--strip-one-drawer ()
-  "Strip wormhole lines in the drawer at point; return restore cell."
+  "Strip AIU Proxy lines in the drawer at point; return restore cell."
   (let* ((pbeg (line-beginning-position 2))
          (pm (save-excursion
                (if (re-search-forward "^:END:[ \t]*$" nil t)
@@ -555,7 +555,7 @@ org's parser sees ordinary properties; returns a restore cell.
       (while (re-search-forward "^[^:].*$" pm t)
         (let* ((text (match-string 0))
                (m (when (string-match
-                         "^#\\+wormhole: \\[\\[id:\\([^]]+\\)\\]\\[\\([^]]*\\)\\]\\]"
+                         "^#\\+AIU Proxy: \\[\\[id:\\([^]]+\\)\\]\\[\\([^]]*\\)\\]\\]"
                          text)
                     (let* ((label (match-string-no-properties 2 text))
                            (key (my/manifolding-atlas--key-from-label label)))
@@ -577,7 +577,7 @@ org's parser sees ordinary properties; returns a restore cell.
 #+end_src
 
 *** Restore pass
-Puts the raw wormhole lines back exactly where they were.
+Puts the raw AIU Proxy lines back exactly where they were.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas--restore-stripped-lines (restore)
   (dolist (cell (nreverse restore))

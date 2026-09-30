@@ -1,6 +1,6 @@
 #+TITLE:      Manifolding Atlas — Sidebar
 #+begin_comment
-Sidebar, outline, backlinks, and UI configuration for manifolding-atlas.
+Sidebar, outline, AIU Proxies, and UI configuration for manifolding-atlas.
 #+end_comment
 
 * Sidebar :EMACS_MECHANISM:
@@ -141,7 +141,7 @@ Why: Implementation of ~manifolding-atlas-ui-sidebar-toggle~ — minimal functio
 
 ** Sidebar content
 Calls the node-view section builders (never forks them): context plus
-the historical backlinks section the header always promised.
+the historical AIU Proxies section the header always promised.
 #+begin_src emacs-lisp
 (defun my/atlas-sidebar--note-at-point ()
   "AIU at point or in this buffer, or nil."
@@ -151,7 +151,7 @@ the historical backlinks section the header always promised.
            (ignore-errors (my/manifolding-atlas--buffer-note)))))
 
 (defun my/atlas-sidebar-refresh ()
-  "Fill *Atlas Sidebar* with context and backlinks.  Read-only."
+  "Fill *Atlas Sidebar* with context and AIU Proxies.  Read-only."
   (interactive)
   (let ((buf (get-buffer "*Atlas Sidebar*")))
     (when (buffer-live-p buf)
@@ -168,7 +168,7 @@ the historical backlinks section the header always promised.
                 (insert (format "%s: %s\n" (car sec) (cdr sec))))
               (insert "\n"))
             (when (fboundp 'my/atlas-node-view-backlinks)
-              (insert "-- Backlinks --\n")
+              (insert "-- AIU Proxies --\n")
               (let ((bl (ignore-errors (my/atlas-node-view-backlinks note))))
                 (if bl
                     (dolist (b bl) (insert b "\n"))
@@ -321,7 +321,7 @@ except nothing at all: timer starts on toggle.
     (define-key map (kbd "1") (lambda () (interactive)
                                 (my/atlas-sidebar-goto-section "-- Context --")))
     (define-key map (kbd "2") (lambda () (interactive)
-                                (my/atlas-sidebar-goto-section "-- Backlinks --")))
+                                (my/atlas-sidebar-goto-section "-- AIU Proxies --")))
     (define-key map (kbd "3") (lambda () (interactive)
                                 (my/atlas-sidebar-goto-section "-- Outline --")))
     (define-key map (kbd "4") (lambda () (interactive)

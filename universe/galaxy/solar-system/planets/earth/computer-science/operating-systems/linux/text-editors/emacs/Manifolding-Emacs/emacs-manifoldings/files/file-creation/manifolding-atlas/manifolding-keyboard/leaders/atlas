@@ -51,8 +51,8 @@ SPC v: Manifolding Atlas menu.
    ("!" my/manifolding-atlas-routines-validate "validate" :exit t)
    ("S" my/manifolding-atlas-routines-report "report" :exit t)
    ("T" my/manifolding-atlas-routines-menu "menu" :exit t))
-  "Wormhole"
-  (("y" my/wormhole-hydra/body "wormhole" :exit t))
+  "AIU Proxy"
+  (("y" my/wormhole-hydra/body "AIU Proxy" :exit t))
   "Config"
    (("A" my/manifolding-atlas-open-drawer-order "drawer order" :exit t)
     ("b" my/manifolding-atlas-blueprint-nest-at-point "nest blueprint" :exit t)

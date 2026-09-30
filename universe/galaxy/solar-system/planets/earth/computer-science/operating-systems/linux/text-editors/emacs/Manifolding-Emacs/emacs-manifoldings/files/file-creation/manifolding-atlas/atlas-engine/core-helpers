@@ -72,7 +72,7 @@ Finds the property drawer of the heading at point without org's own strict parsi
           (progn
             (goto-char (car r))
             (when (re-search-forward
-                   "^#\\+wormhole: \\[\\[id:\\([^]]+\\)\\]\\[\\([^]]*\\)\\]\\]"
+                   "^#\\+AIU Proxy: \\[\\[id:\\([^]]+\\)\\]\\[\\([^]]*\\)\\]\\]"
                    (cdr r) t)
               (let ((label (match-string-no-properties 2)))
                 (when (string-equal key (my/manifolding-atlas--key-from-label label))

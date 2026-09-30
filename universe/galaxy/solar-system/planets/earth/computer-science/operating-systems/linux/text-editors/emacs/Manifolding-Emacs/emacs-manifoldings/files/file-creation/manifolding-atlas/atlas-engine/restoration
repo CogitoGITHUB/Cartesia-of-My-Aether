@@ -429,7 +429,7 @@ Warns and asks for confirmation if any remain unresolved."
       peer-id)))
 #+end_src
 
-**** Incoming wormhole sources
+**** Incoming AIU Proxy sources
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-links--wormhole-sources (deleted-id)
   "Distinct source ids wormholing DELETED-ID."
@@ -1167,9 +1167,9 @@ recording TODO entries for broken links. n — cancels deletion.
 (defun my/manifolding-atlas-links--guard-deletion (deleted-id deleted-title)
   "Guard deletion of DELETED-ID / DELETED-TITLE.
 1. Incoming: notes that link TO this note (incl. wormholes).
-2. Outgoing: notes that this AIU links TO."
+2. Outgoing: notes that this AIU Proxies TO."
   (when (and deleted-id deleted-title)
-    ;; Check 1: incoming links and wormholes
+    ;; Check 1: incoming links and AIU Proxies
     (let ((incoming (manifolding-atlas-db-query-links-to deleted-id)))
       (dolist (id (my/manifolding-atlas-links--wormhole-sources deleted-id))
         (push (list :source id) incoming))

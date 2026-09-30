@@ -384,7 +384,7 @@ connection parses the whole vault and can block for a while.
 
 #+begin_src emacs-lisp
 ;; manifolding-atlas-find         - find and open an AIU (creates if missing)
-;; manifolding-atlas-insert       - insert an id: link to an AIU at point
+;; manifolding-atlas-insert       - insert an id: AIU Proxy to an AIU at point
 ;; manifolding-atlas-find-backlink - completion over notes that link TO the current AIU;
 ;;                        useful for discovering connections and refactoring.
 ;; Bind these to keys in your bindings file.

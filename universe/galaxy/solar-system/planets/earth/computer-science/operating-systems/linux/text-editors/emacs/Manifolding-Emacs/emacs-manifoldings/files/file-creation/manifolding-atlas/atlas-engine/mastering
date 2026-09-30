@@ -1058,13 +1058,13 @@ pending drill (ordinary speed-type use) only stashes."
 #+end_src
 
 **** Material assembly
-Drawers and wormhole pointers are untypable and stripped; everything
+Drawers and AIU Proxy pointers are untypable and stripped; everything
 else (prose, code fences, math) stays byte-verbatim. Multi-pick
 follows selection order — the drill measures what was practiced in
 the order practiced, not document order.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-mastering--strip-untypables (text)
-  "Remove drawer blocks and wormhole lines from TEXT."
+  "Remove drawer blocks and AIU Proxy lines from TEXT."
   (with-temp-buffer
     (insert text)
     (goto-char (point-min))
@@ -1074,7 +1074,7 @@ the order practiced, not document order.
             (delete-region beg (min (point-max) (1+ (line-end-position))))
           (goto-char (point-max)))))
     (goto-char (point-min))
-    (while (re-search-forward "^#\\+wormhole:.*$" nil t)
+    (while (re-search-forward "^#\\+AIU Proxy:.*$" nil t)
       (delete-region (line-beginning-position)
                      (min (point-max) (1+ (line-end-position)))))
     (buffer-string)))

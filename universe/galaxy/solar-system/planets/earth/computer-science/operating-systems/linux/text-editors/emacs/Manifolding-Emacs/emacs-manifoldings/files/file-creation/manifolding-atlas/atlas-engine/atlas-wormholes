@@ -4,7 +4,7 @@ so org-id-find never scans straight build symlinks.
 
 Vendored engine: the atlas-wormholes package and its wormhole-clone
 dependency are embedded below as loader-managed source (no straight).
-The RET / mouse-2 keymap lives on the wormhole overlay's `keymap'
+The RET / mouse-2 keymap lives on the AIU Proxy overlay's `keymap'
 property so it wins over org-mindmap-mode's minor-mode map.
 #+begin_src emacs-lisp
 (defvar atlas-wormholes-indent-mode nil)
@@ -37,7 +37,7 @@ property so it wins over org-mindmap-mode's minor-mode map.
 ;; Created: 22 May 2021
 ;; Last modified: 03 January 2026
 
-;; Keywords: wormhole-clone, wormhole, atlas-wormholes
+;; Keywords: wormhole-clone, AIU Proxy, atlas-wormholes
 
 ;; Version: 1.0.0
 ;; Package-Requires: ((emacs "27.1"))
@@ -238,7 +238,7 @@ The text strings in the overlays are not identical"))))))))))))
 
 * Vendored atlas-wormholes engine
 #+begin_src emacs-lisp
-;;; atlas-wormholes.el --- Wormhole text content via links -*- lexical-binding: t; -*-
+;;; atlas-wormholes.el --- AIU Proxy text content via links -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2021-2026  Free Software Foundation, Inc.
 
@@ -259,7 +259,7 @@ The text strings in the overlays are not identical"))))))))))))
 ;; Created:       10 October 2020
 ;; Last modified: 07 March 2026
 
-;; Keywords: org-mode, wormhole, writing
+;; Keywords: org-mode, AIU Proxy, writing
 
 ;; Version: 1.4.0
 ;; Package-Requires: ((emacs "27.1") (org "9.4"))
@@ -268,8 +268,8 @@ The text strings in the overlays are not identical"))))))))))))
 
 ;;; Commentary:
 
-;; This library is an attempt to enable wormhole with Org Mode.
-;; Wormhole is the ability to include content from one file into
+;; This library is an attempt to enable AIU Proxy with Org Mode.
+;; AIU Proxy is the ability to include content from one file into
 ;; another by reference.
 
 ;;; Code:
@@ -324,9 +324,9 @@ Intended for :set property for `customize'."
                atlas-wormholes-font-lock)
         (const :tag "indent-mode: Support org-indent-mode"
                atlas-wormholes-indent-mode)
-        (const :tag "html: Wormhole HTML converted to Org with Pandoc"
+        (const :tag "html: AIU Proxy HTML converted to Org with Pandoc"
                atlas-wormholes-html)
-        (const :tag "transient: Wormhole menu for easier command access"
+        (const :tag "transient: AIU Proxy menu for easier command access"
                atlas-wormholes-transient)
         (repeat :tag "Other packages" :inline t (symbol :tag "Package"))))
 
@@ -620,7 +620,7 @@ regexp from the string.")
   "It is the local-map used within a wormhole.
 As the wormholed text content is read-only, these keybindings
 are meant to be a sort of contextual menu to trigger different
-functions on the wormhole.")
+functions on the AIU Proxy.")
 
 
 #+end_src
@@ -730,7 +730,7 @@ and variables."
 #+begin_src emacs-lisp
 (defun atlas-wormholes-deactivate ()
   "Deactivate Atlas-wormholes hooks and other setups in the current buffer.
-This function also removes all the wormholes in the current buffer."
+This function also removes all the AIU Proxies in the current buffer."
   (interactive)
   (atlas-wormholes-remove-all)
   (remove-hook 'before-save-hook #'atlas-wormholes-before-save-buffer t)
@@ -770,7 +770,7 @@ so on) or `universal-argument' (\\[universal-argument]).
 
 If you pass a positive number 1-9 with `digit-argument', this
 function automatically puts the :level property to the resultant
-wormhole keyword."
+AIU Proxy keyword."
   (interactive "P")
   (let* ((context (org-element-lineage
                    (org-element-context) '(link) t))
@@ -908,13 +908,13 @@ does not support all the elements.
              'atlas-wormholes-content-format-functions
              tc-type content keyword-plist)))
       (cond ((functionp payload)
-             ;; Allow for asynchronous wormhole
+             ;; Allow for asynchronous AIU Proxy
              (funcall payload link keyword-plist copy))
             ;; No content
             ((or (string-empty-p content)
                  (eq content nil))
              ;; Keep going with program when no content `atlas-wormholes-add-all'
-             ;; should move to the next wormhole
+             ;; should move to the next AIU Proxy
              (prog1 nil
                (message
                 "No content found with \"%s\".  Check the link at point %d, line %d"
@@ -929,7 +929,7 @@ does not support all the elements.
                           (`(,beg . ,end) (atlas-wormholes-content-insert content)))
                (when (and beg end)
                  ;; If COPY, then we want to get the buffer-modified-p flag always t.
-                 ;; If wormhole, it should be the same as before wormhole.
+                 ;; If AIU Proxy, it should be the same as before AIU Proxy.
                  (if copy
                      (restore-buffer-modified-p t)
                    (restore-buffer-modified-p buffer-modified-p)
@@ -963,7 +963,7 @@ the rest of the buffer unchanged."
       (goto-char (point-min))
       (let ((regexp "^[ \t]*#\\+WORMHOLE:"))
         (while (re-search-forward regexp nil t)
-          ;; Don't wormhole if within a wormhole to avoid infinite
+          ;; Don't AIU Proxy if within an AIU Proxy to avoid infinite
           ;; recursion
           (unless (or (atlas-wormholes-within-wormhole-p)
                       (plist-get (atlas-wormholes-keyword-string-to-plist)
@@ -987,7 +987,7 @@ the rest of the buffer unchanged."
 When success, return the beginning point of the keyword re-inserted."
   (interactive)
   (unless (atlas-wormholes-within-wormhole-p)
-    (user-error "Nothing done. No wormhole exists here."))
+    (user-error "Nothing done. No AIU Proxy exists here."))
   (when-let*
       ((beg-end (plist-get (atlas-wormholes-at-point) :location))
        (beg (car beg-end))
@@ -1016,13 +1016,13 @@ When success, return the beginning point of the keyword re-inserted."
           ;; Careful with the point (beg and end). `save-excursion' may work but
           ;; since we are removing a region and inserting the keyword back, it is
           ;; safer to explicitly go back to beg with `goto-char'. Positions are
-          ;; especially important when two wormholes are present consecutively
+          ;; especially important when two AIU Proxies are present consecutively
           ;; without space in-between.
           (atlas-wormholes-with-inhibit-read-only
             (delete-region beg end)
             (goto-char beg) (insert-before-markers keyword))
           (goto-char beg) (when (> indent 0) (indent-to indent))
-          ;; Removing wormhole should not be considered buffer modification.
+          ;; Removing AIU Proxy should not be considered buffer modification.
           ;; Keep the buffer-modified-p flag as it was before removal.
           (restore-buffer-modified-p buffer-modified-p)))))
 
@@ -1033,7 +1033,7 @@ When success, return the beginning point of the keyword re-inserted."
 (defun atlas-wormholes-detach ()
   "Make the wormholed region normal copied text content."
   (interactive)
-  ;; Make sure the wormhole is removed first so that undo can be used
+  ;; Make sure the AIU Proxy is removed first so that undo can be used
   ;; to go back to the #+wormhole before detach.
   (atlas-wormholes-refresh 'detach))
 
@@ -1081,7 +1081,7 @@ the rest of the buffer unchanged."
 With using `universal-argument' (\\[universal-argument]), you can
 pass DETACH, which copies the source instead of wormhole.
 
-TODO: Support asynchronous wormholes (set point correctly)."
+TODO: Support asynchronous AIU Proxies (set point correctly)."
   (interactive "P")
   (when (atlas-wormholes-within-wormhole-p)
     (let ((pos (point)))
@@ -1184,12 +1184,12 @@ a couple of atlas-wormholes specific keybindings; namely:
 
 \\{atlas-wormholes-live-sync-map}
 
-TODO: Support asynchronous wormholes."
+TODO: Support asynchronous AIU Proxies."
   (interactive)
   (if (not (atlas-wormholes-within-wormhole-p))
       (progn (message (format "Nothing done. Not a translusion at %d" (point)))
              nil)
-    ;; Delete the other live-sync and refresh its wormhole
+    ;; Delete the other live-sync and refresh its AIU Proxy
     ;; There should be only one pair of wormhole-source in live-sync
     (when-let* ((deleted-live-sync-ovs (wormhole-clone-delete-overlays))
                 (deleted-tc-ov (cadr deleted-live-sync-ovs)))
@@ -1209,7 +1209,7 @@ TODO: Support asynchronous wormholes."
             (user-error
              (concat
               "No live-sync can be started.  "
-              "Lengths of wormhole and source are not identical"
+              "Lengths of AIU Proxy and source are not identical"
               (format " - tc: [%s] src: [%s]"
                       (- (overlay-end tc-ov) (overlay-start tc-ov))
                       (- (overlay-end src-ov) (overlay-start src-ov)))))
@@ -1234,7 +1234,7 @@ It attempts to re-arrange the windows for the current buffer to
 the state before live-sync started."
   (interactive)
   (if (not (atlas-wormholes-within-live-sync-p))
-      (user-error "Not within a wormhole in live-sync")
+      (user-error "Not within an AIU Proxy in live-sync")
     (wormhole-clone-delete-overlays)
     (let* ((src-ov (car (atlas-wormholes-live-sync-buffers)))
            (src-buf (overlay-buffer src-ov)))
@@ -1294,7 +1294,7 @@ set in `before-save-hook'.  It also move the point back to
           (save-excursion
             (goto-char p)
             (atlas-wormholes-add)))
-        ;; After save and adding all wormholes, the modified flag should
+        ;; After save and adding all AIU Proxies, the modified flag should
         ;; be set to nil.
         (restore-buffer-modified-p nil)
         (when atlas-wormholes-remember-point
@@ -1316,7 +1316,7 @@ second `atlas-wormholes-remove-all' ensures the clearing process
 to occur.  This is required because during live-sync, some hooks
 that manage the clearing process are temporarily turned
 off (removed)."
-  ;; Remove wormholes first. To deal with an edge case where wormholes
+  ;; Remove AIU Proxies first. To deal with an edge case where AIU Proxies
   ;; were added for a capture buffer -- e.g. `org-capture' or `org-roam-catpure'
   ;; --, check is done for `buffer-file-name' to see if there is a file visited
   ;; by the buffer. If a "temp" buffer, there is no file being visited.
@@ -1325,7 +1325,7 @@ off (removed)."
     (atlas-wormholes-remove-all)))
 
 ;;;;---------------------------------------------------------------------------
-;;;; Functions for Wormhole Keyword
+;;;; Functions for AIU Proxy Keyword
 
 
 #+end_src
@@ -1556,7 +1556,7 @@ returned by hooks in `atlas-wormholes-add-functions'."
     (if (or (string= src-content "")
             (eq src-content nil))
         ;; Keep going with program when no content `atlas-wormholes-add-all'
-        ;; should move to the next wormhole
+        ;; should move to the next AIU Proxy
         (prog1 nil
           (message
            "No content found with \"%s\".  Check the link at point %d, line %d"
@@ -1593,7 +1593,7 @@ offsets from file beginning, not from cursor position."
 
   ;; AIU 2025-12-18 `org-link-open' does not necessarily obey
   ;; `display-buffer-alist' and can open the target buffer in the currently
-  ;; selected window. This is disruptive for users. We want wormholes to
+  ;; selected window. This is disruptive for users. We want AIU Proxies to
   ;; keep the current buffer in the current window. To do this, it seems
   ;; `save-window-excursion' is the only way.
 
@@ -1807,7 +1807,7 @@ current buffer."
                       'atlas-wormholes-fringe)
         wrap-prefix ,(atlas-wormholes--make-fringe-indicator
                       'atlas-wormholes-fringe)))
-    ;; Put the wormhole overlay
+    ;; Put the AIU Proxy overlay
     (let ((ov-tc (wormhole-clone-make-overlay beg end)))
       (overlay-put ov-tc 'evaporate t)
       (overlay-put ov-tc 'face 'atlas-wormholes)
@@ -1927,7 +1927,7 @@ Return content modified (or unmodified, if not applicable).
 
 This is the default one.  It only returns the content as is.
 
-KEYWORD-VALUES is a plist of wormhole properties."
+KEYWORD-VALUES is a plist of AIU Proxy properties."
   (with-temp-buffer
     (insert content)
     ;; Return the temp-buffer's string
@@ -1971,7 +1971,7 @@ at point; if nil, the whole buffer.
 This function applies multiple filters on the Org elements before
 constructing the payload based on PLIST. It is the
 \"keyword-plist\" for the wormhole being worked on; each
-property controls the filter applied to the wormhole."
+property controls the filter applied to the AIU Proxy."
   (let* ((el (org-element-context))
          (type (when el (org-element-type el))))
     (if (or (not el)(not type))
@@ -2039,7 +2039,7 @@ LINK is assumed to be an Org element. This function does nothing
 to LINK if the link is already absolute.
 
 The current buffer is assumed to be the source buffer for the
-wormhole."
+AIU Proxy."
   (when (string-equal "file" (org-element-property :type link))
     (let ((path (org-element-property :path link)))
       (unless (file-name-absolute-p path)
@@ -2057,7 +2057,7 @@ wormhole."
   "Exclude specific elements from DATA.
 The elements to be excluded are defined by customizing variable
 `atlas-wormholes-exclude-elements' globally, and adjusted by
-:exclude-elements property of the wormhole keyword."
+:exclude-elements property of the AIU Proxy keyword."
   (org-element-map data atlas-wormholes-exclude-elements
     (lambda (d) (org-element-extract-element d)))
   data)
@@ -2130,7 +2130,7 @@ terminal fringe (face property)."
   "Create fringe indicator string for FACE.
 Handles both graphical and terminal display modes.
 Uses empty-line bitmap for source fringe, atlas-wormholes-fringe-bitmap
-for wormhole fringe to match original overlay-based appearance."
+for AIU Proxy fringe to match original overlay-based appearance."
   (if (display-graphic-p)
       (let ((bitmap (if (eq face 'atlas-wormholes-source-fringe)
                         'empty-line
@@ -2471,17 +2471,17 @@ Currently the following cases are prevented:
 
 Case 1. Element at point is NOT #+wormhole:
         Element is in a block - e.g. example
-Case 2. #+wormhole inside another wormhole"
+Case 2. #+wormhole inside another AIU Proxy"
   (cond
    ;; Case 1. Element at point is NOT #+wormhole:
    ((not (atlas-wormholes-at-keyword-p))
     (user-error
-     "Not at a wormhole keyword or wormhole in a block at point %d, line %d"
+     "Not at an AIU Proxy keyword or AIU Proxy in a block at point %d, line %d"
      (point) (org-current-line)))
-   ;; Case 2. #+wormhole inside another wormhole
+   ;; Case 2. #+wormhole inside another AIU Proxy
    ((atlas-wormholes-within-wormhole-p)
     (user-error
-     "Cannot wormhole in another wormhole at point %d, line %d"
+     "Cannot AIU Proxy in another AIU Proxy at point %d, line %d"
      (point) (org-current-line)))
    (t t)))
 
@@ -2500,11 +2500,11 @@ used."
   (save-excursion
     (and-let* ((pt (or point (point)))
                ;; If the ID is present, the current point is within a
-               ;; wormhole.
+               ;; AIU Proxy.
                (id (get-text-property pt 'atlas-wormholes-id))
-               ;; We need to get both BEGINNING and END of the wormhole at
+               ;; We need to get both BEGINNING and END of the AIU Proxy at
                ;; point. `prop-match-forward' sets BEGINNING as the current
-               ;; point, rather than the beginning of the current wormhole,
+               ;; point, rather than the beginning of the current AIU Proxy,
                ;; so `prop-match-backward' is also used.
                (prop-match-forward
                 (text-property-search-forward 'atlas-wormholes-id))
@@ -2543,7 +2543,7 @@ used."
                      (progn (forward-char -1)
                             (looking-at-p "$")))))
              (element (org-element-at-point)))
-         ;; If edge-case, do not wormhole.
+         ;; If edge-case, do not AIU Proxy.
          (unless edge-case-p
            (and (string-equal "keyword" (org-element-type element))
                 (string-equal "WORMHOLE"
@@ -2554,7 +2554,7 @@ used."
 
 #+begin_src emacs-lisp
 (defun atlas-wormholes-within-wormhole-p ()
-  "Return t if the current point is within a wormhole region."
+  "Return t if the current point is within an AIU Proxy region."
   (when (get-char-property (point) 'atlas-wormholes-type) t))
 
 
@@ -2562,7 +2562,7 @@ used."
 
 #+begin_src emacs-lisp
 (defun atlas-wormholes-within-live-sync-p ()
-  "Return t if the current point is within a wormhole in live-sync."
+  "Return t if the current point is within an AIU Proxy in live-sync."
   (when (and (atlas-wormholes-within-wormhole-p)
              (get-char-property (point) 'wormhole-clones))
     t))
@@ -2643,7 +2643,7 @@ Return \"(src-beg-mkr . src-end-mkr)\"."
 #+begin_src emacs-lisp
 (defun atlas-wormholes-live-sync-source-content (beg end)
   "Return text content between BEG and END.
-BEG and END are assumed to be markers for the wormhole's source buffer."
+BEG and END are assumed to be markers for the AIU Proxy's source buffer."
   (when (markerp beg)
     (with-current-buffer (marker-buffer beg)
       (buffer-substring-no-properties beg end))))
@@ -2660,7 +2660,7 @@ Atlas-wormholes always works with a pair of overlays."
         (tc-ov (cadr overlays)))
     ;; Source Overlay
     (overlay-put src-ov 'face 'atlas-wormholes-source-edit)
-    ;; Wormhole Overlay
+    ;; AIU Proxy Overlay
     (overlay-put tc-ov 'face 'atlas-wormholes-edit)
     (overlay-put tc-ov 'local-map atlas-wormholes-live-sync-map)))
 
@@ -2828,11 +2828,11 @@ links and IDs."
           (setq props (text-properties-at tc-beg))
           (delete-region tc-beg tc-end)
           ;; Before marker is needed
-          ;; for an adjacent wormhole
+          ;; for an adjacent AIU Proxy
           (insert-before-markers src-content)
           (setq end (point))
           (add-text-properties beg end props)
-          ;; Need to move marker that indicate the range of wormholes (not
+          ;; Need to move marker that indicate the range of AIU Proxies (not
           ;; live-sync range) when it is for an single element like paragraph
           (setq tc-ov (wormhole-clone-make-overlay beg end))))
       (cons src-ov tc-ov))))
@@ -2848,7 +2848,7 @@ The cons cell to be returned is in this format:
     (SRC-OV . TC-OV)
 
 This function is for non-Org text files."
-  ;; Get the wormhole source's overlay but do not directly use it; it is
+  ;; Get the AIU Proxy source's overlay but do not directly use it; it is
   ;; needed after exiting live-sync, which deletes live-sync overlays.
   (when-let*
       ((beg-end (plist-get (atlas-wormholes-at-point) :location))
@@ -2863,7 +2863,7 @@ This function is for non-Org text files."
     (cons src-ov tc-ov)))
 
 ;;-----------------------------------------------------------------------------
-;;;; Functions for yank/paste a region within wormhole
+;;;; Functions for yank/paste a region within AIU Proxy
 
 
 #+end_src
@@ -3051,7 +3051,7 @@ the current heading:
   (interactive "P")
   (require 'atlas-wormholes)
   (let (note id title ctx target opts line directive-pos)
-    (setq note   (manifolding-atlas-select "Wormhole note: " :require-match t))
+    (setq note   (manifolding-atlas-select "AIU Proxy note: " :require-match t))
     (setq id     (manifolding-atlas-note-id note))
     (setq title  (manifolding-atlas-note-title note))
     (setq ctx    (or (org-current-level) 0))
@@ -3080,14 +3080,14 @@ the current heading:
 (setq atlas-wormholes-add-all-on-activate t)
 ;; Hide AIU Context property drawers inside wormholed headings so an AIU Context
 ;; (e.g. STATE WORK: ACTIVE) renders as a single closed heading.
-;; Property drawers now included in wormholes (previously excluded).
+;; Property drawers now included in AIU Proxies (previously excluded).
 (setq atlas-wormholes-exclude-elements nil)
 (add-hook 'org-mode-hook (lambda () (atlas-wormholes-mode 1)))
 
-;; Re-add wormholes after revert (e.g. auto-revert triggered by git ops).
+;; Re-add AIU Proxies after revert (e.g. auto-revert triggered by git ops).
 (add-hook 'after-revert-hook #'atlas-wormholes-add-all)
 
-;; RET on a wormhole opens its source.  AIU Context AIUs (admin/unfoldings/*) open
+;; RET on an AIU Proxy opens its source.  AIU Context AIUs (admin/unfoldings/*) open
 ;; in an org-capture edit buffer for fast metadata edits; anything else
 ;; falls back to atlas-wormholes's own source opener.
 ;; atlas-wormholes.el reads `atlas-wormholes-indent-mode' as a
@@ -3130,7 +3130,7 @@ is an internal pairing UUID, so the real source id is parsed from
   (define-key atlas-wormholes-map (kbd "<mouse-2>")
     #'my/atlas-wormholes-open))
 
-;; In-drawer wormhole support.  A `:property' wormhole encodes an AIU Context
+;; In-drawer AIU Proxy support.  A `:property' AIU Proxy encodes an AIU Context
 ;; as a `#+wormhole:' line INSIDE a :PROPERTIES: drawer.  Rendering
 ;; a source headline (`* X') inside a drawer breaks org's drawer parsing, so
 ;; this keyword strips the leading asterisk, turning the wormholed content
@@ -3181,7 +3181,7 @@ is an internal pairing UUID, so the real source id is parsed from
 (add-to-list 'atlas-wormholes-content-format-functions
              #'my/atlas-wormholes-content-format-property)
 
-;; Refresh wormholes in all open org buffers after any save.
+;; Refresh AIU Proxies in all open org buffers after any save.
 ;; Uses remove-all + add-all (the same pattern atlas-wormholes uses
 ;; internally for before-save / after-save).
 
@@ -3199,7 +3199,7 @@ is an internal pairing UUID, so the real source id is parsed from
 #+end_src
 
 
-*** Wormhole Link Index
+*** AIU Proxy Link Index
 Indexes [[id:...][...]] links inside #+wormhole: keywords into a
 dedicated SQLite table so the deletion guard can find them as incoming links.
 Also provides a text-based scanner for files not yet indexed by manifolding-atlas DB.
@@ -3257,7 +3257,7 @@ Also provides a text-based scanner for files not yet indexed by manifolding-atla
 
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-db-query-wormhole-links-to (target-id)
-  "Return list of source AIU IDs that wormhole TARGET-ID."
+  "Return list of source AIU IDs that AIU Proxy TARGET-ID."
   (mapcar #'car
           (emacsql (manifolding-atlas-db)
                    [:select [source] :from wormhole_links
@@ -3281,7 +3281,7 @@ indexed by the manifolding-atlas DB extractor."
           (insert-file-contents file)
           (goto-char (point-min))
           (when (re-search-forward
-                 (format "#\\+wormhole:.*\\[\\[id:%s\\]\\[" (regexp-quote target-id))
+                 (format "#\\+AIU Proxy:.*\\[\\[id:%s\\]\\[" (regexp-quote target-id))
                  nil t)
             (org-mode)
             (let ((id (org-entry-get (point-min) "ID")))

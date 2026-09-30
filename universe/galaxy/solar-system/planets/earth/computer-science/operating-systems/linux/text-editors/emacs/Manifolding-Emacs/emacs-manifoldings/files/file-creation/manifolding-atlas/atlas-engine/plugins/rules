@@ -2,7 +2,7 @@ Turns any heading (new or existing, in any AIU) into an
 extractable, routable, drillable Rule. Rules are marked via an AIU Context
 (not a tag) so presentation mode / org-tree-slide stays clean. Topics
 route the rule into one or more topic index files via live =id:=
-wormhole pointers — the heading itself never moves, the vault
+AIU Proxy pointers — the heading itself never moves, the vault
 tree (Manifold) stays the single source of truth. See
 =plugin-guide.org= (this atlas-engine/plugins/ tree) for the conventions this file follows.
 
@@ -145,7 +145,7 @@ Idempotent: if a pointer for this ID already exists in the file, do
 nothing. Never duplicates, never touches the source heading.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-rules--pointer-exists-p (file note-id)
-  "Return t if FILE already contains a wormhole pointer to NOTE-ID."
+  "Return t if FILE already contains an AIU Proxy pointer to NOTE-ID."
   (and (file-exists-p file)
        (with-temp-buffer
          (insert-file-contents file)

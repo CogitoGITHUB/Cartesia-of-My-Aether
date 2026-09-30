@@ -1,6 +1,6 @@
 Turns any heading into a protocol step. Steps are assembled into protocol
 documents via the BUILD command, which uses key selection for
-multi-select and writes live wormhole pointers into topic-indexed
+multi-select and writes live AIU Proxy pointers into topic-indexed
 protocol files.
 
 Protocol steps share a heading's RULE status (dual-mark) — a heading can
@@ -208,7 +208,7 @@ Priority: OVERRIDE > topic-file-map > default."
 **** Write a pointer in a target file
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-protocols--pointer-exists-p (file note-id)
-  "Return t if FILE already contains a wormhole pointer to NOTE-ID."
+  "Return t if FILE already contains an AIU Proxy pointer to NOTE-ID."
   (and (file-exists-p file)
        (with-temp-buffer
          (insert-file-contents file)
@@ -414,11 +414,11 @@ INTERVAL/DAYS are optional recurrence cadence, stored as AIU Contexts."
 
 **** Step installation
 Tags the source heading with its protocol AIU Contexts and writes the
-wormhole pointer under the parent in the protocol file.
+AIU Proxy pointer under the parent in the protocol file.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-protocols--install-step
     (id heading-title order level topics-str parent-id file)
-  "Mark source heading ID as step ORDER/LEVEL and wormhole it under PARENT-ID."
+  "Mark source heading ID as step ORDER/LEVEL and AIU Proxy it under PARENT-ID."
   (when-let ((marker (org-id-find id t)))
     (with-current-buffer (marker-buffer marker)
       (goto-char marker)
@@ -428,7 +428,7 @@ wormhole pointer under the parent in the protocol file.
       (when topics-str
         (org-entry-put nil "PROTOCOL_TOPICS" topics-str))
       (save-buffer)))
-  ;; Write wormhole pointer under parent heading in protocol file
+  ;; Write AIU Proxy pointer under parent heading in protocol file
   (with-current-buffer (find-file-noselect file)
     (goto-char (point-min))
     (when (re-search-forward
@@ -707,7 +707,7 @@ PROTOCOL_INTERVAL/DAYS stamps its next occurrence from the anchor."
 #+end_src
 
 *** Run
-Minimal checklist walker: pick a protocol parent, walk its wormhole
+Minimal checklist walker: pick a protocol parent, walk its AIU Proxy
 steps top to bottom with per-step timers from STEP_DURATION, mark
 steps DONE as you go. Recurrence is NOT advanced here — reset stays
 the explicit completion hook. Run evidence lands on the parent as
@@ -727,7 +727,7 @@ in document order."
                   (ids nil))
               (forward-line 1)
               (while (re-search-forward
-                      "#\\+wormhole: \\[\\[id:\\([^]]+\\)\\]" end t)
+                      "#\\+AIU Proxy: \\[\\[id:\\([^]]+\\)\\]" end t)
                 (push (match-string-no-properties 1) ids))
               (nreverse ids))))
       (set-marker marker nil))))

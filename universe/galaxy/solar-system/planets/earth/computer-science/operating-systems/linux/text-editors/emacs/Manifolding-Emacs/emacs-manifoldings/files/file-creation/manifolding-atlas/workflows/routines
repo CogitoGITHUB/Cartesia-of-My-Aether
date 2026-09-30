@@ -1158,7 +1158,7 @@ Empty input finishes; duplicates and unknown picks are ignored.
         note))))
 #+end_src
 **** Chain creation
-Composes existing routines; members wormhole through generated files.
+Composes existing routines; members AIU Proxy through generated files.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-routines-chain-create ()
   "Create a chain routine composing existing routines."
@@ -1240,11 +1240,11 @@ Regeneration must not churn IDs or TODO state.
     (list old-id old-todo)))
 #+end_src
 **** Entry rendering
-One routine entry becomes a wormhole line plus an optional
+One routine entry becomes an AIU Proxy line plus an optional
 group/prescription label.
 #+begin_src emacs-lisp
 (defun my/manifolding-atlas-routines--render-entry (entry gindex)
-  "Return the wormhole text for ENTRY against GINDEX."
+  "Return the AIU Proxy text for ENTRY against GINDEX."
   (let* ((sid (nth 0 entry))
          (stitle (nth 1 entry))
          (group (nth 3 entry))
