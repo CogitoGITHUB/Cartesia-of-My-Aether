@@ -15,7 +15,7 @@ follows on the next reload — nothing else needs editing.
 #+begin_src emacs-lisp
 (defconst my/cartesia-todo-blueprint
   (expand-file-name
-   "emacs-manifoldings/files/file-creation/manifolding-atlas/blueprints/heading-unfoldings/todo"
+   "emacs-manifoldings/files/file-creation/cyberdeck/blueprints/heading-unfoldings/todo"
    manifolding-emacs-loader-dir)
   "Canonical TODO vocabulary: the Atlas TODO blueprint.
 The one place TODO states are defined. Adding, removing or

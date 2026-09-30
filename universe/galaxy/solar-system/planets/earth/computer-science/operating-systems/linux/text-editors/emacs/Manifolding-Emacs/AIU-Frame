@@ -187,7 +187,7 @@ seed ~init.el~.  Everything the boot needs before modules run.
 
 ** Header & boot order
 #+begin_src emacs-lisp
-;;; foundation-init.el --- generated from Manifolding-Emacs-Foundation.org
+;;; foundation-init.el --- generated from AIU-Frame.org
 ;;
 ;; ┌─────────────────────────────────────────────────────────────┐
 ;; │  BOOT ORDER                                                 │

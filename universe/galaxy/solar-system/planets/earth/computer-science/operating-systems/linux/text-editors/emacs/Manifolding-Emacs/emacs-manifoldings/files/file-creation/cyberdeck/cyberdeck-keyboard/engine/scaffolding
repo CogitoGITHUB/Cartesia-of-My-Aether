@@ -62,7 +62,7 @@ Errors loudly when the file already exists."
     (message "Leader created: %s" path)))
 
 (defun manifolding-keyboard--module-dir ()
-  "Absolute path of the manifolding-keyboard/ module directory.
+  "Absolute path of the cyberdeck-keyboard/ module directory.
 Derived from this file's own location; renames above it never break it."
   (file-name-directory
    (directory-file-name

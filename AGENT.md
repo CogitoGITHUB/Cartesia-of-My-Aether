@@ -23,7 +23,7 @@ Everything lives under one git repo:
 |---|---|
 | `universe/` | the knowledge cyberdeck, mirrored from physical scale down (universe → galaxy → solar-system → earth → … → linux) |
 | `…/linux/text-editors/emacs/Manifolding-Emacs/` | the Emacs config source. Everything below this is Emacs. |
-| `Manifolding-Emacs/Manifolding-Emacs-Foundation` | Org source, tangled at every boot into `early-init.el` + `foundation-init.el` |
+| `Manifolding-Emacs/AIU-Frame` | Org source, tangled at every boot into `early-init.el` + `foundation-init.el` |
 | `Manifolding-Emacs/manifolding-emacs` | **the loader** (3176 lines) — discovery, ordering, extraction, compilation, caching, doctor |
 | `Manifolding-Emacs/emacs-manifoldings/` | the unit tree: ~400 files, ~300 tagged units |
 | `admin/` | session + layout state, excluded from unit discovery (see §10) |
@@ -40,7 +40,7 @@ screen. `~` is `/root`, which is the same tree as
 
 ```
 init.el
-  → tangles Manifolding-Emacs-Foundation (Org)
+  → tangles AIU-Frame (Org)
       → early-init.el          (palette, GC, message filters — pre-init)
       → foundation-init.el     (straight → org → leaf → loader)
           → tangles manifolding-emacs
@@ -213,7 +213,7 @@ is not a validator.
 ## 5. What the Cyberdeck is
 
 This is the note-taking system, not the Emacs config. Under
-`emacs-manifoldings/files/file-creation/manifolding-atlas/`. Verdicts are from
+`emacs-manifoldings/files/file-creation/cyberdeck/`. Verdicts are from
 reading the tree, and many files there are raw Emacs-manual prose with an empty
 src block — those are **not** implementations.
 
@@ -251,9 +251,9 @@ All paths relative to `Manifolding-Emacs/emacs-manifoldings/`.
 
 | Directory | MM_ORDER lane | Role |
 |---|---|---|
-| `entering-the-machine/manifolding-dashboard/` | 78.3–78.5 | dashboard: `engine/`, `cores/` (vendored emacs-dashboard), `widgets/`, `banner/`, `faces`. Its order file lives in `admin/`. |
+| `entering-the-machine/cyberdeck-dashboard/` | 78.3–78.5 | dashboard: `engine/`, `cores/` (vendored emacs-dashboard), `widgets/`, `banner/`, `faces`. Its order file lives in `admin/`. |
 | `the-screen/modeline/` | 80.1–80.11 | multi-row mode line: `engine/`, `cores/stock`, `faces`, `widgets/`, `header`. Its order file lives in `admin/`. |
-| `files/file-creation/manifolding-atlas/` | 100+ | the Cyberdeck — see §5 |
+| `files/file-creation/cyberdeck/` | 100+ | the Cyberdeck — see §5 |
 | `…/cyberdeck/cyberdeck-keyboard/` | 2.x–4.x | modal key system: `engine/` (state machine, macros, scaffolding), `states/` (15), `leaders/` (19) |
 | `the-screen/display/06-screen` | — | raw Emacs-manual prose, parked. Still holds display/windows/frames/Imenu/font-lock |
 | `org-manual/*` | — | raw Emacs-manual prose, parked |
