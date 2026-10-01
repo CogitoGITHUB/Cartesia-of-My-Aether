@@ -2716,15 +2716,16 @@ Manual reloads never steal the frame: only boots open it.")
 
 (defun cyberdeck-emacs--progress-line (current total file status)
   "One-line progress text for *Messages*."
-  (let ((label (pcase cyberdeck-emacs--boot-phase
-                 (:compiling "Compiling") (:loading "Loading")
-                 (:reading "Reading")
-                 (_ "Processing"))))
+  (let ((label (pcase status
+                 ('loaded "Cached")
+                 (_ (pcase cyberdeck-emacs--boot-phase
+                      (:compiling "Compiling") (:loading "Loading")
+                      (:reading "Reading")
+                      (_ "Processing"))))))
     (concat (format "AIU Cyberdeck %d/%d · %s: " current total label)
             (or (and file (cyberdeck-emacs-file-title file)) "?")
             (pcase status
               ('compiled " [no cache — compiling fresh]")
-              ('loaded " [cached]")
               (_ ""))
             (let ((e (length (cyberdeck-emacs-errors-list)))
                   (w (length (cyberdeck-emacs-warnings-list))))
