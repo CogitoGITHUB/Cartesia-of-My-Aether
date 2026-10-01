@@ -1,0 +1,33 @@
+SPC v T: new Cyberdeck tools (retrieve, tags, mentions, agent, health).
+
+* Tools :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       39195371-7051-4dcd-8a83-84ff89905828
+:MM_ORDER:  9047.0
+:END:
+#+begin_src emacs-lisp
+(my/defhydra-state my/cyberdeck-tools-hydra nil "Cyberdeck Tools" (my/cyberdeck-hydra/body "cyberdeck")
+  "Retrieve"
+  (("s" my/cyberdeck-stream "stream" :exit t)
+   ("d" my/cyberdeck-discovery "discover" :exit t)
+   ("n" my/cyberdeck-aiu-view "node" :exit t)
+   ("q" my/cyberdeck-query-run-saved "run query" :exit t)
+   ("Q" my/cyberdeck-query-save "save query" :exit t))
+  "Tags"
+  (("t" my/cyberdeck-tag-manager "manager" :exit t)
+   ("r" my/cyberdeck-tag-rename "rename" :exit t)
+   ("m" my/cyberdeck-tag-merge "merge" :exit t)
+   ("o" my/cyberdeck-tag-clean-orphans "orphans" :exit t)
+   ("h" my/cyberdeck-insert-hashtag "hashtag" :exit t)
+   ("H" my/cyberdeck-mention-hints-mode "hints" :exit t))
+  "Mentions"
+  (("M" my/cyberdeck-mentions-review "review" :exit t))
+  "Agent and AI"
+  (("A" my/cyberdeck-agent-status "agent status" :exit t)
+   ("S" my/cyberdeck-semantic-rebuild "semantic rebuild" :exit t)
+   ("P" my/cyberdeck-ai-propose "propose" :exit t)
+   ("p" my/cyberdeck-promote "promote" :exit t))
+  "Health"
+  (("D" cyberdeck-data-doctor "data doctor" :exit t)
+   ("V" my/cyberdeck-verify-persistence "verify" :exit t)))
+#+end_src

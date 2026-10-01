@@ -8,7 +8,7 @@
 
 ** Todo Vocabulary
 The TODO vocabulary is NOT set here. `org-todo-states.org` owns it and
-derives `org-todo-keywords' from the Cyberdeck TODO blueprint; editing the
+derives `org-todo-keywords' from the Cyberdeck TODO AIU context; editing the
 keyword list here would be silently overwritten. See
 `my/subnet-todo-states'.
 #+begin_src emacs-lisp

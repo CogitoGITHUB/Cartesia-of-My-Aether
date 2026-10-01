@@ -6,6 +6,7 @@
 * Frames :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       86997c39-95c1-4be9-a34a-b80da070cc08
+:MM_ORDER:  9094.0
 :END:
 
 A frame is a screen object that contains one or more Emacs windows (see Windows). It is the kind of object called a “window” in the terminology of graphical environments; but we can’t call it a “window” here, because Emacs uses that word in a different way. In Emacs Lisp, a frame object is a Lisp object that represents a frame on the screen. See Frame Type.

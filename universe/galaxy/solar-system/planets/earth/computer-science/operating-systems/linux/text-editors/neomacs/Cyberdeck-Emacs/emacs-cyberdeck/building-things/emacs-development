@@ -41,6 +41,7 @@
 
 * Esup
 :PROPERTIES:
+:MM_ORDER:  9001.0
 :PACKAGE:  esup
 :STRAIGHT: (esup :type git :host github :repo "jschaf/esup")
 :CATEGORY: development

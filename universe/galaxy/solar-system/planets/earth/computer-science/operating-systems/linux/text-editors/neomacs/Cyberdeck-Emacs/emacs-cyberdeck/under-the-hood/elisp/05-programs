@@ -1,6 +1,7 @@
 * Elisp Programs and Loading :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       813ff75d-329c-4f18-8618-c86bdec20439
+:MM_ORDER:  9117.0
 :END:
 
 Macros enable you to define new control constructs and other language features. A macro is defined much like a function, but instead of telling how to compute a value, it tells how to compute another Lisp expression which will in turn compute the value. We call this expression the expansion of the macro.

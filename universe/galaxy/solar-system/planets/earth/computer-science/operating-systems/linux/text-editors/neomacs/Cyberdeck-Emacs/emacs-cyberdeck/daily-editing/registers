@@ -6,6 +6,7 @@
 * Registers :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       f31b81a3-3f4c-4467-8abf-2321429a59ae
+:MM_ORDER:  9020.0
 :END:
 
 Emacs registers are compartments where you can save text, rectangles, positions, and other things for later use. Once you save text or a rectangle in a register, you can copy it into the buffer once or many times; once you save a position in a register, you can jump back to that position once or many times.

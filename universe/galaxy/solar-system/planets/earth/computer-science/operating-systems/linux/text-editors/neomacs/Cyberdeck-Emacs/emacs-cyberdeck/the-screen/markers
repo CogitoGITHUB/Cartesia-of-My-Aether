@@ -6,6 +6,7 @@
 * Markers :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       ce95c85e-ac5e-4489-97d1-d3be00e4faff
+:MM_ORDER:  9095.0
 :END:
 
 A marker is a Lisp object used to specify a position in a buffer relative to the surrounding text. A marker changes its offset from the beginning of the buffer automatically whenever text is inserted or deleted, so that it stays with the two characters on either side of it.

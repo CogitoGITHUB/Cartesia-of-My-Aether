@@ -1,0 +1,109 @@
+* Semantic Similarity :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       a80f12ce-1d89-4148-9480-c7a2b79c4420
+:MM_ORDER:  9040.0
+:END:
+
+Opt-in similar-aiu hints via embeddings.  Off by default, dormant
+without an endpoint, hints only (never links, never writes).  Index
+is a disposable sidecar: delete it and rebuild.  Termux note:
+on-device embedding needs a running compatible service or a remote
+endpoint; the default localhost endpoint assumes you provide one.
+Nothing here runs at load.
+
+** Index
+#+begin_src emacs-lisp
+(require 'cl-lib)
+(require 'json)
+(require 'seq)
+
+(defcustom my/cyberdeck-semantic-enabled nil
+  "Non-nil enables semantic similarity hints."
+  :type 'boolean :group 'cyberdeck)
+
+(defcustom my/cyberdeck-semantic-endpoint "http://localhost:11434"
+  "Embedding service base URL (Ollama-compatible /api/embed)."
+  :type 'string :group 'cyberdeck)
+
+(defcustom my/cyberdeck-semantic-model "bge-m3"
+  "Embedding model name."
+  :type 'string :group 'cyberdeck)
+
+(defvar my/cyberdeck-semantic-index-file
+  (expand-file-name ".local/cache/aiu-frame-semantic-index.el" (expand-file-name "~"))
+  "Persisted ID -> vector sidecar (disposable).")
+
+(defvar my/cyberdeck-semantic-index (make-hash-table :test 'equal)
+  "AIU ID -> embedding vector (list of floats).")
+
+(defun my/cyberdeck-semantic-text (note)
+  "Embeddable text for AIU: title plus body head."
+  (let* ((title (or (ignore-errors (cyberdeck-aiu-title note)) ""))
+         (path (ignore-errors (cyberdeck-aiu-path note)))
+         (body (when (and path (file-exists-p path))
+                 (with-temp-buffer
+                   (insert-file-contents path nil 0 1500)
+                   (buffer-string)))))
+    (concat title "\n" (or body ""))))
+
+(defun my/cyberdeck-semantic-embed (text)
+  "Embedding vector for TEXT via endpoint, or nil on any failure."
+  (condition-case nil
+      (with-temp-buffer
+        (let ((curl-args (list "-s" "--max-time" "30" "-X" "POST"
+                               (concat my/cyberdeck-semantic-endpoint "/api/embed")
+                               "-d" (json-encode
+                                     (list :model my/cyberdeck-semantic-model
+                                           :input text)))))
+          (when (zerop (apply #'call-process "curl" nil t nil curl-args))
+            (goto-char (point-min))
+            (let ((resp (json-read)))
+              (append (cdr (assoc 'embedding resp)) nil)))))
+    (error nil)))
+
+(defun my/cyberdeck-semantic-cosine (a b)
+  "Cosine similarity of float lists A and B."
+  (let ((dot 0.0) (na 0.0) (nb 0.0))
+    (cl-loop for x in a for y in b
+             do (setq dot (+ dot (* x y))
+                      na (+ na (* x x))
+                      nb (+ nb (* y y))))
+    (if (or (zerop na) (zerop nb)) 0.0
+      (/ dot (* (sqrt na) (sqrt nb))))))
+
+(defun my/cyberdeck-semantic-rebuild ()
+  "Embed all AIUs into the sidecar index.  Slow; run rarely."
+  (interactive)
+  (clrhash my/cyberdeck-semantic-index)
+  (let ((n 0))
+    (dolist (note (ignore-errors (cyberdeck-db-query)))
+      (let ((id (ignore-errors (cyberdeck-aiu-id note))))
+        (when id
+          (let ((vec (my/cyberdeck-semantic-embed
+                      (my/cyberdeck-semantic-text note))))
+            (when vec
+              (puthash id vec my/cyberdeck-semantic-index)
+              (setq n (1+ n))))
+          (when (zerop (% n 10)) (message "semantic: %d embedded" n)))))
+    (condition-case nil
+        (let ((tmp (concat my/cyberdeck-semantic-index-file ".tmp"))
+              (pairs nil) (print-length nil) (print-level nil))
+          (make-directory (file-name-directory my/cyberdeck-semantic-index-file) t)
+          (maphash (lambda (k v) (push (cons k v) pairs)) my/cyberdeck-semantic-index)
+          (with-temp-file tmp (prin1 pairs (current-buffer)))
+          (rename-file tmp my/cyberdeck-semantic-index-file t))
+      (error nil))
+    (message "semantic: rebuilt %d vectors" n)))
+
+(defun my/cyberdeck-semantic-similar (note &optional top)
+  "Titles most similar to AIU (uses index; embeds AIU live)."
+  (let ((vec (my/cyberdeck-semantic-embed (my/cyberdeck-semantic-text note)))
+        (scored nil))
+    (when vec
+      (maphash (lambda (id v)
+                 (push (cons (my/cyberdeck-semantic-cosine vec v) id)
+                       scored))
+               my/cyberdeck-semantic-index)
+      (setq scored (sort scored (lambda (a b) (> (car a) (car b)))))
+      (mapcar #'cdr (seq-take scored (or top 5))))))
+#+end_src

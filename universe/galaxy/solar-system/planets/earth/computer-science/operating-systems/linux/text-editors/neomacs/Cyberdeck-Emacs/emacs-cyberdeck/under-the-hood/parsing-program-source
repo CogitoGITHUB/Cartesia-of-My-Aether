@@ -6,6 +6,7 @@
 * Parsing Program Source :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       d9fd58d2-60bb-4df0-8387-3611253d63f6
+:MM_ORDER:  9126.0
 :END:
 
 Emacs provides various ways to parse program source text and produce a syntax tree. In a syntax tree, text is no longer considered a one-dimensional stream of characters, but a structured tree of nodes, where each node represents a piece of text. Thus, a syntax tree can enable interesting features like precise fontification, indentation, navigation, structured editing, etc.

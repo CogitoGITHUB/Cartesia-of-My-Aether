@@ -1,0 +1,218 @@
+Manual recipe AIUs in the cyberdeck. Recipes are authored by hand — no URL
+fetch, no source-url AIU Context. They are stored under `recipes/` in the vault,
+carry recipe-specific AIU Contexts (SERVINGS, PREP_TIME, COOK_TIME,
+READY_IN) via the `recipes` body template, and can have their ingredient
+quantities rescaled to a new serving count.
+
+Commands:
+- `my/cyberdeck-recipe-create` — create a new recipe AIU
+- `my/cyberdeck-recipes-edit-servings` — rescale ingredient quantities
+
+* State :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       99af7a1d-ed28-47f6-bec8-aefa275c7932
+:MM_PARENT: none
+:MM_ORDER:  153.0
+:END:
+#+begin_src emacs-lisp
+(defvar my/cyberdeck-recipes-directory
+  (expand-file-name "recipes/" (my/cyberdeck-root-dir))
+  "Directory (inside the vault) where recipe AIUs live.")
+#+end_src
+
+* Helpers
+#+begin_src emacs-lisp
+(defun my/cyberdeck-recipes--slugify (title)
+  "Turn TITLE into a URL-safe file-name stem."
+  (let ((s (downcase title)))
+    (setq s (replace-regexp-in-string "[^a-z0-9]+" "-" s))
+    (replace-regexp-in-string "^-+\\|-+$" "" s)))
+#+end_src
+
+* Recipe Capture
+
+** Template plumbing
+#+begin_src emacs-lisp
+(defun my/cyberdeck-recipes--template-body ()
+  "Return the content of the `recipes' body template, or \"%?\"."
+  (or (my/cyberdeck-template-body "recipes") "%?"))
+
+(defun my/cyberdeck-recipes--template-hash ()
+  "SHA-256 of the current recipes template body, or \"unknown\"."
+  (or (ignore-errors
+        (let ((body (my/cyberdeck-recipes--template-body)))
+          (unless (string= body "%?")
+            (secure-hash 'sha256 body))))
+      "unknown"))
+
+(defun my/cyberdeck-recipes--store-template (note)
+  "Store TEMPLATE and TEMPLATE_HASH AIU Contexts on AIU."
+  (my/cyberdeck--aiu-context-put note "TEMPLATE" "recipes")
+  (my/cyberdeck--aiu-context-put note "TEMPLATE_HASH"
+                            (my/cyberdeck-recipes--template-hash)))
+#+end_src
+** Body capture opener
+#+begin_src emacs-lisp
+(defun my/cyberdeck-recipes--open-capture (recipe)
+  (let* ((file (cyberdeck-aiu-path recipe))
+         (body (my/cyberdeck-recipes--template-body)))
+    (my/cyberdeck-recipes--store-template recipe)
+    (let ((org-capture-templates
+           `(("v" "Edit recipe body"
+               plain
+               (file+function
+                ,file
+                (lambda ()
+                  (goto-char (point-max))
+                  (skip-chars-backward " \t\n")))
+               ,body
+               :kill-buffer t
+               :unnarrowed t)))
+          (org-capture-use-indirect-buffer nil))
+      (when-let ((buf (get-file-buffer file)))
+        (when (eq buf (current-buffer))
+          (switch-to-buffer (other-buffer))))
+      (org-capture nil "v"))))
+#+end_src
+** Create command
+#+begin_src emacs-lisp
+(defun my/cyberdeck-recipe-create ()
+  "Create a new recipe note under `my/cyberdeck-recipes-directory'.
+Prompts for title, fast mode level, recipe-specific prompts (SERVINGS etc.), and
+opens the `recipes' body template for editing."
+  (interactive)
+  (let* ((cyberdeck-create-default-function (lambda (_) '()))
+         (root (expand-file-name "recipes/" (my/cyberdeck-root-dir)))
+         (_ (make-directory root t))
+         (title (read-string "Recipe title: "))
+         (slug (my/cyberdeck-recipes--slugify title))
+         (subdir (my/cyberdeck-choose-subdir
+                  (expand-file-name "recipes/" (my/cyberdeck-root-dir))
+                  "Subdirectory under recipes/: "))
+         (fname (concat "recipes/" subdir slug))
+         (fast (my/cyberdeck--fast-level))
+         (prompts (my/cyberdeck-collect-prompts-with-fast '(recipe) nil fast))
+         (tags (cons "recipe" (plist-get prompts :tags)))
+         (recipe (my/cyberdeck--create-file-wrapper
+                  title fname tags
+                  (plist-get prompts :unfoldings)
+                  (plist-get prompts :body))))
+    (dolist (fn (plist-get prompts :post-apply))
+      (funcall fn recipe))
+    (my/cyberdeck-recipes--open-capture recipe)))
+#+end_src
+
+* Edit Servings
+Rescales ingredient quantities by finding the SERVINGS AIU Context,
+computing a multiplier, and rewriting all numeric quantities (fractions,
+decimals, unicode fractions) in the Ingredients section.
+
+** Quantity recognition
+#+begin_src emacs-lisp
+(defun my/cyberdeck-recipes--current-servings ()
+  "Return the SERVINGS number of the recipe heading at point, or nil."
+  (save-excursion
+    (condition-case nil
+        (progn
+          (org-back-to-heading t)
+          (while (and (not (org-entry-get nil "SERVINGS")) (org-up-heading-safe)))
+          (let ((s (org-entry-get nil "SERVINGS")))
+            (when (and s (string-match-p "[0-9]" s))
+              (string-to-number s))))
+      (error nil))))
+
+(defconst my/cyberdeck-recipes--quantity-regexp
+  "\\([0-9]+\\)/\\([0-9]+\\)\\|\\([0-9]+\\)\\(?:\\.[0-9]+\\)?\\|\\([¼½¾⅐⅑⅒⅓⅔⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞]\\)"
+  "Match a numeric quantity: fraction, decimal/integer, or unicode fraction.")
+
+(defun my/cyberdeck-recipes--quantity-value ()
+  "Return the numeric value of the quantity matched at point, or nil."
+  (cond ((match-string 1)
+         (/ (float (string-to-number (match-string 1)))
+            (float (string-to-number (match-string 2)))))
+        ((match-string 3) (string-to-number (match-string 3)))
+        ((match-string 4)
+         (get-char-code-property (string-to-char (match-string 4)) 'numeric-value))
+        (t nil)))
+#+end_src
+
+** Rescaling and command
+#+begin_src emacs-lisp
+(defun my/cyberdeck-recipes--rescale-ingredients (mult)
+  "Multiply all numeric quantities in the Ingredients list by MULT."
+  (save-excursion
+    (save-restriction
+      (widen)
+      (goto-char (point-min))
+      (let ((beg (when (re-search-forward "^\\*\\* Ingredients" nil t)
+                   (progn (forward-line 1) (point))))
+            (end (point-max)))
+        (when beg
+          (save-excursion
+            (goto-char beg)
+            (when (re-search-forward "^\\*\\* " nil t)
+              (setq end (match-beginning 0))))
+          (narrow-to-region beg end)
+          (goto-char (point-min))
+          (while (re-search-forward my/cyberdeck-recipes--quantity-regexp nil t)
+            (let ((val (my/cyberdeck-recipes--quantity-value)))
+              (when val
+                (replace-match (format "%.3g" (* mult val)))))))))))
+
+(defun my/cyberdeck-recipes-edit-servings (desired)
+  "Change the serving count of the recipe at point to DESIRED, rescaling
+the quantities in the Ingredients list to match."
+  (interactive "sChange servings to: ")
+  (let* ((current (my/cyberdeck-recipes--current-servings))
+         (desired-n (string-to-number desired)))
+    (unless current
+      (user-error "Could not find a recipe with a SERVINGS AIU Context"))
+    (let ((mult (/ (float desired-n) (float current))))
+      (save-excursion
+        (org-back-to-heading t)
+        (while (and (not (org-entry-get nil "SERVINGS")) (org-up-heading-safe)))
+        (my/cyberdeck-recipes--rescale-ingredients mult)
+        (org-entry-put nil "SERVINGS" (format "%s" desired-n))))
+    (message "Servings: %s → %s (quantities rescaled)" current desired-n)))
+#+end_src
+
+* Schema
+Requires SERVINGS, PREP_TIME, COOK_TIME and READY_IN on AIUs
+tagged =recipe=.
+#+begin_src emacs-lisp
+(with-eval-after-load 'cyberdeck
+  (cyberdeck-aiu-context-define
+   'recipe
+   :predicate (lambda (note) (member "recipe" (cyberdeck-aiu-tags note)))
+   :include 'base
+   :fields
+   (list
+    (list :key "SERVINGS"  :type 'string
+          :validate (lambda (val _n) (if (equal val "WARNING") "missing-required" t)))
+    (list :key "PREP_TIME" :type 'string
+          :validate (lambda (val _n) (if (equal val "WARNING") "missing-required" t)))
+    (list :key "COOK_TIME" :type 'string
+          :validate (lambda (val _n) (if (equal val "WARNING") "missing-required" t)))
+    (list :key "READY_IN"  :type 'string
+          :validate (lambda (val _n) (if (equal val "WARNING") "missing-required" t))))))
+#+end_src
+
+* Transient Menu
+Requires transient.
+#+begin_src emacs-lisp
+(require 'transient)
+
+(defun my/cyberdeck-recipes-find-recipe ()
+  "Find a recipe note."
+  (interactive)
+  (cyberdeck-find
+   :filter-fn (lambda (note)
+                (member "recipe" (cyberdeck-aiu-tags note)))))
+
+(transient-define-prefix my/cyberdeck-recipes-menu ()
+  "Recipe actions."
+  [["Recipe"
+    ("n" "New recipe"       my/cyberdeck-recipe-create)
+    ("s" "Edit servings"    my/cyberdeck-recipes-edit-servings)
+    ("f" "Find recipe"      my/cyberdeck-recipes-find-recipe)]])
+#+end_src

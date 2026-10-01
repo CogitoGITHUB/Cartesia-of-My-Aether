@@ -6,6 +6,7 @@
 * Searching and Replacement :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       ff3b2d7e-6c6d-4ddf-8d81-7415207caa2d
+:MM_ORDER:  9022.0
 :END:
 
 Like other editors, Emacs has commands to search for occurrences of a string. Emacs also has commands to replace occurrences of a string with a different string. There are also commands that do the same thing, but search for patterns instead of fixed strings.

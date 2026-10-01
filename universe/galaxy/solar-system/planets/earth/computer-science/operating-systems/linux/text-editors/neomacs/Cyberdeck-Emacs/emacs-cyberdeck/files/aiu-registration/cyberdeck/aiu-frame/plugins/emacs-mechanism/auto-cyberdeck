@@ -1,0 +1,146 @@
+* Emacs Mechanism Auto Cyberdeck :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       41910229-d0f6-4d3f-a2ca-55e1ab5048a5
+:MM_PARENT: none
+:MM_ORDER:  238.0
+:END:
+
+** Auto scan
+#+begin_src emacs-lisp
+(defun my/cyberdeck-emacs-mechanism-auto-scan ()
+  "Tagged files that are not full Cyberdeck files yet. Whole vault minus WIP."
+  (when (fboundp 'my/cyberdeck-root-dir)
+    (let ((root (my/cyberdeck-root-dir)) out)
+      (dolist (f (directory-files-recursively root "[^./]+$"))
+        (unless (or (string-match-p "/\\.git/" f)
+                    (string-match-p "/WIP/" f))
+          (when (my/cyberdeck-emacs-mechanism--needs-convert-p f)
+            (push f out))))
+      (nreverse out))))
+#+end_src
+
+** Needs convert predicate
+#+begin_src emacs-lisp
+(defun my/cyberdeck-emacs-mechanism--needs-convert-p (file)
+  "Non-nil when any tagged heading in FILE lacks an ID or DB rows."
+  (and (fboundp 'cyberdeck-emacs-file-tagged-units)
+       (cl-some (lambda (u)
+                  (let ((id (plist-get u :id)))
+                    (or (null id)
+                        (not (my/cyberdeck-emacs-mechanism--indexed-p
+                              id)))))
+                (cyberdeck-emacs-file-tagged-units file))))
+#+end_src
+
+** Indexed predicate
+#+begin_src emacs-lisp
+(defun my/cyberdeck-emacs-mechanism--indexed-p (id)
+  "Non-nil when ID has both AIUs and aiu-subnet-nodes rows. Nil-safe without DB."
+  (and id (fboundp 'cyberdeck-db)
+       (condition-case nil
+           (let ((db (cyberdeck-db)))
+             (and (car (emacsql db [:select [id] :from notes :where (= id $s1)] id))
+                  (car (emacsql db [:select [aiu-id] :from aiu-subnet-nodes :where (= aiu-id $s1)] id))))
+         (error nil))))
+#+end_src
+
+** Auto convert file
+#+begin_src emacs-lisp
+(defun my/cyberdeck-emacs-mechanism-auto-convert-file (file &optional parent-id)
+  "Make every tagged level-1 heading in FILE a real AIU: ID
+drawer, index rows, aiu-subnet row. Returns the converted id list."
+  (require 'org-id nil t)
+  (let (converted)
+    (with-current-buffer (find-file-noselect file)
+      (goto-char (point-min))
+      (let (insrc)
+        (while (not (eobp))
+          (let ((line (buffer-substring-no-properties
+                       (line-beginning-position) (line-end-position))))
+            (cond
+             ((string-match-p "^[ \t]*#\\+begin_" line) (setq insrc t))
+             ((string-match-p "^[ \t]*#\\+end_" line) (setq insrc nil))
+             ((and (not insrc)
+                   (string-match "^\\* \\(.*\\)$" line)
+                    (let* ((text (match-string 1 line))
+                           ;; Org-compatible tag run: ":" inside allowed,
+                           ;; empty segments dropped, hyphen legal
+                           ;; (see loader scan).
+                           (m (and (string-match "\\s-+\\(:[[:alnum:]_@:-]*:\\)\\s-*$" text)
+                                         (match-string 1 text))))
+                     (and m (member "EMACS_MECHANISM"
+                                    (split-string (string-trim m ":" ":") ":" t)))))
+              (save-excursion
+                (forward-line 1)
+                (let ((id nil))
+                  (when (looking-at-p "^[ \t]*:PROPERTIES:[ \t]*$")
+                    (forward-line 1)
+                    (while (and (not (eobp))
+                                (not (looking-at-p "^[ \t]*:END:[ \t]*$")))
+                      (when (looking-at "^[ \t]*:ID:[ \t]*\\(\\S-+\\)")
+                        (setq id (match-string 1)))
+                      (forward-line 1))
+                    (unless id
+                      (setq id (org-id-uuid))
+                      (re-search-backward "^[ \t]*:PROPERTIES:[ \t]*$" nil t)
+                      (forward-line 1)
+                      (insert ":ID:       " id "\n")))
+                  (unless id
+                    (setq id (org-id-uuid))
+                    (insert ":PROPERTIES:\n:ID:       " id "\n:END:\n"))
+                  (push id converted))))))
+          (forward-line 1)))
+      (save-buffer))
+    (when converted
+      (when (fboundp 'cyberdeck-db-update-file)
+        (cyberdeck-db-update-file file))
+      (dolist (id converted)
+        (my/cyberdeck-emacs-mechanism--ensure-aiu-subnet-row id parent-id)))
+    (nreverse converted)))
+#+end_src
+
+** Ensure aiu-subnet row
+#+begin_src emacs-lisp
+(defun my/cyberdeck-emacs-mechanism--ensure-aiu-subnet-row (id parent-id)
+  "Insert aiu-subnet-nodes root row for ID (or under PARENT-ID) when missing."
+  (when (and id (fboundp 'cyberdeck-db)
+             (not (my/cyberdeck-emacs-mechanism--indexed-p id)))
+    (condition-case err
+        (let* ((db (cyberdeck-db))
+               (depth (if parent-id 1 0))
+               (maxk (or (caar (emacsql db [:select [(funcall max order-key)]
+                                               :from aiu-subnet-nodes])) 0.0)))
+          (emacsql db [:insert :into aiu-subnet-nodes :values $v1]
+                   (vector id parent-id (+ maxk 1.0) "file" depth)))
+      (error (message "auto-cyberdeck aiu-subnet row failed [%s]: %s"
+                      id (error-message-string err))))))
+#+end_src
+
+** Auto run once
+#+begin_src emacs-lisp
+(defvar my/cyberdeck-emacs-mechanism--auto-ran nil
+  "Session guard: auto-run fires once behind the db-open timer.")
+
+(defun my/cyberdeck-emacs-mechanism-auto-run-once (&optional force)
+  "Convert all tagged-but-incomplete files. Timer-safe, idempotent."
+  (when (or force (not my/cyberdeck-emacs-mechanism--auto-ran))
+    (setq my/cyberdeck-emacs-mechanism--auto-ran t)
+    (let ((files (my/cyberdeck-emacs-mechanism-auto-scan))
+          (done 0) (failed nil))
+      (dolist (f files)
+        (condition-case err
+            (when (my/cyberdeck-emacs-mechanism-auto-convert-file f)
+              (setq done (1+ done)))
+          (error (push (cons f (error-message-string err)) failed))))
+      (message "auto-cyberdeck: %d converted, %d failed" done (length failed))
+      (dolist (fl failed) (message "auto-cyberdeck FAIL %s: %s" (car fl) (cdr fl)))
+      done)))
+#+end_src
+
+** Interactive auto run
+#+begin_src emacs-lisp
+(defun my/cyberdeck-emacs-mechanism-auto-run ()
+  "Manually convert all tagged-but-incomplete files now."
+  (interactive)
+  (my/cyberdeck-emacs-mechanism-auto-run-once t))
+#+end_src

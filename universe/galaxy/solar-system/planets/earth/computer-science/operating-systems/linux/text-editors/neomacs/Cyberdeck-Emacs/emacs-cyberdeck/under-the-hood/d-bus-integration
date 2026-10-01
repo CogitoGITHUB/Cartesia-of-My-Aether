@@ -6,6 +6,7 @@
 * D-Bus integration :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       432a0aad-9151-4661-9d3b-6b6ac5899296
+:MM_ORDER:  9107.0
 :END:
 
 ** D-Bus Integration in Emacs: Use Cases

@@ -1,0 +1,143 @@
+* Automation Engine :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       b6cb1840-0e80-4b8a-9e5a-083a8de524e1
+:MM_ORDER:  9033.0
+:END:
+
+Durable if-condition-then rules over vault files.  Triggers: file save
+and elapsed schedule; conditions read drawers/tags in the current
+buffer; actions reuse the standard primitives (drawer writes,
+inline tags, function calls).  Rules persist as data; the engine only
+interprets them.  Empty rule set = total no-op.  Nothing here runs at
+load except hook/timer registration.
+
+** Rules store
+#+begin_src emacs-lisp
+(require 'cl-lib)
+
+(defvar my/cyberdeck-automation-file
+  (expand-file-name ".local/cache/aiu-frame-automations.el" (expand-file-name "~"))
+  "Persisted list of rule plists.")
+
+(defvar my/cyberdeck-automations nil
+  "List of rule plists (:name :trigger :condition :actions :last-run).")
+
+(defun my/cyberdeck-automations-load ()
+  (setq my/cyberdeck-automations nil)
+  (condition-case nil
+      (when (file-exists-p my/cyberdeck-automation-file)
+        (setq my/cyberdeck-automations
+              (car (read-from-string
+                    (with-temp-buffer
+                      (insert-file-contents my/cyberdeck-automation-file)
+                      (buffer-string))))))
+    (error nil)))
+
+(defun my/cyberdeck-automations-save ()
+  (condition-case nil
+      (let ((tmp (concat my/cyberdeck-automation-file ".tmp"))
+            (print-length nil) (print-level nil))
+        (make-directory (file-name-directory my/cyberdeck-automation-file) t)
+        (with-temp-file tmp (prin1 my/cyberdeck-automations (current-buffer)))
+        (rename-file tmp my/cyberdeck-automation-file t))
+    (error nil)))
+
+(my/cyberdeck-automations-load)
+
+(defun my/cyberdeck-automation-add (rule)
+  "Add RULE plist and persist.  RULE: (:name S :trigger T :condition C
+:actions (A...)).  Trigger: (:after-save) (:schedule SECS) (:manual).
+Condition: (:always) (:drawer-equals KEY VAL) (:tag-present TAG).
+Action: (:set-drawer KEY VAL) (:add-inline-tag TAG) (:message TEXT)
+(:call FN &rest ARGS)."
+  (push rule my/cyberdeck-automations)
+  (my/cyberdeck-automations-save)
+  rule)
+
+(defun my/cyberdeck-automation-delete (name)
+  "Delete the rule named NAME."
+  (setq my/cyberdeck-automations
+        (cl-remove-if (lambda (r) (string= (plist-get r :name) name))
+                      my/cyberdeck-automations))
+  (my/cyberdeck-automations-save))
+
+(defun my/cyberdeck-automation-list ()
+  "Rule names."
+  (mapcar (lambda (r) (plist-get r :name)) my/cyberdeck-automations))
+#+end_src
+
+** Engine
+#+begin_src emacs-lisp
+(defun my/cyberdeck-automation-condition-met-p (condition)
+  "Non-nil when CONDITION holds in the current buffer."
+  (pcase (car condition)
+    (:always t)
+    (:drawer-equals
+     (let ((key (nth 1 condition)) (val (nth 2 condition)))
+       (and (fboundp 'my/cyberdeck--drawer-get)
+            (save-excursion
+              (ignore-errors (org-back-to-heading t))
+              (equal (my/cyberdeck--drawer-get key) val)))))
+    (:tag-present
+     (let ((tag (nth 1 condition)))
+       (or (member tag (ignore-errors (org-get-tags)))
+           (save-excursion
+             (goto-char (point-min))
+             (re-search-forward (concat "#" (regexp-quote tag)
+                                       "\\([^A-Za-z0-9_@/]\\|$\\)")
+                                nil t)))))
+    (_ nil)))
+
+(defun my/cyberdeck-automation-run-actions (actions)
+  "Run ACTIONS in the current buffer."
+  (dolist (a actions)
+    (pcase (car a)
+      (:set-drawer
+       (when (fboundp 'my/cyberdeck--drawer-put)
+         (save-excursion
+           (ignore-errors (org-back-to-heading t))
+           (my/cyberdeck--drawer-put (nth 1 a) (nth 2 a)))))
+      (:add-inline-tag
+       (insert (format " #%s" (nth 1 a))))
+      (:message (message "%s" (nth 1 a)))
+      (:call (ignore-errors (apply (nth 1 a) (nthcdr 2 a)))))))
+
+(defun my/cyberdeck-automation-run-rule (rule)
+  "Evaluate RULE's condition, run actions when met.  Never throws."
+  (condition-case err
+      (when (my/cyberdeck-automation-condition-met-p (plist-get rule :condition))
+        (my/cyberdeck-automation-run-actions (plist-get rule :actions)))
+    (error (message "automation '%s': %s"
+                    (plist-get rule :name) (error-message-string err)))))
+
+(defun my/cyberdeck-automation-on-save ()
+  "After-save entry: run :after-save rules for vault org files."
+  (when (and buffer-file-name (derived-mode-p 'org-mode))
+    (let ((root (ignore-errors (my/cyberdeck-root-dir))))
+      (when (and root (file-in-directory-p buffer-file-name root))
+        (dolist (rule my/cyberdeck-automations)
+          (when (eq (car (plist-get rule :trigger)) :after-save)
+            (my/cyberdeck-automation-run-rule rule)))))))
+
+(defun my/cyberdeck-automation-tick ()
+  "Scheduler entry: run due :schedule rules."
+  (let ((now (float-time)) (ran nil))
+    (dolist (rule my/cyberdeck-automations)
+      (let ((trig (plist-get rule :trigger)))
+        (when (eq (car trig) :schedule)
+          (let ((last (or (plist-get rule :last-run) 0)))
+            (when (>= (- now last) (nth 1 trig))
+              (plist-put rule :last-run now)
+              (setq ran t)
+              (my/cyberdeck-automation-run-rule rule))))))
+    (when ran (my/cyberdeck-automations-save))))
+
+(defvar my/cyberdeck-automation-timer nil
+  "Scheduler timer (60s cadence).")
+
+(unless my/cyberdeck-automation-timer
+  (setq my/cyberdeck-automation-timer
+        (run-with-timer 60 60 #'my/cyberdeck-automation-tick)))
+
+(add-hook 'after-save-hook #'my/cyberdeck-automation-on-save)
+#+end_src

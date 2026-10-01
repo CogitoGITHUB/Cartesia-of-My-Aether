@@ -6,6 +6,7 @@
 * dmacro :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       e4e1bbf8-0d03-41ad-b616-03fd0c314655
+:MM_ORDER:  9008.0
 :END:
 
 #+begin_src emacs-lisp :tangle no

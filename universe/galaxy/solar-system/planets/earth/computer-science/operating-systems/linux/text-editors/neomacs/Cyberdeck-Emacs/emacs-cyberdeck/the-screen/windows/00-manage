@@ -7,6 +7,7 @@
 * Window Management :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       9ccb7ce4-e039-4694-a287-631cfba7956a
+:MM_ORDER:  9100.0
 :END:
 
 This chapter describes the functions and variables related to Emacs windows. See Frames, for how windows are assigned an area of screen available for Emacs to use. See Emacs Display, for information on how text is displayed in windows.

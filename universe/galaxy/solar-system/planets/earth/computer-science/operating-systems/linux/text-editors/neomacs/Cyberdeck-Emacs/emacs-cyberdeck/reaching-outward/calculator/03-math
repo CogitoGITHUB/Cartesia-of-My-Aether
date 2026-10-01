@@ -1,6 +1,7 @@
 * Calc Mathematics :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       2db0199c-00df-4c68-b7e5-ab9628629505
+:MM_ORDER:  9067.0
 :END:
 
 This chapter describes the Calc commands for doing simple calculations on numbers, such as addition, absolute value, and square roots. These commands work by removing the top one or two values from the stack, performing the desired operation, and pushing the result back onto the stack. If the operation cannot be performed, the result pushed is a formula instead of a number, such as ‘2/0’ (because division by zero is invalid) or ‘sqrt(x)’ (because the argument ‘x’ is a formula).

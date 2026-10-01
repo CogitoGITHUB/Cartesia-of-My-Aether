@@ -6,6 +6,7 @@
 * Compiling and Testing Programs :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       72d6bbb6-6b1e-4abf-8fb9-c8b5b04c5bb8
+:MM_ORDER:  9106.0
 :END:
 
 The previous chapter discusses the Emacs commands that are useful for making changes in programs. This chapter deals with commands that assist in the process of compiling and testing programs.

@@ -7,6 +7,7 @@
 * Calc Start and Tutorial :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       c3439954-44db-4beb-b669-1eb40a864a38
+:MM_ORDER:  9064.0
 :END:
 
 Calc is an advanced desk calculator and mathematical tool written by Dave Gillespie that runs as part of the GNU Emacs environment.

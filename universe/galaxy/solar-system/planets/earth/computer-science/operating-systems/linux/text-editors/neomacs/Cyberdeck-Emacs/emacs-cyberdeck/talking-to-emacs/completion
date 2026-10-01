@@ -82,6 +82,7 @@
 * EMBARK — Contextual Actions #emacs-package #completion
 :PROPERTIES:
 :ID:       5e8a6f7b-9c4d-4b0e-fa34-5b7c9e1f4a6b
+:MM_ORDER:  9077.0
 :PACKAGE:  embark
 :STRAIGHT: (embark :type git :host github :repo "oantolin/embark" :files ("embark.el" "embark-org.el" "embark-consult.el" "embark.texi"))
 :CATEGORY: completion

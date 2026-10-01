@@ -1,0 +1,12 @@
+* SCOPE :tagopt:rule:EMACS_MECHANISM::AIU_CONTEXT_DRAWER:
+:PROPERTIES:
+:ID: rule-scope
+:MM_PARENT: none
+:MM_ORDER:  204.0
+:DEFAULT: auto
+:UNFOLDING: scope
+:END:
+** TODO :AIU_CONTEXT_BODY:
+** universal :AIU_CONTEXT_BODY:
+** general :AIU_CONTEXT_BODY:
+** focused :AIU_CONTEXT_BODY:

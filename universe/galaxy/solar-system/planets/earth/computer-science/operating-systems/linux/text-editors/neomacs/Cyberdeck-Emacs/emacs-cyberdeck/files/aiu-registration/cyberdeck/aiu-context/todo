@@ -1,0 +1,55 @@
+* TODO_STATE :todo:file:heading:task:EMACS_MECHANISM::AIU_CONTEXT_DRAWER:
+:PROPERTIES:
+:ID: todo
+:MM_PARENT: none
+:MM_ORDER:  13.0
+:TASK-DEFAULT: TODO
+:END:
+** TODO :AIU_CONTEXT_BODY:
+Not started yet, no other qualifier applies.
+** NEXT :AIU_CONTEXT_BODY:
+The immediate next actionable item.
+** DOING :AIU_CONTEXT_BODY:
+Actively being worked on right now.
+** TESTING :AIU_CONTEXT_BODY:
+Implementation done, currently verifying it works.
+** REVIEW :AIU_CONTEXT_BODY:
+Done but awaiting review or check before closing.
+** BLOCKED :AIU_CONTEXT_BODY:
+Stuck on something external — a dependency, resource, or other task.
+** STUCK :AIU_CONTEXT_BODY:
+Stuck on your own approach or understanding, not an external blocker.
+** WAITING :AIU_CONTEXT_BODY:
+Expecting a reply, response, or event before continuing.
+** DEFERRED :AIU_CONTEXT_BODY:
+Pushed to later deliberately, still committed to doing it.
+** SOMEDAY :AIU_CONTEXT_BODY:
+Maybe eventually, no commitment.
+** BACKLOG :AIU_CONTEXT_BODY:
+Queued and committed, just not prioritized yet.
+** APPROVED :AIU_CONTEXT_BODY:
+Approved, ready to proceed or already proceeding.
+** REJECTED :AIU_CONTEXT_BODY:
+Rejected, will not proceed as originally proposed.
+** NEEDS-REVISION :AIU_CONTEXT_BODY:
+Reviewed and sent back for changes before it can proceed.
+** SCHEDULED :AIU_CONTEXT_BODY:
+Has a fixed future date/time to happen.
+** RECURRING :AIU_CONTEXT_BODY:
+Repeats on a regular cadence.
+** DRAFT :AIU_CONTEXT_BODY:
+Early idea stage, before it's a committed task.
+** DELEGATED :AIU_CONTEXT_BODY:
+Handed off to someone else to do.
+** FAILED :AIU_CONTEXT_BODY:
+Attempted but did not succeed.
+** ABANDONED :AIU_CONTEXT_BODY:
+Started, then deliberately given up on.
+** ARCHIVED :AIU_CONTEXT_BODY:
+No longer active, kept for reference only.
+** SUPERSEDED :AIU_CONTEXT_BODY:
+Replaced by a newer task/decision.
+** DONE :AIU_CONTEXT_BODY:
+Completed successfully.
+** CANCELLED :AIU_CONTEXT_BODY:
+Decided not to do, before or without attempting.

@@ -1,0 +1,15 @@
+* BODY_EMACS_MECHANISM_MODULE :AIU_CONTEXT_DRAWER:
+
+* Emacs Mechanism Module Template :EMACS_MECHANISM::AIU_CONTEXT_DRAWER:
+:PROPERTIES:
+:ID:       e1555fa3-427c-482d-bf2a-20cf7a155f91
+:MM_PARENT: none
+:MM_ORDER:  237.0
+:END:
+
+#+begin_src emacs-lisp :tangle no
+(leaf PACKAGE-NAME
+  :require t
+  :config
+  (message "PACKAGE-NAME ready"))
+#+end_src

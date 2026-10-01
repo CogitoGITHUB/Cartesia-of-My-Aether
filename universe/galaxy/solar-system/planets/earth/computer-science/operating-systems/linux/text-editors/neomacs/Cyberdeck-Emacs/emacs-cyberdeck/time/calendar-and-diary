@@ -6,6 +6,7 @@
 * The Calendar and the Diary :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       04fb7515-51b8-4d3d-a337-fb4f14ae0df0
+:MM_ORDER:  9105.0
 :END:
 
 Emacs provides the functions of a desk calendar, with a diary of planned or past events. It also has facilities for managing your appointments, and keeping track of how much time you spend working on certain projects.

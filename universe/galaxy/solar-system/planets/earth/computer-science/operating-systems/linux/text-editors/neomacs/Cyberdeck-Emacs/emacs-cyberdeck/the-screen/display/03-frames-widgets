@@ -1,6 +1,7 @@
 * Display Frames and Widgets :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       a32e299e-9c03-4edd-8620-7bbfc13251fd
+:MM_ORDER:  9089.0
 :END:
 
 On graphical displays, Emacs draws fringes next to each window: thin vertical strips down the sides which can display bitmaps indicating truncation, continuation, horizontal scrolling, and so on.

@@ -33,19 +33,19 @@ the toggle is explicit.
 Off by default: see the AIU above on window geometry and on olivetti.")
 
 (defun manifolding-modeline-header-format ()
-  "The header construct: keyboard state, then atlas context.
+  "The header construct: keyboard state, then AIU Frame context.
 The state name is the same function the bar uses, so the two rows can
 never report different things."
    (when manifolding-modeline-header-p
      (let ((state (and (fboundp 'cyberdeck-keyboard-modeline-state-name)
                        (cyberdeck-keyboard-modeline-state-name)))
-           (atlas (and (boundp 'manifolding-modeline--cyberdeck-cache)
+           (aiu-frame (and (boundp 'manifolding-modeline--cyberdeck-cache)
                        manifolding-modeline--cyberdeck-cache)))
-       (when (or state atlas)
+       (when (or state aiu-frame)
          (append (when state (list (propertize state 'face 'mode-line)))
-                 (when (and state atlas) (list "  "))
-                 (when atlas
-                   (list (propertize atlas 'face 'manifolding-modeline-info-face))))))))
+                 (when (and state aiu-frame) (list "  "))
+                 (when aiu-frame
+                   (list (propertize aiu-frame 'face 'manifolding-modeline-info-face))))))))
 
 (defun manifolding-modeline-toggle-header ()
   "Show or hide the optional top row."

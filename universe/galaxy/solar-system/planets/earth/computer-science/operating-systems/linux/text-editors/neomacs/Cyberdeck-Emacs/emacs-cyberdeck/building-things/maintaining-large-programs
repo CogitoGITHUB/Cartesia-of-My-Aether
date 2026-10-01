@@ -6,6 +6,7 @@
 * Maintaining Large Programs :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       7085bdf4-04ce-45ec-bb36-607c301ff70c
+:MM_ORDER:  9002.0
 :END:
 
 This chapter describes Emacs features for maintaining medium- to large-size programs and packages. These features include:

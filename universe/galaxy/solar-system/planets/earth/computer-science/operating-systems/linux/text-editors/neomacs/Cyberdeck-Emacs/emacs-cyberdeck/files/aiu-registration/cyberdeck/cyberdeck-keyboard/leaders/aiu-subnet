@@ -1,0 +1,32 @@
+SPC m: AIU Subnet menu.
+
+* SPC m — AIU Subnet :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       7000caf4-7356-49bf-917f-281c9929f1bb
+:MM_PARENT: none
+:MM_ORDER:  169.0
+:END:
+#+begin_src emacs-lisp
+(my/defhydra-state my/aiu-subnet-hydra nil "AIU Subnet" (my/main-hydra/body "main menu")
+  "Navigate"
+  (("p" aiu-subnet/goto-parent       "parent"     :exit t)
+   ("c" aiu-subnet/goto-child        "child"      :exit t)
+   ("r" aiu-subnet/goto-root         "root"       :exit t)
+   ("t" my/aiu-subnet-traverse-enter "traverse" :exit t))
+  "Position"
+  (("P" aiu-subnet/assign-parent     "assign parent"  :exit t)
+   ("A" aiu-subnet/assign-after      "place after"    :exit t)
+   ("B" aiu-subnet/assign-between    "place between"  :exit t)
+   ("R" aiu-subnet/make-root-interactive "make root"   :exit t)
+   ("!" aiu-subnet/repack-all        "repack all"     :exit t))
+  "Status"
+  (("a" aiu-subnet/--status-active     "active"     :exit t)
+   ("s" aiu-subnet/--status-suspended  "suspended"  :exit t)
+   ("d" aiu-subnet/--status-dormant    "dormant"    :exit t)
+   ("x" aiu-subnet/--status-archived   "archived"   :exit t))
+  "View"
+  (("m" aiu-subnet/map-display       "map display"    :exit t)
+   ("g" aiu-subnet/group-display     "group display"  :exit t)
+   ("j" aiu-subnet/export-json       "export JSON"    :exit t)
+   ("i" aiu-subnet/init              "init vault"     :exit t)))
+#+end_src

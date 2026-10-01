@@ -6,6 +6,7 @@
 * Editing Programs ( ams mode ✓✓✓ ) :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       9c88feba-7096-41bb-90bd-17d9dd912c8d
+:MM_ORDER:  9000.0
 :END:
 
 This chapter describes Emacs features for facilitating editing programs. Some of the things these features can do are:

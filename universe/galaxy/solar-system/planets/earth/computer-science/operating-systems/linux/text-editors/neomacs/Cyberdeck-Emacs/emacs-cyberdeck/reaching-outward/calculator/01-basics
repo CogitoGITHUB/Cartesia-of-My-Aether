@@ -1,6 +1,7 @@
 * Calc Basics :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       39ce7451-079c-4709-b74d-e5978ed78940
+:MM_ORDER:  9065.0
 :END:
 
 This chapter is the beginning of the Calc reference manual. It covers basic concepts such as the stack, algebraic and numeric entry, undo, numeric prefix arguments, etc.

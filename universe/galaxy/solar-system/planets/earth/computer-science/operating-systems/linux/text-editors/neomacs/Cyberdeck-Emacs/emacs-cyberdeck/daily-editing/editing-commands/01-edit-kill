@@ -1,6 +1,7 @@
 * Text Editing and Kill Ring :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       b9110d79-0568-4790-9ebd-69edc679552f
+:MM_ORDER:  9010.0
 :END:
 
 This chapter describes the functions that deal with the text in a buffer. Most examine, insert, or delete text in the current buffer, often operating at point or on text adjacent to point. Many are interactive. All the functions that change the text provide for undoing the changes (see Undo).

@@ -239,6 +239,7 @@ or be incorporated in custom functions.
 
 ** Integration with other packages
 :PROPERTIES:
+:MM_ORDER:  9098.0
 :CUSTOM_ID: h:b884f2ac-82f3-48c0-bee5-6709d6647b1d
 :END:
 #+cindex: Helper functions for integration with other packages

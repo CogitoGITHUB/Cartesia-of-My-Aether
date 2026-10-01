@@ -1,6 +1,7 @@
 * Filling and Indentation :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       9ab853f6-2646-4b4a-8a54-cd77793e9cf2
+:MM_ORDER:  9011.0
 :END:
 
 Filling means adjusting the lengths of lines (by moving the line breaks) so that they are nearly (but no greater than) a specified maximum width. Additionally, lines can be justified, which means inserting spaces to make the left and/or right margins line up precisely. The width is controlled by the variable fill-column. For ease of reading, lines should be no longer than 70 or so columns.

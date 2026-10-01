@@ -6,6 +6,7 @@
 * Standard Errors :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       1e0cfdfe-4b59-4d29-8ef0-3bd2631b564c
+:MM_ORDER:  9128.0
 :END:
 
 Here is a list of the more important error symbols in standard Emacs, grouped by concept. The list includes each symbol’s message and a cross reference to a description of how the error can occur.

@@ -6,6 +6,7 @@
 * Tips and Conventions :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       2e3bdd34-dde2-41d8-b007-5d806539e8be
+:MM_ORDER:  9129.0
 :END:
 
 This chapter describes no additional features of Emacs Lisp. Instead it gives advice on making effective use of the features described in the previous chapters, and describes conventions Emacs Lisp programmers should follow.

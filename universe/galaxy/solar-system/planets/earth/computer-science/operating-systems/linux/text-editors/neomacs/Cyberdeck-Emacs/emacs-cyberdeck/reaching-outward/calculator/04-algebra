@@ -1,6 +1,7 @@
 * Calc Algebra :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       9fde213c-224d-456f-acfb-78fde59ec1f6
+:MM_ORDER:  9068.0
 :END:
 
 This section covers the Calc features that help you work with algebraic formulas. First, the general sub-formula selection mechanism is described; this works in conjunction with any Calc commands. Then, commands for specific algebraic operations are described. Finally, the flexible rewrite rule mechanism is discussed.

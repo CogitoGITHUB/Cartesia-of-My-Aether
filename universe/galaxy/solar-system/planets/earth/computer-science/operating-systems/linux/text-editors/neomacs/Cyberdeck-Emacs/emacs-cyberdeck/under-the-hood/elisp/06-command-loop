@@ -1,6 +1,7 @@
 * Elisp Command Loop :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       2f6d9626-c5e1-4cca-9af5-90fc90e46ffd
+:MM_ORDER:  9118.0
 :END:
 
 When you run Emacs, it enters the editor command loop almost immediately. This loop reads key sequences, executes their definitions, and displays the results. In this chapter, we describe how these things are done, and the subroutines that allow Lisp programs to do them.

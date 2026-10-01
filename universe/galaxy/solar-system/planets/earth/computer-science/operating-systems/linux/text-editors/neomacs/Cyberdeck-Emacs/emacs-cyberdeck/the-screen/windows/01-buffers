@@ -1,6 +1,7 @@
 * Windows and Buffers :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       fa30d0dd-7895-4b6f-b375-b4746e42a416
+:MM_ORDER:  9101.0
 :END:
 
 When you use the command C-x o (other-window) to select some other window, it moves through live windows in a specific order. For any given configuration of windows, this order never varies. It is called the cyclic ordering of windows.

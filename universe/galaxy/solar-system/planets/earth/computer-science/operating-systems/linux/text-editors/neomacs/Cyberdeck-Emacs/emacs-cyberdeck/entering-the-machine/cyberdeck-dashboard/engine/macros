@@ -112,11 +112,11 @@ entries resolvable? Every widget has a file? No file without a widget?
 Returns problems (empty means clean).
 
 The last two checks are the ones that matter and did not exist: this
-module once carried five `:DASHBOARD_BLUEPRINT:' files that no code path
+module once carried five `:DASHBOARD_AIU_CONTEXT:' files that no code path
 read for anything but a `:LENGTH:' of 1 — the same value the registry
-already returned — and a `:BLUEPRINT_BODY:' variant mechanism that was
+already returned — and a `:AIU_CONTEXT_BODY:' variant mechanism that was
 never implemented. They sat there looking load-bearing because the old
-validator only checked that every *widget* had a blueprint, never that
+validator only checked that every *widget* had an aiu-context, never that
 anything *consumed* one. An orphan check is what catches that class."
   (let (problems)
     (dolist (pair cyberdeck-dashboard--widget-registry)
@@ -145,7 +145,7 @@ anything *consumed* one. An orphan check is what catches that class."
                  (not (cdr (assq name dashboard-item-generators))))
         (push (format "order file %s: no widget file registers it" name) problems)))
     ;; The inverse: a file in widgets/ that no widget claims. This is the
-    ;; check that would have flagged the orphaned blueprints on the day
+    ;; check that would have flagged the orphaned aiu-contexts on the day
     ;; they were added, instead of months later.
     (let ((claimed (mapcar (lambda (key)
                              (string-remove-prefix "cyberdeck-" (format "%s" key)))

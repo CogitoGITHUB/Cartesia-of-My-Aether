@@ -1,6 +1,7 @@
 * Window Configurations :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       fe4a70aa-86e3-4957-b923-67249bd7c1ba
+:MM_ORDER:  9104.0
 :END:
 
 A window configuration records the entire layout of one frame—all windows, their sizes, their decorations, which buffers they contain, how those buffers are scrolled, and their value of point, It also includes the value of minibuffer-scroll-window. As a special exception, the window configuration does not record the value of point in the selected window for the current buffer.

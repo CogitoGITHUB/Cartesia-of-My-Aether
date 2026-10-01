@@ -6,6 +6,7 @@
 * Eshell :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       6ac66c3d-46fe-43c2-af92-9a60ace70c01
+:MM_ORDER:  9072.0
 :END:
 
 Eshell is a shell-like command interpreter implemented in Emacs Lisp. It invokes no external processes except for those requested by the user. It is intended to be an alternative to the IELM (see Lisp Interaction in The Emacs Editor) REPL1 for Emacs and with an interface similar to command shells such as bash, zsh, rc, or 4dos.

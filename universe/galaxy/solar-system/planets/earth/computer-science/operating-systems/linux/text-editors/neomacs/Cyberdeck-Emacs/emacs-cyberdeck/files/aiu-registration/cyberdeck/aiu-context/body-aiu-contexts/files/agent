@@ -1,0 +1,14 @@
+* BODY_AGENT :AIU_CONTEXT_DRAWER:
+
+* Agent Template Name :EMACS_MECHANISM::AIU_CONTEXT_DRAWER:
+:PROPERTIES:
+:ID:       0f61b097-0352-4112-8224-36a0d4fd1559
+:MM_PARENT: none
+:MM_ORDER:  306.0
+:END:
+
+- What system this agent works in and where its files live:
+
+- Heading, tag, drawer, and ordering rules it must obey:
+
+- Step-by-step operations with verification gates:

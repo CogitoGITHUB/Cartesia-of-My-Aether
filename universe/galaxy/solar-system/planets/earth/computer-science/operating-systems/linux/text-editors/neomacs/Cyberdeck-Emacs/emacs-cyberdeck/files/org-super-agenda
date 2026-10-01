@@ -24,7 +24,7 @@ items and many files.
 (setq org-agenda-skip-deadline-if-done t)
 
 ;; org-todo-keywords is owned by `org-todo-states.org', which derives it
-;; from the Cyberdeck TODO blueprint. Setting it here used to win by load
+;; from the Cyberdeck TODO AIU context. Setting it here used to win by load
 ;; order (MM_ORDER 194 > 107) and silently truncate the vocabulary.
 
 (let ((message-log-max nil))

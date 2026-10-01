@@ -6,6 +6,7 @@
 * Center Lock — cursor gravitational axis :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       65371bd5-9fb6-4fb8-8100-3f68c012880c
+:MM_ORDER:  9084.0
 :END:
 #+begin_src emacs-lisp :tangle no
 (leaf center-lock

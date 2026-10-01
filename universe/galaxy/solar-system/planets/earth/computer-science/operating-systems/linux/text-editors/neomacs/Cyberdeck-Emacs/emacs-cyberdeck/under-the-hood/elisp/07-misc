@@ -1,6 +1,7 @@
 * Elisp Miscellany :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       c0563a2d-0c88-4a05-a63d-c3facc4ba3bc
+:MM_ORDER:  9119.0
 :END:
 
 An abbreviation or abbrev is a string of characters that may be expanded to a longer string. The user can insert the abbrev string and find it replaced automatically with the expansion of the abbrev. This saves typing.

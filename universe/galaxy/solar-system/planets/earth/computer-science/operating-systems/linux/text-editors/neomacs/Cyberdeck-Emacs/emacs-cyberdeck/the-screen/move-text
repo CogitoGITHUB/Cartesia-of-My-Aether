@@ -6,6 +6,7 @@
 * Move-text — lift and drop lines like sculpting clay :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       6782f553-f98f-48f5-980b-053b7b4b966c
+:MM_ORDER:  9096.0
 :END:
 
 #+begin_src emacs-lisp :tangle no

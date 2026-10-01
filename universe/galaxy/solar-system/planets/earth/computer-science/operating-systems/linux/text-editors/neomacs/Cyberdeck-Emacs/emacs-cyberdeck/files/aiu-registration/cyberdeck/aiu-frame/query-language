@@ -1,0 +1,141 @@
+* Cyberdeck Query Language :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       b296f1c2-7d16-4a49-9570-bb0451b907ad
+:MM_ORDER:  9039.0
+:END:
+
+Composable S-expr queries over AIUs, read-only.  Operators cover
+what the indexes honestly support: tags, title text, file age, and
+the boolean combinators, plus sort and limit.  Saved queries persist
+in cache; org-babel blocks execute them in place.  Nothing here runs
+at load.
+
+** Evaluator
+#+begin_src emacs-lisp
+(require 'cl-lib)
+(require 'seq)
+
+(defun my/cyberdeck-query--mtime (note)
+  "File modification time of NOTE as float, or nil."
+  (let ((p (ignore-errors (cyberdeck-aiu-path note))))
+    (when (and p (file-exists-p p))
+      (float-time (file-attribute-modification-time
+                   (file-attributes p))))))
+
+(defun my/cyberdeck-query--match-p (note query)
+  "Non-nil when AIU satisfies QUERY sexp."
+  (pcase query
+    (`(and . ,rest) (cl-every (lambda (q) (my/cyberdeck-query--match-p note q)) rest))
+    (`(or . ,rest) (cl-some (lambda (q) (my/cyberdeck-query--match-p note q)) rest))
+    (`(not ,q) (not (my/cyberdeck-query--match-p note q)))
+    (`(tag ,tag)
+     (let ((tags (ignore-errors (cyberdeck-aiu-tags note))))
+       (if (and (fboundp 'my/cyberdeck-tag-transitive)
+                (boundp 'my/cyberdeck-tag-extends)
+                (> (hash-table-count my/cyberdeck-tag-extends) 0))
+           ;; Transitive: AIU matches on TAG or any descendant.
+           (seq-intersection
+            (ignore-errors (my/cyberdeck-tag-transitive tag)) tags)
+         (member tag tags))))
+    (`(title-match ,re)
+     (let ((title (ignore-errors (cyberdeck-aiu-title note))))
+       (and title (string-match-p re title))))
+    (`(recent-days ,n)
+     (let ((mtime (my/cyberdeck-query--mtime note)))
+       (and mtime (> mtime (- (float-time) (* n 86400))))))
+    (`(before ,iso)
+     (let ((mtime (my/cyberdeck-query--mtime note)))
+       (and mtime (< mtime (my/cyberdeck-query--iso iso)))))
+    (`(after ,iso)
+     (let ((mtime (my/cyberdeck-query--mtime note)))
+       (and mtime (> mtime (my/cyberdeck-query--iso iso)))))
+    (_ (error "cyberdeck query: unknown operator %S" (car-safe query)))))
+
+(defun my/cyberdeck-query--iso (iso)
+  "ISO date string to float seconds."
+  (float-time (date-to-time (concat iso "T00:00:00"))))
+
+(defun my/cyberdeck-query (query &rest kwargs)
+  "AIUs matching QUERY, with :sort (title|mtime), :order, :limit."
+  (let* ((sort-key (plist-get kwargs :sort))
+         (order (or (plist-get kwargs :order) '<))
+         (limit (plist-get kwargs :limit))
+         (notes (seq-filter (lambda (n)
+                              (condition-case nil
+                                  (my/cyberdeck-query--match-p n query)
+                                (error nil)))
+                            (ignore-errors (cyberdeck-db-query)))))
+    (when (eq sort-key 'title)
+      (setq notes (sort (copy-sequence notes)
+                        (lambda (a b)
+                          (string< (or (ignore-errors
+                                        (cyberdeck-aiu-title a)) "")
+                                   (or (ignore-errors
+                                        (cyberdeck-aiu-title b)) ""))))))
+    (when (eq sort-key 'mtime)
+      (setq notes (sort (copy-sequence notes)
+                        (lambda (a b)
+                          (funcall order
+                                   (or (my/cyberdeck-query--mtime a) 0)
+                                   (or (my/cyberdeck-query--mtime b) 0))))))
+    (when (and (eq sort-key 'title) (eq order '>))
+      (setq notes (nreverse notes)))
+    (if (and limit (> limit 0))
+        (seq-take notes limit)
+      notes)))
+#+end_src
+
+** Saved library + babel
+#+begin_src emacs-lisp
+(defvar my/cyberdeck-query-library-file
+  (expand-file-name ".local/cache/aiu-frame-queries.el" (expand-file-name "~"))
+  "Persisted alist (NAME . QUERY).")
+
+(defvar my/cyberdeck-saved-queries nil
+  "Alist (NAME . QUERY sexp).")
+
+(defun my/cyberdeck-queries-load ()
+  (setq my/cyberdeck-saved-queries nil)
+  (condition-case nil
+      (when (file-exists-p my/cyberdeck-query-library-file)
+        (setq my/cyberdeck-saved-queries
+              (car (read-from-string
+                    (with-temp-buffer
+                      (insert-file-contents my/cyberdeck-query-library-file)
+                      (buffer-string))))))
+    (error nil)))
+
+(defun my/cyberdeck-queries-save ()
+  (condition-case nil
+      (let ((tmp (concat my/cyberdeck-query-library-file ".tmp"))
+            (print-length nil) (print-level nil))
+        (make-directory (file-name-directory my/cyberdeck-query-library-file) t)
+        (with-temp-file tmp (prin1 my/cyberdeck-saved-queries (current-buffer)))
+        (rename-file tmp my/cyberdeck-query-library-file t))
+    (error nil)))
+
+(my/cyberdeck-queries-load)
+
+(defun my/cyberdeck-query-save (name query)
+  "Save QUERY sexp under NAME."
+  (interactive
+   (list (read-string "Query name: ") (read--expression "Query sexp: ")))
+  (push (cons name query)
+        (setq my/cyberdeck-saved-queries
+              (assoc-delete-all name my/cyberdeck-saved-queries)))
+  (my/cyberdeck-queries-save))
+
+(defun my/cyberdeck-query-run-saved (name)
+  "AIUs matching saved query NAME."
+  (interactive
+   (list (completing-read "Run query: "
+                          (mapcar #'car my/cyberdeck-saved-queries))))
+  (my/cyberdeck-query (cdr (assoc name my/cyberdeck-saved-queries))))
+
+(defun org-babel-execute:cyberdeck-query (body _params)
+  "Run an cyberdeck query from a src block; returns matching titles."
+  (let ((query (car (read-from-string body))))
+    (mapcar (lambda (n) (or (ignore-errors (cyberdeck-aiu-title n))
+                            "?"))
+            (my/cyberdeck-query query))))
+#+end_src

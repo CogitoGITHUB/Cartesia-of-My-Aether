@@ -1,6 +1,7 @@
 * Elisp Lists and Symbols :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       1256c181-f9c7-4ccd-b489-5f2bb2660d49
+:MM_ORDER:  9113.0
 :END:
 
 A list represents a sequence of zero or more elements (which may be any Lisp objects). The important difference between lists and vectors is that two or more lists can share part of their structure; in addition, you can insert or delete elements in a list without copying the whole list.

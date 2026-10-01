@@ -1,6 +1,7 @@
 * Calc Programming :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       eefdf335-f7c3-4dc2-87e7-48d30f6540d0
+:MM_ORDER:  9070.0
 :END:
 
 Embedded mode in Calc provides an alternative to copying numbers and formulas back and forth between editing buffers and the Calc stack. In Embedded mode, your editing buffer becomes temporarily linked to the stack and this copying is taken care of automatically.

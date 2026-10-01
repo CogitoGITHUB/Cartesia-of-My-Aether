@@ -1,6 +1,7 @@
 * Display Faces :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       3214e2b6-3707-45f1-990f-f418226699af
+:MM_ORDER:  9088.0
 :END:
 
 You can use overlays to alter the appearance of a buffer’s text on the screen, for the sake of presentation features. An overlay is an object that belongs to a particular buffer, and has a specified beginning and end. It also has properties that you can examine and set; these affect the display of the text within the overlaid portion of the buffer.

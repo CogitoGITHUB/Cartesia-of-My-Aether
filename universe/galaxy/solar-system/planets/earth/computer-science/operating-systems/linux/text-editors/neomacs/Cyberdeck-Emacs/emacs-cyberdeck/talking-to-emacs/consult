@@ -29,6 +29,7 @@ emacs-consult  ; already in system profile
 
 * Consult Register
 :PROPERTIES:
+:MM_ORDER:  9078.0
 :PACKAGE:  consult-register
 :CATEGORY: consult
 :END:

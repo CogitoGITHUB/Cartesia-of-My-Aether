@@ -6,6 +6,7 @@
 * Desktop Session Persistence :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       9bfae871-069c-4be5-86d0-1e5a90180b6d
+:MM_ORDER:  9110.0
 :END:
 
 #+begin_src emacs-lisp

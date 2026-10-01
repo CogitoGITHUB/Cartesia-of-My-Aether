@@ -1,6 +1,7 @@
 * Text Properties :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       0c2393e1-9347-43d4-b8c4-f5bb399f24f5
+:MM_ORDER:  9012.0
 :END:
 
 Each character position in a buffer or a string can have a text property list, much like the property list of a symbol (see Property Lists). The properties belong to a particular character at a particular place, such as, the letter ‘T’ at the beginning of this sentence or the first ‘o’ in ‘foo’—if the same character occurs in two different places, the two occurrences in general have different properties.

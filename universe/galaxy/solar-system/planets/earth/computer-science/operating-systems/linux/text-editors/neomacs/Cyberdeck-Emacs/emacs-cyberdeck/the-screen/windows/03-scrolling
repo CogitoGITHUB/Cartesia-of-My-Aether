@@ -1,6 +1,7 @@
 * Window Scrolling :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       add10ca3-aedd-4997-8453-83898db94a68
+:MM_ORDER:  9103.0
 :END:
 
 Textual scrolling means moving the text up or down through a window. It works by changing the window’s display-start location. It may also change the value of window-point to keep point on the screen (see Windows and Point).

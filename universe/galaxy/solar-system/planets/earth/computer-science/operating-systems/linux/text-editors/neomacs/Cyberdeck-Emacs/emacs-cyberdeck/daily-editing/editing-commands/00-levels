@@ -7,6 +7,7 @@
 * Recursive Editing Levels :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       ba3e323e-0425-4b9a-a1e9-476c1e9c6be8
+:MM_ORDER:  9009.0
 :END:
 
 Here we explain the basics of how to enter text, make corrections, and save the text in a file. If this material is new to you, we suggest you first run the Emacs learn-by-doing tutorial, by typing C-h t (help-with-tutorial).

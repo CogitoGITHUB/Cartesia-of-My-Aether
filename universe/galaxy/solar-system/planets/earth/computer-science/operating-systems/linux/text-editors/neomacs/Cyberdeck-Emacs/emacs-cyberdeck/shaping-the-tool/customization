@@ -6,6 +6,7 @@
 * Cutomization :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       c91ffbb8-1fa1-4193-806f-34a6ab88356a
+:MM_ORDER:  9076.0
 :END:
 Users of Emacs can customize variables and faces without writing Lisp code, by using the Customize interface. See Easy Customization in The GNU Emacs Manual. This chapter describes how to define customization items that users can interact with through the Customize interface.
 

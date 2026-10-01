@@ -1,6 +1,7 @@
 * Window History :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       672fa6f1-bb1f-4e65-a56a-2ddfb6a01bd0
+:MM_ORDER:  9102.0
 :END:
 
 Each window remembers in a list the buffers it has previously displayed, and the order in which these buffers were removed from it. This history is used, for example, by replace-buffer-in-windows (see Buffers and Windows), and when quitting windows (see Quitting Windows). The list is automatically maintained by Emacs, but you can use the following functions to explicitly inspect or alter it:

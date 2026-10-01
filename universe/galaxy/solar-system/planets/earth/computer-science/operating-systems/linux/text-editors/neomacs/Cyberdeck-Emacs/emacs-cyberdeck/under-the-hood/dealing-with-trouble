@@ -6,6 +6,7 @@
 * Dealing with Trouble :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       66c4dd38-1c76-4ae5-94ef-56743e9868bc
+:MM_ORDER:  9108.0
 :END:
 
 This section describes how to recognize and deal with situations in which Emacs does not work as you expect, such as keyboard code mixups, garbled displays, running out of memory, and crashes and hangs.

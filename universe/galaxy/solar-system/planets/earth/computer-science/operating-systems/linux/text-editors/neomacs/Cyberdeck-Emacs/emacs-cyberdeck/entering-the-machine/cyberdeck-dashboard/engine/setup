@@ -11,7 +11,7 @@ then hooks, keys, recentf, startup. Loads after every widgets/ file
 so the registry is full.
 
 ** Section order
-Mirrors the blueprint drawer-order mechanism: the `order' file holds
+Mirrors the aiu-context drawer-order mechanism: the `order' file holds
 `** key' headings top to bottom; setup composes `dashboard-items'
 from it, reconciles it on boot (append new, prune dead cyberdeck-*),
 and re-applies on manual save. The banner is structural and always
@@ -22,7 +22,7 @@ renders first — it never belongs here.
     (recents . 10) (bookmarks . 10) (registers . 10) (projects . 10)
     (cyberdeck-status . 1) (cyberdeck-todos . 1) (cyberdeck-sartre . 1))
   "Seed and empty-file fallback for the section order. Mirrors the
-blueprint default key list.")
+aiu-context default key list.")
 
 (defvar cyberdeck-dashboard--stock-items
   '((recents . 10) (bookmarks . 10) (registers . 10) (projects . 10)
@@ -61,8 +61,8 @@ The registry is authoritative, and it is the widget's own
 `cyberdeck-dashboard-define-widget' :length — declared in the file that
 renders the section, next to the code that decides how tall it is.
 
-There was a blueprint-file step ahead of this, and it was worse than
-redundant: every widget blueprint declared `:LENGTH: 1` while the
+There was an aiu-context-file step ahead of this, and it was worse than
+redundant: every widget aiu-context declared `:LENGTH: 1` while the
 sections they claimed to measure rendered 2 to 6 lines, and one of them
 (`todos') has no fixed height at all. So the step was both wrong and
 unread, and removing it changed no rendering at all."
@@ -95,7 +95,7 @@ keys are skipped (audit warns). Returns the items."
   "Append registry widgets missing from the order file at EOF; prune
 `cyberdeck-*' headings with no registered widget and no generator;
 seed the file when missing. Never reorders, never touches stock.
-Mirrors the blueprint boot reconcile. Returns t when the file changed."
+Mirrors the aiu-context boot reconcile. Returns t when the file changed."
   (let* ((f (cyberdeck-dashboard--order-file))
          (changed nil))
     (if (not (file-exists-p f))
@@ -133,7 +133,7 @@ Mirrors the blueprint boot reconcile. Returns t when the file changed."
 
 (defun cyberdeck-dashboard--audit-order-file ()
   "Warn about order-file keys matching neither registry nor stock
-generators. Passive audit, never modifies — mirrors the blueprint
+generators. Passive audit, never modifies — mirrors the aiu-context
 reinforce audit."
   (let ((have (mapcar #'car dashboard-item-generators)))
     (dolist (name (cyberdeck-dashboard--order-file-keys))
@@ -143,7 +143,7 @@ reinforce audit."
 
 (defun cyberdeck-dashboard--order-after-save ()
   "Re-apply the order file when the user saves it; refresh the live
-dashboard. Mirrors the blueprint drawer-order save hook."
+dashboard. Mirrors the aiu-context drawer-order save hook."
   (when (and buffer-file-name
              (equal (expand-file-name buffer-file-name)
                     (cyberdeck-dashboard--order-file)))
@@ -154,7 +154,7 @@ dashboard. Mirrors the blueprint drawer-order save hook."
         (dashboard-refresh-buffer)))))
 
 (defun cyberdeck-dashboard--order-find-file-hook ()
-  "Install the order save hook buffer-locally. Mirrors the blueprint
+  "Install the order save hook buffer-locally. Mirrors the aiu-context
 find-file installer."
   (when (and buffer-file-name
              (equal (expand-file-name buffer-file-name)

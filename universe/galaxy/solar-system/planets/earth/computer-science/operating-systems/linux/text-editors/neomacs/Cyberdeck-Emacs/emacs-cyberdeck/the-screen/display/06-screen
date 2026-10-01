@@ -1,6 +1,7 @@
 * Display Screen Organization :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       266daa41-6b09-4676-bae7-3f37a6a4565e
+:MM_ORDER:  9092.0
 :END:
 
 On a graphical display, such as on GNU/Linux using the X Window System, Emacs occupies a graphical window. On a text terminal, Emacs occupies the entire terminal screen. We will use the term frame to mean a graphical window or terminal screen occupied by Emacs. Emacs behaves very similarly on both kinds of frames. It normally starts out with just one frame, but you can create additional frames if you wish (see Frames and Graphical Displays).

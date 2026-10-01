@@ -6,6 +6,7 @@
 * Positions :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       866566b8-84f9-4c4e-92b1-a988e9554d02
+:MM_ORDER:  9097.0
 :END:
 
 A position is the index of a character in the text of a buffer. More precisely, a position identifies the place between two characters (or before the first character, or after the last character), so we can speak of the character before or after a given position. However, we often speak of the character “at” a position, meaning the character after that position.

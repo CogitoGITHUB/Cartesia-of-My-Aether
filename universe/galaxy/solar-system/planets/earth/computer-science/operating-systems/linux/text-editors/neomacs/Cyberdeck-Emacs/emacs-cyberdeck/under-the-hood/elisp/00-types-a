@@ -2397,6 +2397,7 @@ See Comparison of Characters and Strings, for functions that compare strings; so
 *** The Case Table
 :PROPERTIES:
 :ID:       ec7beaff-8bb6-4af3-97a0-2cc162988d73
+:MM_ORDER:  9112.0
 :END:
 
 You can customize case conversion by installing a special case table. A case table specifies the mapping between upper case and lower case letters. It affects both the case conversion functions for Lisp objects (see the previous section) and those that apply to text in the buffer (see Case Changes). Each buffer has a case table; there is also a standard case table which is used to initialize the case table of new buffers.

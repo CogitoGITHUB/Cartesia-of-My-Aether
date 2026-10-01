@@ -1,6 +1,7 @@
 * Elisp Variables :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       122ff388-c2d0-41bd-a789-c92d2b66ef13
+:MM_ORDER:  9115.0
 :END:
 
 A variable is a name used in a program to stand for a value. In Lisp, each variable is represented by a Lisp symbol (see Symbols). The variable name is simply the symbol’s name, and the variable’s value is stored in the symbol’s value cell9. See Symbol Components. In Emacs Lisp, the use of a symbol as a variable is independent of its use as a function name.

@@ -6,6 +6,7 @@
 * DAP — Debug Adapter Protocol for Emacs / LSP Debugger :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       b32f4169-9ab0-4790-96e9-8ffa7f589c38
+:MM_ORDER:  9109.0
 :END:
 
 #+begin_src emacs-lisp :tangle no

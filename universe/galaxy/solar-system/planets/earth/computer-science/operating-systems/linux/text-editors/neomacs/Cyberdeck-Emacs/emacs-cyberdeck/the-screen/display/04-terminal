@@ -1,6 +1,7 @@
 * Display Terminal :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       05e83712-681d-492f-ad6c-a39d3ffc1fa4
+:MM_ORDER:  9090.0
 :END:
 
 This section describes the mechanism by which Emacs shows a matching open parenthesis when the user inserts a close parenthesis.

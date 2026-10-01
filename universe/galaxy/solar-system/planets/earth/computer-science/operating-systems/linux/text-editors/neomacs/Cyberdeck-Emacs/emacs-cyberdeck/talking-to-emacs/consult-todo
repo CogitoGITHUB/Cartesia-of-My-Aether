@@ -23,10 +23,10 @@ emacs-consult-todo  ; custom declaration in config.scm
 ** Customization
 
 *** Config
-Selectors are derived from the Cyberdeck TODO blueprint, so the narrow
+Selectors are derived from the Cyberdeck TODO AIU context, so the narrow
 tracks the vocabulary automatically — FIXME, BUG and HACK were never
 todo states and matched nothing, while DOING, WAIT, DONE and the rest
-of the blueprint were unreachable from here.
+of the AIU context were unreachable from here.
 #+begin_src emacs-lisp
 (when-let ((narrow (my/subnet-consult-todo-narrow)))
   (setq consult-todo-narrow narrow))
@@ -34,6 +34,7 @@ of the blueprint were unreachable from here.
 
 * HL Todo
 :PROPERTIES:
+:MM_ORDER:  9079.0
 :PACKAGE:  hl-todo
 :STRAIGHT: (hl-todo :type git :host github :repo "tarsius/hl-todo")
 :CATEGORY: consult

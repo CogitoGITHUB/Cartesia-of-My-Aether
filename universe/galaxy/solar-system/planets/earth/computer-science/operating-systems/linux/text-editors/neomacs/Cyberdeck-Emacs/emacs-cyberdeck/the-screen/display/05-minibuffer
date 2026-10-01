@@ -1,6 +1,7 @@
 * Display Minibuffer :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       330aa8ce-2cfc-4cc9-be4f-5c83b1457aca
+:MM_ORDER:  9091.0
 :END:
 
 The minibuffer is a special-purpose buffer that Emacs uses to read complex arguments — such as file names, buffer names, command names (like those entered with M-x), or even full Lisp expressions. It appears at the bottom of the frame, sharing space with the echo area, and becomes visible only when Emacs is awaiting such input. Though small in screen space, the minibuffer is a fully functional editing environment: you can use all the usual Emacs editing commands within it to refine or correct the argument text. In essence, it is a focused window where Emacs momentarily turns its attention inward, asking you to speak its language precisely.

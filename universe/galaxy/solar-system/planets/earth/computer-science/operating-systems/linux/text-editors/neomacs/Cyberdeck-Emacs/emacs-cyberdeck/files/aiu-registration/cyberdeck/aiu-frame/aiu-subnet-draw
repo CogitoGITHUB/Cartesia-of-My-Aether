@@ -1,0 +1,2238 @@
+#+title: AIU Cyberdeck AIU Subnet (vendored)
+
+Vendored from https://github.com/krvkir/org-aiu-subnet (GPL-3.0,
+krvkir, 2026). Editable ASCII AIU Subnet visualization inside org
+buffers: `#+begin_aiu-subnet` regions render as box-drawing trees and
+stay editable in place. Ships inline so AIUs never wait on a
+package fetch. Complements the vault's own aiu-subnet/* topology subsystem
+(aiu-frame/aiu-subnet, order 127): that one owns vault structure,
+this one draws pictures inside AIUs.
+
+* Cyberdeck AIU Subnet — vendored :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       378f6ebd-5c88-4fed-8696-ca0b306b0155
+:MM_PARENT: none
+:MM_ORDER:  142.0
+:END:
+
+** Parser core
+#+begin_src emacs-lisp
+;;; org-aiu-subnet-parser.el --- Refactored 2D graph-walking parser -*- lexical-binding: t -*-
+
+;; Copyright (C) 2026 krvkir
+
+;; Author: krvkir <krvkir@gmail.com>
+;; Version: 0.3
+;; Keywords: org, tools, outlines
+;; Package-Requires: ((emacs "29.1"))
+;; URL: https://github.com/krvkir/org-aiu-subnet
+
+;; This file is not part of GNU Emacs.
+
+;; This program is free software; you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+
+;;; Commentary:
+;; Provides the parsing logic for editable AIU Subnet visualizations in org-mode.
+;; It detects AIU Subnet regions and walks the 2D grid of characters to build
+;; a tree structure of nodes.
+
+;;; Code:
+
+(require 'cl-lib)
+
+(cl-defstruct (org-aiu-subnet-parser-node (:constructor org-aiu-subnet-parser-make-node))
+  "Data structure representing a single AIU Subnet node."
+  id text children depth parent row col width side point-offset)
+
+(defcustom org-aiu-subnet-parser-debug nil
+  "If non-nil, print debug information to the *org-aiu-subnet-debug* buffer."
+  :type 'boolean
+  :group 'org-aiu-subnet)
+
+(defcustom org-aiu-subnet-parser-recovery-drift 10
+  "Maximum distance to drift when attempting to recover broken connections."
+  :type 'integer
+  :group 'org-aiu-subnet)
+
+(defcustom org-aiu-subnet-parser-connectors '((?─ ?│ ?┬ ?┴ ?├ ?┤ ?┼ ?╭ ?╮ ?╰ ?╯)
+                                           (?─ ?│ ?┬ ?┴ ?├ ?┤ ?┼ ?┌ ?┐ ?└ ?┘))
+  "List of connector packs.  The first pack is used for rendering.
+Indices: 0:Horizontal, 1:Vertical, 2:T-Down, 3:T-Up, 4:T-Right, 5:T-Left,
+         6:Cross, 7:Corner-TL, 8:Corner-TR, 9:Corner-BL, 10:Corner-BR"
+  :type '(repeat (list character character character character character
+                       character character character character character
+                       character))
+  :group 'org-aiu-subnet)
+
+(defcustom org-aiu-subnet-parser-root-delimiters '(("«" . "»")
+                                                ("“" . "”")
+                                                ("⎨" . "⎬")
+                                                ("⏴" . "⏵")
+                                                ("【" . "】"))
+  "List of root delimiter pairs (cons cells).
+The first pair is used for rendering.
+Use symbols you don't directly type, such as unicode plotting characters."
+  :set (lambda (symbol value)
+         (set-default symbol
+                      (if (and (consp value) (stringp (car value)))
+                          (list value)
+                        value)))
+  :type '(choice (cons string string)
+                 (repeat (cons string string)))
+  :group 'org-aiu-subnet)
+
+
+(defvar org-aiu-subnet-parser--debug-accumulator nil
+  "Accumulator for debug messages during a single parsing/updating run.")
+
+(defvar org-aiu-subnet-parser--debug-start-time nil
+  "The time of the first debug message in the current series.")
+
+(defvar org-aiu-subnet-parser--debug-caption nil
+  "The caption of the current debug messages series.")
+
+(defun org-aiu-subnet-parser--log-message (fmt args)
+  "Log formatted FMT with ARGS to the debug buffer, or accumulate if batching."
+  (if (and ;; (bound-and-true-p org-aiu-subnet-parser--debug-accumulator)
+       (bound-and-true-p org-aiu-subnet-parser--debug-start-time))
+      (let ((time-delta (- (float-time) org-aiu-subnet-parser--debug-start-time) )
+            (caption (or org-aiu-subnet-parser--debug-caption "")))
+        (push (cons (concat "[%s] %f " fmt) (cons caption (cons time-delta args)))
+              org-aiu-subnet-parser--debug-accumulator))
+    (let ((buf (get-buffer-create "*org-aiu-subnet-debug*"))
+          (msg (apply #'format (concat "%f | " fmt) (cons (float-time) args))))
+      (with-current-buffer buf
+        (setq buffer-undo-list t)
+        (save-excursion
+          (goto-char (point-max))
+          (insert msg "\n"))))))
+
+(defmacro org-aiu-subnet-parser--debug (fmt &rest args)
+  "Log debug messages to the dedicated trace buffer.
+If `org-aiu-subnet-parser-debug' is t, format FMT with ARGS."
+  `(when org-aiu-subnet-parser-debug
+     (org-aiu-subnet-parser--log-message ,fmt (list ,@args))))
+
+(defmacro org-aiu-subnet-parser-with-debug-batch (caption &rest body)
+  "Run BODY with debug messages batched under CAPTION and logged at the end."
+  (declare (indent 0))
+  `(let (;; (gc-cons-threshold most-positive-fixnum)
+         ;; (gc-cons-percentage 0.9)
+         (org-aiu-subnet-parser--debug-accumulator nil)
+         (org-aiu-subnet-parser--debug-start-time (float-time))
+         (org-aiu-subnet-parser--debug-caption ,caption))
+     (org-aiu-subnet-parser--debug "Debug accumulator opened at %f" org-aiu-subnet-parser--debug-start-time)
+     ;; (garbage-collect)
+     (unwind-protect
+         (progn ,@body)
+       (org-aiu-subnet-parser--debug "Debug accumulator closed at %f" (float-time))
+       (when (and org-aiu-subnet-parser-debug org-aiu-subnet-parser--debug-accumulator)
+         (let ((buf (get-buffer-create "*org-aiu-subnet-debug*"))
+               (msgs (mapcar (lambda (x) (apply #'format (car x) (cdr x)))
+                             (nreverse org-aiu-subnet-parser--debug-accumulator))))
+           (with-current-buffer buf
+             (setq buffer-undo-list t)
+             (save-excursion
+               (goto-char (point-max))
+               (insert (string-join msgs "\n") "\n"))))))))
+
+;; Directions
+(defconst org-aiu-subnet-parser-dir-up    '(0 . -1))
+(defconst org-aiu-subnet-parser-dir-down  '(0 . 1))
+(defconst org-aiu-subnet-parser-dir-left  '(-1 . 0))
+(defconst org-aiu-subnet-parser-dir-right '(1 . 0))
+
+(defvar org-aiu-subnet-parser--symbol-registry nil
+  "Cache of all recognized connector and delimiter symbols.")
+
+(defun org-aiu-subnet-parser--get-symbol-registry ()
+  "Return a hash table mapping all configured symbols to their connectivity."
+  (or org-aiu-subnet-parser--symbol-registry
+      (let ((table (make-hash-table :test 'equal))
+            (port-logic (list (list org-aiu-subnet-parser-dir-left org-aiu-subnet-parser-dir-right) ; 0: Horiz
+                              (list org-aiu-subnet-parser-dir-up org-aiu-subnet-parser-dir-down) ; 1: Vert
+                              (list org-aiu-subnet-parser-dir-left org-aiu-subnet-parser-dir-right org-aiu-subnet-parser-dir-down) ; 2: T-Down
+                              (list org-aiu-subnet-parser-dir-left org-aiu-subnet-parser-dir-up org-aiu-subnet-parser-dir-right) ; 3: T-Up
+                              (list org-aiu-subnet-parser-dir-up org-aiu-subnet-parser-dir-right org-aiu-subnet-parser-dir-down) ; 4: T-Right
+                              (list org-aiu-subnet-parser-dir-up org-aiu-subnet-parser-dir-left org-aiu-subnet-parser-dir-down) ; 5: T-Left
+                              (list org-aiu-subnet-parser-dir-up org-aiu-subnet-parser-dir-left org-aiu-subnet-parser-dir-right org-aiu-subnet-parser-dir-down) ; 6: Cross
+                              (list org-aiu-subnet-parser-dir-right org-aiu-subnet-parser-dir-down) ; 7: Corner-TL
+                              (list org-aiu-subnet-parser-dir-left org-aiu-subnet-parser-dir-down) ; 8: Corner-TR
+                              (list org-aiu-subnet-parser-dir-up org-aiu-subnet-parser-dir-right) ; 9: Corner-BL
+                              (list org-aiu-subnet-parser-dir-up org-aiu-subnet-parser-dir-left)))) ; 10: Corner-BR
+        ;; Add all connectors from all packs
+        (dolist (pack org-aiu-subnet-parser-connectors)
+          (cl-loop for char in pack
+                   for ports in port-logic
+                   do (puthash char ports table)))
+        ;; Add all delimiters
+        (dolist (pair org-aiu-subnet-parser-root-delimiters)
+          (puthash (string-to-char (car pair)) (list org-aiu-subnet-parser-dir-left org-aiu-subnet-parser-dir-right) table)
+          (puthash (string-to-char (cdr pair)) (list org-aiu-subnet-parser-dir-left org-aiu-subnet-parser-dir-right) table))
+        (setq org-aiu-subnet-parser--symbol-registry table))))
+#+end_src
+
+** Parser walkers
+#+begin_src emacs-lisp
+(defun org-aiu-subnet-parser--clear-registry ()
+  "Clear the symbol registry cache."
+  (setq org-aiu-subnet-parser--symbol-registry nil))
+
+;; Ensure cache is cleared when configuration changes
+(add-variable-watcher 'org-aiu-subnet-parser-connectors (lambda (_ _ _ _) (org-aiu-subnet-parser--clear-registry)))
+(add-variable-watcher 'org-aiu-subnet-parser-root-delimiters (lambda (_ _ _ _) (org-aiu-subnet-parser--clear-registry)))
+
+(defun org-aiu-subnet-parser--invert-dir (dir)
+  "Reverse a direction vector DIR without allocations."
+  (cond
+   ((eq dir org-aiu-subnet-parser-dir-right) org-aiu-subnet-parser-dir-left)
+   ((eq dir org-aiu-subnet-parser-dir-left) org-aiu-subnet-parser-dir-right)
+   ((eq dir org-aiu-subnet-parser-dir-down) org-aiu-subnet-parser-dir-up)
+   ((eq dir org-aiu-subnet-parser-dir-up) org-aiu-subnet-parser-dir-down)
+   (t (when dir (cons (- (car dir)) (- (cdr dir)))))))
+
+(defun org-aiu-subnet-parser--is-connector (char)
+  "Return non-nil if CHAR is a recognized connector character."
+  (and char (gethash char (org-aiu-subnet-parser--get-symbol-registry))))
+
+(defun org-aiu-subnet-parser--is-delimiter (char)
+  "Return non-nil if CHAR is a recognized root delimiter character."
+  (cl-loop for (left . right) in org-aiu-subnet-parser-root-delimiters thereis
+           (or (eq char (string-to-char left))
+               (eq char (string-to-char right))))
+  ;; (and char
+  ;;      (cl-some (lambda (pair)
+  ;;                 (or (string= (char-to-string char) (car pair))
+  ;;                     (string= (char-to-string char) (cdr pair))))
+  ;;               org-aiu-subnet-parser-root-delimiters))
+  )
+
+(defun org-aiu-subnet-parser--is-whitespace (char)
+  "Return non-nil if CHAR is whitespace or null."
+  (or (null char) (= char ?\s) (= char ?\t)))
+
+(defun org-aiu-subnet-parser--string-to-visual-vector (s)
+  "Convert string S to a vector of character lists mapped to visual columns.
+If string consists of single-width characters only, return S directly for speed."
+  (let* ((total-width (string-width s))
+         (len (length s)))
+    (if (= total-width len)
+        s
+      (let ((vec (make-vector total-width nil))
+            (first-non-space 0)
+            (last-non-space (1- len)))
+        (while (and (< first-non-space len)
+                    (let ((c (aref s first-non-space)))
+                      (or (= c ?\s) (= c ?\t))))
+          (setq first-non-space (1+ first-non-space)))
+        (while (and (> last-non-space first-non-space)
+                    (let ((c (aref s last-non-space)))
+                      (or (= c ?\s) (= c ?\t))))
+          (setq last-non-space (1- last-non-space)))
+        (let ((vcol 0))
+          (cl-loop for i below first-non-space do
+                   (let* ((char (aref s i))
+                          (w (if (= char ?\t) (- 8 (% vcol 8)) 1)))
+                     (when (< vcol total-width)
+                       (setf (aref vec vcol) (list char))
+                       (cl-loop for col from (1+ vcol) below (min (+ vcol w) total-width)
+                                do (setf (aref vec col) (list ?\s))))
+                     (setq vcol (+ vcol w))))
+          (when (< first-non-space len)
+            (let* ((segment (substring s first-non-space (1+ last-non-space)))
+                   (seg-len (length segment))
+                   (seg-vcol-start vcol)
+                   (last-col -1))
+              (cl-loop for i below seg-len
+                       for char = (aref segment i)
+                       for start-col = (+ seg-vcol-start (string-width (substring segment 0 i)))
+                       for end-col = (+ seg-vcol-start (string-width (substring segment 0 (1+ i))))
+                       do
+                       (let ((target-col (min start-col (max 0 (1- total-width)))))
+                         (if (or (= start-col end-col) (>= start-col total-width))
+                             (when (>= last-col 0)
+                               (setf (aref vec last-col) (append (aref vec last-col) (list char))))
+                           (setf (aref vec target-col) (list char))
+                           (setq last-col target-col)
+                           (cl-loop for col from (1+ target-col) below (min end-col total-width)
+                                    do (setf (aref vec col) (list (if (= char ?\t) ?\s ?\0)))))))
+              (setq vcol (+ seg-vcol-start (string-width segment)))))
+          (cl-loop for i from (1+ last-non-space) below len do
+                   (let* ((char (aref s i))
+                          (w (if (= char ?\t) (- 8 (% vcol 8)) 1)))
+                     (when (< vcol total-width)
+                       (setf (aref vec vcol) (list char))
+                       (cl-loop for col from (1+ vcol) below (min (+ vcol w) total-width)
+                                do (setf (aref vec col) (list ?\s))))
+                     (setq vcol (+ vcol w)))))
+        (cl-loop for idx below total-width do
+                 (when (null (aref vec idx))
+                   (setf (aref vec idx) (list ?\s))))
+        vec))))
+
+(defun org-aiu-subnet-parser--dirs (char)
+  "Return entry ports for a CHAR."
+  (and char (gethash char (org-aiu-subnet-parser--get-symbol-registry))))
+
+(defun org-aiu-subnet-parser--grid-get-all (lines row col)
+  "Safely fetch all characters at ROW and COL from 2D array LINES."
+  (and (>= row 0) (< row (length lines))
+       (let ((line (aref lines row)))
+         (and (>= col 0) (< col (length line))
+              (let ((val (aref line col)))
+                (if (listp val)
+                    val
+                  (when val (list val))))))))
+
+(defun org-aiu-subnet-parser--grid-get (lines row col)
+  "Safely fetch a character at ROW and COL from 2D array LINES."
+  (and (>= row 0) (< row (length lines))
+       (let ((line (aref lines row)))
+         (and (>= col 0) (< col (length line))
+              (let ((val (aref line col)))
+                (if (listp val)
+                    (car val)
+                  val))))))
+
+(defun org-aiu-subnet-parser--snaps (lines row col dir)
+  "Return t if char in LINES at ROW, COL accepts entry from DIR."
+  (let ((char (org-aiu-subnet-parser--grid-get lines row col))
+        (entry-port (org-aiu-subnet-parser--invert-dir dir)))
+    (and char
+         (member entry-port (gethash char (org-aiu-subnet-parser--get-symbol-registry))))))
+
+(defun org-aiu-subnet-parser--glue (lines row col dir)
+  "Attempt to find a connector in LINES snapping for DIR by drifting horizontally.
+Starts from ROW and COL."
+  (org-aiu-subnet-parser--debug "Broken link at (%d, %d). Attempting glue for dir %S." row col dir)
+  (when (not (= (cdr dir) 0))
+    (let ((found nil))
+      (cl-loop for drift from 1 to org-aiu-subnet-parser-recovery-drift
+               until found
+               do
+               (let ((left-col (- col drift))
+                     (right-col (+ col drift)))
+                 (cond
+                  ((org-aiu-subnet-parser--snaps lines row left-col dir)
+                   (setq found (cons row left-col)))
+                  ((org-aiu-subnet-parser--snaps lines row right-col dir)
+                   (setq found (cons row (+ col drift)))))))
+      (if found
+          (org-aiu-subnet-parser--debug "Glue success: found snap at (%d, %d)." (car found) (cdr found))
+        (org-aiu-subnet-parser--debug "Glue failed: no snap found within recovery drift."))
+      found)))
+
+(defun org-aiu-subnet-parser--is-visited (row col visited)
+  "Check if a location at ROW and COL was VISITED by the parser."
+  (gethash (+ (* row 1000) col) visited))
+
+(defun org-aiu-subnet-parser--mark-visited (row col visited)
+  "Mark location at ROW and COL as VISITED to avoid double consumption."
+  (puthash (+ (* row 1000) col) t visited))
+
+(defun org-aiu-subnet-parser--consume-spaces (lines row col dir _visited)
+  "Consume non-connector whitespace in LINES at (ROW,COL) in DIR."
+  (let ((curr-col col)
+        (dx (car dir)))
+    (if (or (= dx 0) (< row 0) (>= row (length lines)))
+        col
+      (let* (char)
+        (while (and (setq char (org-aiu-subnet-parser--grid-get lines row curr-col))
+                    (org-aiu-subnet-parser--is-whitespace char))
+          ;; (org-aiu-subnet-parser--mark-visited row curr-col visited)
+          (setq curr-col (+ curr-col dx)))
+        (when (not (= col curr-col))
+          (org-aiu-subnet-parser--debug "... consumed spaces from (%d, %d) to (%d, %d)" row col row curr-col))
+        curr-col))))
+
+(defun org-aiu-subnet-parser--all-whitespaces (lines row col dir n)
+  "Check if N symbols in DIR from (ROW,COL) in LINES are all whitespace."
+  (let ((dx (car dir)))
+    (if (or (= dx 0) (< row 0) (>= row (length lines)))
+        t
+      (cl-loop for i below n
+               for char = (org-aiu-subnet-parser--grid-get lines row (+ col (* i dx)))
+               always (org-aiu-subnet-parser--is-whitespace char)))))
+
+(defun org-aiu-subnet-parser--search-back (lines row col limit dir visited)
+  "Move backwards in LINES from (ROW,COL) in DIR to connector or LIMIT.
+Stops at VISITED cells or double spaces."
+  (let* ((curr-col col)
+         (dx (car dir)))
+    (if (= dx 0)
+        col
+      (let ((inv-dir (org-aiu-subnet-parser--invert-dir dir))
+            char)
+        ;; Recover from a possible horizontal shift:
+        ;; go backwards till we find a visited place, a connector or two spaces in a row.
+        (while (and (not (org-aiu-subnet-parser--is-visited row (- curr-col dx) visited))
+                    (setq char (org-aiu-subnet-parser--grid-get lines row (- curr-col dx)))
+                    (not (org-aiu-subnet-parser--is-connector char))
+                    (not (org-aiu-subnet-parser--all-whitespaces lines row (- curr-col dx) inv-dir 2))
+                    (<  (* dx (- col curr-col)) limit))
+          (setq curr-col (- curr-col dx)))
+        (when (not (= col curr-col))
+          (org-aiu-subnet-parser--debug "... shifted backwards from (%d, %d) to (%d, %d)" row col row curr-col))
+        curr-col))))
+
+
+(defun org-aiu-subnet-parser--consume-text (lines row col dir visited &optional point-row point-col base-offset keep-empty)
+  "Consume text in LINES at (ROW,COL) in DIR, marking VISITED.
+POINT-ROW and POINT-COL match cursor position for offset computation.
+BASE-OFFSET is added to the character index for logical cursor position.
+When KEEP-EMPTY is non-nil, empty text is returned rather than nil."
+  (let* ((dx (car dir))
+         (chars nil)
+         (offset nil))
+    (if (or (= dx 0) (< row 0) (>= row (length lines)))
+        (cons nil (cons row col))
+      (let* ((col-maybe-shifted (org-aiu-subnet-parser--search-back lines row col 999 dir visited))
+             (start-col (org-aiu-subnet-parser--consume-spaces lines row col-maybe-shifted dir visited))
+             (curr-col start-col)
+             (line (aref lines row))
+             (is-vec (vectorp line))
+             char)
+        ;; Consume chars until we find an obstacle: a visited cell, a connector,
+        ;; end of line or two consecutive whitespace symbols.
+        (while (progn
+                 (setq char (org-aiu-subnet-parser--grid-get lines row curr-col))
+                 ;; Check if the char is at point.
+                 (when (and (not offset)
+                            point-row point-col
+                            (= row point-row)
+                            (= curr-col point-col))
+                   (let ((non-placeholder-len (if is-vec
+                                                  (length (cl-remove ?\0 chars))
+                                                (length chars))))
+                     (setq offset (+ non-placeholder-len (if (< dx 0) 1 0))))
+                   (org-aiu-subnet-parser--debug "... node is at point. Offset = %d" offset))
+                 ;; Continue if there remains something to consume.
+                 (and char
+                      (not (org-aiu-subnet-parser--is-visited row curr-col visited))
+                      (not (org-aiu-subnet-parser--is-connector char))
+                      (not (org-aiu-subnet-parser--all-whitespaces lines row curr-col dir 3))))
+          ;; Consume the chars and shift the cursor.
+          (if is-vec
+              (let ((all-chars (aref line curr-col)))
+                (setq chars (append (if (> dx 0) (reverse all-chars) all-chars) chars)))
+            (push char chars))
+          (org-aiu-subnet-parser--mark-visited row curr-col visited)
+          (setq curr-col (+ curr-col dx)))
+
+        (let* ((final-chars (if (> dx 0) (nreverse chars) chars))
+               (non-placeholder-chars (if is-vec (cl-remove ?\0 final-chars) final-chars))
+               (trimmed (if non-placeholder-chars (string-trim (apply #'string non-placeholder-chars)) ""))
+               (len (string-width trimmed))
+               (leftmost-col (if (> dx 0) start-col (+ curr-col 1))))
+          ;; Edge case: cursor before/after the consumed text on this row
+          (when (and (or chars keep-empty) point-row point-col (= row point-row) (not offset))
+            (let ((point-ahead (* dx (- point-col curr-col)))
+                  (point-behind (* dx (- start-col point-col))))
+              (cond
+               ;; ... point is after the last collected char
+               ((and (>= point-ahead 0) (<= point-ahead 2))
+                (setq offset len)
+                (org-aiu-subnet-parser--debug "... point is after the node. Offset = %d" offset))
+               ;; ... point is before the last collected char
+               ((and (>= point-behind 0) (<= point-behind 2))
+                (setq offset 0)
+                (org-aiu-subnet-parser--debug "... point is before the node. Offset = %d" offset)))))
+          (when (and offset (< dx 0))
+            ;; Reverse the offset for left side nodes.
+            ;; Prevent going up the line: limit the min offset by 0.
+            (setq offset (max 0 (- len offset)))
+            (org-aiu-subnet-parser--debug "... which is %d counting from the left side" offset))
+          (when (and base-offset offset)
+            (cl-incf offset base-offset)
+            (org-aiu-subnet-parser--debug "... which is %d for the node text" offset))
+          (cons trimmed (cons leftmost-col (cons curr-col offset))))))))
+
+(defun org-aiu-subnet-parser--consume-node (lines row col dir parent visited side &optional point-row point-col keep-empty)
+  "Greedily consume non-connector characters in LINES in DIR to form a node label.
+Starts from ROW and COL.  SIDE is assigned to the created node with PARENT.
+VISITED marks the consumed cells."
+  (let* ((result (org-aiu-subnet-parser--consume-text lines row col dir visited point-row point-col 0 keep-empty))
+         (text (car result))
+         (leftmost-col (cadr result))
+         (curr-col (caddr result))
+         (offset (cdddr result))
+         (next-col (org-aiu-subnet-parser--consume-spaces lines row curr-col dir visited))
+         (node (when (or keep-empty (not (string= text "")))
+                 (org-aiu-subnet-parser-make-node
+                  :text text
+                  :parent parent
+                  :depth (if parent (1+ (org-aiu-subnet-parser-node-depth parent)) 0)
+                  :row row
+                  :col leftmost-col
+                  :width (abs (- curr-col col))
+                  :side side
+                  :point-offset offset))))
+    (when node
+      (org-aiu-subnet-parser--debug "Found node: '%s' at (%d, %d)" text row leftmost-col)
+      (when parent
+        (push node (org-aiu-subnet-parser-node-children parent))))
+    (cons node (cons row next-col))))
+
+(defun org-aiu-subnet-parser--go (lines row col dir parent visited side &optional point-row point-col)
+  "Recursive 2D walker following connectors and nodes in LINES.
+Starts from ROW and COL in DIR.  Assigns PARENT and SIDE.
+VISITED keeps track of visited locations."
+  (cond
+   ((org-aiu-subnet-parser--is-visited row col visited)
+    (org-aiu-subnet-parser--debug "Stumbled on visited cell at (%d, %d)" row col))
+   ((not (org-aiu-subnet-parser--grid-get lines row col))
+    (org-aiu-subnet-parser--debug "Reached boundaries at (%d, %d)" row col))
+   (t (when-let* ((col (org-aiu-subnet-parser--consume-spaces lines row col dir visited))
+                  (char (org-aiu-subnet-parser--grid-get lines row col))
+                  (possible-dirs (org-aiu-subnet-parser--dirs char)))
+        (org-aiu-subnet-parser--mark-visited row col visited)
+        (org-aiu-subnet-parser--debug "On char %c at (%d, %d), considering dirs: %s" char row col possible-dirs)
+        (dolist (possible-dir possible-dirs)
+          (unless (equal possible-dir (org-aiu-subnet-parser--invert-dir dir))
+            (let* ((prow (+ row (cdr possible-dir)))
+                   (pcol (+ col (car possible-dir)))
+                   (next-side (or side (if (< (car possible-dir) 0) 'left 'right))))
+              (cond
+               ((org-aiu-subnet-parser--snaps lines prow pcol possible-dir)
+                (org-aiu-subnet-parser--go lines prow pcol possible-dir parent visited next-side point-row point-col))
+               ((= (cdr possible-dir) 0)
+                (let* ((node-res (org-aiu-subnet-parser--consume-node lines prow pcol possible-dir parent visited next-side point-row point-col))
+                       (new-node (car node-res))
+                       (nxt (cdr node-res))
+                       (nxt-row (car nxt))
+                       (nxt-col (cdr nxt)))
+                  (if (org-aiu-subnet-parser--snaps lines nxt-row nxt-col possible-dir)
+                      (org-aiu-subnet-parser--go lines nxt-row nxt-col possible-dir (or new-node parent) visited next-side point-row point-col))))
+               (t
+                (let ((glued (org-aiu-subnet-parser--glue lines prow pcol possible-dir)))
+                  (when glued
+                    (org-aiu-subnet-parser--go lines (car glued) (cdr glued) possible-dir parent visited next-side point-row point-col))))))))))))
+
+(defun org-aiu-subnet-parser-get-region ()
+  "Detect #+begin_aiu-subnet and #+end_aiu-subnet boundaries around point."
+  (org-aiu-subnet-parser--debug "Searching current region...")
+  (save-excursion
+    (let ((orig (point))
+          start end)
+      (end-of-line)
+      (when (re-search-backward "^[ \t]*#\\+begin_aiu-subnet\\b" nil t)
+        (setq start (line-beginning-position))
+        (when (re-search-forward "^[ \t]*#\\+end_aiu-subnet\\b" nil t)
+          (setq end (line-end-position))
+          (when (and (<= start orig) (<= orig end))
+            (org-aiu-subnet-parser--debug "Found region %d - %d..." start end)
+            (cons start end)))))))
+
+(defun org-aiu-subnet-parser-region-active-p ()
+  "Check if cursor is inside an AIU Subnet region."
+  (when (org-aiu-subnet-parser-get-region) t))
+
+(defun org-aiu-subnet-parser--find-explicit-root (lines-strings lines visited &optional point-row point-col)
+  "Find an explicit root in LINES-STRINGS using visual vectors LINES.
+VISITED tracks consumed cells, POINT-ROW/POINT-COL handle cursor offset."
+  (cl-loop for (left . right) in org-aiu-subnet-parser-root-delimiters thereis
+           (cl-loop for row below (length lines-strings) thereis
+                    (let ((line (aref lines-strings row))
+                          (root-regexp (concat (regexp-quote left) "\\(.*?\\)" (regexp-quote right))))
+                      (when (string-match root-regexp line)
+                        (let* ((char-col-start (match-beginning 1))
+                               (col-start (string-width (substring line 0 char-col-start)))
+                               (result (org-aiu-subnet-parser--consume-node
+                                        lines row col-start org-aiu-subnet-parser-dir-right
+                                        nil visited nil point-row point-col t))
+                               (node (car result))
+                               (text (org-aiu-subnet-parser-node-text node)))
+                          ;; Fix width and start col to go beyond root delimiters
+                          ;; (they're connectors but they're not connected with others)
+                          (setf (org-aiu-subnet-parser-node-col node) (max 0 (- (org-aiu-subnet-parser-node-col node) 2))
+                                (org-aiu-subnet-parser-node-width node) (+ 3 (org-aiu-subnet-parser-node-width node))
+                                (org-aiu-subnet-parser-node-point-offset node) (when (org-aiu-subnet-parser-node-point-offset node)
+                                                                              (+ 2 (org-aiu-subnet-parser-node-point-offset node))))
+                          (org-aiu-subnet-parser--debug "Found explicit root node: %s at (%d, %d)" text row col-start)
+                          node))))))
+
+(defun org-aiu-subnet-parser--find-implicit-root (lines visited &optional point-row point-col)
+  "Find an implicit root in LINES, marking visited cells in VISITED.
+POINT-ROW and POINT-COL track the cursor position for node focus."
+  (let ((height (length lines))
+        (implicit-conn-root nil)
+        (implicit-text-root nil))
+    ;; TODO This function should first check ALL the canvas for the first (primary) pair,
+    ;; and only if no primary pairs found, to check the next pairs.
+    (org-aiu-subnet-parser--debug "Starting implicit root search")
+    (cl-loop for row from 0 to (1- height)
+             until (or implicit-conn-root implicit-text-root)
+             do
+             (let ((char (org-aiu-subnet-parser--grid-get lines row 0)))
+               (when (and char (not (org-aiu-subnet-parser--is-whitespace char)))
+                 (if (org-aiu-subnet-parser--is-connector char)
+                     (setq implicit-conn-root (list row 0))
+                   (setq implicit-text-root (list row 0))))))
+    (cond
+     (implicit-text-root
+      (let* ((r (car implicit-text-root))
+             (c (cadr implicit-text-root))
+             (node-res (org-aiu-subnet-parser--consume-node
+                        lines r c org-aiu-subnet-parser-dir-right nil visited nil point-row point-col))
+             (node (car node-res)))
+        node))
+     (implicit-conn-root
+      (let ((r (car implicit-conn-root))
+            (c (cadr implicit-conn-root)))
+        (org-aiu-subnet-parser-make-node
+         :id (gensym "node")
+         :text ""
+         :depth 0
+         :row r
+         :col c
+         :width 0
+         :side nil)))
+     (t nil))))
+
+(defun org-aiu-subnet-parser--sort-tree (node)
+  "Return the right order to the NODE children recursively."
+  (setf (org-aiu-subnet-parser-node-children node)
+        (cl-sort (org-aiu-subnet-parser-node-children node)
+                 #'< :key #'org-aiu-subnet-parser-node-row))
+  (dolist (child (org-aiu-subnet-parser-node-children node))
+    (org-aiu-subnet-parser--sort-tree child)))
+
+(defun org-aiu-subnet-parser--join-continuations (node lines dir side visited &optional point-row point-col)
+  "Join wrapped LINES below NODE to its text on the given SIDE.
+VISITED tracks consumed cells, POINT-ROW/POINT-COL handle cursor offset."
+  ;; For each child node:
+  (dolist (child-node (org-aiu-subnet-parser-node-children node))
+    ;; Process its children.
+    (when (eq (org-aiu-subnet-parser-node-side child-node) side)
+      (org-aiu-subnet-parser--join-continuations child-node lines dir side visited point-row point-col)))
+  ;; Pick up wrapped lines of the given node.
+  (let* ((side (org-aiu-subnet-parser-node-side node))
+         (text (org-aiu-subnet-parser-node-text node))
+         (row (org-aiu-subnet-parser-node-row node))
+         (col (org-aiu-subnet-parser-node-col node))
+         (start-col (if (eq side 'left) (+ col (string-width text) -1) col))
+         (i 1))
+    (org-aiu-subnet-parser--debug "Node '%s' (%d, %d): looking for continuations from (%d, %d)."
+                               text row col (+ row i) start-col)
+    (while (let* ((width (string-width (org-aiu-subnet-parser-node-text node)))
+                  (base-offset (1+ width))
+                  (result (org-aiu-subnet-parser--consume-text
+                           lines (+ row i) start-col dir visited point-row point-col base-offset))
+                  (text (car result))
+                  (leftmost-col (cadr result))
+                  (found-text (and text (not (string= text "")))))
+             (when found-text
+               (org-aiu-subnet-parser--debug "... '%s'" text)
+               (setf (org-aiu-subnet-parser-node-text node) (concat (org-aiu-subnet-parser-node-text node) " " text))
+               (when (eq side 'left)
+                 (setf (org-aiu-subnet-parser-node-col node) leftmost-col))
+               (cl-incf i)
+               (when-let* ((offset (cdddr result)))
+                 (setf (org-aiu-subnet-parser-node-point-offset node) offset)))
+             found-text))))
+
+(defun org-aiu-subnet-parser-parse-region (&optional start end)
+  "Parse AIU Subnet within START to END into a tree structure."
+  (org-aiu-subnet-parser-with-debug-batch
+    "Parse region"
+    (unless (and start end)
+      (let ((region (org-aiu-subnet-parser-get-region)))
+        (when region
+          (setq start (car region)
+                end (cdr region)))))
+    (when (and start end)
+      (org-aiu-subnet-parser--debug "--- Starting parse for region (%d, %d) ---" start end)
+      (let* ((cur-line (line-number-at-pos (point)))
+             (start-line (line-number-at-pos start))
+             (point-row (- cur-line start-line 1))
+             (point-col (current-column))
+             (lines-list nil))
+        (org-aiu-subnet-parser--debug "Point is at: (%d %d) relative to the map start." point-row point-col)
+        (save-excursion
+          (goto-char start)
+          (forward-line 1)
+          (while (and (< (point) end)
+                      (not (looking-at-p "^[ \t]*#\\+end_aiu-subnet")))
+            (push (buffer-substring-no-properties (line-beginning-position) (line-end-position)) lines-list)
+            (forward-line 1)))
+        (let* ((lines-strings (vconcat (nreverse lines-list)))
+               (lines (vconcat (mapcar #'org-aiu-subnet-parser--string-to-visual-vector lines-strings)))
+               (height (length lines))
+               (max-width (if (> height 0) (apply #'max (mapcar #'string-width lines-strings)) 0))
+               (visited (make-hash-table :test 'eq))
+               (explicit-root (org-aiu-subnet-parser--find-explicit-root lines-strings lines visited point-row point-col))
+               (root-node
+                (cond
+                 (explicit-root explicit-root)
+                 (t (org-aiu-subnet-parser--find-implicit-root lines visited point-row point-col)))))
+          (if root-node
+              (let* ((row (org-aiu-subnet-parser-node-row root-node))
+                     (col-start (org-aiu-subnet-parser-node-col root-node))
+                     (width (org-aiu-subnet-parser-node-width root-node))
+                     (col-end (+ col-start width)))
+                (when (< col-end max-width)
+                  ;; Go right
+                  (org-aiu-subnet-parser--debug "Going right")
+                  (org-aiu-subnet-parser--go lines row col-end org-aiu-subnet-parser-dir-right
+                                          root-node visited 'right point-row point-col)
+                  ;; Pick up wrapped lines of the nodes.
+                  (org-aiu-subnet-parser--sort-tree root-node)
+                  (org-aiu-subnet-parser--join-continuations root-node lines org-aiu-subnet-parser-dir-right
+                                                          'right visited point-row point-col))
+                (when (> col-start 0)
+                  ;; Go left
+                  (org-aiu-subnet-parser--debug "Going left")
+                  (org-aiu-subnet-parser--go lines row col-start org-aiu-subnet-parser-dir-left
+                                          root-node visited 'left point-row point-col)
+                  ;; Pick up wrapped lines of the nodes.
+                  (org-aiu-subnet-parser--sort-tree root-node)
+                  (org-aiu-subnet-parser--join-continuations root-node lines org-aiu-subnet-parser-dir-left
+                                                          'left visited point-row point-col))
+                (org-aiu-subnet-parser--debug "--- Finished parse. Root found. ---")
+                (list root-node))
+            (org-aiu-subnet-parser--debug "--- Finished parse. Root not found. ---")
+            nil))))))
+
+(provide 'org-aiu-subnet-parser)
+;;; org-aiu-subnet-parser.el ends here
+#+end_src
+
+** AIU Subnet engine: header and options
+#+begin_src emacs-lisp
+;;; org-aiu-subnet.el --- Editable AIU Subnet visualization in org-mode -*- lexical-binding: t -*-
+;; Version: 0.3
+;; Package-Requires: ((emacs "29.1") (org "9.1"))
+
+;;; Code:
+
+(require 'cl-lib)
+(require 'org)
+;; Vendored inline: the parser lives in the block above, already
+;; provided by the time this form runs. Soft-require so neither
+;; compile nor load can fail on a missing file.
+(require 'org-aiu-subnet-parser nil t)
+
+(defgroup org-aiu-subnet nil
+  "Editable AIU Subnet visualization within `org-mode'."
+  :group 'org)
+
+(defcustom org-aiu-subnet-default-spacing 1
+  "Characters between nodes."
+  :type 'integer
+  :group 'org-aiu-subnet)
+
+(defcustom org-aiu-subnet-default-layout 'centered
+  "Default layout mode."
+  :type '(choice (const top) (const centered))
+  :group 'org-aiu-subnet)
+
+(defcustom org-aiu-subnet-default-compacted nil
+  "Default compaction mode for new aiu-subnet blocks.
+When non-nil, child nodes fill vacant vertical spaces to produce
+a denser layout.  When nil, children are stacked sequentially."
+  :type 'boolean
+  :group 'org-aiu-subnet)
+
+(defcustom org-aiu-subnet-default-max-width 'auto
+  "Default maximal width for node text soft wrapping.
+If nil, no wrapping is applied.
+If a non-negative integer, constant max width is used (0 means
+a newline after each word).
+If \\='auto, calculate max-width based on tree depth and the
+current window width."
+  :type '(choice integer (const auto))
+  :group 'org-aiu-subnet)
+
+(defcustom org-aiu-subnet-min-width 2
+  "Minimal width for joining short lines.
+Lines of this length or shorter are joined with the previous
+line.  For example, with a value of 2 or more, \"an apple\"
+is kept as one line rather than being split into \"an\" and
+\"apple\"."
+  :type 'integer
+  :group 'org-aiu-subnet)
+
+(defcustom org-aiu-subnet-default-wrap-leaves 3
+  "Default wrapping behavior for leaf nodes.
+If nil, leaf nodes are never wrapped.
+If t, leaf nodes are wrapped like any other node.
+If a positive number (int or float), leaf node max width is
+multiplied by this factor: values above 1.0 allow wider leaves,
+values below 1.0 make them narrower.
+For example, with :max-width 10 and :wrap-leaves 1.5, leaf nodes
+have a soft max width of 15."
+  :type '(choice boolean float)
+  :group 'org-aiu-subnet)
+
+(defcustom org-aiu-subnet-protect-connectors nil
+  "Make connectors read-only."
+  :type 'boolean
+  :group 'org-aiu-subnet)
+
+(defcustom org-aiu-subnet-confirm-delete t
+  "Require confirmation for deletions if node has children."
+  :type 'boolean
+  :group 'org-aiu-subnet)
+
+(defface org-aiu-subnet-face-connectors
+  '((t :inherit fixed-pitch))
+  "Face for connector characters."
+  :group 'org-aiu-subnet)
+
+(defface org-aiu-subnet-face-text
+  '((t :inherit fixed-pitch))
+  "Face for node text."
+  :group 'org-aiu-subnet)
+
+;; ...subtree painting
+
+(defcustom org-aiu-subnet-default-paint-depth 0
+  "Default depth from which to paint subtrees."
+  :type 'integer
+  :group 'org-aiu-subnet)
+
+(defun org-aiu-subnet-color-palette-rgb ()
+  "A simple hardcoded palette: red, green and blue."
+  '("red" "green" "blue"))
+
+(defun org-aiu-subnet-color-palette-from-font-lock ()
+  "Gather foreground colors from the usual entities painted by font lock.
+In every decent theme they probably are discernable, colorful and in accordance
+with the other theme colors."
+  (mapcar
+   #'face-foreground
+   '(font-lock-keyword-face
+     font-lock-function-name-face
+     font-lock-string-face
+     font-lock-type-face
+     font-lock-constant-face
+     font-lock-builtin-face
+     font-lock-warning-face
+     font-lock-variable-name-face
+     font-lock-number-face)))
+
+(defun org-aiu-subnet-color-palette-from-rainbow-delimiters ()
+  "Gather foreground colors from `rainbow-delimiters' package, if instelled."
+  (if (featurep 'rainbow-delimiters)
+      (mapcar
+       #'face-foreground
+       '(rainbow-delimiters-depth-1-face
+         rainbow-delimiters-depth-2-face
+         rainbow-delimiters-depth-3-face
+         rainbow-delimiters-depth-4-face
+         rainbow-delimiters-depth-5-face
+         rainbow-delimiters-depth-6-face
+         rainbow-delimiters-depth-7-face
+         rainbow-delimiters-depth-8-face
+         rainbow-delimiters-depth-9-face))
+    (error "`rainbow-delimiters' not found!")))
+
+(defcustom org-aiu-subnet-color-palette-fn 'org-aiu-subnet-color-palette-from-font-lock
+  "Function returning a list of color strings for painting subtrees.
+Predefined options:
+- \\='org-aiu-subnet-color-palette-from-font-lock: sample colors
+  from font-lock faces in the current theme (functions, variables,
+  errors, etc.), giving a good-looking result in most themes.
+- \\='org-aiu-subnet-color-palette-from-rainbow-delimiters: sample
+  colors from rainbow-delimiters, if installed.
+- \\='org-aiu-subnet-color-palette-rgb: just red, green, and blue
+  (may look ugly in some themes).
+Any function returning a list of strings is accepted: either color
+names like \"black\" or \"grey12\", or RGB codes like \"#ff0000\"."
+  :type 'function
+  :group 'org-aiu-subnet)
+
+;; Set a dummy value so that benchmarks that test individual functions
+;; won't crash.
+(defvar org-aiu-subnet-color-palette (org-aiu-subnet-color-palette-rgb)
+  "List of colors to paint subtrees in.")
+
+(defcustom org-aiu-subnet-paint-tinge-fg 0.8
+  "Ratio of colorization for face foreground color."
+  :type 'float
+  :group 'org-aiu-subnet)
+
+(defcustom org-aiu-subnet-paint-tinge-bg 0.2
+  "Ratio of colorization for face background color."
+  :type 'float
+  :group 'org-aiu-subnet)
+
+(defun org-aiu-subnet--color-blend (a b &optional alpha)
+  "Blend the two colors A and B in linear space with ALPHA.
+A and B should be lists (RED GREEN BLUE), where each element is
+between 0.0 and 1.0, inclusive.  ALPHA controls the influence A
+has on the result and should be between 0.0 and 1.0, inclusive.
+
+For instance:
+
+   (org-aiu-subnet--color-blend \\='(1 0.5 1) \\='(0 0 0) 0.75)
+      => (0.75 0.375 0.75)
+
+(A backport of the function from emacs v31.)"
+  (setq alpha (or alpha 0.5))
+  (if (and a b)
+      (let (blend)
+        (dotimes (i 3)
+          (push (+ (* (nth i a) alpha) (* (nth i b) (- 1 alpha))) blend))
+        (nreverse blend))
+    (or a b)))
+
+(defun org-aiu-subnet--color-rgb-to-hex  (red green blue &optional digits-per-component)
+  "Return hexadecimal #RGB notation for the color specified by RED GREEN BLUE.
+RED, GREEN, and BLUE should be numbers between 0.0 and 1.0, inclusive.
+Optional argument DIGITS-PER-COMPONENT can be either 4 (the default)
+or 2; use the latter if you need a 24-bit specification of a color.
+
+(A backport of the function from emacs v31.)"
+  (or digits-per-component (setq digits-per-component 4))
+  (let* ((maxval (if (= digits-per-component 2) 255 65535))
+         (fmt (if (= digits-per-component 2) "#%02x%02x%02x" "#%04x%04x%04x")))
+    (format fmt (* red maxval) (* green maxval) (* blue maxval))))
+
+(defun org-aiu-subnet--tinge-fg (face color)
+  "Tinge FACE's background color with COLOR."
+  (apply #'org-aiu-subnet--color-rgb-to-hex
+         (org-aiu-subnet--color-blend
+          (color-name-to-rgb (or color (face-foreground 'default)))
+          (color-name-to-rgb (face-foreground face nil 'default))
+          org-aiu-subnet-paint-tinge-fg)))
+
+(defun org-aiu-subnet--tinge-bg (face color)
+  "Tinge FACE's background color with COLOR."
+  (apply #'org-aiu-subnet--color-rgb-to-hex
+         (org-aiu-subnet--color-blend
+          (color-name-to-rgb (or color (face-background 'default) ))
+          (color-name-to-rgb (face-background face nil 'default))
+          org-aiu-subnet-paint-tinge-bg)))
+
+(defun org-aiu-subnet-assign-color-by-num (_node num)
+  "Assign a color to a NODE in the tree by its NUM in the tree."
+  (nth (mod num (length org-aiu-subnet-color-palette))
+       org-aiu-subnet-color-palette))
+
+(defun org-aiu-subnet-assign-color-by-text (node _num)
+  "Assign a color to a NODE by its text, regardless its NUM in the tree."
+  (let ((i (string-to-number (substring (secure-hash 'md5 (org-aiu-subnet-parser-node-text node)) 0 8) 16)))
+    (nth (mod i (length org-aiu-subnet-color-palette))
+         org-aiu-subnet-color-palette)))
+
+(defcustom org-aiu-subnet-color-assign-fn 'org-aiu-subnet-assign-color-by-text
+  "Function returning a color string for a node by properties and index.
+Predefined options:
+- \\='org-aiu-subnet-assign-color-by-num: assigns color based on the
+  node\\='s position in the tree; moving the node changes its color.
+- \\='org-aiu-subnet-assign-color-by-text: assigns color based on the
+  node\\='s text content; the color stays constant when the node
+  is moved.
+Note that neither option can make colors truly stick to nodes,
+since no persistent metadata is stored."
+  :type 'function
+  :group 'org-aiu-subnet)
+
+;; helper fns
+
+(defun org-aiu-subnet--propertize-connector (str &optional color)
+  "Apply face and optional COLOR to connector STR.
+Ensures properties are not sticky to allow editing text at the boundary."
+  (let* ((face (if color
+                   (list (list :foreground (org-aiu-subnet--tinge-fg 'org-aiu-subnet-face-connectors color))
+                         'org-aiu-subnet-face-connectors)
+                 'org-aiu-subnet-face-connectors))
+         (props (list 'face face
+                      'font-lock-face face
+                      'rear-nonsticky '(read-only face font-lock-face)
+                      'front-sticky '(read-only face font-lock-face)
+                      'line-height t)))
+    (when org-aiu-subnet-protect-connectors
+      (setq props (plist-put props 'read-only t)))
+    (apply #'propertize str props)))
+
+(defun org-aiu-subnet--propertize-text (str &optional color)
+  "Apply text face and optional COLOR to STR."
+  (let ((face (if color
+                  (list (list :background (org-aiu-subnet--tinge-bg 'org-aiu-subnet-face-text color))
+                        'org-aiu-subnet-face-text)
+                'org-aiu-subnet-face-text)))
+    (propertize str
+                'face face
+                'font-lock-face face
+                'line-height t)))
+
+(defun org-aiu-subnet--string-pad-width (string length &optional padding start)
+  "Pad STRING to visual column LENGTH using PADDING (character).
+If START is non-nil, pad at the beginning; otherwise at the end."
+  (let* ((w (string-width string))
+         (diff (- length w))
+         (pad-char (if padding (char-to-string padding) " ")))
+    (if (<= diff 0)
+        string
+      (let ((pad-str (cl-loop repeat diff concat pad-char)))
+        (if start
+            (concat pad-str string)
+          (concat string pad-str))))))
+
+;;
+;; Rendering and Layout Engine
+;;
+
+(defun org-aiu-subnet--move-to (row col)
+  "Navigate to ROW and COL within current buffer, padding spaces if needed."
+  (goto-char (point-max))
+  (let ((max-line (1- (line-number-at-pos))))
+    (when (< max-line row)
+      (insert (make-string (- row max-line) ?\n))))
+  (goto-char (point-min))
+  (forward-line row)
+  (move-to-column col)
+  (when (< (current-column) col)
+    ;; TODO Here we have a surprising side effect, it should probably
+    ;; be placed somewhere closer to rendering.
+    (insert (org-aiu-subnet--propertize-connector (make-string (- col (current-column)) ?\s)))
+    (move-to-column col)))
+
+;; Text rendering
+(defun org-aiu-subnet--node-display-text (node)
+  "Return the actual string to be displayed for NODE, including delimiters if root."
+  (let ((raw-text (org-aiu-subnet-parser-node-text node)))
+    (if (null (org-aiu-subnet-parser-node-parent node))
+        (let ((pair (car org-aiu-subnet-parser-root-delimiters)))
+          (if (string= raw-text "")
+              (concat (car pair) (cdr pair))
+            (concat (car pair) " " raw-text " " (cdr pair))))
+      raw-text)))
+
+(defun org-aiu-subnet--add-root-delimiters (text &optional pair)
+  "Add root delimiters from PAIR to the line of TEXT."
+  (let ((left (if pair (car pair) " "))
+        (right (if pair (cdr pair) " ")))
+    (if (string= text "")
+        (concat (car pair) (cdr pair))
+      (concat left " " text " " right))))
+
+(defun org-aiu-subnet--join-short-lines (lines)
+  "Join short LINES with previous lines to avoid orphaned words."
+  (let ((acc (list (car lines)))
+        (width (string-width (car lines))))
+    (dolist (line (cdr lines))
+      (cond
+       ;; If a new line is very short, join it to the current one.
+       ((<= (string-width (car acc)) org-aiu-subnet-min-width)
+        (setf (car acc) (string-join (list (car acc) line) " "))
+        (setf width (max width (string-width (car acc)))))
+       ;; If we can fit the next line into the box already reserved, do that.
+       ((< (+ (string-width (car acc)) (string-width line)) width)
+        (setf (car acc) (string-join (list (car acc) line) " ")))
+       ;; Otherwise, keep the line.
+       (t (push line acc))))
+    (nreverse acc)))
+
+(defun org-aiu-subnet--node-display-lines (node props)
+  "Return display lines for NODE respecting :max-width and :wrap-leaves PROPS."
+  (let* ((text (org-aiu-subnet-parser-node-text node))
+         (side (org-aiu-subnet-parser-node-side node))
+         (is-leaf (not (org-aiu-subnet-parser-node-children node)))
+         (wrap-leaves (plist-get props :wrap-leaves))
+         (leaves-mult (if (numberp wrap-leaves) wrap-leaves 1))
+         (max-width (plist-get props :max-width))
+         (target-width (and max-width (floor (* (if is-leaf leaves-mult 1) max-width))))
+         (lines (if (and max-width
+                         (or wrap-leaves (not is-leaf))
+                         (> (string-width text) target-width))
+                    (string-split (string-fill text target-width) "\n")
+                  (list text)))
+         (lines-wo-short-words (org-aiu-subnet--join-short-lines lines))
+         (node-box-width (apply #'max (mapcar #'string-width lines-wo-short-words)))
+         (padded-lines (mapcar #'(lambda (l) (org-aiu-subnet--string-pad-width l node-box-width nil (eq side 'left))) lines-wo-short-words)))
+    ;; IDEA Put lines both below and above the connector row.
+    (if (null (org-aiu-subnet-parser-node-parent node))
+        ;; ... append delimiters to the first line of the root node
+        (append (list (org-aiu-subnet--add-root-delimiters (car padded-lines) (car org-aiu-subnet-parser-root-delimiters)))
+                (mapcar #'org-aiu-subnet--add-root-delimiters (cdr padded-lines)))
+      ;; ... or just return the lines
+      padded-lines)))
+
+(defun org-aiu-subnet--node-box (node props)
+  "Calculate NODE width, respecting node text wrapping specified by PROPS.
+Return (width height . lines) cons cell."
+  (if-let* ((node-cache (plist-get props :node-cache))
+            (box (gethash node node-cache)))
+      box
+    (let* ((lines (org-aiu-subnet--node-display-lines node props))
+           (width (string-width (car lines)))
+           (height (length lines))
+           (box (cons width (cons height lines))))
+      (puthash node box node-cache)
+      box)))
+
+(defvar org-aiu-subnet--side-children-cache nil
+  "Dynamic cache for side children of nodes during layout.")
+
+(defvar org-aiu-subnet--side-descendants-cache nil
+  "Dynamic cache for side descendants during layout.")
+
+(defun org-aiu-subnet--side-is (node side)
+  "Check if NODE is on the given SIDE of the tree."
+  (eq (org-aiu-subnet-parser-node-side node) side))
+
+(defun org-aiu-subnet--side-children (node side)
+  "Return NODE children from the tree SIDE."
+  (if-let* ((cache org-aiu-subnet--side-children-cache)
+            (node-cache (gethash node cache))
+            (cached (gethash side node-cache)))
+      cached
+    (let ((children (cl-remove-if-not (lambda (c) (org-aiu-subnet--side-is c side))
+                                      (org-aiu-subnet-parser-node-children node))))
+      (when org-aiu-subnet--side-children-cache
+        (let ((node-cache (or (gethash node org-aiu-subnet--side-children-cache)
+                              (puthash node (make-hash-table :test 'eq) org-aiu-subnet--side-children-cache))))
+          (puthash side children node-cache)))
+      children)))
+
+(defun org-aiu-subnet--descendants (node)
+  "Return all descendants of NODE from both sides of the tree."
+  (cl-loop for child in (org-aiu-subnet-parser-node-children node)
+           append (cons child (org-aiu-subnet--descendants child))))
+
+(defun org-aiu-subnet--subtree (node)
+  "Return NODE and all its descendants from both sides of the tree."
+  (cons node (org-aiu-subnet--descendants node)))
+
+(defun org-aiu-subnet--side-descendants (node side)
+  "Return NODE descendants (children, grandchildren etc) from the given tree SIDE."
+  (if-let* ((cache org-aiu-subnet--side-descendants-cache)
+            (node-cache (gethash node cache))
+            (cached (gethash side node-cache)))
+      cached
+    (let ((descendants (cl-loop for child in (org-aiu-subnet--side-children node side)
+                               append (cons child (org-aiu-subnet--side-descendants child side)))))
+      (when org-aiu-subnet--side-descendants-cache
+        (let ((node-cache (or (gethash node org-aiu-subnet--side-descendants-cache)
+                              (puthash node (make-hash-table :test 'eq) org-aiu-subnet--side-descendants-cache))))
+          (puthash side descendants node-cache)))
+      descendants)))
+
+;; Occupancy helpers
+(defun org-aiu-subnet--node-occupancy (node props)
+  "Return occupancy as (start-col end-col) for NODE respecting PROPS."
+  (let* ((side (org-aiu-subnet-parser-node-side node))
+         (row (org-aiu-subnet-parser-node-row node))
+         (col (org-aiu-subnet-parser-node-col node))
+         (spacing (plist-get props :spacing))
+         (box (org-aiu-subnet--node-box node props))
+         (len (car box))
+         (num-lines (cadr box))
+         (parent (org-aiu-subnet-parser-node-parent node))
+         (parent-col (when parent (org-aiu-subnet-parser-node-col parent)))
+         (parent-len (when parent (car (org-aiu-subnet--node-box parent props))))
+         (start-col (if (eq side 'left) (- col spacing) (if parent (+ parent-col parent-len 1) col)))
+         (end-col (if (eq side 'left) (if parent parent-col (+ col len)) (+ col len spacing))))
+    (cl-loop for i below num-lines collect (list (+ row i) start-col end-col))))
+
+;; Tree compaction helpers
+(defun org-aiu-subnet--check-overlap-subtree (rel-occ base-row delta occupied-map)
+  "Check if shifting REL-OCC by BASE-ROW + DELTA overlaps OCCUPIED-MAP."
+  (cl-loop for (rel-row start-col end-col) in rel-occ
+           thereis
+           (let ((r (+ rel-row base-row delta)))
+             (cl-loop for (occ-start . occ-end) in (gethash r occupied-map)
+                      thereis (not (or (<= end-col occ-start) (>= start-col occ-end)))))))
+
+
+(defvar org-aiu-subnet--subtree-occ-cache nil
+  "Dynamic cache for subtree occupancy lists.")
+
+(defun org-aiu-subnet--get-subtree-occupancy (node props)
+  "Return relative occupancy list for NODE subtree based on PROPS."
+  (if-let* ((cache org-aiu-subnet--subtree-occ-cache)
+            (cached (gethash node cache)))
+      cached
+    (let* ((own-row (org-aiu-subnet-parser-node-row node))
+           (len (car (org-aiu-subnet--node-box node props)))
+           (col (org-aiu-subnet-parser-node-col node))
+           ;; Own node occupancy (relative)
+           (node-occ (cl-loop for item in (org-aiu-subnet--node-occupancy node props)
+                              collect (cons (- (car item) own-row) (cdr item))))
+           (sub-occs node-occ))
+      ;; Add vertical connectors and children subtrees
+      (dolist (side (list 'left 'right))
+        (when-let* ((children (org-aiu-subnet--side-children node side))
+                    (conn-c (if (= len 0) col (if (eq side 'left) (- col 2) (+ col len 1))))
+                    (first-r (org-aiu-subnet-parser-node-row (car children)))
+                    (last-r (org-aiu-subnet-parser-node-row (car (last children)))))
+          ;; Add vertical connector
+          (setq sub-occs
+                (append
+                 (cl-loop for r from first-r to last-r
+                          collect (list (- r own-row) conn-c (1+ conn-c)))
+                 sub-occs))
+          ;; Add children relative occupancies
+          (dolist (child children)
+            (let* ((child-occ (org-aiu-subnet--get-subtree-occupancy child props))
+                   (child-row (org-aiu-subnet-parser-node-row child))
+                   (row-offset (- child-row own-row)))
+              (setq sub-occs
+                    (append
+                     (cl-loop for item in child-occ
+                              collect (cons (+ (car item) row-offset) (cdr item)))
+                     sub-occs))))))
+      (when org-aiu-subnet--subtree-occ-cache
+        (puthash node sub-occs org-aiu-subnet--subtree-occ-cache))
+      sub-occs)))
+
+(defun org-aiu-subnet--shift-subtree-rows (node delta)
+  "Shift rows of NODE and all its descendants by DELTA."
+  (cl-incf (org-aiu-subnet-parser-node-row node) delta)
+  (dolist (child (org-aiu-subnet-parser-node-children node))
+    (org-aiu-subnet--shift-subtree-rows child delta)))
+
+(defun org-aiu-subnet--max-row-subtree (node props)
+  "Find the maximum row of NODE and its descendants, using PROPS."
+  (let ((max-r (+ (org-aiu-subnet-parser-node-row node) (1- (cadr (org-aiu-subnet--node-box node props))))))
+    (dolist (child (org-aiu-subnet-parser-node-children node))
+      (setq max-r (max max-r (org-aiu-subnet--max-row-subtree child props))))
+    max-r))
+
+(defun org-aiu-subnet--update-occupied-map (occupied-map node props)
+  "Update OCCUPIED-MAP with NODE subtree locations using PROPS."
+  (let* ((row (org-aiu-subnet-parser-node-row node))
+         (subtree-rel-occ (org-aiu-subnet--get-subtree-occupancy node props)))
+    (dolist (occ subtree-rel-occ)
+      (let ((r (+ (car occ) row)))
+        (push (cons (cadr occ) (caddr occ)) (gethash r occupied-map))))))
+
+(defun org-aiu-subnet--shift-subtree (node prev-node occupied-map props)
+  "Shift NODE subtree downwards and update OCCUPIED-MAP.
+Requires PREV-NODE (may be nil) and map PROPS."
+  (let* ((compacted (plist-get props :compacted))
+         (delta
+          ;; Compute vertical shift:
+          (if compacted
+              ;; ... if compacting, shift the tree upwards if there's vacant space
+              (let* ((row (org-aiu-subnet-parser-node-row node))
+                     ;; this prevents nodes from reordering
+                     (delta (if prev-node
+                                (+ (org-aiu-subnet-parser-node-row prev-node)
+                                   (cadr (org-aiu-subnet--node-box prev-node props))
+                                   (- row))
+                              0))
+                     ;; Get the relative occupancy, then shift it by delta
+                     (subtree-rel-occ (org-aiu-subnet--get-subtree-occupancy node props)))
+                (while (org-aiu-subnet--check-overlap-subtree subtree-rel-occ row delta occupied-map)
+                  (cl-incf delta))
+                delta)
+            ;; ... otherwise just take the next unoccupied row
+            (let ((d 0))
+              (when prev-node
+                (setq d (1+ (org-aiu-subnet--max-row-subtree prev-node props))))
+              d))))
+    ;; Shift each child node downwards in the subtree.
+    (when (> delta 0)
+      (org-aiu-subnet--shift-subtree-rows node delta))
+    ;; Mark the tree location in the occupied map.
+    (org-aiu-subnet--update-occupied-map occupied-map node props)))
+
+;; Subtree builder
+(defun org-aiu-subnet--min-row (nodes)
+  "Find minimal row number among NODES if any, otherwise return 0."
+  (if nodes
+      (cl-loop for n in nodes minimize (org-aiu-subnet-parser-node-row n))
+    0))
+
+(defun org-aiu-subnet--max-row (nodes props)
+  "Find maximal row number among NODES using PROPS, or 0 if none."
+  ;; (if nodes (apply #'max (mapcar #'org-aiu-subnet-parser-node-row nodes)) 0)
+  (if nodes
+      (cl-loop for node in nodes maximize
+               (+ (org-aiu-subnet-parser-node-row node) (1- (cadr (org-aiu-subnet--node-box node props)))))
+    0))
+
+(defun org-aiu-subnet--center-subtree (node props)
+  "Vertically center NODE's tree, using PROPS for box sizes."
+  (let* ((left-descendants (org-aiu-subnet--side-descendants node 'left))
+         (l-min (org-aiu-subnet--min-row left-descendants))
+         (l-max (org-aiu-subnet--max-row left-descendants props))
+         (l-middle (/ (+ l-min l-max) 2))
+         (right-descendants (org-aiu-subnet--side-descendants node 'right))
+         (r-min (org-aiu-subnet--min-row right-descendants))
+         (r-max (org-aiu-subnet--max-row right-descendants props))
+         (r-middle (/ (+ r-min r-max) 2))
+         (root-row (max l-middle r-middle))
+         (l-shift (- root-row l-middle))
+         (r-shift (- root-row r-middle)))
+    (dolist (n left-descendants) (cl-incf (org-aiu-subnet-parser-node-row n) l-shift))
+    (dolist (n right-descendants) (cl-incf (org-aiu-subnet-parser-node-row n) r-shift))
+    root-row))
+
+(defun org-aiu-subnet-build-subtree (node col props)
+  "Recursively calculate rows and cols for NODE and its children.
+Requires starting COL and map PROPS."
+  ;; Set the node column.
+  (setf (org-aiu-subnet-parser-node-col node) col)
+  (let* ((text-len (car (org-aiu-subnet--node-box node props)))
+         (occupied-map (make-hash-table :test 'eq))
+         (layout (plist-get props :layout)))
+    ;; For each side of the tree:
+    ;; (only root node may have two sides, so most of the time there will be only one side)
+    (dolist (side (list 'left 'right))
+      (let ((children (org-aiu-subnet--side-children node side))
+            (prev-child nil))
+        ;; For each child node:
+        (dolist (child children)
+          (let* ((child-len (car (org-aiu-subnet--node-box child props)))
+                 (child-col (if (eq side 'left) (- col 4 child-len) (+ col text-len 4))))
+            ;; ... position child subtree nodes starting from row 0
+            (org-aiu-subnet-build-subtree child child-col props))
+          ;; ... shift the subtree below the previous children subtrees.
+          (org-aiu-subnet--shift-subtree child prev-child occupied-map props)
+          (setq prev-child child))))
+    ;; Set the node row:
+    (setf (org-aiu-subnet-parser-node-row node)
+          (cond ((not (org-aiu-subnet-parser-node-children node)) 0)
+                ;; ...for centered layout, recenter the whole tree (!!! It has side effects)
+                ((eq layout 'centered) (org-aiu-subnet--center-subtree node props))
+                ;; ...for top layout, take the top children rows
+                (t (org-aiu-subnet--min-row (org-aiu-subnet--descendants node)))))))
+
+(defun org-aiu-subnet--min-column (nodes)
+  "Find minimal column number among NODES if any, otherwise return 0."
+  (if nodes
+      (cl-loop for n in nodes minimize
+               (let* ((col (org-aiu-subnet-parser-node-col n))
+                      (has-left-children (cl-some (lambda (c) (eq (org-aiu-subnet-parser-node-side c) 'left))
+                                                  (org-aiu-subnet-parser-node-children n))))
+                 (if has-left-children (- col 2) col)))
+    0))
+
+(defun org-aiu-subnet-build-tree-layout (roots props)
+  "Assign row and col to all nodes in ROOTS using map PROPS."
+  (let ((occupied-map (make-hash-table :test 'eq))
+        (org-aiu-subnet--subtree-occ-cache (make-hash-table :test 'eq))
+        (org-aiu-subnet--side-children-cache (make-hash-table :test 'eq))
+        (org-aiu-subnet--side-descendants-cache (make-hash-table :test 'eq))
+        (prev-root nil))
+    ;; TODO Multiple roots are rudimentary, we should remove them and simplify the logic.
+    (dolist (root roots)
+      (org-aiu-subnet-build-subtree root 3 props)
+      (org-aiu-subnet--shift-subtree root prev-root occupied-map props)
+      (setq prev-root root))
+    ;; Put the map to the upper-left corner if it somehow drifted away.
+    (let* ((all-nodes (cl-loop for root in roots append (org-aiu-subnet--subtree root)))
+           (min-r (org-aiu-subnet--min-row all-nodes))
+           (min-c (org-aiu-subnet--min-column all-nodes)))
+      (dolist (n all-nodes)
+        (cl-decf (org-aiu-subnet-parser-node-row n) min-r)
+        (cl-decf (org-aiu-subnet-parser-node-col n) min-c))
+      all-nodes)))
+
+(defun org-aiu-subnet--connector-symbol (has-above has-below has-left has-right)
+  "Determine correct box-drawing character based on connection directions.
+HAS-ABOVE, HAS-BELOW, HAS-LEFT, HAS-RIGHT are booleans."
+  (let ((pack (car org-aiu-subnet-parser-connectors)))
+    (cond
+     ((and has-above has-below has-left has-right) (char-to-string (nth 6 pack))) ; ┼
+     ((and has-above has-below has-left (not has-right)) (char-to-string (nth 5 pack))) ; ┤
+     ((and has-above has-below (not has-left) has-right) (char-to-string (nth 4 pack))) ; ├
+     ((and has-above has-below (not has-left) (not has-right)) (char-to-string (nth 1 pack))) ; │
+     ((and has-above (not has-below) has-left has-right) (char-to-string (nth 3 pack))) ; ┴
+     ((and has-above (not has-below) has-left (not has-right)) (char-to-string (nth 10 pack))) ; ╯
+     ((and has-above (not has-below) (not has-left) has-right) (char-to-string (nth 9 pack))) ; ╰
+     ((and (not has-above) has-below has-left has-right) (char-to-string (nth 2 pack))) ; ┬
+     ((and (not has-above) has-below has-left (not has-right)) (char-to-string (nth 8 pack))) ; ╮
+     ((and (not has-above) has-below (not has-left) has-right) (char-to-string (nth 7 pack))) ; ╭
+     ((and (not has-above) (not has-below) has-left has-right) (char-to-string (nth 0 pack))) ; ─
+     (t (char-to-string (nth 1 pack))))))
+
+(defun org-aiu-subnet-draw-subtree (node props &optional color)
+  "Write NODE text and connectors to buffer, using PROPS and optional COLOR."
+  (let* ((node-row (org-aiu-subnet-parser-node-row node))
+         (node-col (org-aiu-subnet-parser-node-col node))
+         (box (org-aiu-subnet--node-box node props))
+         (node-len (car box))
+         (node-lines (cddr box)))
+    ;; Insert the node text.
+    (cl-loop for i below (length node-lines) do
+             (org-aiu-subnet--move-to (+ node-row i) node-col)
+             (let ((start (point)))
+               (move-to-column (+ node-col node-len))
+               (delete-region start (point)))
+             (insert (org-aiu-subnet--propertize-text (nth i node-lines) color)))
+    ;; Draw children:
+    (dolist (side (list 'left 'right))
+      (when-let* ((children (org-aiu-subnet--side-children node side))
+                  (child-rows (mapcar #'org-aiu-subnet-parser-node-row children))
+                  (min-row (min (apply #'min child-rows) node-row))
+                  (max-row (max (apply #'max child-rows) node-row))
+                  ;; TODO replace 2 with `spacing' var.
+                  (conn-col (if (eq side 'left) (- node-col 2) (+ node-col node-len 1))))
+        ;; Iterate over rows between the first and the last child (a row may or may not contain a child).
+        (cl-loop for row from min-row to max-row do
+                 (org-aiu-subnet--move-to row conn-col)
+                 (let* ((has-above (> row min-row))
+                        (has-below (< row max-row))
+                        (has-left (if (eq side 'left) (memq row child-rows) (= row node-row)))
+                        (has-right (if (eq side 'left) (= row node-row) (memq row child-rows)))
+                        (sym (org-aiu-subnet--connector-symbol has-above has-below has-left has-right))
+                        (conn-str (if (eq side 'left) (concat "─" sym) (concat sym "─"))))
+                   (cond ((and (eq side 'left) has-left)
+                          (org-aiu-subnet--move-to row (1- conn-col))
+                          (let ((start (point)))
+                            (move-to-column (+ (1- conn-col) 2))
+                            (delete-region start (point)))
+                          (insert (org-aiu-subnet--propertize-connector conn-str color)))
+                         ((and (eq side 'right) has-right)
+                          (org-aiu-subnet--move-to row conn-col)
+                          (let ((start (point)))
+                            (move-to-column (+ conn-col 2))
+                            (delete-region start (point)))
+                          (insert (org-aiu-subnet--propertize-connector conn-str color)))
+                         (t
+                          (org-aiu-subnet--move-to row conn-col)
+                          (let ((start (point)))
+                            (move-to-column (+ conn-col 1))
+                            (delete-region start (point)))
+                          (insert (org-aiu-subnet--propertize-connector sym color)))))
+                 ;; Fontify empty space to the right so that connector face background,
+                 ;; if set non-standard, is applied to the whole map rectangle.
+                 ;; TODO this works subpar with line wrapping, which is on in org buffers
+                 ;; most of the time.
+                 ;; (org-aiu-subnet--move-to row (- (window-width) 2))
+                 )
+        (let ((depth (or (org-aiu-subnet-parser-node-depth node) 0))
+              (paint-depth (plist-get props :paint-depth)))
+          (cl-loop for child in children
+                   and i below (length children)
+                   do (let ((child-color (if (and paint-depth (= depth paint-depth))
+                                             (funcall org-aiu-subnet-color-assign-fn child i)
+                                           color)))
+                        (org-aiu-subnet-draw-subtree child props child-color))))))))
+
+(defun org-aiu-subnet-render-tree (roots &optional props)
+  "Render ROOTS with given :layout and :spacing from PROPS.
+When :compacted is non-nil, nodes fill vacant vertical spaces."
+  (if (null roots)
+      ""
+    (org-aiu-subnet-build-tree-layout roots props)
+    (with-temp-buffer
+      (setq indent-tabs-mode nil)
+      (let ((inhibit-read-only t)
+            (org-aiu-subnet-color-palette (funcall org-aiu-subnet-color-palette-fn)))
+        (cl-loop for root in roots
+                 do (org-aiu-subnet-draw-subtree root props nil)))
+      (buffer-string))))
+
+;;
+;; Alignment, Properties, and Regeneration
+;;
+
+(defun org-aiu-subnet-parse-properties (start &optional props-string roots)
+  "Extract property list from block header at START or PROPS-STRING.
+ROOTS are used for default value calculation.
+Handles legacy :layout left/compact/centered migration."
+  (when (not props-string)
+    (save-excursion
+      (goto-char start)
+      (when (re-search-forward "^[ \t]*#\\+begin_aiu-subnet\\(.*\\)$" (line-end-position) t)
+        (setq props-string (match-string 1)))))
+  (when props-string
+    (let ((props nil))
+      ;; Parse AIU Subnet block properties:
+      (while (string-match "\\(:[a-zA-Z-]+\\)[ \t]+\\([^ \t\n]+\\)" props-string)
+        (let ((key (intern (match-string 1 props-string)))
+              (val (match-string 2 props-string)))
+          (cond
+           ((eq key :layout)
+            (cond
+             ;; legacy layouts:
+             ;; ... "left" means top and sparse
+             ((string= val "left")
+              (setq props (plist-put props :layout "top"))
+              (setq props (plist-put props :compacted nil)))
+             ;; ... "compact" means top and compacted
+             ((string= val "compact")
+              (setq props (plist-put props :layout "top"))
+              (setq props (plist-put props :compacted t)))
+             (t
+              (setq props (plist-put props :layout val)))))
+           ((eq key :compacted)
+            (setq props (plist-put props key (not (string= val "nil")))))
+           ((eq key :max-width)
+            (setq props (plist-put props key val)))
+           ((eq key :wrap-leaves)
+            (setq props (plist-put props key val)))
+           (t
+            (setq props (plist-put props key val)))))
+        (setq props-string (substring props-string (match-end 0))))
+      ;; Initialize caches
+      (setq props (plist-put props :node-cache (make-hash-table :test 'eq)))
+      ;; Fill in the default values.
+      (org-aiu-subnet--populate-properties props roots))))
+
+(defun org-aiu-subnet--populate-properties (&optional props roots)
+  "Populate PROPS plist with default values for missing keys.
+ROOTS are used to determine auto max-width."
+  (setq props (plist-put props :layout
+                         (intern
+                          (or (plist-get props :layout)
+                              (symbol-name org-aiu-subnet-default-layout)))))
+  (setq props (plist-put props :spacing
+                         (if (plist-member props :spacing)
+                             (string-to-number (plist-get props :spacing))
+                           org-aiu-subnet-default-spacing)))
+  (setq props (plist-put props :compacted
+                         (if (plist-member props :compacted)
+                             (plist-get props :compacted)
+                           org-aiu-subnet-default-compacted)))
+  (setq props (plist-put props :paint-depth
+                         (if (plist-member props :paint-depth)
+                             (pcase (plist-get props :paint-depth)
+                               ("nil" nil)
+                               (_ (string-to-number (plist-get props :paint-depth))))
+                           org-aiu-subnet-default-paint-depth)))
+  (setq props (plist-put props :max-width
+                         (let ((val
+                                (if (plist-member props :max-width)
+                                    (pcase (plist-get props :max-width)
+                                      ("nil" nil)
+                                      ("auto" 'auto)
+                                      (_ (string-to-number (plist-get props :max-width))))
+                                  org-aiu-subnet-default-max-width)))
+                           (if (eq val 'auto)
+                               (when roots
+                                 (org-aiu-subnet--calculate-max-width roots))
+                             val))))
+  (setq props (plist-put props :wrap-leaves
+                         (if (plist-member props :wrap-leaves)
+                             (pcase (plist-get props :wrap-leaves)
+                               ("nil" nil)
+                               ("t" t)
+                               (_ (string-to-number (plist-get props :wrap-leaves))))
+                           org-aiu-subnet-default-wrap-leaves)))
+  props)
+
+(defun org-aiu-subnet--node-at-point (roots)
+  "Traverse ROOTS and return the first node with `point-offset'."
+  (catch 'found
+    (let ((traverse nil))
+      (setq traverse
+            (lambda (node)
+              (when (org-aiu-subnet-parser-node-point-offset node)
+                (org-aiu-subnet-parser--debug "Found node at point: %s" (org-aiu-subnet-parser-node-text node))
+                (throw 'found node))
+              (mapc traverse (org-aiu-subnet-parser-node-children node))))
+      (mapc traverse roots)
+      (org-aiu-subnet-parser--debug "No node at point found.")
+      nil)))
+
+(defun org-aiu-subnet--calculate-max-width (roots)
+  "Return optimal max-width for the current window and tree ROOTS."
+  (let* ((root (car roots))
+         (descendants (org-aiu-subnet--descendants root))
+         (sides (seq-group-by #'org-aiu-subnet-parser-node-side descendants))
+         (side-depths (mapcar #'(lambda (nodes) (mapcar #'org-aiu-subnet-parser-node-depth nodes))
+                              (mapcar #'cdr sides)))
+         (depth (apply #'+ (mapcar #'seq-max side-depths))))
+    (floor (/ (- (window-width) (* 4 (1+ depth))) (1+ depth)))))
+
+(defun org-aiu-subnet--get-state ()
+  "Parse current region, return (start end props roots target-node)."
+  (let* ((region (org-aiu-subnet-parser-get-region)))
+    (unless region (error "Not inside an AIU Subnet region"))
+    (let* ((start (car region))
+           (end (cdr region))
+           (roots (org-aiu-subnet-parser-parse-region start end))
+           (props (org-aiu-subnet-parse-properties start nil roots))
+           (target-node (org-aiu-subnet--node-at-point roots)))
+      (org-aiu-subnet-parser--debug "Target node: %s" (when target-node (org-aiu-subnet-parser-node-text target-node)))
+      (list start end props roots target-node))))
+
+(defun org-aiu-subnet--restore-point (node props)
+  "Return (row col) buffer-relative coordinates for NODE using PROPS.
+Handles multi-line wrapped nodes, left/right padding, and root delimiters."
+  (when-let* ((box (org-aiu-subnet--node-box node props))
+              (lines (cddr box))
+              (row (org-aiu-subnet-parser-node-row node))
+              (col (org-aiu-subnet-parser-node-col node))
+              (offset (or (org-aiu-subnet-parser-node-point-offset node) 0))
+              (remaining offset)
+              (row-offset 0)
+              (col-offset (or (cl-loop for line in lines do
+                                       (let* ((trimmed (string-trim line))
+                                              (char-len (length trimmed))
+                                              (len (1+ char-len)))
+                                         (when (< remaining len)
+                                           (cl-return (string-width (substring trimmed 0 remaining))))
+                                         (setq remaining (- remaining len))
+                                         (cl-incf row-offset)))
+                              0)))
+    (org-aiu-subnet-parser--debug "Restoring position at %s: row=%d col=%d"
+                               (org-aiu-subnet-parser-node-text node) row-offset col-offset)
+    ;; If offset fell past the last line, clamp to end of last line
+    (when (>= row-offset (length lines))
+      (setq row-offset (1- (length lines))
+            col-offset (string-width (string-trim (car (last lines)))))
+      (org-aiu-subnet-parser--debug "... corrected: row=%d col=%d" row-offset col-offset))
+    ;; Compute target column
+    (let* ((display-line (nth row-offset lines))
+           (trimmed-line (string-trim display-line))
+           (text-start (string-match (regexp-quote trimmed-line) display-line))
+           (visual-text-start (if text-start (string-width (substring display-line 0 text-start)) 0))
+           (target-col (+ col visual-text-start col-offset)))
+      ;; Handle root delimiter: first line has opening delimiter + space
+      ;; (let ((is-root (null (org-aiu-subnet-parser-node-parent node))))
+      ;; (when (and is-root (= row-offset 0))
+      ;;   (let* ((pair (car org-aiu-subnet-parser-root-delimiters))
+      ;;          (left-delim (car pair)))
+      ;;     (setq target-col (+ col (string-width left-delim) 1 col-offset)))))
+      (list (+ (org-aiu-subnet-parser-node-row node) row-offset) target-col))))
+
+(defun org-aiu-subnet-switch-layout ()
+  "Cycle layout mode between top and centered for the current AIU Subnet region."
+  (interactive)
+  (let* ((region (org-aiu-subnet-parser-get-region))
+         (start (car region))
+         (props (org-aiu-subnet-parse-properties start))
+         (current (or (plist-get props :layout)
+                      (symbol-name org-aiu-subnet-default-layout)))
+         (next (if (eq current 'centered) 'top 'centered)))
+    ;; TODO Fetch properties writer into a helper function.
+    (save-excursion
+      (goto-char start)
+      (if (re-search-forward "\\(^[ \t]*#\\+begin_aiu-subnet\\)\\(.*\\)$" (line-end-position) t)
+          (let ((args (match-string 2)))
+            (save-match-data
+              (if (string-match " :layout [a-zA-Z]+" args)
+                  (setq args (replace-match (format " :layout %s" next) t t args))
+                (setq args (concat args (format " :layout %s" next)))))
+            (replace-match args t t nil 2))))
+    (org-aiu-subnet-align)))
+
+(defun org-aiu-subnet-switch-compaction ()
+  "Toggle :compacted property on the current AIU Subnet block."
+  (interactive)
+  (let* ((region (org-aiu-subnet-parser-get-region))
+         (start (car region))
+         (props (org-aiu-subnet-parse-properties start))
+         (new-compacted (not (plist-get props :compacted))))
+    (save-excursion
+      (goto-char start)
+      (if (re-search-forward "\\(^[ \t]*#\\+begin_aiu-subnet\\)\\(.*\\)$" (line-end-position) t)
+          (let ((args (match-string 2)))
+            (save-match-data
+              (if (string-match " :compacted \\(t\\|nil\\)" args)
+                  (setq args (replace-match (format " :compacted %s" (if new-compacted "t" "nil")) t t args))
+                (if new-compacted
+                    ;; Add :compacted t if toggling on and not present
+                    (setq args (concat args " :compacted t"))
+                  ;; Remove :compacted entirely if toggling off and not present with explicit value
+                  ;; (but this branch only hit if :compacted wasn't in the string, so nothing to do)
+                  nil)))
+            (replace-match args t t nil 2))))
+    (org-aiu-subnet-align)))
+
+(defun org-aiu-subnet--update-buffer (start end roots &optional target-node props)
+  "Replace region START to END with rendered ROOTS, focus TARGET-NODE.
+Uses PROPS for rendering."
+  (org-aiu-subnet-parser-with-debug-batch
+    "Update buffer"
+    (let ((rendered (org-aiu-subnet-render-tree roots props)))
+      ;; Draw the map.
+      (save-excursion
+        (goto-char start)
+        (forward-line 1)
+        (let ((inhibit-read-only t))
+          (delete-region (point) (save-excursion (goto-char end) (line-beginning-position)))
+          (insert rendered "\n")))
+      ;; Set the point on its last place.
+      (goto-char start)
+      (when target-node
+        (if-let* ((pos (org-aiu-subnet--restore-point target-node props))
+                  (target-row (car pos))
+                  (target-col (cadr pos)))
+            ;; Restore point at exact logical offset
+            (progn
+              (forward-line (1+ target-row))
+              (move-to-column target-col)
+              ;; (while (looking-at " ") (forward-char))
+              )
+          ;; No offset: position at node start (existing behavior)
+          (forward-line (1+ (org-aiu-subnet-parser-node-row target-node)))
+          (move-to-column (org-aiu-subnet-parser-node-col target-node))
+          (while (looking-at " ") (forward-char))
+          (goto-char start))))))
+
+(defun org-aiu-subnet-align ()
+  "Align and format the current AIU Subnet region based on block properties."
+  (interactive)
+  (org-aiu-subnet-parser-with-debug-batch
+    "Align"
+    (org-aiu-subnet-parser--debug "Start aligning...")
+    (cl-destructuring-bind (start end props roots target-node) (org-aiu-subnet--get-state)
+      (org-aiu-subnet--update-buffer start end roots target-node props))
+    (org-aiu-subnet-parser--debug "Finish aligning.")))
+
+;;
+;; Structural Editing — Insert and Delete
+;;
+
+(defun org-aiu-subnet-find-node-at-point ()
+  "Locate the node corresponding to the cursor position."
+  (cl-destructuring-bind (_start _end _props _roots target-node) (org-aiu-subnet--get-state)
+    target-node))
+
+(defun org-aiu-subnet-edit-node ()
+  "Edit the text of the node at point and refresh the AIU Subnet."
+  (interactive)
+  (cl-destructuring-bind (start end props roots target-node) (org-aiu-subnet--get-state)
+    (unless target-node (error "No node at point"))
+    (let* ((point-offset (org-aiu-subnet-parser-node-point-offset target-node))
+           (text (org-aiu-subnet-parser-node-text target-node))
+           (new-text (read-string "Edit node: " (cons text (when point-offset (1+ point-offset))))))
+      (setf (org-aiu-subnet-parser-node-text target-node) new-text)
+      (org-aiu-subnet--update-buffer start end roots target-node props))))
+
+(defun org-aiu-subnet--insert-after (lst target new-item)
+  "Insert NEW-ITEM into LST immediately after TARGET."
+  (let ((res nil))
+    (dolist (item lst)
+      (push item res)
+      (when (eq item target)
+        (push new-item res)))
+    (nreverse res)))
+
+(defun org-aiu-subnet-insert-child (&optional text)
+  "Create new child node with optional TEXT under node at cursor position.
+If TEXT is nil or empty, creates an empty node for immediate editing.
+With prefix argument at root node, creates a child on the left side."
+  (interactive (list (read-string "Child text: ")))
+  (setq text (or text ""))
+  (cl-destructuring-bind (start end props roots target-node) (org-aiu-subnet--get-state)
+    (unless target-node (error "No node at point"))
+    (let* ((side (if (null (org-aiu-subnet-parser-node-parent target-node))
+                     (if current-prefix-arg 'left 'right)
+                   (org-aiu-subnet-parser-node-side target-node)))
+           (new-node (org-aiu-subnet-parser-make-node :id (gensym "node")
+                                                   :text text
+                                                   :parent target-node
+                                                   :side side)))
+      (setf (org-aiu-subnet-parser-node-children target-node)
+            (append (org-aiu-subnet-parser-node-children target-node) (list new-node)))
+      (org-aiu-subnet--update-buffer start end roots new-node props)
+      new-node)))
+
+(defun org-aiu-subnet-insert-sibling (&optional text)
+  "Create new sibling node with optional TEXT after node at cursor position.
+If TEXT is nil or empty, creates an empty node for immediate editing.
+If target-node is the root node, it calls `org-aiu-subnet-insert-child`."
+  (interactive (list (read-string "Sibling text: ")))
+  (setq text (or text ""))
+  (cl-destructuring-bind (start end props roots target-node) (org-aiu-subnet--get-state)
+    (unless target-node (error "No node at point"))
+    (if (not (equal (car roots) target-node))
+        (let* ((parent (org-aiu-subnet-parser-node-parent target-node))
+               (new-node (org-aiu-subnet-parser-make-node :id (gensym "node")
+                                                       :text text
+                                                       :parent parent
+                                                       :side (if target-node (org-aiu-subnet-parser-node-side target-node) 'right))))
+          (if parent
+              (let ((siblings (org-aiu-subnet-parser-node-children parent)))
+                (setf (org-aiu-subnet-parser-node-children parent)
+                      (org-aiu-subnet--insert-after siblings target-node new-node)))
+            (setq roots (org-aiu-subnet--insert-after roots target-node new-node)))
+          (org-aiu-subnet--update-buffer start end roots new-node props)
+          new-node)
+      (org-aiu-subnet-insert-child text))))
+
+(defun org-aiu-subnet-insert-root (&optional text)
+  "Create new root node with optional TEXT at end of existing roots.
+If TEXT is nil or empty, creates an empty node for immediate editing.
+In the single-root model, this is only allowed if no root exists."
+  (interactive (list (read-string "Root text: ")))
+  (setq text (or text ""))
+  (cl-destructuring-bind (start end props roots _target-node) (org-aiu-subnet--get-state)
+    (if (and roots (> (length roots) 0))
+        (user-error "A root node already exists.  This AIU Subnet only supports a single root")
+      (let ((new-node (org-aiu-subnet-parser-make-node :id (gensym "node") :text text)))
+        (setq roots (list new-node))
+        (org-aiu-subnet--update-buffer start end roots new-node props)))))
+
+(defun org-aiu-subnet--get-next-focus (lst target fallback-parent)
+  "Get the NODE to focus after TARGET is deleted from LST."
+  (when-let* ((pos (cl-position target lst)))
+    (cond ((< (1+ pos) (length lst)) (nth (1+ pos) lst)) ; next sibling
+           ((> pos 0) (nth (1- pos) lst)) ; previous sibling
+           (fallback-parent fallback-parent))))
+
+(defun org-aiu-subnet-delete-node ()
+  "Remove node at cursor position and all descendants."
+  (interactive)
+  (cl-destructuring-bind (start end props roots target-node) (org-aiu-subnet--get-state)
+    (unless target-node (error "No node at point"))
+    (when (and (org-aiu-subnet-parser-node-children target-node)
+               org-aiu-subnet-confirm-delete
+               (not (y-or-n-p "Node has children.  Delete anyway? ")))
+      (user-error "Aborted"))
+    (let* ((parent (org-aiu-subnet-parser-node-parent target-node))
+           (next-focus-node nil)
+           (side (org-aiu-subnet-parser-node-side target-node)))
+      (if parent
+          (let* ((all-siblings (org-aiu-subnet-parser-node-children parent))
+                 (siblings (if side
+                               (cl-remove-if-not (lambda (n) (eq (org-aiu-subnet-parser-node-side n) side)) all-siblings)
+                             all-siblings)))
+            (setq next-focus-node (org-aiu-subnet--get-next-focus siblings target-node parent))
+            (setf (org-aiu-subnet-parser-node-children parent) (remq target-node all-siblings)))
+        ;; Root node
+        (if (= (length roots) 1)
+            (error "Cannot delete the last root node")
+          (setq next-focus-node (org-aiu-subnet--get-next-focus roots target-node nil))
+          (setq roots (remq target-node roots))))
+      (org-aiu-subnet--update-buffer start end roots next-focus-node props))))
+
+;;
+;; Movement Operations — Reorder and Restructure
+;;
+
+(defun org-aiu-subnet--list-swap (lst i j)
+  "Swap elements at index I and J in LST."
+  (let* ((vec (vconcat lst))
+         (tmp (aref vec i)))
+    (aset vec i (aref vec j))
+    (aset vec j tmp)
+    (append vec nil)))
+
+(defun org-aiu-subnet-validate-move (operation target-node siblings pos)
+  "Validate that move OPERATION is legal for TARGET-NODE with SIBLINGS at POS."
+  (when (null (org-aiu-subnet-parser-node-parent target-node))
+    (user-error "Cannot move the root node"))
+  (pcase operation
+    ('up (when (or (null pos) (= pos 0))
+           (user-error "Cannot move up: already first sibling")))
+    ('down (when (or (null pos) (= pos (1- (length siblings))))
+             (user-error "Cannot move down: already last sibling")))
+    ('promote nil) ; Promotion of top-level child is now side-shift, so it's always valid
+    ('demote (when (or (null pos) (= pos 0))
+               (user-error "Cannot demote: requires a previous sibling")))))
+
+(defun org-aiu-subnet-move-up ()
+  "Swap node with previous sibling."
+  (interactive)
+  (cl-destructuring-bind (start end props roots target-node) (org-aiu-subnet--get-state)
+    (unless target-node (error "No node at point"))
+    (let* ((parent (org-aiu-subnet-parser-node-parent target-node))
+           (all-siblings (if parent (org-aiu-subnet-parser-node-children parent) roots))
+           (side (org-aiu-subnet-parser-node-side target-node))
+           (siblings (if side (cl-remove-if-not (lambda (n) (eq (org-aiu-subnet-parser-node-side n) side)) all-siblings) all-siblings))
+           (pos (cl-position target-node siblings)))
+      (org-aiu-subnet-validate-move 'up target-node siblings pos)
+      (let ((prev (nth (1- pos) siblings)))
+        (setq all-siblings (org-aiu-subnet--list-swap all-siblings
+                                                   (cl-position target-node all-siblings)
+                                                   (cl-position prev all-siblings)))
+        (if parent
+            (setf (org-aiu-subnet-parser-node-children parent) all-siblings)
+          (setq roots all-siblings))
+        (org-aiu-subnet--update-buffer start end roots target-node props)))))
+
+(defun org-aiu-subnet-move-down ()
+  "Swap node with next sibling."
+  (interactive)
+  (cl-destructuring-bind (start end props roots target-node) (org-aiu-subnet--get-state)
+    (unless target-node (error "No node at point"))
+    (let* ((parent (org-aiu-subnet-parser-node-parent target-node))
+           (all-siblings (if parent (org-aiu-subnet-parser-node-children parent) roots))
+           (side (org-aiu-subnet-parser-node-side target-node))
+           (siblings (if side (cl-remove-if-not (lambda (n) (eq (org-aiu-subnet-parser-node-side n) side)) all-siblings) all-siblings))
+           (pos (cl-position target-node siblings)))
+      (org-aiu-subnet-validate-move 'down target-node siblings pos)
+      (let ((next (nth (1+ pos) siblings)))
+        (setq all-siblings (org-aiu-subnet--list-swap all-siblings
+                                                   (cl-position target-node all-siblings)
+                                                   (cl-position next all-siblings)))
+        (if parent
+            (setf (org-aiu-subnet-parser-node-children parent) all-siblings)
+          (setq roots all-siblings))
+        (org-aiu-subnet--update-buffer start end roots target-node props)))))
+
+(defun org-aiu-subnet-promote ()
+  "Move node up one level (becomes sibling of parent) or shift side if at root."
+  (interactive)
+  (cl-destructuring-bind (start end props roots target-node) (org-aiu-subnet--get-state)
+    (unless target-node (error "No node at point"))
+    (org-aiu-subnet-validate-move 'promote target-node nil nil)
+    (let* ((parent (org-aiu-subnet-parser-node-parent target-node))
+           (grandparent (org-aiu-subnet-parser-node-parent parent)))
+      (if (null grandparent)
+          ;; Case: target-node is a child of the root node. Shift side.
+          (let ((new-side (if (eq (org-aiu-subnet-parser-node-side target-node) 'left) 'right 'left)))
+            (org-aiu-subnet--set-side-recursive target-node new-side)
+            ;; Move to the end of siblings list to be at the "bottom" of the other side
+            (setf (org-aiu-subnet-parser-node-children parent)
+                  (append (remq target-node (org-aiu-subnet-parser-node-children parent))
+                          (list target-node))))
+        ;; Case: Normal promotion to sibling of parent.
+        (setf (org-aiu-subnet-parser-node-children parent)
+              (remq target-node (org-aiu-subnet-parser-node-children parent)))
+        (setf (org-aiu-subnet-parser-node-parent target-node) grandparent)
+        (setf (org-aiu-subnet-parser-node-children grandparent)
+              (org-aiu-subnet--insert-after (org-aiu-subnet-parser-node-children grandparent) parent target-node))
+        ;; Inherit side from new parent (grandparent) if it has one
+        (when (org-aiu-subnet-parser-node-side grandparent)
+          (org-aiu-subnet--set-side-recursive target-node (org-aiu-subnet-parser-node-side grandparent)))))
+    (org-aiu-subnet--update-buffer start end roots target-node props)))
+
+(defun org-aiu-subnet-demote ()
+  "Move node down one level (becomes child of previous sibling)."
+  (interactive)
+  (cl-destructuring-bind (start end props roots target-node) (org-aiu-subnet--get-state)
+    (unless target-node (error "No node at point"))
+    (let* ((parent (org-aiu-subnet-parser-node-parent target-node))
+           (all-siblings (if parent (org-aiu-subnet-parser-node-children parent) roots))
+           (side (org-aiu-subnet-parser-node-side target-node))
+           (siblings (if side (cl-remove-if-not (lambda (n) (eq (org-aiu-subnet-parser-node-side n) side)) all-siblings) all-siblings))
+           (pos (cl-position target-node siblings)))
+      (org-aiu-subnet-validate-move 'demote target-node siblings pos)
+      (let ((prev-sibling (nth (1- pos) siblings)))
+        (setq all-siblings (remq target-node all-siblings))
+        (if parent
+            (setf (org-aiu-subnet-parser-node-children parent) all-siblings)
+          (setq roots all-siblings))
+        (setf (org-aiu-subnet-parser-node-parent target-node) prev-sibling)
+        (setf (org-aiu-subnet-parser-node-children prev-sibling)
+              (append (org-aiu-subnet-parser-node-children prev-sibling) (list target-node)))
+        ;; Inherit side from new parent
+        (org-aiu-subnet--set-side-recursive target-node (org-aiu-subnet-parser-node-side prev-sibling))
+        (org-aiu-subnet--update-buffer start end roots target-node props)))))
+
+;;
+;; Auxilliary functions: conversion from and to org lists.
+;;
+
+(declare-function org-list-struct "org-list")
+(declare-function org-list-get-top-point "org-list")
+(declare-function org-list-to-lisp "org-list")
+(declare-function org-at-item-p "org-list")
+(declare-function org-element-property "org-element")
+(declare-function org-element-type "org-element")
+(declare-function org-element-at-point "org-element")
+
+
+(defun org-aiu-subnet--set-side-recursive (node side)
+  "Set SIDE of NODE and all its descendants to SIDE."
+  (setf (org-aiu-subnet-parser-node-side node) side)
+  (dolist (child (org-aiu-subnet-parser-node-children node))
+    (org-aiu-subnet--set-side-recursive child side)))
+
+
+(defun org-aiu-subnet--lisp-to-nodes (lisp-list &optional parent side-override)
+  "Convert an org-list LISP-LIST into a list of `org-aiu-subnet-parser-node's.
+The nodes are created as children of PARENT.  If SIDE-OVERRIDE is set,
+all nodes and their descendants get that side."
+  (let ((items (cdr lisp-list))
+        (nodes nil)
+        (current-side (or side-override 'right))
+        (pivot-found nil))
+    (dolist (item items)
+      (let ((texts nil)
+            (sublists nil)
+            (is-empty t))
+        (dolist (elem item)
+          (if (stringp elem)
+              (let ((trimmed (string-trim elem)))
+                (push elem texts)
+                (when (not (string= trimmed ""))
+                  (setq is-empty nil)))
+            (push elem sublists)
+            (setq is-empty nil)))
+
+        (if (and is-empty (not side-override) (not pivot-found))
+            (setq current-side 'left
+                  pivot-found t)
+          (unless is-empty
+            (let* ((full-text (replace-regexp-in-string
+                               "[ \t\n\r]+" " "
+                               (string-trim (mapconcat #'identity (nreverse texts) " "))))
+                   (node (org-aiu-subnet-parser-make-node :id (gensym "node")
+                                                       :text full-text
+                                                       :parent parent
+                                                       :depth (if parent (1+ (org-aiu-subnet-parser-node-depth parent)) 0)
+                                                       :side current-side)))
+              (when sublists
+                (mapc (lambda (sl) (org-aiu-subnet--lisp-to-nodes sl node current-side))
+                      (nreverse sublists)))
+              (push node nodes))))))
+    (setf (org-aiu-subnet-parser-node-children parent) (nreverse nodes))
+    (nreverse nodes)))
+
+(defun org-aiu-subnet--get-list-context ()
+  "Return (root-text begin-pos end-pos list-elem) if at a list or root-paragraph."
+  (save-excursion
+    (let* ((element (org-element-at-point))
+           list-elem paragraph-elem
+           tmp-list)
+      ;; 1. Identify the top-most plain-list in the ancestry
+      (let ((tmp element))
+        (while tmp
+          (when (eq (org-element-type tmp) 'plain-list)
+            (setq tmp-list tmp))
+          (setq tmp (org-element-property :parent tmp))))
+
+      (if tmp-list
+          (progn
+            (setq list-elem tmp-list)
+            ;; Look for a root paragraph immediately above the list
+            (goto-char (org-element-property :begin list-elem))
+            (let ((list-begin (point)))
+              (forward-line -1)
+              (while (and (not (bobp)) (looking-at-p "^[ \t]*$"))
+                (forward-line -1))
+              (let ((prev (org-element-at-point)))
+                (when (and (eq (org-element-type prev) 'paragraph)
+                           ;; Ensure it's not a list item itself
+                           (not (eq (org-element-type (org-element-property :parent prev)) 'item))
+                           ;; Ensure it actually ends right before the list (possibly with whitespace)
+                           (save-excursion
+                             (goto-char (org-element-property :end prev))
+                             (while (and (< (point) list-begin) (looking-at-p "^[ \t]*$"))
+                               (forward-line 1))
+                             (>= (point) list-begin)))
+                  (setq paragraph-elem prev)))))
+
+        ;; 2. If not inside a list, check if we are on a paragraph followed by a list
+        (when (and (eq (org-element-type element) 'paragraph)
+                   (not (eq (org-element-type (org-element-property :parent element)) 'item)))
+          (setq paragraph-elem element)
+          (goto-char (org-element-property :end paragraph-elem))
+          (while (and (not (eobp)) (looking-at-p "^[ \t]*$"))
+            (forward-line 1))
+          (let ((nxt (org-element-at-point)))
+            (if (eq (org-element-type nxt) 'plain-list)
+                (setq list-elem nxt)
+              (setq paragraph-elem nil)))))
+
+      (when list-elem
+        (list (when paragraph-elem
+                (string-trim (buffer-substring-no-properties
+                              (org-element-property :contents-begin paragraph-elem)
+                              (org-element-property :contents-end paragraph-elem))))
+              (org-element-property :begin (or paragraph-elem list-elem))
+              (org-element-property :end list-elem)
+              list-elem)))))
+
+
+(defun org-aiu-subnet-list-to-aiu-subnet ()
+  "Convert the `org-mode' plain list at point into an `org-aiu-subnet' block."
+  (interactive)
+  (let ((context (org-aiu-subnet--get-list-context)))
+    (unless context
+      (user-error "Not at a list or a list's root paragraph"))
+    (cl-destructuring-bind (root-text begin end list-elem) context
+      (let* ((lisp-list (save-excursion
+                          (goto-char (org-element-property :begin list-elem))
+                          (org-list-to-lisp)))
+             (root-node (org-aiu-subnet-parser-make-node :id (gensym "node") :text (or root-text "") :depth 0))
+             (_children (org-aiu-subnet--lisp-to-nodes lisp-list root-node))
+             (inhibit-read-only t)
+             (props (org-aiu-subnet-parse-properties nil (or root-text "") (list root-node))))
+        (delete-region begin end)
+        (let ((rendered (org-aiu-subnet-render-tree (list root-node) props)))
+          (save-excursion
+            (goto-char begin)
+            (insert "#+begin_aiu-subnet\n" rendered "\n#+end_aiu-subnet\n")))))))
+
+
+(defun org-aiu-subnet--nodes-to-list-string (nodes indent &optional side-filter)
+  "Convert a list of `org-aiu-subnet-parser-node's NODES into a plain list string.
+Uses INDENT for the level.  If SIDE-FILTER is set, only include
+nodes of that side."
+  (let ((res nil)
+        (prefix (make-string indent ?\ )))
+    (dolist (node (if side-filter
+                      (cl-remove-if-not (lambda (n) (eq (org-aiu-subnet-parser-node-side n) side-filter)) nodes)
+                      nodes))
+      (push (concat prefix "- " (org-aiu-subnet-parser-node-text node)) res)
+      (when (org-aiu-subnet-parser-node-children node)
+        (let ((child-str (org-aiu-subnet--nodes-to-list-string
+                          (org-aiu-subnet-parser-node-children node) (+ indent 2))))
+          (when (not (string= child-str ""))
+            (push child-str res)))))
+    (mapconcat #'identity (nreverse res) "\n")))
+
+(defun org-aiu-subnet-to-list ()
+  "Convert the `org-aiu-subnet' block at point into an `org-mode' plain list."
+  (interactive)
+  (let ((region (org-aiu-subnet-parser-get-region)))
+    (unless region
+      (user-error "Not inside an `org-aiu-subnet' region"))
+    (let* ((start (car region))
+           (end (cdr region))
+           (roots (org-aiu-subnet-parser-parse-region start end)))
+      (when (and roots (= (length roots) 1))
+        (let* ((root (car roots))
+               (root-text (org-aiu-subnet-parser-node-text root))
+               (children (org-aiu-subnet-parser-node-children root))
+               (right-children-str (org-aiu-subnet--nodes-to-list-string children 0 'right))
+               (left-children-str (org-aiu-subnet--nodes-to-list-string children 0 'left))
+               (result-list nil))
+          (when (not (string= right-children-str ""))
+            (push right-children-str result-list))
+          (when (not (string= left-children-str ""))
+            (push left-children-str result-list)
+            (push "-" result-list))
+          (save-excursion
+            (goto-char start)
+            (let ((inhibit-read-only t))
+              (delete-region start (save-excursion
+                                     (goto-char end)
+                                     (forward-line 1)
+                                     (point)))
+              (when (and root-text (not (string= root-text "")))
+                (insert root-text "\n"))
+              (insert (mapconcat #'identity (nreverse result-list) "\n") "\n"))))))))
+
+;;
+;; Keybindings and Templates
+;;
+
+(defun org-aiu-subnet--metaup ()
+  "Hijack Org's M-<up>: move node at point upwrads if possible."
+  (when (org-aiu-subnet-parser-region-active-p)
+    (org-aiu-subnet-move-up)
+    t))
+
+(defun org-aiu-subnet--metadown ()
+  "Hijack Org's M-<down>: move node at point downwards if possible."
+  (when (org-aiu-subnet-parser-region-active-p)
+    (org-aiu-subnet-move-down)
+    t))
+
+(defun org-aiu-subnet--metaleft ()
+  "Hijack Org's M-<left>: move node at point left if possible."
+  (when (org-aiu-subnet-parser-region-active-p)
+    (let ((node (org-aiu-subnet-find-node-at-point)))
+      (if (and node (eq (org-aiu-subnet-parser-node-side node) 'left))
+          (org-aiu-subnet-demote)
+        (org-aiu-subnet-promote)))
+    t))
+
+(defun org-aiu-subnet--metaright ()
+  "Hijack Org's M-<right>: move node at point right if possible."
+  (when (org-aiu-subnet-parser-region-active-p)
+    (let ((node (org-aiu-subnet-find-node-at-point)))
+      (if (and node (eq (org-aiu-subnet-parser-node-side node) 'left))
+          (org-aiu-subnet-promote)
+        (org-aiu-subnet-demote)))
+    t))
+
+(defun org-aiu-subnet--ctrl-c-ctrl-c ()
+  "Hijack Org's \\[org-ctrl-c-ctrl-c]: redraw the map and reallign the nodes."
+  (when (org-aiu-subnet-parser-region-active-p)
+    (org-aiu-subnet-align)
+    t))
+
+(defun org-aiu-subnet--tab ()
+  "Hijack Org's TAB key: insert a child node."
+  (when (org-aiu-subnet-parser-region-active-p)
+    (let ((node (org-aiu-subnet-find-node-at-point)))
+      (when node
+        (org-aiu-subnet-insert-child)
+        t))))
+
+(defun org-aiu-subnet--metareturn ()
+  "Hijack Org's M-RET key: edit the node at point."
+  (when (org-aiu-subnet-parser-region-active-p)
+    (org-aiu-subnet-edit-node)
+    t))
+
+(defun org-aiu-subnet-return ()
+  "If on an AIU Subnet node, insert a sibling, otherwise call `org-return'."
+  (interactive)
+  (if (org-aiu-subnet-parser-region-active-p)
+      (let ((node (org-aiu-subnet-find-node-at-point)))
+        (if node
+            (org-aiu-subnet-insert-sibling)
+          (org-return)))
+    (org-return)))
+
+(defvar org-aiu-subnet-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "RET") #'org-aiu-subnet-return)
+    map))
+
+(define-minor-mode org-aiu-subnet-mode
+  "Editable AIU Subnet visualization within `org-mode'."
+  :lighter " ⅄"
+  :keymap org-aiu-subnet-mode-map
+  (if org-aiu-subnet-mode
+      (progn
+        (add-hook 'org-metaup-hook #'org-aiu-subnet--metaup nil t)
+        (add-hook 'org-metadown-hook #'org-aiu-subnet--metadown nil t)
+        (add-hook 'org-metaleft-hook #'org-aiu-subnet--metaleft nil t)
+        (add-hook 'org-metaright-hook #'org-aiu-subnet--metaright nil t)
+        (add-hook 'org-tab-first-hook #'org-aiu-subnet--tab nil t)
+        (add-hook 'org-metareturn-hook #'org-aiu-subnet--metareturn nil t)
+        (add-hook 'org-ctrl-c-ctrl-c-hook #'org-aiu-subnet--ctrl-c-ctrl-c nil t))
+    (remove-hook 'org-metaup-hook #'org-aiu-subnet--metaup t)
+    (remove-hook 'org-metadown-hook #'org-aiu-subnet--metadown t)
+    (remove-hook 'org-metaleft-hook #'org-aiu-subnet--metaleft t)
+    (remove-hook 'org-metaright-hook #'org-aiu-subnet--metaright t)
+    (remove-hook 'org-tab-first-hook #'org-aiu-subnet--tab t)
+    (remove-hook 'org-metareturn-hook #'org-aiu-subnet--metareturn t)
+    (remove-hook 'org-ctrl-c-ctrl-c-hook #'org-aiu-subnet--ctrl-c-ctrl-c t)))
+
+(add-to-list 'org-structure-template-alist '("m" . "AIU Subnet"))
+
+(defun org-aiu-subnet-unload-function ()
+  "Clean up global state when `org-aiu-subnet' is unloaded.
+Removes entries from `minor-mode-map-alist', `minor-mode-alist',
+and `org-structure-template-alist' that `unload-feature' cannot
+reach on its own."
+  (setq minor-mode-map-alist
+        (assq-delete-all 'org-aiu-subnet-mode minor-mode-map-alist))
+  (setq minor-mode-list
+        (delq 'org-aiu-subnet-mode minor-mode-list))
+  (setq org-structure-template-alist
+        (cl-delete "AIU Subnet" org-structure-template-alist
+                   :test #'string= :key #'cdr))
+  ;; Return nil so standard unloading proceeds (hook removal, etc).
+  nil)
+
+(provide 'org-aiu-subnet)
+
+;;; org-aiu-subnet.el ends here
+#+end_src
+
+** Cyberdeck integration
+AIUs are org buffers, so AIU Subnet regions work in them
+natively. This block is the only cyberdeck-specific code: a one-key
+block inserter (bound in the AIU Subnet keyboard state) plus
+auto-activation of `org-aiu-subnet-mode' inside AIU Subnet regions, so
+the state drives and the package follows.
+#+begin_src emacs-lisp
+(defun my/cyberdeck-aiu-subnet-insert-block ()
+  "Insert an empty aiu-subnet region for the current subtree.
+C-c C-c inside redraws; the AIU Subnet keyboard state drives after."
+  (interactive)
+  (insert "#+begin_aiu-subnet\n\n#+end_aiu-subnet\n")
+  (forward-line -1))
+
+(defun my/cyberdeck-aiu-subnet--maybe-activate ()
+  "Enable `org-aiu-subnet-mode' when point sits in an AIU Subnet region."
+  (when (and (derived-mode-p 'org-mode)
+             (fboundp 'org-aiu-subnet-parser-region-active-p)
+             (org-aiu-subnet-parser-region-active-p))
+    (org-aiu-subnet-mode 1)))
+
+(add-hook 'post-command-hook #'my/cyberdeck-aiu-subnet--maybe-activate)
+#+end_src

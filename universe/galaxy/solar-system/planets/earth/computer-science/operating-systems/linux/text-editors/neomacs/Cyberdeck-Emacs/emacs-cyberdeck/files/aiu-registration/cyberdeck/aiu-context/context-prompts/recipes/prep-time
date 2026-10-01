@@ -1,0 +1,18 @@
+* Prep Time Prompt :EMACS_MECHANISM::AIU_CONTEXT_DRAWER:
+:PROPERTIES:
+:ID:       388d7058-c485-4118-8a6a-61505dd84977
+:MM_PARENT: none
+:MM_ORDER:  218.0
+:END:
+#+begin_src emacs-lisp
+(my/cyberdeck-register-prompt
+  :key 'prep-time
+  :name 'prep-time
+  :label "Prep time"
+  :contexts '(recipe)
+  :prompt-fn (lambda ()
+               (let ((val (read-string "Prep time (e.g. 15 min): " nil nil nil "⚠ WARNING")))
+                 (if (or (string-empty-p val) (string-equal val "⚠ WARNING")) "WARNING" val)))
+  :to-plist (lambda (val _ctx)
+              `(:unfoldings (("PREP_TIME" . ,val)))))
+#+end_src

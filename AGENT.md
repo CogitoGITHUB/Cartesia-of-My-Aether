@@ -4,7 +4,7 @@
 that are not visible from any single file, several of them are silent when
 violated, and a few things people reasonably assume are true are not.
 
-Companion document: `CAESTRIA AGENT INTEGRATION INTO ATLAS` is the *Cyberdeck API
+Companion document: `CAESTRIA AGENT INTEGRATION INTO CYBERDECK` is the *Cyberdeck API
 contract* (how to call the Cyberdeck, what agents may not do). This file is the
 *Emacs build* (how the loader works, what the Cyberdeck is, how to test). They do not
 overlap.
@@ -28,7 +28,7 @@ Everything lives under one git repo:
 | `Cyberdeck-Emacs/emacs-cyberdeck/` | the unit tree: ~400 files, ~300 tagged units |
 | `admin/` | session + layout state, excluded from unit discovery (see §10) |
 | `WIP/` | raw captures. Never read, never walked, by anything. |
-| `emacs-mechanism/` | blueprint/metadata for the mechanism system |
+| `emacs-mechanism/` | aiu-context/metadata for the mechanism system |
 | `~/.config/emacs/init.el` | static seed. Locates the AIU Frame, tangles it, loads `foundation-init.el`. |
 | `~/.config/emacs/*.el` | **build artifacts.** Never edit. See §9. |
 
@@ -126,10 +126,10 @@ say whose stock; `setup` and `macros` say nothing at all; and `dashboard` in
 
 1. **A filename says what it orders or configures, not which module reads it.**
    `admin/order/dashboard widgets`, `admin/order/modeline widgets`,
-   `admin/order/headings blueprints drawer`. Never `order`, never `drawer`.
+   `admin/order/headings aiu-context drawer`. Never `order`, never `drawer`.
 2. **Directories say which module owns them.** `cyberdeck-dashboard/`,
    `cyberdeck-keyboard/`, `cyberdeck/`. Never a bare `engine/`,
-   `core/`, or `blueprints/` at a shared level.
+   `core/`, or `aiu-contexts/` at a shared level.
 3. **Function and variable names carry their module.** `cyberdeck-dashboard--…`,
    `my/cyberdeck--…`, `manifolding-modeline--…`. A name that could
    belong to two modules belongs to neither.
@@ -202,7 +202,7 @@ minutes each. See §7 for the loop that finds them in seconds.
 ### And the habit that prevents a whole class of it
 
 **Add a lint that fails loudly; do not add a fix that fails quietly.** Five
-`**:DASHBOARD_BLUEPRINT:` files sat in the tree for months looking load-bearing
+`**:DASHBOARD_AIU_CONTEXT:` files sat in the tree for months looking load-bearing
 because nothing ever asked whether a declared thing was *used*. The dashboard
 validator now reports an **orphan file** in `widgets/` that no widget registers,
 and a widget registered with no file. A validator that only checks what exists
@@ -213,28 +213,28 @@ is not a validator.
 ## 5. What the Cyberdeck is
 
 This is the aiu-taking system, not the Emacs config. Under
-`emacs-cyberdeck/files/file-creation/cyberdeck/`. Verdicts are from
+`emacs-cyberdeck/files/aiu-registration/cyberdeck/`. Verdicts are from
 reading the tree, and many files there are raw Emacs-manual prose with an empty
 src block — those are **not** implementations.
 
 | Area | State | Detail |
 |---|---|---|
-| **AIU factory** | WORKING | `cyberdeck-engine/aiu-registration` — 8040 lines, 252 src blocks, the largest real implementation. `cyberdeck-create/-find/-insert/-visit`, prompt registry, `${var}` / `%(elisp)` template expansion, blueprint add/edit/nest. |
-| **Blueprints** | WORKING | `blueprints/heading-aiu-contexts/` — ~45 files. Most are **pure vocabulary**: a `:DRAWER_BLUEPRINT:` heading plus `** VALUE :BLUEPRINT_BODY:` children, zero src blocks. `todo` defines 22 TODO states, `mastery` the stage spine, `status` the lifecycle. |
-| **Database** | WORKING | `cyberdeck-engine/db` — 371 src blocks. emacsql. `notes` (id, title, path, level, pos, AIU Contexts, tags) + `links`. Extractor registry with priority. Traversal: `db--bfs`, `db-ancestors`, `db-component`, `db-shortest-path`, `db-isolated`. |
-| **Search** | WORKING | `cyberdeck-engine/search-center` (827 lines) — the real surface. `my/cyberdeck-search` is one `consult--multi` over Text (rg, async), DB, Org-ql (7 presets) and Files. **Extensible**: `my/cyberdeck-search-register-provider`, with the candidate contract asserted in code. |
-| **Keyword scan** | WORKING | `cyberdeck-engine/search` — vendored `consult-todo`, deliberately not `rgrep` or `hl-todo--search`. |
-| **Query language** | WORKING, narrow | `cyberdeck-engine/query-language` — and/or/not, tag, title-match, recent-days, before/after, sort/limit. **No full-text operator.** |
-| **Context UI** | WORKING | `sidebar` (20% window, Context/Backlinks/Outline/Due, 2s idle follow), `node-view`, `search-center` preview, `mind-map`. `sidebar` has an empty `** Implementation` section from a split-out refactor. |
-| **Semantic search** | **dormant by design** | `cyberdeck-engine/semantic-similar` — Ollama `/api/embed` + `bge-m3`, sidecar is a printed Elisp alist, `-similar` is a linear scan, one vector per AIU, and `my/cyberdeck-semantic-enabled` is `nil`. The file says "Nothing here runs at load." |
-| **Export** | essentially ABSENT | Only `mm/export-json` (an AIU Subnet dump). No org-publish, no HTML, no flatten-to-headings. |
+| **AIU factory** | WORKING | `aiu-frame/aiu-registration` — 8040 lines, 252 src blocks, the largest real implementation. `cyberdeck-create/-find/-insert/-visit`, prompt registry, `${var}` / `%(elisp)` template expansion, aiu-context add/edit/nest. |
+| **AIU Contexts** | WORKING | `aiu-context/` — ~45 files. Most are **pure vocabulary**: a `:AIU_CONTEXT_DRAWER:` heading plus `** VALUE :AIU_CONTEXT_BODY:` children, zero src blocks. `todo` defines 22 TODO states, `mastery` the stage spine, `status` the lifecycle. |
+| **Database** | WORKING | `aiu-frame/db` — 371 src blocks. emacsql. `notes` (id, title, path, level, pos, AIU Contexts, tags) + `links`. Extractor registry with priority. Traversal: `db--bfs`, `db-ancestors`, `db-component`, `db-shortest-path`, `db-isolated`. |
+| **Search** | WORKING | `aiu-frame/search-center` (827 lines) — the real surface. `my/cyberdeck-search` is one `consult--multi` over Text (rg, async), DB, Org-ql (7 presets) and Files. **Extensible**: `my/cyberdeck-search-register-provider`, with the candidate contract asserted in code. |
+| **Keyword scan** | WORKING | `aiu-frame/search` — vendored `consult-todo`, deliberately not `rgrep` or `hl-todo--search`. |
+| **Query language** | WORKING, narrow | `aiu-frame/query-language` — and/or/not, tag, title-match, recent-days, before/after, sort/limit. **No full-text operator.** |
+| **Context UI** | WORKING | `sidebar` (20% window, Context/Backlinks/Outline/Due, 2s idle follow), `aiu-view`, `search-center` preview, `aiu-subnet`. `sidebar` has an empty `** Implementation` section from a split-out refactor. |
+| **Semantic search** | **dormant by design** | `aiu-frame/semantic-similar` — Ollama `/api/embed` + `bge-m3`, sidecar is a printed Elisp alist, `-similar` is a linear scan, one vector per AIU, and `my/cyberdeck-semantic-enabled` is `nil`. The file says "Nothing here runs at load." |
+| **Export** | essentially ABSENT | Only `aiu-subnet/export-json` (an AIU Subnet dump). No org-publish, no HTML, no flatten-to-headings. |
 | **LLM question-answering** | ABSENT | Nothing calls a model to answer anything. `ai-proposals` is a generic shell command with no retrieval; `agent-api` is the read/write surface for agents and stamps `PROVENANCE_*`; `plugins/citation` extracts `[@citekey]` into a `citations` table. The two halves exist, the citation-validating join does not. |
 | **Dashboard** | PLACEHOLDER | The real dashboard is a separate module under `entering-the-machine/`. Inside the Cyberdeck, "dashboard" is only a declaration registry (§11). |
 
 ### The database is fine — do not "fix" it
 
 - `my/cyberdeck-db-backend` defaults to **`sqlite`**
-  (`cyberdeck-engine/db:28`) against `admin/cyberdeck.db` — a real file with
+  (`aiu-frame/db:28`) against `admin/cyberdeck.db` — a real file with
   **302 AIUs**. A `pg` backend exists and is fully implemented, and
   `my/cyberdeck-db-health` reports `DOWN` **for pg only**. Seeing `DOWN`
   in a proot batch run means you were looking at the wrong backend.
@@ -253,7 +253,7 @@ All paths relative to `Cyberdeck-Emacs/emacs-cyberdeck/`.
 |---|---|---|
 | `entering-the-machine/cyberdeck-dashboard/` | 78.3–78.5 | dashboard: `engine/`, `cores/` (vendored emacs-dashboard), `widgets/`, `banner/`, `faces`. Its order file lives in `admin/`. |
 | `the-screen/modeline/` | 80.1–80.11 | multi-row mode line: `engine/`, `cores/stock`, `faces`, `widgets/`, `header`. Its order file lives in `admin/`. |
-| `files/file-creation/cyberdeck/` | 100+ | the Cyberdeck — see §5 |
+| `files/aiu-registration/cyberdeck/` | 100+ | the Cyberdeck — see §5 |
 | `…/cyberdeck/cyberdeck-keyboard/` | 2.x–4.x | modal key system: `engine/` (state machine, macros, scaffolding), `states/` (15), `leaders/` (19) |
 | `the-screen/display/06-screen` | — | raw Emacs-manual prose, parked. Still holds display/windows/frames/Imenu/font-lock |
 | `org-manual/*` | — | raw Emacs-manual prose, parked |
@@ -375,7 +375,7 @@ non-code state.
 admin/
   order/dashboard widgets           dashboard section order (read AND written at runtime)
   order/modeline widgets            modeline segment order
-  order/headings blueprints drawer  drawer key order + the blueprint registry (registry NOT built — see §11)
+  order/headings aiu-context drawer  drawer key order + the aiu-context registry (registry NOT built — see §11)
   desktop/                          Emacs session desktop
   cyberdeck.db                   Cyberdeck database, sqlite, 302 AIUs
 ```
@@ -390,7 +390,7 @@ Filenames contain **spaces** on purpose. Safe: `admin/` is excluded from unit
 discovery, so the loader never touches them. Quote them in shell:
 `ls "admin/order/dashboard widgets"`.
 
-**Policy note:** `CAESTRIA AGENT INTEGRATION INTO ATLAS` says agents must never
+**Policy note:** `CAESTRIA AGENT INTEGRATION INTO CYBERDECK` says agents must never
 edit anything under `admin/`. That rule predates the move — `admin/` held only
 the database and `.known-keys`. Treat the three order files as source and
 everything else in `admin/` as generated. That document needs updating.
@@ -402,15 +402,15 @@ everything else in `admin/` as generated. That document needs updating.
 | What | State |
 |---|---|
 | `bufler` / `auto-workspace` void in `the-screen/buffer-management:86` | **Pre-existing.** The loaded bufler checkout's `bufler-defgroups` macro has no `auto-workspace` clause. The unit carries an interlock (`my/bufler--macro-has-workspace-p`) that skips grouping setup instead of dying. Fix by updating the bufler checkout. This is the 1 error in an otherwise clean boot. |
-| **The blueprint registry is not built** | The design is agreed: one `:BLUEPRINT_<KEY>:` property per blueprint in `admin/order/headings blueprints drawer`, values relative to `heading-aiu-contexts/`, order is arrangement, and an interactive sync writes the arrangement into each file's `:MM_ORDER:` by **reusing the numbers those files already own** so no collision is possible. A first sync must report **no changes**. An earlier attempt broke two Cyberdeck units and was reverted; `my/cyberdeck-dashboard-key-files` is a better host for it than `file-creation`. Do not re-derive this from scratch. |
-| `my/cyberdeck-dashboard-register-all` | **Confirmed dead** — the Cyberdeck's in-dashboard registration sweep runs every boot and finds nothing, because its blueprint directory does not exist. Roughly 350 lines on the Cyberdeck boot path. Not removed, because deleting it means touching boot. |
+| **The aiu-context registry is not built** | The design is agreed: one `:AIU_CONTEXT_<KEY>:` property per aiu-context in `admin/order/headings aiu-context drawer`, values relative to `aiu-context/`, order is arrangement, and an interactive sync writes the arrangement into each file's `:MM_ORDER:` by **reusing the numbers those files already own** so no collision is possible. A first sync must report **no changes**. An earlier attempt broke two Cyberdeck units and was reverted; `my/cyberdeck-dashboard-key-files` is a better host for it than `aiu-registration`. Do not re-derive this from scratch. |
+| `my/cyberdeck-dashboard-register-all` | **Confirmed dead** — the Cyberdeck's in-dashboard registration sweep runs every boot and finds nothing, because its aiu-context directory does not exist. Roughly 350 lines on the Cyberdeck boot path. Not removed, because deleting it means touching boot. |
 | modeline left column | Segments parse but land in the right slot: `read-order` returns rows like `(1 nil (…))`. The `row-N-side` regex is **verified correct** (`row-1-left` → `1`, `left`, and `(eq 'left :left)` is true), so the fault is in the slot assignment below it — untraced. Cosmetic: the bar renders mirrored. |
 | modeline audit | Last verified failing on a `characterp` in the right-align padding; a fix landed in `manifolding-modeline-format` (rows are constructs, not strings, so they are interleaved with a literal `"\n"` rather than `mapconcat`-ed) and a follow-up in the audit's emptiness check. Both are balanced; the combination has **not** been confirmed in a boot. |
 | `cyberdeck-drawer-key-order` | A **second** source for the same key order the drawer file carries (`("TODO_STATE" "ID")`). They can disagree silently. Reconcile before building the registry. |
 | `cyberdeck-emacs-todo-file` | Points at `modules/TODO`, which does not exist. Only affects the interactive "file this boot error as a TODO" escape hatch. |
 | `/root/modules` | Dangling symlink to `~/.config/emacs/modules/`, which does not exist. Nothing references it. |
 | `links` table empty | 0 rows while `mm-nodes` has data. May be expected; worth a look separately. |
-| ~128 compiler warnings | Nearly all in `cyberdeck-engine/aiu-registration`: free variables, docstring width, an obsolete `max-specpdl-size`, a duplicate `cyberdeck-insert`. Pre-existing, surfaced whenever that file recompiles. |
+| ~128 compiler warnings | Nearly all in `aiu-frame/aiu-registration`: free variables, docstring width, an obsolete `max-specpdl-size`, a duplicate `cyberdeck-insert`. Pre-existing, surfaced whenever that file recompiles. |
 
 ---
 

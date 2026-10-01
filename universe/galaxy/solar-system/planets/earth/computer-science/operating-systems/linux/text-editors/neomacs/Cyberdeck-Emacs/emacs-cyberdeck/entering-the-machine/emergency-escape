@@ -6,6 +6,7 @@
 ** Garbage on the Screen
 :PROPERTIES:
 :ID:       11b30ffe-43a7-452e-bbe7-a1590e21e2fd
+:MM_ORDER:  9024.0
 :END:
 
 If the text on a text terminal looks wrong, the first thing to do is see whether it is wrong in the buffer. Type C-l (recenter-top-bottom) to redisplay the entire screen. If the screen appears correct after this, the problem was entirely in the previous screen update. (Otherwise, see the following section.)

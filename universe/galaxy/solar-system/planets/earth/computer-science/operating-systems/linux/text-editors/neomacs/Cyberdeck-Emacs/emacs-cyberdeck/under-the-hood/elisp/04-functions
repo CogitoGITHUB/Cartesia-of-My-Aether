@@ -1,6 +1,7 @@
 * Elisp Functions :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       db51a70b-fd2d-4599-aea5-c96e09f42ae9
+:MM_ORDER:  9116.0
 :END:
 
 A Lisp program is composed mainly of Lisp functions. This chapter explains what functions are, how they accept arguments, and how to define them.

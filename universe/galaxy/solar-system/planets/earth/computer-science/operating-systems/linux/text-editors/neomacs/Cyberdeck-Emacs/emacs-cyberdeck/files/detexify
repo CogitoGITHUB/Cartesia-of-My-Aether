@@ -6,6 +6,7 @@
 * Detexify — The Symbol Oracle :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       546e783d-9929-4484-a0e3-a2da239824b6
+:MM_ORDER:  9050.0
 :END:
 Detexify is a small oracle disguised as a webpage.
 You draw a symbol, and it answers with the LaTeX command that summons it.

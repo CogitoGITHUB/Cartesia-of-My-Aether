@@ -19,6 +19,7 @@
 
 * Flyspell — On-the-fly Spell Checking
 :PROPERTIES:
+:MM_ORDER:  9016.0
 :PACKAGE:  flyspell
 :STRAIGHT: (flyspell :type built-in)
 :CATEGORY: editing

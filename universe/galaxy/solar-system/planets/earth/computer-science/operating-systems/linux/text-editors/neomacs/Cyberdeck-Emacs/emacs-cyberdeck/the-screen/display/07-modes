@@ -1,6 +1,7 @@
 * Display Modes :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       4333530b-374e-4722-bc11-594d45415251
+:MM_ORDER:  9093.0
 :END:
 
 Every buffer possesses a major mode, which determines the editing behavior of Emacs while that buffer is current. The mode line normally shows the name of the current major mode, in parentheses (see The Mode Line).

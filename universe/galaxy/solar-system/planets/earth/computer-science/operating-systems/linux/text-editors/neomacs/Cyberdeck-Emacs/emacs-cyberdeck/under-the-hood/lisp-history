@@ -6,6 +6,7 @@
 * Lisp History :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       82473307-ceb0-4f6e-879b-11e456feccbb
+:MM_ORDER:  9125.0
 :END:
 
 Lisp (LISt Processing language) was first developed in the late 1950s at the Massachusetts Institute of Technology for research in artificial intelligence. The great power of the Lisp language makes it ideal for other purposes as well, such as writing editing commands.

@@ -6,6 +6,7 @@
 * Commands for Human Languages :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       a8791add-53f5-409e-81cd-1e24986b2985
+:MM_ORDER:  9007.0
 :END:
 
 This chapter describes Emacs commands that act on text, by which we mean sequences of characters in a human language (as opposed to, say, a computer programming language). These commands act in ways that take into account the syntactic and stylistic conventions of human languages: conventions involving words, sentences, paragraphs, and capital letters. There are also commands for filling, which means rearranging the lines of a paragraph to be approximately equal in length. These commands, while intended primarily for editing text, are also often useful for editing programs.

@@ -1,6 +1,7 @@
 * Calc Mode Settings :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       8d900f12-d148-40e9-9037-a7f48d27ad09
+:MM_ORDER:  9066.0
 :END:
 
 This chapter describes commands that set modes in the Calculator. They do not affect the contents of the stack, although they may change the appearance or interpretation of the stack’s contents.

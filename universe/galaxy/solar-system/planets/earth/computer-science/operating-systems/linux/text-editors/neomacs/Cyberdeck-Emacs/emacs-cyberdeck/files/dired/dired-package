@@ -68,6 +68,7 @@
 
 * Diff HL — Git status in dired
 :PROPERTIES:
+:MM_ORDER:  9051.0
 :PACKAGE:  diff-hl
 :STRAIGHT: (diff-hl :type git :host github :repo "dgutov/diff-hl")
 :CATEGORY: git

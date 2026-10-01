@@ -1,6 +1,7 @@
 * Data Formats and Hooks :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       e2952193-522d-4e1a-b2b6-b9cf4ba31610
+:MM_ORDER:  9014.0
 :END:
 
 Emacs can be compiled with built-in support for accessing SQLite databases. This section describes the facilities available for accessing SQLite databases from Lisp programs.

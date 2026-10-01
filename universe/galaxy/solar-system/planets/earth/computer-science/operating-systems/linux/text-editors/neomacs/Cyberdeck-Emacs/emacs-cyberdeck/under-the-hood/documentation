@@ -6,6 +6,7 @@
 * Documentation :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       14b9521c-c358-4d9f-96bc-29153288695b
+:MM_ORDER:  9111.0
 :END:
 
 GNU Emacs has convenient built-in help facilities, most of which derive their information from documentation strings associated with functions and variables. This chapter describes how to access documentation strings in Lisp programs.

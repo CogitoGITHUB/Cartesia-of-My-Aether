@@ -6,6 +6,7 @@
 * Document Viewing :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       471f9070-00e3-4c9f-b35e-ea25938f6f8d
+:MM_ORDER:  9052.0
 :END:
 
 DocView mode is a major mode for viewing DVI, PostScript (PS), PDF, OpenDocument, Microsoft Office, EPUB, CBZ, FB2, XPS and OXPS documents. It provides features such as slicing, zooming, and searching inside documents. It works by converting the document to a set of images using the gs (GhostScript) or pdfdraw/mutool draw (MuPDF) commands and other external tools, and then displays those converted images.

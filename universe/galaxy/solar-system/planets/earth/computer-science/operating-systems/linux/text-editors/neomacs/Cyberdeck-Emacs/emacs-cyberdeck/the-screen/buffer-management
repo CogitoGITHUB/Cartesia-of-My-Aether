@@ -74,6 +74,7 @@
 
 * Bufler — Workspace Buffer Management
 :PROPERTIES:
+:MM_ORDER:  9082.0
 :PACKAGE:  bufler
 :STRAIGHT: (bufler :type git :host github :repo "alphapapa/bufler.el")
 :CATEGORY: tools

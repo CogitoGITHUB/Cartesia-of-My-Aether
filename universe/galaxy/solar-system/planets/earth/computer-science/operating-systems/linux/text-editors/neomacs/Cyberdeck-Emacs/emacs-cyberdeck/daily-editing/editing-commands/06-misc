@@ -1,6 +1,7 @@
 * Point and Misc Commands :EMACS_MECHANISM:
 :PROPERTIES:
 :ID:       df8ac580-3ad4-43e2-9b86-04ed13829d4d
+:MM_ORDER:  9015.0
 :END:
 
 To do more than insert characters, you have to know how to move point (see Point). The keyboard commands C-f, C-b, C-n, and C-p move point to the right, left, down, and up, respectively. You can also move point using the arrow keys present on most keyboards: RIGHT, LEFT, DOWN, and UP; however, many Emacs users find that it is slower to use the arrow keys than the control keys, because you need to move your hand to the area of the keyboard where those keys are located.
