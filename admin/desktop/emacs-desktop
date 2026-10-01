@@ -2,12 +2,12 @@
 ;; --------------------------------------------------------------------------
 ;; Desktop File for Emacs
 ;; --------------------------------------------------------------------------
-;; Created Thu Oct  1 07:24:56 2026
+;; Created Thu Oct  1 09:49:37 2026
 ;; Desktop file format version 208
 ;; Emacs version 31.1
 
 ;; Global section:
-(setq desktop-saved-frameset [frameset 1 (27325 57496 556622 842000) (desktop . "208") "shape@localhost" nil nil ((((cursor-color . "#FFFFFF") (neovm--frame-total-lines . 40) (powerline-cache) (background-mode . light) (menu-bar-lines . 0) (frameset--mini t) (background-color . "unspecified-bg") (frameset--id . "8FAB-8D21-958E-E954") (tool-bar-lines . 0) (display-type . color) (tty-type . "xterm-256color") (minibuffer . t) (vertical-scroll-bars) (neovm--frame-text-lines . 39) (foreground-color . "#FFFFFF") (tty . "/dev/tty") (tab-bar-lines . 0) (no-accept-focus) (modeline . t) (font . "tty") (visibility . t) (height . 40) (width . 63) (title) (icon-name)) ((min-height . 8) (min-width . 10) (min-height-ignore . 5) (min-width-ignore . 2) (min-height-safe . 2) (min-width-safe . 2) (min-pixel-height . 8) (min-pixel-width . 10) (min-pixel-height-ignore . 5) (min-pixel-width-ignore . 2) (min-pixel-height-safe . 2) (min-pixel-width-safe . 2)) vc (pixel-width . 63) (pixel-height . 39) (total-width . 63) (total-height . 39) (normal-height . 1.0) (normal-width . 1.0) (combination-limit . t) (leaf (pixel-width . 63) (pixel-height . 27) (total-width . 63) (total-height . 27) (normal-height . 0.6794871794871795) (normal-width . 1.0) (buffer "emacs-mechanism" (selected) (hscroll . 0) (fringes 0 0 nil nil) (margins nil) (scroll-bars nil 0 t nil 0 t nil) (vscroll . 0) (dedicated) (point . 45) (start . 1)) (prev-buffers ("*dashboard*" 1 1) ("*Compile-Log*" 1021 1879) ("*Messages*" 76972 77966) ("*scratch*" 1 1))) (leaf (last . t) (pixel-width . 63) (pixel-height . 12) (total-width . 63) (total-height . 12) (normal-height . 0.3205128205128205) (normal-width . 1.0) (buffer "*Backtrace*" (selected . t) (hscroll . 0) (fringes 0 0 nil nil) (margins nil) (scroll-bars nil 0 t nil 0 t nil) (vscroll . 0) (dedicated) (point . 31) (start . 1)))))])
+(setq desktop-saved-frameset [frameset 1 (27326 641 195223 606000) (desktop . "208") "shape@localhost" nil nil ((((cursor-color . "#FFFFFF") (powerline-cache) (background-mode . light) (modeline . t) (menu-bar-lines . 0) (background-color . "unspecified-bg") (neovm--frame-text-lines . 70) (tool-bar-lines . 0) (display-type . color) (tty-type . "xterm-256color") (minibuffer . t) (vertical-scroll-bars) (foreground-color . "#FFFFFF") (neovm--frame-total-lines . 71) (tty . "/dev/tty") (tab-bar-lines . 0) (frameset--mini t) (no-accept-focus) (frameset--id . "8FAB-8D21-958E-E954") (no-accept-focus) (modeline . t) (font . "tty") (visibility . t) (height . 71) (width . 116) (title) (icon-name)) ((min-height . 8) (min-width . 46) (min-height-ignore . 5) (min-width-ignore . 46) (min-height-safe . 2) (min-width-safe . 2) (min-pixel-height . 8) (min-pixel-width . 46) (min-pixel-height-ignore . 5) (min-pixel-width-ignore . 46) (min-pixel-height-safe . 2) (min-pixel-width-safe . 2)) vc (pixel-width . 116) (pixel-height . 69) (total-width . 116) (total-height . 69) (normal-height . 1.0) (normal-width . 1.0) (combination-limit . t) (leaf (pixel-width . 116) (pixel-height . 61) (total-width . 116) (total-height . 61) (normal-height . 0.888888888888889) (normal-width . 1.0) (buffer "emacs-mechanism" (selected . t) (hscroll . 0) (fringes 0 0 nil nil) (margins 22 . 22) (scroll-bars nil 0 t nil 0 t nil) (vscroll . 0) (dedicated) (point . 1) (start . 1)) (prev-buffers ("*dashboard*" 1 1) ("*Compile-Log*" 1021 1879) ("*Messages*" 70287 70287) ("*scratch*" 1 1))) (leaf (last . t) (pixel-width . 116) (pixel-height . 8) (total-width . 116) (total-height . 8) (normal-height . 0.11111111111111112) (normal-width . 1.0) (buffer "*Warnings*" (selected) (hscroll . 0) (fringes 0 0 nil nil) (margins nil) (scroll-bars nil 0 t nil 0 t nil) (vscroll . 0) (dedicated) (point . 1193) (start . 1031)))))])
 (setq desktop-missing-file-warning nil)
 (setq tags-file-name nil)
 (setq tags-table-list nil)
@@ -21,23 +21,11 @@
   nil
   "emacs-mechanism"
   'dired-mode
-  '(dired-hide-details-mode font-lock-mode yas-minor-mode centered-cursor-mode cyberdeck-keyboard-dired-state-mode visual-line-mode olivetti-mode auto-revert-mode dired-omit-mode diff-hl-dired-mode)
-  45
+  '(dired-hide-details-mode font-lock-mode yas-minor-mode centered-cursor-mode cyberdeck-keyboard-dired-state-mode visual-line-mode olivetti-mode dired-omit-mode diff-hl-dired-mode)
+  1
   '(nil nil)
   t
   '("/root/home/shape/Subnet/emacs-mechanism/")
-  '((buffer-display-time 27325 57461 809254 224000) (truncate-lines))
-  '((mark-ring nil)))
-
-(desktop-create-buffer 208
-  "/root/home/shape/Subnet/universe/galaxy/solar-system/planets/earth/computer-science/operating-systems/linux/text-editors/neomacs/Cyberdeck-Emacs/aiu-subnets/manifolding-mind-map.org.disabled"
-  "manifolding-mind-map.org.disabled"
-  'fundamental-mode
-  '(font-lock-mode yas-minor-mode centered-cursor-mode corfu-mode git-gutter-mode)
-  1
-  '(nil nil)
-  nil
-  nil
-  '((buffer-display-time 27325 57454 171413 301000) (buffer-file-coding-system . utf-8-unix))
+  '((buffer-display-time 27326 581 250934 64000) (truncate-lines))
   '((mark-ring nil)))
 
