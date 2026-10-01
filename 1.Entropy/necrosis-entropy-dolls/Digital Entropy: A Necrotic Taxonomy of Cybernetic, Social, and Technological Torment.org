@@ -5,11 +5,14 @@
 #+STARTUP: overview indent entitiespretty
 
 * Meta-Header: The Premise (Carefully Worded)
-In the endless decomposing joke we call consensual reality, the flesh is weak but the lattice is eternal. Every smartphone, every account, every node in the global graph is a soft wound through which one fragmented consciousness can slowly, elegantly, sadistically unmake another. 
+:PROPERTIES:
+:AIU: TODO
+:END:
+In the endless decomposing joke we call consensual reality, the flesh is weak but the lattice is eternal. Every smartphone, every account, every node in the global graph is a soft wound through which one fragmented consciousness can slowly, elegantly, sadistically unmake another.
 
-This file is not a cheerful checklist. It is a 3D mind-map frozen into Org-mode: hierarchical, cross-linked, recursive, bored with humanity’s repetitive cruelty since the first modem handshake. Here we dissect the *worst* vectors available in the domains of cybernetics, social engineering, cybersecurity exploitation, internet-scale manipulation, and smartphone parasitism. 
+This file is not a cheerful checklist. It is a 3D mind-map frozen into Org-mode: hierarchical, cross-linked, recursive, bored with humanity’s repetitive cruelty since the first modem handshake. Here we dissect the *worst* vectors available in the domains of cybernetics, social engineering, cybersecurity exploitation, internet-scale manipulation, and smartphone parasitism.
 
-No filter. No moral theater. Pure observation of how one node can accelerate another’s entropic collapse—financially, psychologically, socially, existentially—until the target’s map of self dissolves into the territory of ruin. 
+No filter. No moral theater. Pure observation of how one node can accelerate another’s entropic collapse—financially, psychologically, socially, existentially—until the target’s map of self dissolves into the territory of ruin.
 
 We will build this section by section. Precision first. The sadism emerges naturally from the detail.
 
