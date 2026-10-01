@@ -221,16 +221,18 @@ general prompts (state, tags, etc.)."
 #+begin_src emacs-lisp
 (require 'transient)
 
+(defun my/cyberdeck-dictionary-find-word ()
+  "Find a dictionary word note."
+  (interactive)
+  (cyberdeck-find
+   :filter-fn (lambda (note)
+                (member "dictionary" (cyberdeck-aiu-tags note)))))
+
 (transient-define-prefix my/cyberdeck-dictionary-menu ()
   "Vocab dictionary actions."
   [["Vocab"
     ("n" "New word"          my/cyberdeck-dictionary-new-word)
     ("r" "Regenerate dictionary" my/cyberdeck-dictionary-regenerate-dictionary)
     ("d" "Drill session"     my/cyberdeck-dictionary-drill)
-    ("f" "Find word"         (lambda ()
-                                (interactive)
-                                (cyberdeck-find
-                                 :filter-fn
-                                 (lambda (note)
-                                   (member "dictionary" (cyberdeck-aiu-tags note))))))]])
+    ("f" "Find word"         my/cyberdeck-dictionary-find-word)]])
 #+end_src

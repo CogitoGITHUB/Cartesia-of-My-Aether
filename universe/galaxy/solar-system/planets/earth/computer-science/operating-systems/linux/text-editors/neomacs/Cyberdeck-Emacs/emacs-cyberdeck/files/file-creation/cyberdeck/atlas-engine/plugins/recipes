@@ -202,15 +202,17 @@ Requires transient.
 #+begin_src emacs-lisp
 (require 'transient)
 
+(defun my/cyberdeck-recipes-find-recipe ()
+  "Find a recipe note."
+  (interactive)
+  (cyberdeck-find
+   :filter-fn (lambda (note)
+                (member "recipe" (cyberdeck-aiu-tags note)))))
+
 (transient-define-prefix my/cyberdeck-recipes-menu ()
   "Recipe actions."
   [["Recipe"
     ("n" "New recipe"       my/cyberdeck-recipe-create)
     ("s" "Edit servings"    my/cyberdeck-recipes-edit-servings)
-    ("f" "Find recipe"      (lambda ()
-                             (interactive)
-                             (cyberdeck-find
-                              :filter-fn
-                              (lambda (note)
-                                (member "recipe" (cyberdeck-aiu-tags note))))))]])
+    ("f" "Find recipe"      my/cyberdeck-recipes-find-recipe)]])
 #+end_src
