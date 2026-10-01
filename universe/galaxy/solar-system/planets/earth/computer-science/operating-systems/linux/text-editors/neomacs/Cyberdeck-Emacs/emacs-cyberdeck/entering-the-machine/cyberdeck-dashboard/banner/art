@@ -9,15 +9,50 @@
 The Cyberdeck identity banner plus banner selection. Edit freely.
 Restrained structural aesthetic: identity only, no decoration.
 
-** Banner — Cyberdeck identity text
-Lives here as a variable; no external banner file needed.
+** Banner — content lines (plain text; outer box drawn by code)
+Edit the words here. Spacing inside the box is computed at render.
 #+begin_src emacs-lisp
-(defvar cyberdeck/banner-text
-  "A T O M I C  I N F O R M A T I O N  U N I T\nC Y B E R D E C K"
-  "The Cyberdeck identity banner.")
+(defvar cyberdeck/banner-content-lines
+  '("A T O M I C   I N F O R M A T I O N   U N I T"
+    ""
+    "┌──────────────────────┐"
+    "│    C Y B E R D E C K │"
+    "└──────────────────────┘"
+    "")
+  "Plain banner content. The outer box is drawn by `cyberdeck/banner-box'.")
 #+end_src
 
+** Banner — dynamic outer box (follows window width)
+Recomputed before every dashboard render, so resizes re-box.
 #+begin_src emacs-lisp
-(setq dashboard-banner-ascii cyberdeck/banner-text)
-(setq dashboard-startup-banner 'ascii)
+(defun cyberdeck/banner-box (&optional width)
+  "Frame `cyberdeck/banner-content-lines' in an outer box.
+WIDTH defaults to the dashboard window width, clamped between
+content width and 120 columns."
+  (let* ((win (and (boundp 'dashboard-buffer-name)
+                   (get-buffer-window dashboard-buffer-name)))
+         (cols (or width (if win (window-width win) 80)))
+         (inner (apply #'max
+                       (mapcar #'string-width
+                               cyberdeck/banner-content-lines)))
+         (w (min (max (+ inner 4) (- cols 2)) 120))
+         (center (lambda (s)
+                   (let ((pad (- w (string-width s))))
+                     (concat "║" (make-string (/ pad 2) ?\s) s
+                             (make-string (- pad (/ pad 2)) ?\s) "║")))))
+    (mapconcat #'identity
+               (append (list (concat "╔" (make-string w ?═) "╗"))
+                       (mapcar center cyberdeck/banner-content-lines)
+                       (list (concat "╚" (make-string w ?═) "╝")))
+               "\n")))
+
+(defun cyberdeck/banner-apply (&rest _)
+  "Recompute the dashboard banner for the current window width."
+  (when (boundp 'dashboard-banner-ascii)
+    (setq dashboard-banner-ascii (cyberdeck/banner-box)
+          dashboard-startup-banner 'ascii)))
+
+(when (fboundp 'dashboard-insert-startupify-lists)
+  (advice-add 'dashboard-insert-startupify-lists
+              :before #'cyberdeck/banner-apply))
 #+end_src
