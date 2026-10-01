@@ -176,6 +176,18 @@ trigger another close/reopen cycle.")
 Guarantees the vault DB always lives beside the AIUs even if a
 stale session opened it elsewhere.
 #+begin_src emacs-lisp
+(defun cyberdeck-db-close ()
+  "Close the current vault DB connection, if any.
+The guard below calls this; it was missing (void on every
+endpoint change), so any save after a location change dropped
+into the debugger."
+  (when (and (boundp 'cyberdeck-db--connection)
+             cyberdeck-db--connection)
+    (ignore-errors
+      (when (fboundp 'emacsql-close)
+        (emacsql-close cyberdeck-db--connection)))
+    (setq cyberdeck-db--connection nil)))
+
 (defun my/cyberdeck-db--relocate-legacy ()
   "Move a default-location DB to `cyberdeck-db-location'.
 Runs before every connection attempt; cheap no-op once relocated."
