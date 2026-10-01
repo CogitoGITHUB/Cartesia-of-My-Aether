@@ -1,0 +1,397 @@
+;;; clutch-db-sqlite.el --- Native backend over built-in sqlite -*- lexical-binding: t; -*-
+
+;; Copyright (C) 2025-2026 Lucius Chen
+;; SPDX-License-Identifier: GPL-3.0-or-later
+
+
+;; This file is part of clutch.
+
+;; clutch is free software: you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+
+;; clutch is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with clutch.  If not, see <https://www.gnu.org/licenses/>.
+
+;;; Commentary:
+
+;; SQLite backend for the clutch generic database interface.
+;; Requires Emacs 29.1+ (built-in sqlite support).
+;; Implements all `clutch-db-*' generics by dispatching on
+;; `clutch-db-sqlite-conn'.
+;;
+;; Connection profile example:
+;;   ("my-db" . (:database "/path/to/my.db" :backend sqlite))
+
+;;; Code:
+
+(require 'cl-lib)
+(require 'clutch-backend)
+
+(declare-function sqlite-available-p "sqlite" ())
+(declare-function sqlite-open        "sqlite" (file))
+(declare-function sqlite-close       "sqlite" (db))
+(declare-function sqlite-commit      "sqlite" (db))
+(declare-function sqlite-execute     "sqlite" (db query &optional values))
+(declare-function sqlite-select      "sqlite" (db query &optional values return-type))
+(declare-function sqlite-rollback    "sqlite" (db))
+(declare-function sqlite-transaction "sqlite" (db))
+(declare-function sqlitep            "sqlite" (object))
+
+;;;; Connection struct
+
+(cl-defstruct clutch-db-sqlite-conn
+  "A clutch SQLite connection."
+  handle    ;; raw sqlite-handle from sqlite-open
+  database  ;; file path string, for display
+  closed)   ;; boolean, t after sqlite-close
+
+;;;; Connect function
+
+(defun clutch-db-sqlite-connect (params)
+  "Connect to SQLite using PARAMS plist.
+PARAMS keys: :database (file path or \":memory:\", required).
+Use \":memory:\" for a transient in-memory database."
+  (unless (sqlite-available-p)
+    (signal 'clutch-db-error (list "SQLite requires Emacs 29.1+")))
+  (let ((db (plist-get params :database)))
+    (unless db
+      (signal 'clutch-db-error (list "Missing :database parameter")))
+    (clutch-db--translate-library-error sqlite-error
+      (make-clutch-db-sqlite-conn
+       :handle   (sqlite-open (unless (string= db ":memory:") db))
+       :database db
+       :closed   nil))))
+
+;;;; Lifecycle methods
+
+(cl-defmethod clutch-db-disconnect ((conn clutch-db-sqlite-conn))
+  "Disconnect SQLite CONN."
+  (sqlite-close (clutch-db-sqlite-conn-handle conn))
+  (setf (clutch-db-sqlite-conn-closed conn) t))
+
+(cl-defmethod clutch-db-live-p ((conn clutch-db-sqlite-conn))
+  "Return non-nil if SQLite CONN is live."
+  (and (not (clutch-db-sqlite-conn-closed conn))
+       (sqlitep (clutch-db-sqlite-conn-handle conn))))
+
+(cl-defmethod clutch-db-backend-key ((_conn clutch-db-sqlite-conn))
+  "Return the registered backend key for SQLite connections."
+  'sqlite)
+
+(cl-defmethod clutch-db-init-connection ((conn clutch-db-sqlite-conn))
+  "Initialize SQLite CONN: enable foreign key enforcement."
+  (clutch-db--translate-library-error sqlite-error
+    (sqlite-execute (clutch-db-sqlite-conn-handle conn)
+                    "PRAGMA foreign_keys = ON")))
+
+;;;; Type helpers
+
+(defun clutch-db-sqlite--infer-category (value)
+  "Infer type-category symbol from a SQLite VALUE."
+  (if (or (integerp value) (floatp value)) 'numeric 'text))
+
+(defun clutch-db-sqlite--columns-from-names (col-names rows)
+  "Build clutch-db column plists from COL-NAMES and data ROWS."
+  (let ((first-row (car rows)))
+    (cl-loop for name in col-names
+             for i from 0
+             for value = (and first-row (nth i first-row))
+             collect (list :name name
+                           :type-category
+                           (clutch-db-sqlite--infer-category value)))))
+
+;;;; Query helpers
+
+(defun clutch-db-sqlite--select-p (sql)
+  "Return non-nil for row-yielding SQL statements.
+Leading comments are stripped first: routing a commented SELECT to
+`sqlite-execute' would run it and discard the rows.  Whitespace is matched
+explicitly because `\\s-' resolves against the caller's syntax table, and
+`sql-mode' classifies newline as a comment ending rather than whitespace."
+  (let ((case-fold-search t)
+        (trimmed (clutch-db-sql-strip-leading-comments sql)))
+    (or (string-match-p "\\`[ \t\r\n\f]*\\(SELECT\\|WITH\\|EXPLAIN\\|PRAGMA\\|VALUES\\)"
+                        trimmed)
+        (clutch-db-sql-find-top-level-clause sql "RETURNING"))))
+
+(defun clutch-db-sqlite--run-select (conn sql &optional values)
+  "Execute a SELECT-like SQL on CONN with optional VALUES.
+Return a `clutch-db-result'."
+  (let* ((raw      (sqlite-select (clutch-db-sqlite-conn-handle conn)
+                                  sql values 'full))
+         (col-names (car raw))
+         (rows     (cdr raw))
+         (cols     (clutch-db-sqlite--columns-from-names col-names rows)))
+    (make-clutch-db-result
+     :connection conn :columns cols :rows rows
+     :affected-rows nil :last-insert-id nil :warnings nil)))
+
+(defun clutch-db-sqlite--run-dml (conn sql &optional values)
+  "Execute a DML SQL on CONN with optional VALUES.
+Return a `clutch-db-result'."
+  (make-clutch-db-result
+   :connection conn :columns nil :rows nil
+   :affected-rows (sqlite-execute (clutch-db-sqlite-conn-handle conn) sql values)
+   :last-insert-id nil :warnings nil))
+
+;;;; Query methods
+
+(cl-defmethod clutch-db-query ((conn clutch-db-sqlite-conn) sql)
+  "Execute SQL on SQLite CONN, returning a `clutch-db-result'."
+  (clutch-db--translate-library-error sqlite-error
+    (if (clutch-db-sqlite--select-p sql)
+        (clutch-db-sqlite--run-select conn sql)
+      (clutch-db-sqlite--run-dml conn sql))))
+
+(cl-defmethod clutch-db-execute-params ((conn clutch-db-sqlite-conn) sql params)
+  "Execute parameterized SQL on SQLite CONN with PARAMS."
+  (clutch-db--translate-library-error sqlite-error
+    (if (clutch-db-sqlite--select-p sql)
+        (clutch-db-sqlite--run-select
+         conn sql (clutch-db-param-values params))
+      (clutch-db-sqlite--run-dml
+       conn sql (clutch-db-param-values params)))))
+
+(cl-defmethod clutch-db-call-with-atomic-batch
+  ((conn clutch-db-sqlite-conn) function)
+  "Call FUNCTION inside a SQLite transaction on CONN."
+  (let ((handle (clutch-db-sqlite-conn-handle conn)))
+    (clutch-db--call-with-transaction-boundary
+     (lambda ()
+       (clutch-db--translate-library-error sqlite-error
+         (sqlite-transaction handle)))
+     function
+     (lambda ()
+       (clutch-db--translate-library-error sqlite-error
+         (sqlite-commit handle)))
+     (lambda ()
+       (clutch-db--translate-library-error sqlite-error
+         (sqlite-rollback handle))))))
+
+;;;; SQL dialect methods
+
+(defun clutch-db-sqlite--escape-id (name)
+  "Double-quote SQLite identifier NAME."
+  (format "\"%s\"" (replace-regexp-in-string "\"" "\"\"" name)))
+
+(defun clutch-db-sqlite--escape-lit (value)
+  "Single-quote SQLite string literal VALUE."
+  (format "'%s'" (replace-regexp-in-string "'" "''" value)))
+
+(cl-defmethod clutch-db-escape-identifier ((_conn clutch-db-sqlite-conn) name)
+  "Escape NAME as a SQLite identifier (double-quoted)."
+  (clutch-db-sqlite--escape-id name))
+
+(cl-defmethod clutch-db-escape-literal ((_conn clutch-db-sqlite-conn) value)
+  "Escape VALUE as a SQLite string literal (single-quoted)."
+  (clutch-db-sqlite--escape-lit value))
+
+(defun clutch-db-sqlite--pragma-strict (handle pragma-sql)
+  "Run PRAGMA-SQL on HANDLE and surface SQLite errors."
+  (clutch-db--translate-library-error sqlite-error
+    (sqlite-select handle pragma-sql)))
+
+;;;; Schema methods
+
+(cl-defmethod clutch-db-list-tables ((conn clutch-db-sqlite-conn))
+  "Return table names for the SQLite database in CONN."
+  (clutch-db--translate-library-error sqlite-error
+    (let* ((handle (clutch-db-sqlite-conn-handle conn))
+           (rows (sqlite-select
+                  handle
+                  "SELECT name FROM sqlite_master \
+WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")))
+      (mapcar #'car rows))))
+
+(cl-defmethod clutch-db-list-columns ((conn clutch-db-sqlite-conn) table)
+  "Return column names for TABLE on SQLite CONN."
+  (clutch-db--translate-library-error sqlite-error
+    (let* ((handle (clutch-db-sqlite-conn-handle conn))
+           (rows (clutch-db-sqlite--pragma-strict
+                  handle
+                  (format "PRAGMA table_info(%s)"
+                          (clutch-db-sqlite--escape-id table)))))
+      (mapcar (lambda (row) (nth 1 row)) rows))))
+
+(cl-defmethod clutch-db-object-definition ((conn clutch-db-sqlite-conn) entry)
+  "Return definition text for SQLite object ENTRY on CONN."
+  (clutch-db--translate-library-error sqlite-error
+    (pcase (upcase (or (plist-get entry :type) ""))
+      ("TABLE"
+       (let* ((table (plist-get entry :name))
+              (handle (clutch-db-sqlite-conn-handle conn))
+              (rows (sqlite-select
+                     handle
+                     (format "SELECT sql FROM sqlite_master \
+WHERE type='table' AND name=%s"
+                             (clutch-db-sqlite--escape-lit table)))))
+         (or (caar rows) (format "-- No DDL found for %s" table))))
+      (_ nil))))
+
+(cl-defmethod clutch-db-table-comment ((_conn clutch-db-sqlite-conn) _table
+                                       &optional _schema)
+  "Return nil; SQLite does not support table comments."
+  nil)
+
+(cl-defmethod clutch-db-primary-key-columns ((conn clutch-db-sqlite-conn) table)
+  "Return primary key column names for TABLE on SQLite CONN."
+  ;; table_info row: (cid name type notnull dflt_value pk)
+  ;; pk is 1-based position in composite PK; 0 means not in PK.
+  (let* ((handle (clutch-db-sqlite-conn-handle conn))
+         (rows   (clutch-db-sqlite--pragma-strict
+                  handle
+                  (format "PRAGMA table_info(%s)"
+                          (clutch-db-sqlite--escape-id table)))))
+    (cl-loop for row in rows
+             when (> (nth 5 row) 0)
+             collect (nth 1 row))))
+
+(defun clutch-db-sqlite--unique-not-null-identities (conn table)
+  "Return unique-not-null row identity candidates for TABLE on CONN."
+  (let* ((handle (clutch-db-sqlite-conn-handle conn))
+         (table-info (clutch-db-sqlite--pragma-strict
+                      handle
+                      (format "PRAGMA table_info(%s)"
+                              (clutch-db-sqlite--escape-id table))))
+         (not-null (make-hash-table :test 'equal))
+         (indexes (clutch-db-sqlite--pragma-strict
+                   handle
+                   (format "PRAGMA index_list(%s)"
+                           (clutch-db-sqlite--escape-id table)))))
+    (dolist (row table-info)
+      ;; table_info row: (cid name type notnull dflt_value pk)
+      (puthash (nth 1 row) (> (nth 3 row) 0) not-null))
+    (cl-loop for row in indexes
+             ;; index_list row: (seq name unique origin partial)
+             for name = (nth 1 row)
+             for unique = (nth 2 row)
+             for partial = (nth 4 row)
+             when (and (= (or unique 0) 1)
+                       (not (= (or partial 0) 1)))
+             for cols = (mapcar
+                         (lambda (info-row) (nth 2 info-row))
+                         (clutch-db-sqlite--pragma-strict
+                          handle
+                          (format "PRAGMA index_info(%s)"
+                                  (clutch-db-sqlite--escape-id name))))
+             when (and cols
+                       (cl-every (lambda (col)
+                                   (gethash col not-null))
+                                 cols))
+             collect (list :kind 'unique-key
+                           :name name
+                           :columns cols))))
+
+(defun clutch-db-sqlite--rowid-identity (conn table)
+  "Return a rowid row locator candidate for TABLE on CONN, or nil."
+  (clutch-db--translate-library-error sqlite-error
+    (let* ((handle (clutch-db-sqlite-conn-handle conn))
+           (rows (sqlite-select
+                  handle
+                  (format "SELECT sql FROM sqlite_master WHERE type='table' AND name=%s"
+                          (clutch-db-sqlite--escape-lit table))))
+           (ddl (caar rows)))
+      (when (and ddl
+                 (not (string-match-p "\\bWITHOUT\\s-+ROWID\\b"
+                                      (upcase ddl))))
+        (list :kind 'row-locator
+              :name "rowid"
+              :select-expressions '("rowid")
+              :where-sql "rowid = ?")))))
+
+(cl-defmethod clutch-db-row-identity-candidates ((conn clutch-db-sqlite-conn) table
+                                                 &optional _schema _catalog)
+  "Return row identity candidates for TABLE on SQLite CONN."
+  (or (cl-call-next-method)
+      (clutch-db-sqlite--unique-not-null-identities conn table)
+      (when-let* ((rowid (clutch-db-sqlite--rowid-identity conn table)))
+        (list rowid))))
+
+(defun clutch-db-sqlite--fk-alist (handle table)
+  "Return FK alist for TABLE from HANDLE.
+Result: ((from-col :ref-table T :ref-column C) ...)"
+  ;; foreign_key_list row: (id seq table from to on_update on_delete match)
+  (let ((rows (clutch-db-sqlite--pragma-strict
+               handle
+               (format "PRAGMA foreign_key_list(%s)"
+                       (clutch-db-sqlite--escape-id table)))))
+    (cl-loop for row in rows
+             collect (pcase-let ((`(,_id ,_seq ,ref-table ,from-col ,ref-column . ,_)
+                                  row))
+                       (cons from-col
+                             (list :ref-table ref-table
+                                   :ref-column ref-column))))))
+
+(cl-defmethod clutch-db-foreign-keys ((conn clutch-db-sqlite-conn) table)
+  "Return foreign key info for TABLE on SQLite CONN."
+  (clutch-db-sqlite--fk-alist (clutch-db-sqlite-conn-handle conn) table))
+
+(cl-defmethod clutch-db-foreign-keys-async ((conn clutch-db-sqlite-conn) table
+                                            callback &optional errback)
+  "Fetch SQLite foreign key info for TABLE on CONN when idle."
+  (clutch-db--schedule-idle-metadata-call
+   conn callback errback #'clutch-db-foreign-keys nil table))
+
+(defun clutch-db-sqlite--column-detail (row pk-cols fks)
+  "Convert a table_info ROW to a clutch-db column plist.
+PK-COLS is a list of pk column names.  FKS is an FK alist."
+  ;; Row: (cid name type notnull dflt_value pk)
+  (pcase-let ((`(,_cid ,name ,type ,notnull ,dflt-val ,pk) row))
+    (let* ((type-name (downcase (or type "text")))
+           (generated (and (> pk 0)
+                           (string= type-name "integer"))))
+      (list :name        name
+            :type        type-name
+            :nullable    (= notnull 0)
+            :primary-key (and (member name pk-cols) t)
+            :foreign-key (cdr (assoc name fks))
+            :default     (and dflt-val (not generated) dflt-val)
+            :generated   (and generated t)
+            :comment     nil))))
+
+(cl-defmethod clutch-db-column-details ((conn clutch-db-sqlite-conn) table)
+  "Return detailed column info for TABLE on SQLite CONN."
+  (let* ((handle  (clutch-db-sqlite-conn-handle conn))
+         (rows    (clutch-db-sqlite--pragma-strict
+                   handle
+                   (format "PRAGMA table_info(%s)"
+                           (clutch-db-sqlite--escape-id table))))
+         (pk-cols (clutch-db-primary-key-columns conn table))
+         (fks     (clutch-db-sqlite--fk-alist handle table)))
+    (mapcar (lambda (row)
+              (clutch-db-sqlite--column-detail row pk-cols fks))
+            rows)))
+
+;;;; Re-entrancy guard
+
+(cl-defmethod clutch-db-busy-p ((_conn clutch-db-sqlite-conn))
+  "Return nil; SQLite is synchronous, so a connection is never busy."
+  nil)
+
+;;;; Metadata methods
+
+(cl-defmethod clutch-db-user ((_conn clutch-db-sqlite-conn))
+  "Return nil; SQLite has no user concept."
+  nil)
+
+(cl-defmethod clutch-db-host ((_conn clutch-db-sqlite-conn))
+  "Return nil; SQLite is file-based with no network host."
+  nil)
+
+(cl-defmethod clutch-db-port ((_conn clutch-db-sqlite-conn))
+  "Return nil; SQLite has no network port."
+  nil)
+
+(cl-defmethod clutch-db-database ((conn clutch-db-sqlite-conn))
+  "Return the database file path for SQLite CONN."
+  (clutch-db-sqlite-conn-database conn))
+
+(provide 'clutch-db-sqlite)
+;;; clutch-db-sqlite.el ends here

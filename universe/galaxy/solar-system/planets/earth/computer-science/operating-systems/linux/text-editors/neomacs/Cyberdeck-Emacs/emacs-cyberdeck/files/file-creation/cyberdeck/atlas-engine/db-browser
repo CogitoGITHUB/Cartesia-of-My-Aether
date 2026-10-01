@@ -1,0 +1,35 @@
+* Database Browser :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       5c0f7f9d-4564-4e3e-8a10-1e1ccd778090
+:MM_PARENT: cd042753-616a-4ebf-8476-640004859841
+:MM_ORDER:  21.5
+:END:
+
+Interactive grid browser over the Cyberdeck sqlite substrate.
+clutch sources live verbatim under db-vendor/clutch/ (with upstream
+LICENSE; GPL-3.0 stays inside that directory). This unit only wires
+load-path and exposes the browse command.
+
+** Load path
+Anchored on the vault root (compiled units load from the output
+directory, so source-relative paths would misfire).
+#+begin_src emacs-lisp
+(add-to-list 'load-path
+             (expand-file-name "universe/galaxy/solar-system/planets/earth/computer-science/operating-systems/linux/text-editors/neomacs/Cyberdeck-Emacs/emacs-cyberdeck/files/file-creation/cyberdeck/atlas-engine/db-vendor/clutch"
+                               cyberdeck-emacs-vault-root))
+#+end_src
+
+** Browse command
+#+begin_src emacs-lisp
+(defvar cyberdeck-db-location)
+
+(defun my/cyberdeck-browse-db ()
+  "Open a clutch query console on the Cyberdeck substrate database."
+  (interactive)
+  (require 'clutch)
+  (unless (and (boundp 'cyberdeck-db-location)
+               cyberdeck-db-location
+               (file-readable-p cyberdeck-db-location))
+    (user-error "Cyberdeck database not ready: %s" cyberdeck-db-location))
+  (clutch-query-sqlite-file cyberdeck-db-location))
+#+end_src

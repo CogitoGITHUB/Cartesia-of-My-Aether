@@ -1,0 +1,742 @@
+;;; clutch-db-mysql.el --- Native backend over the MySQL wire client -*- lexical-binding: t; -*-
+
+;; Copyright (C) 2025-2026 Lucius Chen
+;; SPDX-License-Identifier: GPL-3.0-or-later
+
+
+;; This file is part of clutch.
+
+;; clutch is free software: you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+
+;; clutch is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with clutch.  If not, see <https://www.gnu.org/licenses/>.
+
+;;; Commentary:
+
+;; MySQL backend for the clutch generic database interface.
+;; Implements all `clutch-db-*' generics by dispatching on `mysql-conn'.
+
+;;; Code:
+
+(require 'cl-lib)
+(require 'subr-x)
+(require 'clutch-backend)
+
+(declare-function mysql-autocommit-p "mysql" (conn))
+(declare-function mysql-busy-p "mysql" (conn))
+(declare-function mysql-commit "mysql" (conn))
+(declare-function mysql-connect "mysql" (&rest params))
+(declare-function mysql-connection-host "mysql" (conn))
+(declare-function mysql-connection-id "mysql" (conn))
+(declare-function mysql-connection-port "mysql" (conn))
+(declare-function mysql-connection-user "mysql" (conn))
+(declare-function mysql-current-database "mysql" (conn))
+(declare-function mysql-disconnect "mysql" (conn))
+(declare-function mysql-drain-query-response "mysql" (conn read-idle-timeout))
+(declare-function mysql-escape-identifier "mysql" (identifier))
+(declare-function mysql-escape-literal "mysql" (string))
+(declare-function mysql-execute "mysql" (stmt &rest params))
+(declare-function mysql-in-transaction-p "mysql" (conn))
+(declare-function mysql-live-p "mysql" (conn))
+(declare-function mysql-prepare "mysql" (conn sql))
+(declare-function mysql-query "mysql" (conn sql))
+(declare-function mysql-result-affected-rows "mysql" (object))
+(declare-function mysql-result-columns "mysql" (object))
+(declare-function mysql-result-connection "mysql" (object))
+(declare-function mysql-result-last-insert-id "mysql" (object))
+(declare-function mysql-result-rows "mysql" (object))
+(declare-function mysql-result-warnings "mysql" (object))
+(declare-function mysql-rollback "mysql" (conn))
+(declare-function mysql-select-database "mysql" (conn database))
+(declare-function mysql-set-autocommit "mysql" (conn autocommit))
+(declare-function mysql-stmt-close "mysql" (stmt))
+;;;; Type-category mapping
+
+(defconst clutch-db-mysql--type-category-alist
+  '((0   . numeric) ; DECIMAL
+    (1   . numeric) ; TINYINT
+    (2   . numeric) ; SMALLINT
+    (3   . numeric) ; INT
+    (4   . numeric) ; FLOAT
+    (5   . numeric) ; DOUBLE
+    (8   . numeric) ; BIGINT
+    (9   . numeric) ; MEDIUMINT
+    (13  . numeric) ; YEAR
+    (246 . numeric) ; NEWDECIMAL
+    (245 . json)    ; JSON
+    (252 . blob)    ; BLOB
+    (249 . blob)    ; TINYBLOB
+    (250 . blob)    ; MEDIUMBLOB
+    (251 . blob)    ; LONGBLOB
+    (10  . date)    ; DATE
+    (11  . time)    ; TIME
+    (12  . datetime) ; DATETIME
+    (7   . datetime)) ; TIMESTAMP
+  "Alist mapping MySQL type codes to type-category symbols.")
+
+(defconst clutch-db-mysql--binary-charset 63
+  "MySQL charset code for binary.
+Blob-family types with this charset are true BLOBs; others are TEXT.")
+
+(defconst clutch-db-mysql--blob-family-types
+  '(252 249 250 251)
+  "MySQL type codes that share BLOB/TEXT family encodings.")
+
+(defcustom clutch-db-mysql-cancel-timeout-seconds 5
+  "Seconds to wait while cancelling and draining an interrupted MySQL query."
+  :type 'number
+  :group 'clutch)
+
+(defvar clutch-db-mysql--connection-params
+  (make-hash-table :test 'eq :weakness 'key)
+  "Wire connection parameters keyed by MySQL connection objects.")
+
+(defvar clutch-db-mysql--methods-installed nil
+  "Non-nil when MySQL generic methods were installed.")
+
+(defun clutch-db-mysql--timeout-error-message (err recovered)
+  "Return a user-facing timeout message for ERR.
+RECOVERED is non-nil when the MySQL wire connection was resynchronized."
+  (concat (error-message-string err)
+          (if recovered
+              "; interrupted running query and restored MySQL connection"
+            "; disconnected MySQL connection because timeout recovery failed")))
+
+(defun clutch-db-mysql--handle-query-timeout (conn err &optional stmt)
+  "Recover or close CONN after MySQL query timeout ERR, then signal error.
+STMT is released only once recovery has resynchronized the wire."
+  (let ((recovered (clutch-db-interrupt-query conn)))
+    (if recovered
+        (when stmt (ignore-errors (mysql-stmt-close stmt)))
+      (ignore-errors (mysql-disconnect conn)))
+    (signal 'clutch-db-error
+            (list (clutch-db-mysql--timeout-error-message err recovered)))))
+
+(defun clutch-db-mysql--ensure-client-api ()
+  "Ensure mysql.el is available and this adapter installed its methods."
+  (unless (require 'mysql nil t)
+    (signal 'clutch-db-error
+            (list "MySQL backend requires mysql.el. Install LuciusChen/mysql.el, ensure it is on load-path, then restart Emacs.")))
+  (unless clutch-db-mysql--methods-installed
+    (signal 'clutch-db-error
+            (list "MySQL backend was loaded before mysql.el was available. Restart Emacs after installing mysql.el."))))
+
+(defun clutch-db-mysql--apply-timeout-defaults (params)
+  "Return PARAMS with MySQL timeout defaults filled in."
+  (clutch-db--apply-connect-defaults
+   params
+   `((:connect-timeout . ,clutch-connect-timeout-seconds)
+     (:read-idle-timeout . ,clutch-read-idle-timeout-seconds))))
+
+(defun clutch-db-mysql--wire-connect-args (params)
+  "Return PARAMS with clutch-only keys removed for `mysql-connect'."
+  (cl-loop for (key value) on params by #'cddr
+           unless (memq key '(:sql-product :backend :pass-entry))
+           append (list key value)))
+
+(defun clutch-db-mysql--type-category (mysql-type charset)
+  "Map a MySQL type code MYSQL-TYPE (with CHARSET) to a type-category symbol.
+For the blob-family type codes, charset 63 (binary) means a true BLOB;
+any other charset means a TEXT column."
+  (if (memq mysql-type clutch-db-mysql--blob-family-types)
+      (if (= charset clutch-db-mysql--binary-charset) 'blob 'text)
+    (or (alist-get mysql-type clutch-db-mysql--type-category-alist)
+        'text)))
+
+(defun clutch-db-mysql--convert-columns (mysql-columns)
+  "Convert MYSQL-COLUMNS to `clutch-db' column plists.
+Each output plist has :name and :type-category."
+  (mapcar (lambda (col)
+            (list :name (plist-get col :name)
+                  :type-category (clutch-db-mysql--type-category
+                                  (plist-get col :type)
+                                  (plist-get col :character-set))))
+          mysql-columns))
+
+(defun clutch-db-mysql--wrap-result (mysql-result)
+  "Convert MYSQL-RESULT to a `clutch-db-result'."
+  (let ((cols (mysql-result-columns mysql-result)))
+    (make-clutch-db-result
+     :connection (mysql-result-connection mysql-result)
+     :columns (when cols (clutch-db-mysql--convert-columns cols))
+     :rows (mysql-result-rows mysql-result)
+     :affected-rows (mysql-result-affected-rows mysql-result)
+     :last-insert-id (mysql-result-last-insert-id mysql-result)
+     :warnings (mysql-result-warnings mysql-result))))
+
+;;;; Connect function
+
+(defun clutch-db-mysql-connect (params)
+  "Connect to MySQL using PARAMS plist.
+PARAMS keys: :host, :port, :user, :password, :database, :tls,
+:ssl-mode, :connect-timeout, :read-idle-timeout.
+For MySQL, explicit `:tls nil' or `:ssl-mode disabled' forces plaintext."
+  (clutch-db-mysql--ensure-client-api)
+  (clutch-db--translate-library-error mysql-error
+    (let* ((wire-args (clutch-db-mysql--wire-connect-args
+                       (clutch-db-mysql--apply-timeout-defaults
+                        (clutch-db--reject-removed-connect-params params))))
+           (conn (apply #'mysql-connect wire-args)))
+      (puthash conn (copy-sequence wire-args)
+               clutch-db-mysql--connection-params)
+      conn)))
+
+(defun clutch-db-mysql--drain-interrupted-response (conn)
+  "Drain the interrupted query response from CONN.
+Return non-nil when the wire protocol is synchronized again."
+  (condition-case nil
+      (progn
+        (mysql-drain-query-response conn clutch-db-mysql-cancel-timeout-seconds)
+        t)
+    ;; KILL QUERY returns an ERR packet after the response has been consumed.
+    (mysql-query-error t)
+    (mysql-error nil)))
+
+(defun clutch-db-mysql--parse-help-text (text)
+  "Parse a MySQL HELP description TEXT into a (:sig SIG :desc DESC) plist.
+Return nil when TEXT has no Syntax section."
+  (when (string-match "\\(?:\\`\\|\n\\)Syntax:[[:blank:]\r\n]*" text)
+    (when-let* ((paragraphs (split-string (substring text (match-end 0))
+                                           "\n[[:blank:]\r\n]*\n"
+                                           t "[[:blank:]\r\n]+"))
+                (sig (car paragraphs)))
+      (let* ((desc (cadr paragraphs))
+             (sig (string-join (split-string sig "\n" t "[[:blank:]]+")
+                               " / "))
+             (desc (car (split-string (or desc "") "\nURL:" t)))
+             (desc (string-join (split-string (or desc "") "\n" t "[[:blank:]]+")
+                                " ")))
+        (unless (string-empty-p sig)
+          (list :sig sig :desc desc))))))
+
+(defun clutch-db-mysql--unique-not-null-identities (conn table)
+  "Return unique-not-null row identity candidates for TABLE on CONN."
+  (clutch-db--translate-library-error mysql-error
+    (let ((result
+           (mysql-query
+            conn
+            (format "SHOW KEYS FROM %s WHERE Non_unique = 0 AND Key_name <> 'PRIMARY'"
+                    (mysql-escape-identifier table))))
+          (indexes (make-hash-table :test 'equal))
+          (invalid (make-hash-table :test 'equal))
+          order)
+      (dolist (row (mysql-result-rows result))
+        (pcase-let ((`(,_table ,_non-unique ,name ,seq ,column
+                       ,_collation ,_cardinality ,_sub-part ,_packed
+                       ,nullable . ,_)
+                     row))
+          (when (and (stringp name) (not (gethash name indexes)))
+            (push name order))
+          (if (and (stringp name)
+                   (stringp column)
+                   (or (null nullable)
+                       (string-empty-p (format "%s" nullable))))
+              (puthash name
+                       (cons (cons (or seq 0) column)
+                             (gethash name indexes))
+                       indexes)
+            (puthash name t invalid))))
+      (cl-loop for name in (sort (nreverse order) #'string-collate-lessp)
+               unless (gethash name invalid)
+               collect (list
+                        :kind 'unique-key
+                        :name name
+                        :columns (mapcar
+                                  #'cdr
+                                  (sort (gethash name indexes)
+                                        (lambda (a b)
+                                          (< (car a) (car b))))))))))
+
+;;;; Lifecycle methods
+
+(when (require 'mysql nil t)
+
+(cl-defmethod clutch-db-disconnect ((conn mysql-conn))
+  "Disconnect MySQL CONN."
+  (mysql-disconnect conn))
+
+(cl-defmethod clutch-db-live-p ((conn mysql-conn))
+  "Return non-nil if MySQL CONN is live."
+  (mysql-live-p conn))
+
+(cl-defmethod clutch-db-backend-key ((_conn mysql-conn))
+  "Return the registered backend key for MySQL connections."
+  'mysql)
+
+(cl-defmethod clutch-db-interrupt-query ((conn mysql-conn))
+  "Interrupt the active MySQL query on CONN without dropping the session."
+  (let ((thread-id (mysql-connection-id conn))
+        (params (gethash conn clutch-db-mysql--connection-params))
+        killer)
+    (and thread-id
+         params
+         (condition-case nil
+             (let ((inhibit-quit t))
+               (unwind-protect
+                   (progn
+                     (setq killer
+                           (apply #'mysql-connect
+                                  (plist-put
+                                   (copy-sequence params)
+                                   :read-idle-timeout
+                                   clutch-db-mysql-cancel-timeout-seconds)))
+                     (mysql-query killer (format "KILL QUERY %d" thread-id))
+                     (clutch-db-mysql--drain-interrupted-response conn))
+                 (when killer
+                   (ignore-errors (mysql-disconnect killer)))))
+           (mysql-error nil)))))
+
+(cl-defmethod clutch-db-init-connection ((conn mysql-conn))
+  "Initialize MySQL CONN with utf8mb4."
+  (condition-case err
+      (mysql-query conn "SET NAMES utf8mb4")
+    (mysql-error
+     (signal 'clutch-db-error
+             (list (format "Init failed: %s" (error-message-string err)))))))
+
+(cl-defmethod clutch-db-eager-schema-refresh-p ((_conn mysql-conn))
+  "MySQL schema refresh should not block connect."
+  nil)
+
+(cl-defmethod clutch-db-completion-deferred-columns-p ((_conn mysql-conn))
+  "MySQL completion should hydrate uncached columns when idle."
+  t)
+
+;;;; Transaction methods
+
+(cl-defmethod clutch-db-manual-commit-p ((conn mysql-conn))
+  "Return non-nil for MySQL CONN with autocommit disabled."
+  (not (mysql-autocommit-p conn)))
+
+(cl-defmethod clutch-db-manual-commit-supported-p ((_conn mysql-conn))
+  "Return non-nil for MySQL runtime autocommit toggling."
+  t)
+
+(cl-defmethod clutch-db-commit ((conn mysql-conn))
+  "Commit the current transaction on MySQL CONN."
+  (mysql-commit conn))
+
+(cl-defmethod clutch-db-rollback ((conn mysql-conn))
+  "Roll back the current transaction on MySQL CONN."
+  (mysql-rollback conn))
+
+(cl-defmethod clutch-db-set-auto-commit ((conn mysql-conn) auto-commit)
+  "Set autocommit mode on MySQL CONN.
+AUTO-COMMIT non-nil enables autocommit; nil enables manual commit."
+  (mysql-set-autocommit conn auto-commit))
+
+(cl-defmethod clutch-db-call-with-atomic-batch
+  ((conn mysql-conn) function)
+  "Call FUNCTION atomically in the selected MySQL transaction mode on CONN."
+  (clutch-db--translate-library-error mysql-error
+    (if (clutch-db-manual-commit-p conn)
+        (clutch-db--call-with-sql-savepoint
+         conn function
+         (lambda ()
+           (unless (mysql-in-transaction-p conn)
+             (clutch-db-query conn "START TRANSACTION"))))
+      (when (mysql-in-transaction-p conn)
+        (user-error
+         "Session already has an explicit transaction; switch to Manual mode or finish it before submitting"))
+      (clutch-db--call-with-transaction-boundary
+       (lambda () (clutch-db-query conn "START TRANSACTION"))
+       function
+       (lambda () (clutch-db-commit conn))
+       (lambda () (clutch-db-rollback conn))))))
+
+(cl-defmethod clutch-db-schema-transaction-effect ((_conn mysql-conn) _sql)
+  "Return `clear' because MySQL DDL commits the current transaction."
+  'clear)
+
+;;;; Query methods
+
+(cl-defmethod clutch-db-query ((conn mysql-conn) sql)
+  "Execute SQL on MySQL CONN, returning a `clutch-db-result'."
+  (condition-case err
+      (clutch-db-mysql--wrap-result (mysql-query conn sql))
+    (mysql-timeout
+     (clutch-db-mysql--handle-query-timeout conn err))
+    (mysql-error
+     (signal 'clutch-db-error
+             (list (error-message-string err))))))
+
+(cl-defmethod clutch-db-symbol-help ((conn mysql-conn) symbol)
+  "Return MySQL HELP metadata for SYMBOL on CONN, or nil when unknown."
+  (clutch-db--translate-library-error mysql-error
+    (let* ((result (mysql-query
+                    conn (format "HELP %s"
+                                 (mysql-escape-literal
+                                  (upcase (format "%s" symbol))))))
+           (row (car (mysql-result-rows result)))
+           (desc (nth 1 row)))
+      (when (stringp desc)
+        (clutch-db-mysql--parse-help-text desc)))))
+
+(cl-defmethod clutch-db-execute-params ((conn mysql-conn) sql params)
+  "Execute parameterized SQL on MySQL CONN with PARAMS."
+  (let (stmt result pending-error timeout-error)
+    (condition-case err
+        (setq stmt (mysql-prepare conn sql))
+      (mysql-timeout
+       (setq timeout-error err))
+      (mysql-error
+       (setq pending-error err)))
+    (when stmt
+      (unwind-protect
+          (condition-case err
+              (setq result
+                    (clutch-db-mysql--wrap-result
+                     (apply #'mysql-execute
+                            stmt (clutch-db-param-values params))))
+            (mysql-timeout
+             (setq timeout-error err))
+            (mysql-error
+             (setq pending-error err)))
+        ;; A timed-out statement leaves its response on the wire; closing it
+        ;; here would desynchronize the session before recovery can drain it.
+        (unless timeout-error
+          (condition-case err
+              (mysql-stmt-close stmt)
+            (mysql-error
+             (unless pending-error
+               (setq pending-error err)))))))
+    (when timeout-error
+      (clutch-db-mysql--handle-query-timeout conn timeout-error stmt))
+    (if pending-error
+        (signal 'clutch-db-error
+                (list (error-message-string pending-error)))
+      result)))
+
+;;;; SQL dialect methods
+
+(cl-defmethod clutch-db-escape-identifier ((_conn mysql-conn) name)
+  "Escape NAME as a MySQL identifier (backtick-quoted)."
+  (mysql-escape-identifier name))
+
+(cl-defmethod clutch-db-escape-literal ((_conn mysql-conn) value)
+  "Escape VALUE as a MySQL string literal."
+  (mysql-escape-literal value))
+
+;;;; Schema methods
+
+(clutch-db--define-idle-metadata-methods mysql-conn "MySQL")
+
+(cl-defmethod clutch-db-list-tables ((conn mysql-conn))
+  "Return table names for the current MySQL database on CONN."
+  (clutch-db--translate-library-error mysql-error
+    (let ((result (mysql-query conn "SHOW TABLES")))
+      (mapcar #'car (mysql-result-rows result)))))
+
+(cl-defmethod clutch-db-list-schemas ((conn mysql-conn))
+  "Return visible MySQL schema/database names for CONN."
+  (clutch-db--translate-library-error mysql-error
+    (let ((result (mysql-query conn "SHOW DATABASES")))
+      (sort (mapcar #'car (mysql-result-rows result)) #'string-collate-lessp))))
+
+(cl-defmethod clutch-db-current-schema ((conn mysql-conn))
+  "Return the current MySQL schema/database for CONN."
+  (clutch-db-database conn))
+
+(cl-defmethod clutch-db-set-current-schema ((conn mysql-conn) schema)
+  "Switch MySQL CONN to SCHEMA."
+  (clutch-db--translate-library-error mysql-error
+    (mysql-select-database conn schema)))
+
+(cl-defmethod clutch-db-update-namespace-params ((conn mysql-conn) params)
+  "Store MySQL CONN's current database in a copy of connection PARAMS."
+  (plist-put (copy-sequence params) :database (clutch-db-database conn)))
+
+(cl-defmethod clutch-db-list-table-entries ((conn mysql-conn))
+  "Return table/view entry plists for the current MySQL database on CONN."
+  (clutch-db--translate-library-error mysql-error
+    (let* ((result (mysql-query
+                    conn
+                    "SELECT TABLE_NAME, TABLE_TYPE, NULLIF(TABLE_COMMENT, '')
+FROM INFORMATION_SCHEMA.TABLES
+WHERE TABLE_SCHEMA = DATABASE()
+  AND TABLE_TYPE IN ('BASE TABLE', 'VIEW')
+ORDER BY TABLE_NAME"))
+           (schema (clutch-db-database conn)))
+      (mapcar
+       (lambda (row)
+         (pcase-let ((`(,name ,table-type ,comment) row))
+           (list :name name
+                 :type (if (string= table-type "VIEW") "VIEW" "TABLE")
+                 :schema schema
+                 :source-schema schema
+                 :comment comment)))
+       (mysql-result-rows result)))))
+
+(cl-defmethod clutch-db-list-columns ((conn mysql-conn) table)
+  "Return column names for TABLE on MySQL CONN."
+  (clutch-db--translate-library-error mysql-error
+    (let ((result (mysql-query
+                   conn
+                   (format "SHOW COLUMNS FROM %s"
+                           (mysql-escape-identifier table)))))
+      (mapcar #'car (mysql-result-rows result)))))
+
+(cl-defmethod clutch-db-list-objects ((conn mysql-conn) category)
+  "Return object entry plists for CATEGORY on MySQL CONN."
+  (clutch-db--translate-library-error mysql-error
+    (let ((schema (clutch-db-database conn)))
+      (pcase category
+        ('indexes
+         (let ((result (mysql-query
+                        conn
+                        "SELECT DISTINCT INDEX_NAME, TABLE_NAME, NON_UNIQUE
+FROM INFORMATION_SCHEMA.STATISTICS
+WHERE TABLE_SCHEMA = DATABASE()
+ORDER BY TABLE_NAME, INDEX_NAME")))
+           (mapcar
+            (lambda (row)
+              (pcase-let ((`(,name ,table-name ,non-unique) row))
+                (list :name name :type "INDEX" :schema schema :source-schema schema
+                      :target-table table-name :unique (equal non-unique 0))))
+            (mysql-result-rows result))))
+        ('sequences nil)
+        ((or 'procedures 'functions)
+         (let* ((routine-type (if (eq category 'procedures) "PROCEDURE" "FUNCTION"))
+                (result (mysql-query
+                         conn
+                         (format "SELECT ROUTINE_NAME, ROUTINE_TYPE
+FROM INFORMATION_SCHEMA.ROUTINES
+WHERE ROUTINE_SCHEMA = DATABASE()
+  AND ROUTINE_TYPE = %s
+ORDER BY ROUTINE_NAME"
+                                 (mysql-escape-literal routine-type)))))
+           (mapcar
+            (lambda (row)
+              (pcase-let ((`(,name ,type) row))
+                (list :name name :type type :schema schema :source-schema schema)))
+            (mysql-result-rows result))))
+        ('triggers
+         (let ((result (mysql-query
+                        conn
+                        "SELECT TRIGGER_NAME, EVENT_OBJECT_TABLE, EVENT_MANIPULATION, ACTION_TIMING
+FROM INFORMATION_SCHEMA.TRIGGERS
+WHERE TRIGGER_SCHEMA = DATABASE()
+ORDER BY EVENT_OBJECT_TABLE, TRIGGER_NAME")))
+           (mapcar
+            (lambda (row)
+              (pcase-let ((`(,name ,table-name ,event ,timing) row))
+                (list :name name :type "TRIGGER" :schema schema :source-schema schema
+                      :target-table table-name :event event :timing timing
+                      :status "ENABLED")))
+            (mysql-result-rows result))))
+        (_ nil)))))
+
+(cl-defmethod clutch-db-object-details ((conn mysql-conn) entry)
+  "Return detail plists for MySQL object ENTRY on CONN."
+  (clutch-db--translate-library-error mysql-error
+    (let ((type (upcase (or (plist-get entry :type) ""))))
+        (pcase type
+          ("INDEX"
+           (let* ((name (plist-get entry :name))
+                  (table (or (plist-get entry :target-table)
+                             (plist-get entry :table)))
+                  (_ (unless table
+                       (error "MySQL index details require :target-table")))
+                  (result (mysql-query
+                           conn
+                           (format "SELECT COLUMN_NAME, SEQ_IN_INDEX, COLLATION
+FROM INFORMATION_SCHEMA.STATISTICS
+WHERE TABLE_SCHEMA = DATABASE()
+  AND TABLE_NAME = %s
+  AND INDEX_NAME = %s
+ORDER BY SEQ_IN_INDEX"
+                                   (mysql-escape-literal table)
+                                   (mysql-escape-literal name)))))
+             (mapcar
+              (lambda (row)
+                (pcase-let ((`(,column-name ,position ,collation) row))
+                  (list :name column-name
+                        :position position
+                        :descend (if (string= collation "D") "DESC" "ASC"))))
+              (mysql-result-rows result))))
+          ((or "PROCEDURE" "FUNCTION")
+           (let* ((specific-name (plist-get entry :name))
+                  (result (mysql-query
+                           conn
+                           (format "SELECT PARAMETER_NAME, DTD_IDENTIFIER,
+       COALESCE(PARAMETER_MODE, 'RETURN'), ORDINAL_POSITION
+FROM INFORMATION_SCHEMA.PARAMETERS
+WHERE SPECIFIC_SCHEMA = DATABASE()
+  AND SPECIFIC_NAME = %s
+ORDER BY ORDINAL_POSITION"
+                                   (mysql-escape-literal specific-name)))))
+             (mapcar
+              (lambda (row)
+                (pcase-let ((`(,param-name ,dtype ,mode ,position) row))
+                  (list :name param-name :type dtype :mode mode :position position)))
+              (mysql-result-rows result))))
+          (_ nil)))))
+
+(cl-defmethod clutch-db-object-definition ((conn mysql-conn) entry)
+  "Return definition or source text for MySQL object ENTRY on CONN."
+  (clutch-db--translate-library-error mysql-error
+    (let ((type (upcase (or (plist-get entry :type) "")))
+          (name (plist-get entry :name)))
+      (pcase type
+        ("TABLE"
+         (let* ((result (mysql-query
+                         conn
+                         (format "SHOW CREATE TABLE %s"
+                                 (mysql-escape-identifier name))))
+                (rows (mysql-result-rows result)))
+           (unless rows
+             (signal 'clutch-db-error
+                     (list (format "SHOW CREATE TABLE returned no rows for %s"
+                                   name))))
+           (pcase-let ((`(,_ ,ddl) (car rows)))
+             ddl)))
+        ((or "PROCEDURE" "FUNCTION" "TRIGGER")
+         (nth 2 (car (mysql-result-rows
+                      (mysql-query
+                       conn
+                       (format "SHOW CREATE %s %s" type
+                               (mysql-escape-identifier name)))))))
+        ("VIEW"
+         (let* ((result (mysql-query
+                         conn
+                         (format "SHOW CREATE VIEW %s"
+                                 (mysql-escape-identifier name))))
+                (row (car (mysql-result-rows result))))
+           (nth 1 row)))
+        ("INDEX"
+         (let* ((details (clutch-db-object-details conn entry))
+                (columns (mapconcat
+                          (lambda (col)
+                            (format "%s %s"
+                                    (mysql-escape-identifier (plist-get col :name))
+                                    (plist-get col :descend)))
+                          details
+                          ", ")))
+           (format "CREATE %sINDEX %s ON %s (%s);"
+                   (if (plist-get entry :unique) "UNIQUE " "")
+                   (mysql-escape-identifier name)
+                   (mysql-escape-identifier (plist-get entry :target-table))
+                   columns)))
+        (_ nil)))))
+
+(cl-defmethod clutch-db-table-comment ((conn mysql-conn) table &optional _schema)
+  "Return the comment for TABLE on MySQL CONN, or nil if empty."
+  (clutch-db--translate-library-error mysql-error
+    (let* ((result (mysql-query
+                      conn
+                      (format "SELECT TABLE_COMMENT \
+FROM INFORMATION_SCHEMA.TABLES \
+WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s"
+                              (mysql-escape-literal table))))
+             (row (car (mysql-result-rows result)))
+             (comment (car row)))
+      (when (and comment (not (string-empty-p comment)))
+        comment))))
+
+(cl-defmethod clutch-db-primary-key-columns ((conn mysql-conn) table)
+  "Return primary key column names for TABLE on MySQL CONN."
+  (clutch-db--translate-library-error mysql-error
+    (let* ((result (mysql-query
+                    conn
+                    (format "SHOW KEYS FROM %s WHERE Key_name = 'PRIMARY'"
+                            (mysql-escape-identifier table))))
+           (rows (mysql-result-rows result)))
+      (mapcar (lambda (row)
+                (pcase-let ((`(,_ ,_ ,_ ,_ ,name) row))
+                  (if (stringp name) name (format "%s" name))))
+              rows))))
+
+(cl-defmethod clutch-db-row-identity-candidates ((conn mysql-conn) table
+                                                 &optional _schema _catalog)
+  "Return row identity candidates for TABLE on MySQL CONN."
+  (or (cl-call-next-method)
+      (clutch-db-mysql--unique-not-null-identities conn table)))
+
+(cl-defmethod clutch-db-foreign-keys ((conn mysql-conn) table)
+  "Return foreign key info for TABLE on MySQL CONN.
+Returns alist of (COL-NAME . (:ref-table T :ref-column C))."
+  (clutch-db--translate-library-error mysql-error
+    (let* ((sql (format
+                   "SELECT COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME \
+FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE \
+WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s \
+AND REFERENCED_TABLE_NAME IS NOT NULL"
+                   (mysql-escape-literal table)))
+             (result (mysql-query conn sql))
+             (rows (mysql-result-rows result)))
+        (cl-loop for row in rows
+                 collect (pcase-let ((`(,n ,ref-table ,ref-column) row))
+                           (let ((col-name (if (stringp n) n (format "%s" n))))
+                           (cons col-name (list :ref-table ref-table
+                                                :ref-column ref-column))))))))
+
+;;;; Column details
+
+(cl-defmethod clutch-db-column-details ((conn mysql-conn) table)
+  "Return detailed column info for TABLE on MySQL CONN."
+  (clutch-db--translate-library-error mysql-error
+    (let* ((col-result (mysql-query
+                          conn
+                          (format "SELECT COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, \
+COLUMN_DEFAULT, EXTRA, COLUMN_COMMENT \
+FROM INFORMATION_SCHEMA.COLUMNS \
+WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s \
+ORDER BY ORDINAL_POSITION"
+                                  (mysql-escape-literal table))))
+             (col-rows (mysql-result-rows col-result))
+             (pk-cols (clutch-db-primary-key-columns conn table))
+             (fks (clutch-db-foreign-keys conn table)))
+      (mapcar
+       (lambda (row)
+         (pcase-let ((`(,name ,type ,nullable-str ,default-val ,extra ,comment) row))
+           (let* ((nullable (string= nullable-str "YES"))
+                  (pk-p (member name pk-cols))
+                  (fk (cdr (assoc name fks)))
+                  (generated (and extra
+                                  (string-match-p
+                                   "\\_<\\(auto_increment\\|VIRTUAL GENERATED\\|STORED GENERATED\\)\\_>"
+                                   extra))))
+             (list :name name :type type :nullable nullable
+                   :primary-key (and pk-p t)
+                   :foreign-key fk
+                   :default (and default-val (not generated) default-val)
+                   :generated (and generated t)
+                   :comment (and comment (not (string-empty-p comment)) comment)))))
+       col-rows))))
+
+;;;; Re-entrancy guard
+
+(cl-defmethod clutch-db-busy-p ((conn mysql-conn))
+  "Return non-nil if MySQL CONN is executing a query."
+  (mysql-busy-p conn))
+
+;;;; Metadata methods
+
+(cl-defmethod clutch-db-user ((conn mysql-conn))
+  "Return the user for MySQL CONN."
+  (mysql-connection-user conn))
+
+(cl-defmethod clutch-db-host ((conn mysql-conn))
+  "Return the host for MySQL CONN."
+  (mysql-connection-host conn))
+
+(cl-defmethod clutch-db-port ((conn mysql-conn))
+  "Return the port for MySQL CONN."
+  (mysql-connection-port conn))
+
+(cl-defmethod clutch-db-database ((conn mysql-conn))
+  "Return the database for MySQL CONN."
+  (mysql-current-database conn))
+
+ (setq clutch-db-mysql--methods-installed t))
+
+(provide 'clutch-db-mysql)
+;;; clutch-db-mysql.el ends here
