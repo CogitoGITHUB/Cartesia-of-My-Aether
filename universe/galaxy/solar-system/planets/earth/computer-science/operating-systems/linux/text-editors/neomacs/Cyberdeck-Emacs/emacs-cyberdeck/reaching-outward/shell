@@ -1,0 +1,15 @@
+* Shells :EMACS_MECHANISM:
+:PROPERTIES:
+:ID:       0e99cc4e-f086-41ad-84f9-82fdfc0e2275
+:MM_PARENT: none
+:END:
+
+Login shell here is Nushell, and Emacs inherits it: without this,
+`shell-file-name' becomes nu and scripted callers break — dired
+calls `\ls --dired', which nu neither parses nor flags. So scripted
+processes get POSIX sh while interactive `M-x shell' keeps nu.
+
+#+begin_src emacs-lisp
+(setq shell-file-name "/bin/sh"
+      explicit-shell-file-name "/usr/local/bin/nu")
+#+end_src
