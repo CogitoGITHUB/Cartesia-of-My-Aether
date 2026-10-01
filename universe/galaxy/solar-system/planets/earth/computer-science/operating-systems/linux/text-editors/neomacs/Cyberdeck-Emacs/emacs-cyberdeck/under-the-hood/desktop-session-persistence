@@ -28,29 +28,33 @@
 
 (make-directory my/desktop-dir t) ;; ensure directory exists
 
-(setq desktop-dirname my/desktop-dir
-      desktop-path   (list my/desktop-dir)
-      desktop-base-file-name "emacs-desktop")
+;; DISABLED 2026-10-01: desktop session prompts hang interactive boot
+;; (stale .emacs.desktop.lock asks y/n behind the splash). Re-enable by
+;; uncommenting below.
+;; (setq desktop-dirname my/desktop-dir
+;;       desktop-path   (list my/desktop-dir)
+;;       desktop-base-file-name "emacs-desktop")
 
 ;;──────────────────────────────────────────────────────────
 ;; Desktop Mode
 ;;──────────────────────────────────────────────────────────
-(leaf desktop
-  :require t
-  :config
-  ;; auto-save session when closing Emacs
-  (add-hook 'kill-emacs-hook #'desktop-save-in-desktop-dir)
-
-  ;; Never ask before overwriting. Without this, quitting when no desktop
-  ;; file exists yet — the first quit, and any quit after the file is
-  ;; deleted — blocks on "Overwrite this desktop file?", which in a batch
-  ;; or scripted run means the process simply hangs there.
-  (setq desktop-save-confirm nil)
-
-  ;; restore behavior tuning
-  (setq desktop-restore-eager 8
-        desktop-lazy-idle-delay 0.5
-        desktop-load-locked-desktop t)
-
-  (desktop-save-mode 1))
+;; DISABLED 2026-10-01: see above.
+;; (leaf desktop
+;;   :require t
+;;   :config
+;;   ;; auto-save session when closing Emacs
+;;   (add-hook 'kill-emacs-hook #'desktop-save-in-desktop-dir)
+;;
+;;   ;; Never ask before overwriting. Without this, quitting when no desktop
+;;   ;; file exists yet — the first quit, and any quit after the file is
+;;   ;; deleted — blocks on "Overwrite this desktop file?", which in a batch
+;;   ;; or scripted run means the process simply hangs there.
+;;   (setq desktop-save-confirm nil)
+;;
+;;   ;; restore behavior tuning
+;;   (setq desktop-restore-eager 8
+;;         desktop-lazy-idle-delay 0.5
+;;         desktop-load-locked-desktop t)
+;;
+;;   (desktop-save-mode 1))
 #+end_src
