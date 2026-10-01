@@ -13,7 +13,7 @@ Restrained structural aesthetic: identity only, no decoration.
 Lives here as a variable; no external banner file needed.
 #+begin_src emacs-lisp
 (defvar cyberdeck/banner-text
-  "AIU CYBERDECK"
+  "A T O M I C  I N F O R M A T I O N  U N I T\nC Y B E R D E C K"
   "The Cyberdeck identity banner.")
 #+end_src
 
