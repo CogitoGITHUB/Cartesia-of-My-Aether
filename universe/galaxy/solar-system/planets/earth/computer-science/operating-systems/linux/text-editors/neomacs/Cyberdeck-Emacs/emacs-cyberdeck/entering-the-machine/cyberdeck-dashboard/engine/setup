@@ -213,6 +213,19 @@ find-file installer."
                 (dashboard-refresh-buffer)))))
 #+end_src
 
+** Bounded agenda (boot must not walk the vault)
+The stock agenda widget calls `org-agenda-prepare-buffers', which
+opens EVERY .org file in the vault with polymode + org-mode and
+reads each file's persisted element cache. On phone storage that is
+minutes of synchronous I/O right after boot, which read as a frozen
+editor. Bound it: nil agenda-files means the section renders "No
+items" instantly and costs nothing. The real agenda is one SPC away
+(`org-agenda' stays bound; it reads `org-agenda-files' directly).
+Loads here because this is the last dashboard unit, so it wins.
+#+begin_src emacs-lisp
+(setq dashboard-agenda-files nil)
+#+end_src
+
 ** Startup
 #+begin_src emacs-lisp
 ;; Only show dashboard on startup when no files were passed as arguments
