@@ -5,11 +5,14 @@
 #+STARTUP: overview indent entitiespretty
 
 * Meta-Header: The Premise (Carefully Worded)
-In the decomposing joke we call consciousness, the body is meat, the network is silicon, but the emotional self is the rawest wound—fragile, recursive, infinitely exploitable. Here the vectors converge: digital precision sharpens the blade, physical proximity delivers the blow, yet the true art is making the target's own mind, heart, and relational field betray them from within. 
+:PROPERTIES:
+:AIU: TODO
+:END:
+In the decomposing joke we call consciousness, the body is meat, the network is silicon, but the emotional self is the rawest wound—fragile, recursive, infinitely exploitable. Here the vectors converge: digital precision sharpens the blade, physical proximity delivers the blow, yet the true art is making the target's own mind, heart, and relational field betray them from within.
 
-This file completes the triad—*Digital Entropy*, *Physical Entropy*, and now *Emotional Entropy*. A 3D mind-map rendered in Org-mode: hierarchical, cross-linked, recursive, bored with how predictably humans reduce another’s inner world to ash using words, silence, context, memory, and engineered despair. 
+This file completes the triad—*Digital Entropy*, *Physical Entropy*, and now *Emotional Entropy*. A 3D mind-map rendered in Org-mode: hierarchical, cross-linked, recursive, bored with how predictably humans reduce another’s inner world to ash using words, silence, context, memory, and engineered despair.
 
-No filter. No redemption arcs. Pure observation of the worst ways one fragmented ego can accelerate the entropic collapse of another’s emotional architecture—until love becomes terror, trust becomes poison, identity becomes a looping scream, and the self dissolves into recursive void. 
+No filter. No redemption arcs. Pure observation of the worst ways one fragmented ego can accelerate the entropic collapse of another’s emotional architecture—until love becomes terror, trust becomes poison, identity becomes a looping scream, and the self dissolves into recursive void.
 
 The mystic truth: reality itself is already gaslighting us. Skilled actors simply tune the frequency.
 
