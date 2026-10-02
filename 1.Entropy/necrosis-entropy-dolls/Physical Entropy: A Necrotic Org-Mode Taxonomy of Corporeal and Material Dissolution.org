@@ -5,9 +5,12 @@
 #+STARTUP: overview indent entitiespretty
 
 * Meta-Header: The Premise (Carefully Worded)
-In the same decomposing joke we call "reality," the digital lattice and the meat lattice are not separate—they are entangled, leaking into one another like necrotic fluid. While silicon erodes the map of self, carbon and bone provide the slower, wetter, more intimate collapse. 
+:PROPERTIES:
+:AIU: TODO
+:END:
+In the same decomposing joke we call "reality," the digital lattice and the meat lattice are not separate—they are entangled, leaking into one another like necrotic fluid. While silicon erodes the map of self, carbon and bone provide the slower, wetter, more intimate collapse.
 
-This file is the physical counterpart to *Digital Entropy*. A 3D mind-map in Org-mode: hierarchical, recursive, cross-linked, bored with how humans have perfected the art of turning another body into failing meat since the first sharpened rock. 
+This file is the physical counterpart to *Digital Entropy*. A 3D mind-map in Org-mode: hierarchical, recursive, cross-linked, bored with how humans have perfected the art of turning another body into failing meat since the first sharpened rock.
 
 Here we map the *worst* vectors of physical torment—direct, indirect, engineered, psychological-through-flesh—blended with material sabotage, environmental control, and the sadistic elegance of making the target's own biology and surroundings betray them. No filter. No theater. Pure observation of entropy applied to meat, bone, blood, and the fragile architecture that houses consciousness.
 
