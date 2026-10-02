@@ -345,6 +345,41 @@ live in the vault.
        load-file-name buffer-file-name))
   "Directory holding the AIU Frame org. Derived, never hardcoded.")
 
+(defun my/tangle-loader-visited (file)
+  "Tangle FILE with Org parsing forced, then verify nothing was dropped.
+
+The loader is extensionless (`cyberdeck`, not `cyberdeck.org`), so
+`org-babel-tangle-file' on the bare path does NOT Org-parse it and
+silently skips one src block -- historically the Errors-recording
+block, which cost `cyberdeck-emacs-record-error' and made every
+later error report die void.  Visiting the file and switching it to
+`org-mode' first is what makes the block count come out right.
+
+Returns the number of emacs-lisp blocks tangled.  Never throws on a
+count mismatch: it signals via `lwarn' so boot continues."
+  (require 'ob-tangle)
+  (let* ((buf (find-file-noselect file))
+         (already (get-buffer-window buf))
+         (expected 0)
+         (got nil))
+    (unwind-protect
+        (with-current-buffer buf
+          (org-mode)
+          (goto-char (point-min))
+          ;; Count what the source actually contains, straight from the
+          ;; regexp Org will use: begin/end pairs must balance.
+          (let ((n 0))
+            (while (re-search-forward
+                    "^\\([ \t]*\\)#\\+begin_src\\(?:[ \t]+\\([^ \t\n]+\\)[ \t]*\\)?\\([ \t\n]*\\([^ \t\n]+\\)[ \t]*\\)?\\(\\(?:.\\|\n\\)*?\\)#\\+end_src[ \t]*$"
+                    nil t)
+              (when (equal (match-string 2) "emacs-lisp")
+                (setq n (1+ n))))
+            (setq expected n))
+          (setq got (org-babel-tangle)))
+      ;; Leave no window and no dangling buffer behind: this runs at boot
+      ;; and the loader file is nobody's business afterwards.
+      (unless already (delete-windows-on buf) (kill-buffer buf)))))
+
 (defun my/load-literate-loader (&optional file)
   "Tangle the loader org to ~/.config/emacs/cyberdeck-emacs.el, then load it."
   (or file (setq file
@@ -364,7 +399,23 @@ live in the vault.
     ;; re-tangling an up-to-date loader every boot is pure waste.
     (when (or (not (file-exists-p el)) (file-newer-than-file-p file el))
       (with-demoted-errors "[init] tangle failed: %s"
-        (org-babel-tangle-file file)))
+        (let ((tangled (my/tangle-loader-visited file))
+              (source  (with-temp-buffer
+                         (insert-file-contents file)
+                         (goto-char (point-min))
+                         (let ((n 0))
+                           (while (re-search-forward
+                                   "^#\\+begin_src[ \t]+emacs-lisp[ \t]*$"
+                                   nil t)
+                             (setq n (1+ n)))
+                           n)))
+          (when (and tangled (= source 0))
+            (lwarn 'foundation :warning
+                   "loader tangle produced nothing from %s" file))
+          (when (< source (or tangled 0))
+            (lwarn 'foundation :warning
+                   "loader tangle dropped blocks: %d of %d emacs-lisp src blocks from %s"
+                   (or tangled 0) source (file-name-nondirectory file)))))))
     ;; (my/init-aiu "[init] loading literate loader…")
     (load el nil t)))
 
