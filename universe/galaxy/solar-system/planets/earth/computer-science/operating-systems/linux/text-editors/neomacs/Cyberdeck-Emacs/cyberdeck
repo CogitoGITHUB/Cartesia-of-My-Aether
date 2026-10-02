@@ -321,11 +321,32 @@ binds is made void again on the way out, including on error."
       (dolist (sym was-void)
         (makunbound sym)))))
 
+(defvar cyberdeck-emacs--third-party-warning-count 0
+  "Third-party package warnings deliberately NOT recorded this boot.
+Always reported in the boot summary, so filtering is never silent.")
+
+(defun cyberdeck-emacs--third-party-warning-p (type _message)
+  "Non-nil when TYPE is upstream package noise this vault must not own.
+Deliberately ONE case: a missing `lexical-binding' cookie in a file under
+straight's build directory.  Those are third-party git sources we do not
+edit, and straight leaves them uncompiled, so the warning would otherwise
+reappear on every single boot.  Nothing else is filtered: every other
+type, and every cookie warning inside the vault, still records."
+  (and (consp type)
+       (eq (car type) 'files)
+       (eq (cadr type) 'missing-lexbind-cookie)
+       (let ((path (caddr type)))
+         (and (stringp path)
+              (string-match-p "/straight/build/" path)))))
+
 (defun cyberdeck-emacs-record-warning (type message)
-  (push (list :type type :message message :time (float-time)
-              :file (and (boundp 'cyberdeck-emacs--current-unit-file)
-                         cyberdeck-emacs--current-unit-file))
-        cyberdeck-emacs--boot-warnings))
+  (if (cyberdeck-emacs--third-party-warning-p type message)
+      (setq cyberdeck-emacs--third-party-warning-count
+            (1+ cyberdeck-emacs--third-party-warning-count))
+    (push (list :type type :message message :time (float-time)
+                :file (and (boundp 'cyberdeck-emacs--current-unit-file)
+                           cyberdeck-emacs--current-unit-file))
+          cyberdeck-emacs--boot-warnings)))
 
 (defvar cyberdeck-emacs--current-unit-file nil
   "Source file of the unit currently compiling/loading, or nil.
@@ -361,7 +382,8 @@ special (dynamic) even if the loader ever gains lexical-binding.")
 per run (killed below in compile-directory).  Does NOT touch
 `cyberdeck-emacs--package-status'."
   (setq cyberdeck-emacs--boot-errors '()
-        cyberdeck-emacs--boot-warnings '()))
+        cyberdeck-emacs--boot-warnings '()
+        cyberdeck-emacs--third-party-warning-count 0))
 
 (defun cyberdeck-emacs-errors-clear-all-status ()
   "Wipe all recorded package statuses.  Manual escape hatch for when
@@ -3280,11 +3302,16 @@ opens at the end, with or without file arguments.
       (cyberdeck-emacs-doctor-schedule-idle-sweep))
     (let ((errn (length (cyberdeck-emacs-errors-list)))
           (warnn (length (cyberdeck-emacs-warnings-list))))
-      (message "cyberdeck-emacs: %s%d error(s), %d warning(s)%s"
+      (message "cyberdeck-emacs: %s%d error(s), %d warning(s)%s%s"
                (if fatal "BOOT THREW - " "")
                errn warnn
                (if (and (not (zerop (+ errn warnn))) (not fatal))
-                   " — details in *Warnings*" "")))
+                   " — details in *Warnings*" "")
+               ;; Filtering is never silent: say what was dropped.
+               (if (zerop cyberdeck-emacs--third-party-warning-count)
+                   ""
+                 (format " (%d third-party package warning(s) filtered)"
+                         cyberdeck-emacs--third-party-warning-count))))
     ;; Void-defun sweep: verify critical functions actually exist.
     (dolist (check
              '(("my/cyberdeck-org-prompt--ask" . "org-prompts.org")
