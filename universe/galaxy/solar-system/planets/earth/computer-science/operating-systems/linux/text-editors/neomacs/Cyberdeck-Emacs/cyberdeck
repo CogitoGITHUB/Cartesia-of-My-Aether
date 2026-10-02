@@ -290,6 +290,37 @@ advice counts them into the boot lists without double-recording.
      :error)
     entry))
 
+(defcustom cyberdeck-emacs-deferred-variables '(dashboard-agenda-files)
+  "Variables a unit may legitimately assign before its owning package is
+loaded, because that package is deferred.
+
+`byte-compile-free-vars-warn' warns unless the symbol is `boundp' at
+compile time, and a deferred package has not defined its variables yet,
+so a correct `setq' reads as a free-variable assignment.  The loader
+binds these names for the duration of the compile only
+(`cyberdeck-emacs--with-deferred-variables'), so no unit's parts change
+and no parts-hash or .elc cache id moves: adding a name here recompiles
+nothing.
+
+Each name is left void again afterwards, so when the owning package does
+load, its own `defcustom' still installs its own default."
+  :type '(repeat symbol)
+  :group 'cyberdeck-emacs)
+
+(defun cyberdeck-emacs--with-deferred-variables (body)
+  "Run BODY with `cyberdeck-emacs-deferred-variables' temporarily bound.
+Bound, not valued: the byte compiler only asks `boundp'.  Anything this
+binds is made void again on the way out, including on error."
+  (let (was-void)
+    (dolist (sym cyberdeck-emacs-deferred-variables)
+      (unless (boundp sym)
+        (set sym nil)
+        (push sym was-void)))
+    (unwind-protect
+        (funcall body)
+      (dolist (sym was-void)
+        (makunbound sym)))))
+
 (defun cyberdeck-emacs-record-warning (type message)
   (push (list :type type :message message :time (float-time)
               :file (and (boundp 'cyberdeck-emacs--current-unit-file)
@@ -2392,7 +2423,8 @@ before any load/compile/eval."
                          ;; Free-variable, callargs, and unused
                          ;; warnings still fire.
                          (let ((byte-compile-warnings '(not unresolved)))
-                           (byte-compile-file el) t)
+                           (cyberdeck-emacs--with-deferred-variables
+                             (lambda () (byte-compile-file el))) t)
                        (error nil))
                      (file-exists-p elc))
                 (condition-case err
