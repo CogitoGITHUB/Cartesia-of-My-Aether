@@ -936,9 +936,28 @@ absorb into the preceding unit, never skipped."
                       ;; pattern rejected every :: headline and such
                       ;; files silently never loaded). Hyphen included:
                       ;; org tags like :aiu-subnet: are legal.
-                      (tags (and (string-match "\\s-+\\(:[[:alnum:]_@:-]*:\\)\\s-*$" text)
+                      ;; The trailing tag RUN, whitespace between tags
+                      ;; allowed.  The old pattern could only match a run
+                      ;; with no space in it, so a headline tagged
+                      ;; ":EMACS_MECHANISM: :S2:" captured ":S2:" alone and
+                      ;; DROPPED :EMACS_MECHANISM: — the file then looked
+                      ;; untagged and silently never loaded.  Both spellings
+                      ;; must work, since stage tags are hand-written:
+                      ;; ":EMACS_MECHANISM:S2:" and ":EMACS_MECHANISM: :S2:".
+                      (tags (and (string-match
+                                  "\\(\\(?:[[:alnum:]_@:-]*:\\s-*\\)+\\)\\s-*$"
+                                  text)
                                  (match-string 1 text)))
-                     (names (and tags (split-string (string-trim tags ":" ":") ":" t)))
+                      ;; Turn the run's whitespace into colons, then split
+                      ;; on colons exactly as before, so ":A:B:" still yields
+                      ;; A and B and a single tag is unchanged.
+                      (names (and tags
+                                  (split-string
+                                   (string-trim
+                                    (replace-regexp-in-string "[[:space:]]" ":"
+                                                                tags)
+                                    ":" ":")
+                                   ":" t)))
                       (stages (cl-remove-if-not
                                (lambda (n) (string-match-p "\\`S[0-9]+\\'" n))
                                names)))
@@ -1292,6 +1311,26 @@ fails to read is skipped whole, with one warning, never fatal."
                     (push (cadr f) data)))))))))
     (list :code (nreverse code) :data (nreverse data))))
 
+(defvar cyberdeck-emacs--scan-regressions nil
+  "Fresh scans that found FEWER units than the previous index recorded.
+Each entry is (FILE WAS NOW).  Non-empty after the walk means discovery
+is broken and the boot must NOT continue on a nearly empty unit list: a
+scanner that stops seeing `:EMACS_MECHANISM:' turns every file untagged,
+and the symptom is a silently empty Emacs, not an error.")
+
+(defun cyberdeck-emacs--scan-regression-p (file previous now)
+  "Non-nil when a fresh scan of FILE dropped from PREVIOUS units to NOW.
+Compares only when the index already held an entry, so a file's FIRST
+ever scan can never regress and is let through; that first scan is the
+one case nothing on disk can vouch for.  Losing every unit is always a
+regression; losing more than half is treated as one too, because a real
+edit removes a unit or two, while a scanner bug removes all of them."
+  (let ((was (and previous (length previous)))
+        (now-len (length (or now nil))))
+    (and was
+         (or (zerop now-len)
+             (< now-len (/ was 2))))))
+
 (defun cyberdeck-emacs--index-ensure (file)
   "Refresh FILE's index entry from session memos, scanning on miss.
 Skips session-verified files.  Untagged files get a nil-units entry so
@@ -1300,7 +1339,14 @@ later boots skip re-scanning them too.  Never throws."
       (when (and (file-exists-p file)
                  (not (member (file-truename file)
                               cyberdeck-emacs--index-verified)))
-        (let* ((units (cyberdeck-emacs-file-tagged-units file))
+        (let* ((entry (gethash (file-truename file)
+                               cyberdeck-emacs--discovery-index))
+               ;; The previous UNIT LIST, not the entry plist: comparing a
+               ;; plist's element count against a unit count reports a
+               ;; regression on every re-scan of an untagged file, which
+               ;; would refuse the boot for a file that was never tagged.
+               (previous (and entry (plist-get entry :units)))
+               (units (cyberdeck-emacs-file-tagged-units file))
                (props (and units (cyberdeck-emacs-file-properties file)))
                (title (and units (cyberdeck-emacs-file-title file)))
                (sig (cyberdeck-emacs--file-sig file))
@@ -1320,6 +1366,18 @@ later boots skip re-scanning them too.  Never throws."
                                         parts file))
                                  cybers)))
                        (nreverse cybers)))))
+          ;; Loud, not silent: a scan that suddenly sees fewer units is a
+          ;; scanner bug until proven otherwise, and the boot below must
+          ;; refuse to continue rather than come up empty.
+          (when (cyberdeck-emacs--scan-regression-p file previous units)
+            (let ((was (length previous))
+                  (now-len (length (or units nil))))
+              (push (list (file-truename file) was now-len)
+                    cyberdeck-emacs--scan-regressions)
+              (cyberdeck-emacs-record-error
+               :level 'file :file file
+               :message (format "unit scan regression: %d unit(s) before, %d now — scanner or tags changed"
+                                was now-len))))
           (when (and sig h)
             (puthash (file-truename file)
                      (list :mtime (nth 0 sig) :size (nth 1 sig)
@@ -1505,6 +1563,10 @@ after by file and position.  Returns ordered unit plists."
           (push f out))))
     (nreverse out)))
 
+#+end_src
+
+** Discovery — ordered units
+#+begin_src emacs-lisp
 (defun cyberdeck-emacs--ordered-units (extension directory &optional progress-fn)
   "Single discovery pass: (ORDERED-UNITS . ORDERED-FILES) under DIRECTORY.
 Runs the walk, tag filter, and `--collect-units' exactly once; both
@@ -2640,6 +2702,29 @@ compiled, in completion order."
          (compiled '()) (pulled '())
          (current 0) (total (length units))
          (paren-errors 0) (void-errors 0))
+    ;; Refuse to come up empty.  A scanner that stops seeing
+    ;; `:EMACS_MECHANISM:' yields an empty unit list, and an empty list
+    ;; would otherwise boot a silently bare Emacs: no error, no warning,
+    ;; nothing but missing keymaps.  Anything found empty, or a batch of
+    ;; fresh scans that lost units, stops here where the cause is visible.
+    (when (or (null discovered)
+              (null (car discovered))
+              cyberdeck-emacs--scan-regressions)
+      (let ((why (cond ((null discovered) "discovery returned nothing")
+                       ((null (car discovered))
+                        "discovery found zero units")
+                       (t (format "%d file(s) lost units on a fresh scan: %s"
+                                  (length cyberdeck-emacs--scan-regressions)
+                                  (mapconcat
+                                   (lambda (r)
+                                     (format "%s (%d->%d)"
+                                             (file-name-nondirectory (car r))
+                                             (nth 1 r) (nth 2 r)))
+                                   cyberdeck-emacs--scan-regressions
+                                   ", "))))))
+        (setq cyberdeck-emacs--scan-regressions nil)
+        (signal 'error
+                (format "cyberdeck-emacs: refusing to boot on a broken scan — %s. Tag headlines with :EMACS_MECHANISM: and re-run." why))))
     ;; Discovery is done: the unit loop below is compilation.
     (setq cyberdeck-emacs--boot-phase :compiling)
     ;; Position of the last dashboard-group unit: the dashboard opens
