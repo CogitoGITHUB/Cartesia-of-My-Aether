@@ -820,6 +820,41 @@ regex read per changed file per session, shared by
            (cl-pushnew name names))))
       (nreverse names))))
 
+(defvar cyberdeck-emacs--stage-warnings '()
+  "Stage-tag problems collected during discovery, reported once at boot.
+Filled by `cyberdeck-emacs--stage-of'; drained by
+`cyberdeck-emacs--report-stage-warnings'.")
+
+(defun cyberdeck-emacs--stage-of (stages file line)
+  "Normalize STAGES (the S<digit> tags on one headline) to the symbol
+\\='S1' or \\='S2'.
+Anything else — S3, junk, or more than one stage tag — is S1 plus a
+warning naming FILE and LINE. Never throws: a bad stage must degrade
+to the always-safe stage, never fail discovery."
+  (cond
+   ((null stages) 'S1)
+   ((null (cdr stages))
+    (let ((s (car stages)))
+      (cond
+       ((string= s "S1") 'S1)
+       ((string= s "S2") 'S2)
+       (t (push (format "%s:%d stage tag %s is not S1/S2 — treated as S1"
+                        (file-name-nondirectory file) line s)
+                cyberdeck-emacs--stage-warnings)
+          'S1))))
+   (t (push (format "%s:%d multiple stage tags (%s) — treated as S1"
+                    (file-name-nondirectory file) line
+                    (mapconcat #'identity stages " "))
+            cyberdeck-emacs--stage-warnings)
+      'S1)))
+
+(defun cyberdeck-emacs--report-stage-warnings ()
+  "Print collected stage-tag warnings once, then clear them."
+  (when cyberdeck-emacs--stage-warnings
+    (dolist (w (nreverse cyberdeck-emacs--stage-warnings))
+      (message "cyberdeck-emacs: %s" w))
+    (setq cyberdeck-emacs--stage-warnings nil)))
+
 (defun cyberdeck-emacs--scan-file-tagged-units (file)
   "Raw scan: list of load units in FILE, one plist per :EMACS_MECHANISM: level-1.
 Callers must use `cyberdeck-emacs-file-tagged-units' (stat-cached),
@@ -850,10 +885,13 @@ absorb into the preceding unit, never skipped."
                       ;; org tags like :aiu-subnet: are legal.
                       (tags (and (string-match "\\s-+\\(:[[:alnum:]_@:-]*:\\)\\s-*$" text)
                                  (match-string 1 text)))
-                     (names (and tags (split-string (string-trim tags ":" ":") ":" t))))
-                (push (list :line lnum :text text
-                            :tagged (and (member "EMACS_MECHANISM" names) t))
-                      heads)))))
+                     (names (and tags (split-string (string-trim tags ":" ":") ":" t)))
+                      (stages (cl-remove-if-not
+                               (lambda (n) (string-match-p "\\`S[0-9]+\\'" n))
+                               names)))
+                 (push (list :line lnum :text text :names names :stages stages
+                             :tagged (and (member "EMACS_MECHANISM" names) t))
+                       heads)))))
           (forward-line 1))
         (setq heads (nreverse heads))
         (let (units current)
@@ -866,7 +904,13 @@ absorb into the preceding unit, never skipped."
                 (setq current
                       (list :file file
                             :start-line (if units lnum 1)
-                            :end-line nil :title nil :tags nil
+                            :end-line nil :title nil
+                            ;; :tags is the full tag list; :stage is the
+                            ;; normalized load stage (S1 or S2), defaulted
+                            ;; here so every consumer can read it blind.
+                            :tags (plist-get h :names)
+                            :stage (cyberdeck-emacs--stage-of
+                                    (plist-get h :stages) file lnum)
                             :id nil :parent nil :order nil))
                  (plist-put current :title
                             (string-trim
