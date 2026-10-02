@@ -542,12 +542,20 @@ Value can be
   '((recents   . dashboard-insert-recents)
     (bookmarks . dashboard-insert-bookmarks)
     (projects  . dashboard-insert-projects)
-    (agenda    . dashboard-insert-agenda)
     (registers . dashboard-insert-registers))
   "Association list of items to how to generate in the startup buffer.
 Will be of the form `(list-type . list-function)'.
 Possible values for list-type are: `recents', `bookmarks', `projects',
-`agenda' ,`registers'."
+`registers'.
+
+AGENDA IS DELIBERATELY NOT A GENERATOR.  `dashboard-insert-agenda' calls
+`dashboard-get-agenda', which is `org-map-entries' at granularity
+`agenda' — that walks every org file in `org-agenda-files', reads each
+buffer and its persisted element cache, and is what made boot look
+frozen.  It is also what raised \"Cache must be active\" at boot end,
+because that org-element cache path runs with the cache off.  The
+function is still defined below and can be called directly; it is only
+unreachable as a dashboard section.  The real agenda stays one SPC away."
   :type  '(alist :key-type symbol :value-type function)
   :group 'dashboard)
 
