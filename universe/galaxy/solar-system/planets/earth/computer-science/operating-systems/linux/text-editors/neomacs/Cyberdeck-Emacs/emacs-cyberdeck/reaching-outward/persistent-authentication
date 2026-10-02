@@ -3,7 +3,7 @@
 #+cyberdeck-stage: 05-world
 #+cyberdeck-date: 2026-09-15
 
-* Persistent Authentication :EMACS_MECHANISM:
+* Persistent Authentication :EMACS_MECHANISM:S2:
 :PROPERTIES:
 :ID:       6869b2e6-9afe-43bc-9b44-529448d52438
 :MM_ORDER:  9074.0

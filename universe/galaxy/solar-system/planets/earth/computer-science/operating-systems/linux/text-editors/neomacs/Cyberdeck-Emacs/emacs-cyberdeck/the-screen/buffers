@@ -3,7 +3,7 @@
 #+manifold-stage: 02-body
 #+manifold-date: 2026-09-15
 
-* Buffers :EMACS_MECHANISM:
+* Buffers :EMACS_MECHANISM:S2:
 :PROPERTIES:
 :ID:       adfc36c4-f1ac-4f96-b4dc-2ea9f2941c5c
 :MM_ORDER:  9083.0
