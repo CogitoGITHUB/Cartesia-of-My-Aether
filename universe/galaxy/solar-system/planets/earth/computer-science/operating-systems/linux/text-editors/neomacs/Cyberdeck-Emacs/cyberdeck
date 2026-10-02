@@ -1966,6 +1966,30 @@ with explicit :host/:repo); record an error and return nil otherwise."
 ** Package builder — string building
 Atomic upstream — kept whole.
 #+begin_src emacs-lisp
+(defun cyberdeck-emacs--straight-preface (body)
+  "Turn a `:STRAIGHT:' recipe body into a `straight-use-package' call.
+The recipe is a melpa-style list, e.g.
+  (interleave :type git :host github :repo \"llcc/interleave\")
+which becomes
+  (straight-use-package \'interleave :type git :host github :repo \"llcc/interleave\")
+
+leaf-keywords' `:straight' keyword is NOT this: it maps every element of
+its value to `(straight-use-package \'ELM)', so it wants a list of package
+NAMES.  Handing it a recipe emitted one call per recipe element —
+(straight-use-package \'interleave), (straight-use-package \':type),
+(straight-use-package \'git) — and the block died in leaf's
+`:leaf-protect' handler, which is exactly the \"Error in `interleave'
+block: void: lambda\" warning, once per such unit.  Returns nil when the
+body does not read as a recipe, so a malformed one is skipped rather
+than emitted."
+  (condition-case nil
+      (let ((form (car (read-from-string body))))
+        (when (and (consp form) (symbolp (car form)) (cdr form))
+          (format "(straight-use-package '%s %s)"
+                  (car form)
+                  (mapconcat #'prin1-to-string (cdr form) " "))))
+    (error nil)))
+
 (defun cyberdeck-emacs-build-package-string (package-name package file)
   (let* ((package-macro (pcase cyberdeck-emacs-package-method
                           ('leaf "leaf") ('use-package! "use-package!")
@@ -1977,18 +2001,29 @@ Atomic upstream — kept whole.
                  (lambda (key)
                    (unless (eq key :package)
                      (when-let* ((entry (plist-get package key)))
-                       (format "\n  %s\n%s" key
-                               (cyberdeck-emacs-indent
-                                (string-join
-                                 (mapcar (lambda (part)
-                                           (if (member key
-                                                 cyberdeck-emacs-condition-case-keywords)
+                       ;; :STRAIGHT: holds a recipe, not a leaf keyword
+                       ;; value: emit it as a :preface straight call.
+                       (if (eq key :straight)
+                           (let ((pf (mapcar #'cyberdeck-emacs--straight-preface
+                                             (mapcar (lambda (part)
+                                                       (plist-get part :body))
+                                                     entry))))
+                             (when pf
+                               (format "\n  :preface\n%s"
+                                       (cyberdeck-emacs-indent
+                                        (string-join (delq nil pf) "\n") 2))))
+                         (format "\n  %s\n%s" key
+                                 (cyberdeck-emacs-indent
+                                  (string-join
+                                   (mapcar (lambda (part)
+                                             (if (member key
+                                                       cyberdeck-emacs-condition-case-keywords)
                                                (cyberdeck-emacs-wrap-in-condition
                                                 file part package key)
                                              (plist-get part :body)))
-                                         entry)
-                                 "\n")
-                                2)))))
+                                           entry)
+                                   "\n")
+                                  2))))))
                  keys))))
     (string-trim-right
      (concat (format "(%s %s" package-macro package-name)
