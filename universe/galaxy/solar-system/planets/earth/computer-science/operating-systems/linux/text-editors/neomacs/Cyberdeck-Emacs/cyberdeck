@@ -1028,6 +1028,17 @@ Warm-boot accelerator: verified entries skip all per-file parsing.")
   "Truenames hash-verified this session.  `cyberdeck-emacs--index-ensure'
 skips members: their entries are current by construction.")
 
+(defconst cyberdeck-emacs-discovery-index-version "1"
+  "Format version of the on-disk discovery index, tracked SEPARATELY
+from `cyberdeck-emacs-cache-salt'.
+
+The salt guards the per-unit .elc artifacts and their state files; the
+index only caches per-file discovery (units/props/title).  Bumping the
+salt to invalidate the index would also invalidate every compiled unit
+and force a full recompile, which is exactly what an index-only format
+change must never do.  Bump this instead; a mismatch is treated as
+absent, so the index is rebuilt by one full scan and never misread.")
+
 (defun cyberdeck-emacs-discovery-index-file ()
   "On-disk discovery index.  Under ~/.config/emacs, never the vault."
   (expand-file-name "discovery-index.el"
@@ -1035,7 +1046,9 @@ skips members: their entries are current by construction.")
 
 (defun cyberdeck-emacs--index-load ()
   "Read the on-disk index once per session.  Never throws: a missing or
-stale (salt-mismatched) index just means one full-scan boot."
+version-mismatched index just means one full-scan boot.  The version
+compared here is `cyberdeck-emacs-discovery-index-version', NOT the
+cache salt, so a format change to the index never costs a recompile."
   (unless cyberdeck-emacs--discovery-loaded
     (setq cyberdeck-emacs--discovery-loaded t)
     (condition-case nil
@@ -1043,7 +1056,7 @@ stale (salt-mismatched) index just means one full-scan boot."
                      (cyberdeck-emacs-discovery-index-file))))
           (when (and (listp data)
                      (equal (plist-get data :version)
-                            cyberdeck-emacs-cache-salt))
+                            cyberdeck-emacs-discovery-index-version))
             (dolist (pair (plist-get data :files))
               (when (and (consp pair) (stringp (car pair)))
                 (puthash (car pair) (cdr pair)
@@ -1070,7 +1083,8 @@ stale (salt-mismatched) index just means one full-scan boot."
             (when (file-exists-p idx)
               (copy-file idx (concat idx ".prev") t))
             (cyberdeck-emacs--cache-write
-             idx (list :version cyberdeck-emacs-cache-salt :files pairs))))
+             idx (list :version cyberdeck-emacs-discovery-index-version
+                       :files pairs))))
       (error nil))))
 
 (defun cyberdeck-emacs--index-lookup (file)
