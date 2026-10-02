@@ -1339,24 +1339,36 @@ later boots skip re-scanning them too.  Never throws."
       (when (and (file-exists-p file)
                  (not (member (file-truename file)
                               cyberdeck-emacs--index-verified)))
-        (let* ((entry (gethash (file-truename file)
-                               cyberdeck-emacs--discovery-index))
+        (let* ((key (file-truename file))
+               (entry (gethash key cyberdeck-emacs--discovery-index))
+               (sig0 (cyberdeck-emacs--file-sig file))
+               ;; Unchanged means the stored entry already describes this
+               ;; file exactly.  Say so here and skip the read, the content
+               ;; hash and the symbol extraction: those are the bulk of the
+               ;; reading phase, and without this test they were paid again
+               ;; on every boot for every unit file in the tree.
+               (unchanged (and entry sig0
+                               (equal (plist-get entry :mtime) (nth 0 sig0))
+                               (equal (plist-get entry :size) (nth 1 sig0))))
                ;; The previous UNIT LIST, not the entry plist: comparing a
                ;; plist's element count against a unit count reports a
                ;; regression on every re-scan of an untagged file, which
                ;; would refuse the boot for a file that was never tagged.
                (previous (and entry (plist-get entry :units)))
-               (units (cyberdeck-emacs-file-tagged-units file))
-               (props (and units (cyberdeck-emacs-file-properties file)))
-               (title (and units (cyberdeck-emacs-file-title file)))
-               (sig (cyberdeck-emacs--file-sig file))
-               (h (cyberdeck-emacs--cache-content-hash file))
+               (units (and (not unchanged)
+                           (cyberdeck-emacs-file-tagged-units file)))
+               (props (and units (not unchanged)
+                          (cyberdeck-emacs-file-properties file)))
+               (title (and units (not unchanged)
+                           (cyberdeck-emacs-file-title file)))
+               (sig (or sig0 (cyberdeck-emacs--file-sig file)))
+               (h (and (not unchanged) (cyberdeck-emacs--cache-content-hash file)))
                ;; Extraction only: record what each unit defines so a later
                ;; step can decide. Nothing is autoloaded and no load order
                ;; changes here. Costs one read pass per CHANGED file, so
                ;; warm boots never pay it.
                (syms
-                (and units
+                (and units (not unchanged)
                      (let ((cybers nil))
                        (dolist (u units)
                          (let* ((parts (car (cyberdeck-emacs--compile-unit-parts
@@ -1369,7 +1381,8 @@ later boots skip re-scanning them too.  Never throws."
           ;; Loud, not silent: a scan that suddenly sees fewer units is a
           ;; scanner bug until proven otherwise, and the boot below must
           ;; refuse to continue rather than come up empty.
-          (when (cyberdeck-emacs--scan-regression-p file previous units)
+          (when (and (not unchanged)
+                     (cyberdeck-emacs--scan-regression-p file previous units))
             (let ((was (length previous))
                   (now-len (length (or units nil))))
               (push (list (file-truename file) was now-len)
@@ -1384,8 +1397,9 @@ later boots skip re-scanning them too.  Never throws."
                            :hash h :units units :props props :title title
                            :symbols syms)
                      cyberdeck-emacs--discovery-index)
-            (push (file-truename file) cyberdeck-emacs--index-verified)
-            (setq cyberdeck-emacs--discovery-dirty t))))
+            (push key cyberdeck-emacs--index-verified)
+            (unless unchanged
+              (setq cyberdeck-emacs--discovery-dirty t)))))
     (error nil)))
 #+end_src
 
