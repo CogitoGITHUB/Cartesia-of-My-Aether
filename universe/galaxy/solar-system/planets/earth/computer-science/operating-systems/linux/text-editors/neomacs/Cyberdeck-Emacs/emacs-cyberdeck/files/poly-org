@@ -5,7 +5,7 @@
 # with Emacs 30. poly-ormode's font-lock hook calls color-rgb-to-hsl
 # with 0 args during redisplay. No user config depends on it.
 
-* poly-org :EMACS_MECHANISM:
+* poly-org :EMACS_MECHANISM:S1:
 :PROPERTIES:
 :ID:       e5c63515-d01f-455e-9af9-4214814b6f7e
 :MM_PARENT: none

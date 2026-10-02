@@ -6,7 +6,7 @@ never waits on a package fetch. Alarm notifications speak fuzzy time
 through the vendored fuzzy clock when it is present (guarded, either
 may be absent).
 
-* Cyberdeck Alarm Clock :EMACS_MECHANISM:
+* Cyberdeck Alarm Clock :EMACS_MECHANISM:S1:
 :PROPERTIES:
 :ID:       1f4b3c3b-3c55-4133-9bb2-b2695a817cb5
 :MM_PARENT: none

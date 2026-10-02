@@ -5,7 +5,7 @@ AIU Run entries referencing sources via =SOURCE=, =ROUTINE_ID= and
 and the SQLite index, so queries run against the DB without re-parsing
 org. Chains are AIU Runs whose sources are themselves AIU Runs.
 
-* Require :EMACS_MECHANISM:
+* Require :EMACS_MECHANISM:S1:
 :PROPERTIES:
 :ID:       2894ef3b-7eda-4387-9769-1b30636ea837
 :MM_PARENT: none
