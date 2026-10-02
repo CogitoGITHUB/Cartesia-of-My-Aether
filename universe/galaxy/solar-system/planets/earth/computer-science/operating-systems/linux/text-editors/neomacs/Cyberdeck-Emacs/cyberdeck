@@ -1028,7 +1028,7 @@ Warm-boot accelerator: verified entries skip all per-file parsing.")
   "Truenames hash-verified this session.  `cyberdeck-emacs--index-ensure'
 skips members: their entries are current by construction.")
 
-(defconst cyberdeck-emacs-discovery-index-version "1"
+(defconst cyberdeck-emacs-discovery-index-version "2"
   "Format version of the on-disk discovery index, tracked SEPARATELY
 from `cyberdeck-emacs-cache-salt'.
 
@@ -1037,7 +1037,8 @@ index only caches per-file discovery (units/props/title).  Bumping the
 salt to invalidate the index would also invalidate every compiled unit
 and force a full recompile, which is exactly what an index-only format
 change must never do.  Bump this instead; a mismatch is treated as
-absent, so the index is rebuilt by one full scan and never misread.")
+absent, so the index is rebuilt by one full scan and never misread.
+2: per-entry :symbols (:code NAME/KIND/INTERACTIVE, :data var names).")
 
 (defun cyberdeck-emacs-discovery-index-file ()
   "On-disk discovery index.  Under ~/.config/emacs, never the vault."
@@ -1129,6 +1130,115 @@ session-verified; misses read nothing."
       (setq cyberdeck-emacs--index-verified
             (delete key cyberdeck-emacs--index-verified)))))
 
+(defconst cyberdeck-emacs--defun-kinds
+  '(("defun" . defun) ("cl-defun" . defun)
+    ("defsubst" . defsubst) ("cl-defsubst" . defsubst)
+    ("defmacro" . defmacro) ("cl-defmacro" . defmacro)
+    ("define-minor-mode" . mode) ("define-globalized-minor-mode" . mode)
+    ("define-derived-mode" . mode)
+    ("defalias" . alias) ("cl-defmethod" . method)
+    ("cl-defgeneric" . method)
+    ("transient-define-prefix" . transient)
+    ("transient-define-suffix" . transient))
+  "Macro symbol -> normalized KIND for index extraction.
+Kinds: defun defsubst defmacro mode alias method transient.")
+
+(defconst cyberdeck-emacs--varform-kinds
+  '("defvar" "defconst" "defcustom" "defface" "define-derived-mode-var")
+  "Definition macros whose SYMBOL is data, not code.  Recorded for
+REPORTING only (the void-variable limit), never autoloaded.")
+
+(defconst cyberdeck-emacs--symbol-warnings '()
+  "Forms that failed to read during symbol extraction.  Never fatal.")
+
+(defun cyberdeck-emacs--form-interactive (form)
+  "Non-nil when the real FORM carries an (interactive ...) spec.
+
+Read from the form's own sub-forms, position by position: drop NAME and
+ARGLIST, then a docstring if present, then test whether what remains is a
+literal (interactive ...) form.  Never guesses from the name and never
+returns a body form by accident."
+  (let ((tail (nthcdr 3 form)))               ; past NAME and ARGLIST
+    (when (stringp (car tail)) (setq tail (cdr tail)))  ; past docstring
+    (and (consp (car tail)) (eq (car (car tail)) 'interactive)
+         (car tail))))
+
+(defun cyberdeck-emacs--form-symbol (form)
+  "Return (NAME KIND INTERACTIVE) when FORM is a symbol definition.
+
+KIND is one of the values in `cyberdeck-emacs--defun-kinds'.  INTERACTIVE
+is t for the mode and transient macros (they always define a command)
+and otherwise comes from `cyberdeck-emacs--form-interactive'.  Returns
+nil for anything else, including plain calls.  Only the head of FORM is
+inspected, so a definition nested deeper (inside when, eval-after-load, a
+leaf :config body) is deliberately NOT found -- the boot report counts
+them."
+  (when (consp form)
+    (let* ((head (car form))
+           (rest (cdr form))
+           (mac (and (symbolp head)
+                      (cdr (assoc-string (symbol-name head)
+                                         cyberdeck-emacs--defun-kinds)))))
+      (when mac
+        ;; Everything names its symbol first; defalias may quote it
+        ;; literally, as in (defalias 'foo 'bar), so unwrap one `quote'.
+        (let ((name (and rest (car rest))))
+          (when (and (consp name) (eq (car name) 'quote)
+                     (symbolp (cadr name)))
+            (setq name (cadr name)))
+          (when (symbolp name)
+            (list name mac
+                  (if (memq mac '(mode transient))
+                      t
+                    (and (memq head '(defun cl-defun defsubst defmacro
+                                      cl-defmacro defalias cl-defmethod
+                                      cl-defgeneric))
+                         (and (cyberdeck-emacs--form-interactive form)
+                              t))))))))))
+
+(defun cyberdeck-emacs--extract-symbols (parts file)
+  "Per-unit symbol records from PARTS (the extracted unit parts).
+Two lists: (:code ((NAME KIND INTERACTIVE) ...)) and
+(:data (SYMBOL ...)) for defvar/defconst/defcustom/defface.
+
+Every top-level form of every part is read, because a package part holds
+a whole package.  A top-level progn is opened and its elements counted
+individually; anything deeper is not reached.  Forms are read with
+`read-eval' bound to nil and NOTHING is ever evaluated.  A part that
+fails to read is skipped whole, with one warning, never fatal."
+  (let (code data)
+    (dolist (p parts)
+      (with-temp-buffer
+        (insert (or (plist-get p :body) ""))
+        (goto-char (point-min))
+        (let ((read-eval nil) (form nil) (done nil))
+          (while (and (not done) (not (eobp)))
+            (condition-case err
+                (setq form (read (current-buffer)))
+              (end-of-file
+               ;; Ran off the end of the part: that is the normal exit,
+               ;; not a failure, so it must not be reported.
+               (setq done t))
+              (error
+               (push (format "%s: unreadsable part skipped (%s)"
+                             (file-name-nondirectory file)
+                             (error-message-string err))
+                     cyberdeck-emacs--symbol-warnings)
+               (setq done t)))
+            (unless done
+              (dolist (f (if (and (consp form) (eq (car form) 'progn))
+                             (cdr form)
+                           (list form)))
+                (let ((info (and (consp f) (symbolp (car f))
+                                 (cyberdeck-emacs--form-symbol f))))
+                  (when info (push info code))
+                  (when (and (consp f) (symbolp (car f))
+                             (member (symbol-name (car f))
+                                     cyberdeck-emacs--varform-kinds)
+                             (symbolp (cadr f)))
+                    (push (cadr f) data)))))))))
+    (list :code (nreverse code) :data (nreverse data))))
+
 (defun cyberdeck-emacs--index-ensure (file)
   "Refresh FILE's index entry from session memos, scanning on miss.
 Skips session-verified files.  Untagged files get a nil-units entry so
@@ -1141,11 +1251,27 @@ later boots skip re-scanning them too.  Never throws."
                (props (and units (cyberdeck-emacs-file-properties file)))
                (title (and units (cyberdeck-emacs-file-title file)))
                (sig (cyberdeck-emacs--file-sig file))
-               (h (cyberdeck-emacs--cache-content-hash file)))
+               (h (cyberdeck-emacs--cache-content-hash file))
+               ;; Extraction only: record what each unit defines so a later
+               ;; step can decide. Nothing is autoloaded and no load order
+               ;; changes here. Costs one read pass per CHANGED file, so
+               ;; warm boots never pay it.
+               (syms
+                (and units
+                     (let ((cybers nil))
+                       (dolist (u units)
+                         (let* ((parts (car (cyberdeck-emacs--compile-unit-parts
+                                             file u))))
+                           (push (cons (plist-get u :start-line)
+                                       (cyberdeck-emacs--extract-symbols
+                                        parts file))
+                                 cybers)))
+                       (nreverse cybers)))))
           (when (and sig h)
             (puthash (file-truename file)
                      (list :mtime (nth 0 sig) :size (nth 1 sig)
-                           :hash h :units units :props props :title title)
+                           :hash h :units units :props props :title title
+                           :symbols syms)
                      cyberdeck-emacs--discovery-index)
             (push (file-truename file) cyberdeck-emacs--index-verified)
             (setq cyberdeck-emacs--discovery-dirty t))))
