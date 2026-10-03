@@ -1,6 +1,7 @@
 * Reshaped Realms
 :PROPERTIES:
 :DESCRIPTION: Necrotic hyper-lattice ascending from word to flesh to cosmos. Infinite decomposition of control layers. 3D mind-map obsession: perspectives → situations → systems → selves → realities → meta-void.
+:AIU: TODO
 :END:
 
 ** Root Node: The Ascending Inversion Hypergraph
