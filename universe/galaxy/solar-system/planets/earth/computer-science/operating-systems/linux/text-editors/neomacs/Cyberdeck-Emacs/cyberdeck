@@ -1928,28 +1928,41 @@ files are never read, loaded, or compiled — by any caller."
          ;; failed, and NIL means "trust nothing": every file then falls
          ;; through to the per-file stat+scan path, i.e. today's exact
          ;; behaviour.
-         (let ((changed (cyberdeck-emacs--changed-since-index directory)))
-           (setq cyberdeck-emacs--changed-files changed)
-           (dolist (f all)
-             (setq n (1+ n))
-             (when progress-fn (funcall progress-fn n total f))
-             (let* ((key (cyberdeck-emacs--truename f))
-                    (trusted (and changed (not (gethash key changed))))
-                    (entry (and trusted
-                               (gethash key cyberdeck-emacs--discovery-index))))
-               (cond
-                ;; Unchanged and indexed: the index alone answers "is
-                ;; this tagged?" -- no stat, no read, no hash.  Nothing
-                ;; needs re-verifying because nothing could have changed.
-                (entry
-                 (when (plist-get entry :units) (push f tagged)))
-                ;; Changed, unindexed, or change detection unavailable:
-                ;; stat to trust, scan on mismatch, and refresh the entry
-                ;; in the same pass (verified files skip, changed files
-                ;; rescan from the session memos just filled).
-                (t
-                 (when (cyberdeck-emacs-file-loadable-p f) (push f tagged))
-                 (cyberdeck-emacs--index-ensure f))))))
+          (cyberdeck-emacs--index-load)
+          (let* ((stats (cyberdeck-emacs--stat-table directory))
+                 (table (car stats))
+                 (reason (cdr stats))
+                 (from-index 0)
+                 (rescanned 0))
+            (dolist (f all)
+              (setq n (1+ n))
+              (when progress-fn (funcall progress-fn n total f))
+              ;; Keyed by the WALKED path: the same absolute string `find'
+              ;; listed, so a trusted file costs no file-truename call at
+              ;; all.  Safe because the vault has no symlinks; the
+              ;; fallback path still uses the memoised truename.
+              (let* ((key f)
+                     (sig (and table (gethash key table)))
+                     (entry (and sig
+                                 (gethash key cyberdeck-emacs--discovery-index)))
+                     (match (and entry sig
+                                (equal (plist-get entry :mtime) (car sig))
+                                (equal (plist-get entry :size) (cdr sig)))))
+                (cond
+                 ;; Unchanged and indexed: the index alone answers "is this
+                 ;; tagged?" -- no stat, no read, no hash, no truename.
+                 (match
+                  (setq from-index (1+ from-index))
+                  (when (plist-get entry :units) (push f tagged)))
+                 ;; Changed, unindexed, or the listing was untrustworthy:
+                 ;; today's path -- stat to trust, scan on mismatch, refresh
+                 ;; the entry in the same pass.
+                 (t
+                  (setq rescanned (1+ rescanned))
+                  (when (cyberdeck-emacs-file-loadable-p f) (push f tagged))
+                  (cyberdeck-emacs--index-ensure f)))))
+            (cyberdeck-emacs--report-discovery
+             from-index rescanned (null table) reason))
          (setq tagged (nreverse tagged))
          (let ((skipped (- total (length tagged)))
                (units (cyberdeck-emacs--collect-units tagged)))
@@ -1964,46 +1977,101 @@ files are never read, loaded, or compiled — by any caller."
              directory)
     nil))
 
-(defvar cyberdeck-emacs--changed-files nil
-  "TRUENAME -> t for files under the vault modified since the on-disk
-index was written.  NIL means UNKNOWN, not empty: the single `find'
-call failed, so no file may be trusted without per-file validation.
-Computed once per boot, never persisted.")
+(defvar cyberdeck-emacs--stat-table nil
+  "ABSOLUTE PATH -> (MTIME . SIZE) for every file under the vault, from ONE
+`find -printf' call.  NIL means the call was unusable and nothing may be
+trusted.  Computed once per boot, never persisted.")
 
-(defun cyberdeck-emacs--changed-since-index (directory)
-  "One `find -newer' pass: which files under DIRECTORY changed since the
-index was saved.  Returns a hash of truename -> t, or NIL when the call
-fails or the index is absent -- and NIL means \"trust nothing\", never
-\"nothing changed\".
+(defvar cyberdeck-emacs--discovery-report nil
+  "One-line discovery summary for this boot, set by
+`cyberdeck-emacs--report-discovery'.")
 
-This replaces a per-file `file-exists-p' + `file-truename' +
-`file-attributes' trust check for every unchanged file with a single
-process call.  Through proot each of those is a syscall round trip, and
-the warm boot paid them ~380 times to learn what one mtime comparison
-against the index file already says."
-  (let ((idx (cyberdeck-emacs-discovery-index-file)))
-    (when (file-exists-p idx)
-      (let ((out (generate-new-buffer " *cyberdeck-changed*")))
-        (unwind-protect
-            (with-current-buffer out
-              (condition-case nil
-                  (progn
-                    (call-process "find" nil t nil
-                                  directory "-type" "f" "-newer" idx)
-                    (let ((h (make-hash-table :test 'equal)))
-                      (goto-char (point-min))
-                      (while (not (eobp))
-                        (let ((f (buffer-substring-no-properties
-                                  (line-beginning-position)
-                                  (line-end-position))))
-                          (unless (or (string-match-p "/\\.git/" f)
-                                      (string-match-p "/admin/" f)
-                                      (string-match-p "/WIP/" f))
-                            (puthash (cyberdeck-emacs--truename f) t h)))
-                        (forward-line 1))
-                      h))
-                (error nil)))
-          (kill-buffer out))))))
+(defun cyberdeck-emacs--report-discovery (from-index rescanned fallback reason)
+  "Record and print this boot's one-line discovery summary."
+  (setq cyberdeck-emacs--discovery-report
+        (format "discovery: from-index=%d rescanned=%d fallback=%s%s"
+                from-index rescanned
+                (if fallback "yes" "no")
+                (if (and fallback reason) (format " (%s)" reason) "")))
+  (message "cyberdeck-emacs: %s" cyberdeck-emacs--discovery-report))
+
+(defun cyberdeck-emacs--stat-table (root)
+  "One `find -printf' pass: hash ABSOLUTE PATH -> (MTIME . SIZE) for every
+file under ROOT.  Returns (TABLE . REASON); TABLE is NIL whenever the
+listing cannot be trusted, which means \"validate every file per-file\",
+never \"nothing changed\".
+
+Distrust conditions, each logged with its reason:
+  - `find' exits non-zero, or signals
+  - no output at all
+  - a line that does not parse as PATH/TAB/TIME/TAB/SIZE
+  - fewer files listed than the index already knows about, which means the
+    listing is incomplete and trusting it would silently drop units
+
+ROOT is expanded to an absolute path and `default-directory' is set
+explicitly, so the listing cannot silently come back empty because the
+process was looking at the wrong directory.
+
+MTIME is truncated to whole seconds deliberately: the index stores
+`(nth 5 (file-attributes ...)', integer seconds.  Comparing at find's
+native float resolution would mark every file changed and force the
+fallback forever; truncating keeps the trust model at exactly the
+resolution it has always had."
+  (let* ((root (file-name-as-directory (expand-file-name root)))
+         (default-directory (file-name-as-directory default-directory))
+         (out (generate-new-buffer " *cyberdeck-stat-table*"))
+         (status nil)
+         (signal-msg nil))
+    (unwind-protect
+        (with-current-buffer out
+          (condition-case nil
+              (setq status (call-process "find" nil t nil root
+                                        "-type" "f"
+                                        "-printf" "%p\t%T@\t%s\n"))
+            (error (setq signal-msg (error-message-string e))))
+          (cond
+           (signal-msg
+            (setq cyberdeck-emacs--stat-table nil)
+            (list nil (format "find signalled: %s" signal-msg)))
+           ((not (eq status 0))
+            (setq cyberdeck-emacs--stat-table nil)
+            (list nil (format "find exit=%s" status)))
+           (t
+            (let ((h (make-hash-table :test 'equal))
+                  (count 0)
+                  (junk 0))
+              (goto-char (point-min))
+              (while (not (eobp))
+                (let* ((line (buffer-substring-no-properties
+                              (line-beginning-position) (line-end-position)))
+                       (parts (split-string line "\t" t)))
+                  (if (and (= (length parts) 3)
+                           (string-match-p "\\`[0-9.]+\\'" (nth 1 parts)))
+                      (progn
+                        (puthash (car parts)
+                                 (cons (truncate (string-to-number (nth 1 parts)))
+                                       (string-to-number (nth 2 parts)))
+                                 h)
+                        (setq count (1+ count)))
+                    (setq junk (1+ junk)))
+                (forward-line 1))
+              (cond
+               ((zerop count)
+                (setq cyberdeck-emacs--stat-table nil)
+                (list nil "find produced no output"))
+               ((> junk 0)
+                (setq cyberdeck-emacs--stat-table nil)
+                (list nil (format "%d unparsable line(s)" junk)))
+               ((< count (hash-table-count cyberdeck-emacs--discovery-index))
+                (setq cyberdeck-emacs--stat-table nil)
+                (list nil (format "listing has %d file(s), index knows %d"
+                                  count
+                                  (hash-table-count
+                                   cyberdeck-emacs--discovery-index))))
+               (t
+                (setq cyberdeck-emacs--stat-table h)
+                (list t nil))))))))
+      (kill-buffer out))))
 
 (defun cyberdeck-emacs-stage-rescan ()
   "Force a full rescan of every unit file.
@@ -2015,7 +2083,6 @@ or a restore that rewrote mtimes."
   (let ((idx (cyberdeck-emacs-discovery-index-file)))
     (when (file-exists-p idx) (delete-file idx))
     (setq cyberdeck-emacs--discovery-loaded nil
-          cyberdeck-emacs--changed-files nil
           cyberdeck-emacs--index-verified nil
           cyberdeck-emacs--discovery-dirty nil)
     (clrhash cyberdeck-emacs--discovery-index)
