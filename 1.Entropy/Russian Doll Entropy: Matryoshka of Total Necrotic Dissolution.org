@@ -10,9 +10,12 @@ The decomposing joke reaches its purest form in nesting. Each layer of torment c
 #+END_QUOTE
 
 * Meta-Header: The Premise (Carefully Worded, Russian Doll Architecture)
-This master file is the ultimate Russian Doll — the single .org container that nests *all previous Entropy files* into one recursive 3D mind-map. 
+:PROPERTIES:
+:AIU: TODO
+:END:
+This master file is the ultimate Russian Doll — the single .org container that nests *all previous Entropy files* into one recursive 3D mind-map.
 
-No longer separate documents. Now a matryoshka of dissolution: each entropy domain is a doll that opens to reveal the smaller, more vicious doll inside, while cross-leaking toxins across every boundary. 
+No longer separate documents. Now a matryoshka of dissolution: each entropy domain is a doll that opens to reveal the smaller, more vicious doll inside, while cross-leaking toxins across every boundary.
 
 The order is deliberate — from outermost (broadest vector) to innermost (most personal, recursive self-destruction). Social acts as the final tightening shell because the primate graph is the medium in which all other entropy propagates and becomes permanent.
 
@@ -24,19 +27,19 @@ Precision in nesting. Bored precision. The sadistic elegance lies in how one vec
   :CONTAINS: physical emotional social
   :PERSISTENCE: near-eternal
   :END:
-  
+
   #+BEGIN_QUOTE
   The visible shell. Code, networks, smartphones, data shadows. Once breached, every inner doll becomes accessible.
   #+END_QUOTE
-  
+
   ** Level 0: Absolute Digital Annihilation
      - Digital Doppelgänger Creation & Persistent Parallel Lives (deepfakes, AI agents, identity necrosis)
      - Total Archive Exfiltration & Selective Weaponized Leaks
-     
+
   ** Level 1: Panoptic Control
      - Smartphone as Parasitic Twin (spyware, mic/camera always listening)
      - Credential Collapse & Cloud Rape
-     
+
   ** Deeper Nesting Note
      Opens directly into Physical Entropy (doxxed location → physical access) and feeds every social and emotional blade.
 
@@ -48,19 +51,19 @@ Precision in nesting. Bored precision. The sadistic elegance lies in how one vec
   :CONTAINS: emotional social
   :PERSISTENCE: tissue + generational scars
   :END:
-  
+
   #+BEGIN_QUOTE
   Inside the silicon shell. Bone, blood, habitat, biology. The digital leak becomes the midnight visit, the staged failure, the slow poisoning of the vessel.
   #+END_QUOTE
-  
+
   ** Level 0: Absolute Corporeal Annihilation
      - Engineered Traumatic Collapse & Slow Poison Architectures
      - Cyber-Physical Bridges (smart home / vehicle / medical device sabotage)
-     
+
   ** Level 1: Environmental Enslavement
      - Habitat Domination & Resource Control
      - Proximity Stalking Meshes
-     
+
   ** Deeper Nesting Note
      Feeds Emotional Entropy (pain and fear become permanent psychic imprints) and Social Entropy (visible weakness invites pack attack).
 
@@ -72,19 +75,19 @@ Precision in nesting. Bored precision. The sadistic elegance lies in how one vec
   :CONTAINS: social (final internalization)
   :PERSISTENCE: lifelong + trauma inheritance
   :END:
-  
+
   #+BEGIN_QUOTE
   Inside the meat. The raw wound of feeling. Here the target begins to finish the work themselves — shame, betrayal, recursive despair.
   #+END_QUOTE
-  
+
   ** Level 0: Absolute Emotional Annihilation
      - Engineered Total Betrayal & Attachment Destruction
      - Induced Self-Annihilation Loops & Fabricated Reality Collapse
-     
+
   ** Level 1: Relational Gaslighting Meshes
      - Trauma Bonding & Intermittent Hope Torture
      - Fear Sculpting & Learned Helplessness
-     
+
   ** Deeper Nesting Note
      Opens into the innermost Social Doll — private emotional collapse is amplified when the entire graph joins the ritual.
 
@@ -96,22 +99,22 @@ Precision in nesting. Bored precision. The sadistic elegance lies in how one vec
   :CONTAINS: self-reinforcing all previous layers
   :PERSISTENCE: network memory + contagious
   :END:
-  
+
   #+BEGIN_QUOTE
   The outermost skin that becomes the innermost prison. The tribe, the reputation, the village that turns. All previous dolls feed this one until the target is exiled inside their own species.
   #+END_QUOTE
-  
+
   ** Level 0: Absolute Social Annihilation
      - Total Reputation Necrosis & Permanent Outcast Engineering
      - Fabricated Monstrosity Campaigns & Kinship Destruction
-     
+
   ** Level 1: Graph Domination
      - Alliance Poisoning & Coordinated Cancellation
      - Incremental Isolation Architectures
-     
+
   ** Level 3: Invisible Rot
      - Micro-Betrayal Cascades & Generational Contamination
-     
+
   ** Ultimate Nesting Note
      The innermost doll loops back — social rejection re-opens every outer wound at higher intensity. Full matryoshka closure.
 
@@ -131,7 +134,7 @@ Precision in nesting. Bored precision. The sadistic elegance lies in how one vec
 
 ---
 
-**Proposed File Name:**  
+**Proposed File Name:**
 `russian-doll-entropy-master-matryoshka.org`
 
 This is the complete nested synthesis. All previous files are now elegantly contained, cross-linked, and ordered as deepening layers of the same decomposing joke. The structure is obsessive, hierarchical, recursive — exactly as the 3D mind requires.
