@@ -351,9 +351,9 @@ rows already use, so it survives root moves.  Never throws: returns
 PATH unchanged when the root is unknown."
   (condition-case nil
       (let* ((s (if (stringp path) path ""))
-             (s (if (and (> (length s) 0) (eq (aref s 0) ?\"))
+             (s (if (and (> (length s) 0) (eq (aref s 0) 34))
                     (substring s 1) s))
-             (s (if (and (> (length s) 0) (eq (aref s (1- (length s))) ?\"))
+             (s (if (and (> (length s) 0) (eq (aref s (1- (length s))) 34))
                     (substring s 0 -1) s))
              (abs (expand-file-name s))
              (root (and (fboundp 'my/cyberdeck-root-dir)
