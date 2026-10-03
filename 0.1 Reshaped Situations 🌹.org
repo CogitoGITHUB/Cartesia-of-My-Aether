@@ -1,7 +1,7 @@
 * Reshaped Situations
 :PROPERTIES:
-:DESCRIPTION: Corporeal lattice of dominion - from verbal ghosts to flesh-and-bone inversions. 3D mind-map of physical vectors where bodies decompose reality's joke into submission.
 :AIU: TODO
+:DESCRIPTION: Corporeal lattice of dominion - from verbal ghosts to flesh-and-bone inversions. 3D mind-map of physical vectors where bodies decompose reality's joke into submission.
 :END:
 
 ** Root Node: Corporeal Inversion Engine

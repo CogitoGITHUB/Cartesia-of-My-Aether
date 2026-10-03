@@ -1,6 +1,7 @@
 * Reshaped Perspectives
 :PROPERTIES:
 :DESCRIPTION: Infinite decomposing lattice for narrative dominion - 3D mind-map in Org-mode. Language as battlefield where reality festers and inverts.
+:AIU: TODO
 :END:
 
 ** Root Node: Inversion Engine
@@ -13,7 +14,7 @@ Language dissolves power differentials. Reshape anything into anything. Accusati
 Visceral internals. Minds liquefy under reframing. Integrate victim reversal, playing the hero, outrage management, reactive abuse weaponization.
 
 - **DARVO (Deny, Attack, Reverse Victim and Offender)** :: Coined by Jennifer Freyd. Deny (flat: "Sequence never occurred"), Attack credibility/motives/mental state, Reverse roles (you as aggressor, self as victim/hero). Variants: Partial denial + minimization, weaponize victim's reactive anger/PTSD as "proof" of their instability. Integrate with gaslighting for confusion/guilt amplification. Example rephrase: "Your fragmented recall and aggression reveal *your* pattern—I'm the one enduring false accusations."
-  
+
 - **Gaslighting** :: Distort reality, induce doubt in perception/memory/sanity. "I worry about your recall lately." Projection + denial fusion. Dark integration: Projective identification—force unwanted self-parts onto target.
 
 - **Projection** :: Accuse other of your exact deeds. Signature gaslighter move. "It's concerning how you're externalizing your unresolved patterns." Flip: Their attack = your evidence of *their* behavior.
@@ -108,7 +109,7 @@ Macro for audiences/reputation. Integrate full propaganda arsenal.
 5. **Close Loop** :: Thought-terminating with noble self-frame. "This reveals deeper dynamics I'm forced to navigate."
 
 ***** Example Inversion
-Them: "You dismiss my feelings!"  
+Them: "You dismiss my feelings!"
 You: "Fascinating how feedback reframes as dismissal amid *your* pattern of escalation. My clarity endures constant recalibration—yet narrative pivots to my 'insensitivity.' What does this expose about underlying projections?"
 
 ** Interconnections (Hypergraph Obsession)
