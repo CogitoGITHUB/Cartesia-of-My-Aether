@@ -12,7 +12,7 @@ Direct keymap bindings plus the restore command.
 (defvar git-timemachine-revision)
 (with-eval-after-load 'git-timemachine
   (add-hook 'git-timemachine-mode-hook
-            (lambda () (cyberdeck-keyboard-set-state nil)))
+            (lambda () (biomechanical-input-interface-set-state nil)))
   (define-key git-timemachine-mode-map (kbd "h")
     #'git-timemachine-show-previous-revision)
   (define-key git-timemachine-mode-map (kbd "t")

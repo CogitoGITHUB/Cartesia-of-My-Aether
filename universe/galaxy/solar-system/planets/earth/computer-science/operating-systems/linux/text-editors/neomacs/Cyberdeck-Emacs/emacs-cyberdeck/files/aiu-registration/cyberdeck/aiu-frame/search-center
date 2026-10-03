@@ -745,7 +745,7 @@ Use when you don't know the words yet (rg is for when you do)."
 #+end_src
 
 * Menu
-The hydra lives with all other hydras in =cyberdeck-keyboard/leaders/=
+The hydra lives with all other hydras in =biomechanical-input-interface/leaders/=
 (the =my/defhydra-state= macro is defined in =engine/macros=, later
 in AIU Subnet order — referencing it here would void at compile — referencing it here would void at compile).
 Launchers below are plain commands; the hydra only points at them.

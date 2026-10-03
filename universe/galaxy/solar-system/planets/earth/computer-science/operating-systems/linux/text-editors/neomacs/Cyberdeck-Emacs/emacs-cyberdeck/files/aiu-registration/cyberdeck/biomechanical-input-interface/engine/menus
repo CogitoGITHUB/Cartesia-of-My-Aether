@@ -23,7 +23,7 @@ Read by the main hub menu; shrinks on its own when files are deleted.")
 DESC is the command's docstring first line (empty fallback).
 Raw (KEY DESC CMD) specs must go through `transient-parse-suffix':
 init-time consumes parsed objects, not source specs."
-  (let ((map (cyberdeck-keyboard-get-state-keymap state))
+  (let ((map (biomechanical-input-interface-get-state-keymap state))
         (out nil))
     (when (boundp map)
       (map-keymap
@@ -41,7 +41,7 @@ init-time consumes parsed objects, not source specs."
   ["Keys" :class transient-column :setup-children
    (lambda (_)
      (my/menus-state-suffixes
-      (or cyberdeck-keyboard-state "normal")))])
+      (or biomechanical-input-interface-state "normal")))])
 #+end_src
 
 * Main hub (directory-derived submenu list)

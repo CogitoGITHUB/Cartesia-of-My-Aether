@@ -69,7 +69,7 @@ Rev 1 claimed the 15 `(leaf …)` files had dotted basenames and therefore never
 
 ```
 building-things/universal-launcher            files/…/files/emacs-mechanism-module
-daily-editing/dmacro                          files/…/cyberdeck-keyboard/cores/key-selection
+daily-editing/dmacro                          files/…/biomechanical-input-interface/cores/key-selection
 files/org-fancy-priorities                    files/…/aiu-frame/inline-hashtag
 reaching-outward/emacs-everywhere             shaping-the-tool/leaf
 the-screen/center-lock                        the-screen/move-text

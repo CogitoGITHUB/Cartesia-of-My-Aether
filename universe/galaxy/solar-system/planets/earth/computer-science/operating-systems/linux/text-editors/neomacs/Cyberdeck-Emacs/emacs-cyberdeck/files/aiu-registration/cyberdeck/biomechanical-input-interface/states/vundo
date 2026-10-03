@@ -8,7 +8,7 @@ Direct keymap bindings for vundo-mode.
 :END:
 #+begin_src emacs-lisp
 (with-eval-after-load 'vundo
-  (add-hook 'vundo-mode-hook (lambda () (cyberdeck-keyboard-set-state nil)))
+  (add-hook 'vundo-mode-hook (lambda () (biomechanical-input-interface-set-state nil)))
   (define-key vundo-mode-map (kbd "h") #'vundo-backward)
   (define-key vundo-mode-map (kbd "t") #'vundo-forward)
   (define-key vundo-mode-map (kbd "n") #'vundo-next)

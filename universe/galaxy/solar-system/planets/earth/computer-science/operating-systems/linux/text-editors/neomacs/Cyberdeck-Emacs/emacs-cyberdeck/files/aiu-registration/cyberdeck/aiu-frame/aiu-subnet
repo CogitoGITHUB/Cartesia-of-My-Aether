@@ -744,7 +744,7 @@ walks the tree proper. A leaf reports instead of guessing."
               (t (aiu-subnet/goto-child)))))))
 #+end_src
 **** Traverse-mode entry
-The AIU Subnet keyboard state (defined in cyberdeck-keyboard/states/aiu-subnet)
+The AIU Subnet keyboard state (defined in biomechanical-input-interface/states/aiu-subnet)
 turns single keys into topology moves. Entry is explicit — never by
 major-mode hook — so traverse mode can't hijack help, dired, or
 minibuffer flows. Entering over the current AIU also raises the map
@@ -758,13 +758,13 @@ Shows the map beside the vault when it isn't already visible."
     (user-error "No AIU at point"))
   (unless (get-buffer "*cyberdeck-map*")
     (ignore-errors (aiu-subnet/map-display)))
-  (cyberdeck-keyboard-set-state "AIU Subnet")
+  (biomechanical-input-interface-set-state "AIU Subnet")
   (message "MAP traverse: s/n vertical · h/t horizontal · B branch review · q quit"))
 
 (defun my/aiu-subnet-traverse-quit ()
   "Leave traverse state back to the org state."
   (interactive)
-  (cyberdeck-keyboard-set-state "org"))
+  (biomechanical-input-interface-set-state "org"))
 #+end_src
 
 **** Completion-based jumps

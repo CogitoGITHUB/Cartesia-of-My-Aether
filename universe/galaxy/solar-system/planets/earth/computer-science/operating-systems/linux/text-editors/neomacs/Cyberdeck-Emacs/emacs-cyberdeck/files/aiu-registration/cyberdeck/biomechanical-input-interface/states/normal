@@ -8,13 +8,13 @@ Keys specific to the normal state. Shared bindings live in universal.org.
 :END:
 Self-registration: mode and keymap in one unit (manual activation only). Delete this file and the state unregisters on next boot.
 #+begin_src emacs-lisp
-(cyberdeck-keyboard-define-state "normal"
+(biomechanical-input-interface-define-state "normal"
   :lighter "[NOR]"
   :cursor-type 'box)
 #+end_src
 ** Bindings
 #+begin_src emacs-lisp
-(cyberdeck-keyboard-define-keys
+(biomechanical-input-interface-define-keys
   :states '("normal")
   :bind
   `(

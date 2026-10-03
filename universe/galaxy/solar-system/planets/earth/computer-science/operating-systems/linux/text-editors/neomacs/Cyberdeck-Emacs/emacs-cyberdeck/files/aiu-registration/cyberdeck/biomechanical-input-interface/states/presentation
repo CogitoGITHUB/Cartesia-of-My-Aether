@@ -8,13 +8,13 @@ Keys specific to the presentation state. Shared bindings live in universal.org.
 :END:
 Self-registration: mode and keymap in one unit (manual activation only). Delete this file and the state unregisters on next boot.
 #+begin_src emacs-lisp
-(cyberdeck-keyboard-define-state "presentation"
+(biomechanical-input-interface-define-state "presentation"
   :lighter "[PRE]"
   :cursor-type 'bar)
 #+end_src
 ** Bindings
 #+begin_src emacs-lisp
-(cyberdeck-keyboard-define-keys
+(biomechanical-input-interface-define-keys
   :states '("presentation")
   :bind
   `(
@@ -27,7 +27,7 @@ Self-registration: mode and keymap in one unit (manual activation only). Delete 
     ("q" . ,(lambda ()
                   (interactive)
                   (org-tree-slide-mode -1)
-                  (cyberdeck-keyboard-set-state "org")))
+                  (biomechanical-input-interface-set-state "org")))
     ("t" . forward-char)
     ("u" . org-tree-slide-move-next-tree)
     ("v" . org-tree-slide-content)

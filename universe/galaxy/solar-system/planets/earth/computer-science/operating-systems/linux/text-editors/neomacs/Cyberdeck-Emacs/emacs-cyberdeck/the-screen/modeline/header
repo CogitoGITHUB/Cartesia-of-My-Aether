@@ -37,8 +37,8 @@ Off by default: see the AIU above on window geometry and on olivetti.")
 The state name is the same function the bar uses, so the two rows can
 never report different things."
    (when manifolding-modeline-header-p
-     (let ((state (and (fboundp 'cyberdeck-keyboard-modeline-state-name)
-                       (cyberdeck-keyboard-modeline-state-name)))
+     (let ((state (and (fboundp 'biomechanical-input-interface-modeline-state-name)
+                       (biomechanical-input-interface-modeline-state-name)))
            (aiu-frame (and (boundp 'manifolding-modeline--cyberdeck-cache)
                        manifolding-modeline--cyberdeck-cache)))
        (when (or state aiu-frame)

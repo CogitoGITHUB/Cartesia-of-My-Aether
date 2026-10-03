@@ -9,15 +9,15 @@ Macro definitions: state machine, minor modes, hydra states. Evaluated before ev
 (require 'cl-lib)
 (require 'transient)
 
-(defgroup cyberdeck-keyboard nil
+(defgroup biomechanical-input-interface nil
   "Build your own minor modes for modal editing."
   :group 'editing
-  :tag "Cyberdeck-Keyboard"
-  :prefix "cyberdeck-keyboard-")
+  :tag "Biomechanical-Input-Interface"
+  :prefix "biomechanical-input-interface-")
 #+end_src
 ** Local variable macro
 #+begin_src emacs-lisp
-(defmacro cyberdeck-keyboard-define-local-var (symbol &optional init-value docstring)
+(defmacro biomechanical-input-interface-define-local-var (symbol &optional init-value docstring)
   "Define SYMBOL as a permanent buffer-local variable."
   (declare (indent defun) (doc-string 3))
   `(progn
@@ -28,7 +28,7 @@ Macro definitions: state machine, minor modes, hydra states. Evaluated before ev
 ** Minor mode definition macro
 Atomic upstream — kept whole.
 #+begin_src emacs-lisp
-(defmacro cyberdeck-keyboard--define-minor-mode (mode keymap body)
+(defmacro biomechanical-input-interface--define-minor-mode (mode keymap body)
   "Define a minor MODE with KEYMAP and options in BODY."
   (let ((mode-name (symbol-name mode))
         (sparse (plist-get body :sparse))
@@ -43,31 +43,31 @@ Atomic upstream — kept whole.
       (unless ,no-suppress
         (suppress-keymap ,keymap))
       (define-minor-mode ,mode
-        ,(format "Cyberdeck-Keyboard minor mode %s" mode-name)
+        ,(format "Biomechanical-Input-Interface minor mode %s" mode-name)
         :lighter ,lighter
         :keymap ,keymap
         (when ,cursor-type (setq-local cursor-type ,cursor-type)))
       (unless ,no-emulation
-        (unless (boundp 'cyberdeck-keyboard--emulation-mode-map-alist)
-          (setq cyberdeck-keyboard--emulation-mode-map-alist nil))
-        (add-to-list 'cyberdeck-keyboard--emulation-mode-map-alist (cons ',mode ,keymap))
-        (add-to-list 'emulation-mode-map-alists cyberdeck-keyboard--emulation-mode-map-alist)))))
+        (unless (boundp 'biomechanical-input-interface--emulation-mode-map-alist)
+          (setq biomechanical-input-interface--emulation-mode-map-alist nil))
+        (add-to-list 'biomechanical-input-interface--emulation-mode-map-alist (cons ',mode ,keymap))
+        (add-to-list 'emulation-mode-map-alists biomechanical-input-interface--emulation-mode-map-alist)))))
 #+end_src
 ** State registry
-One invocation of =cyberdeck-keyboard-define-state= both defines the
+One invocation of =biomechanical-input-interface-define-state= both defines the
 mode/keymap AND registers the state here — a state file is one unit,
 never invocation-plus-separate-push. Order in this alist is newest
 eval first (push); =init-state-fn= consults colliding states via an
 explicit precedence list, not position, so alphabetical file order
 can never silently reorder decisions.
 #+begin_src emacs-lisp
-(defvar cyberdeck-keyboard-state-init-alist nil
+(defvar biomechanical-input-interface-state-init-alist nil
   "Alist (STATE . INIT-FN) of known states and auto-activation predicates.
 INIT-FN nil means manual-only activation (hooks, commands, prompts).")
 #+end_src
 ** Define-state macro
 #+begin_src emacs-lisp
-(defmacro cyberdeck-keyboard-define-state (state &rest body)
+(defmacro biomechanical-input-interface-define-state (state &rest body)
   "Define a new STATE minor mode with options in BODY.
 :init INIT-FN registers an auto-activation predicate: a function
 symbol (preferred) or lambda, called with no args — non-nil means
@@ -75,12 +75,12 @@ activate this state. Nil (default) leaves activation manual.
 Registration is a side effect of expansion: dropping this file's
 invocation unregisters the state on next boot, nothing else touched."
   (declare (indent defun))
-  (let ((mode (cyberdeck-keyboard-get-state-mode state))
-        (keymap (cyberdeck-keyboard-get-state-keymap state))
+  (let ((mode (biomechanical-input-interface-get-state-mode state))
+        (keymap (biomechanical-input-interface-get-state-keymap state))
         (init (plist-get body :init)))
     `(progn
-       (cyberdeck-keyboard--define-minor-mode ,mode ,keymap ,body)
-       (cl-pushnew (cons ,state ,init) cyberdeck-keyboard-state-init-alist
+       (biomechanical-input-interface--define-minor-mode ,mode ,keymap ,body)
+       (cl-pushnew (cons ,state ,init) biomechanical-input-interface-state-init-alist
                    :key #'car :test #'equal))))
 
 
@@ -88,15 +88,15 @@ invocation unregisters the state on next boot, nothing else touched."
 * Hydra Infrastructure
 
 ** Defhydra-state macro
-Single declaration generates both a cyberdeck-keyboard state's keybindings and its Transient menu. Bindings with `:exit nil` become state keys (and sticky Transient suffixes); all bindings appear in the menu. The "Back → parent" group is automatic. Same spec shape the Hydra engine took — engine swapped, files untouched.
+Single declaration generates both a biomechanical-input-interface state's keybindings and its Transient menu. Bindings with `:exit nil` become state keys (and sticky Transient suffixes); all bindings appear in the menu. The "Back → parent" group is automatic. Same spec shape the Hydra engine took — engine swapped, files untouched.
 #+begin_src emacs-lisp
 (defmacro my/defhydra-state (hydra-name state-name title back-target &rest spec)
-  "Define cyberdeck-keyboard STATE-NAME and its Transient menu from SPEC.
-STATE-NAME may be nil for menus without a cyberdeck-keyboard state.
+  "Define biomechanical-input-interface STATE-NAME and its Transient menu from SPEC.
+STATE-NAME may be nil for menus without a biomechanical-input-interface state.
 BACK-TARGET is (HYDRA/BODY LABEL) for the back link, or nil for root.
 SPEC is alternating group-name / binding-list pairs:
   GROUP-NAME  ((KEY CMD LABEL &key EXIT) ...)
-Bindings with :exit nil go into the cyberdeck-keyboard state keymap
+Bindings with :exit nil go into the biomechanical-input-interface state keymap
 and become sticky (:transient t) suffixes; the rest exit after invoke.
 Non-symbol CMDs (lambdas, call forms like (fn arg)) get deterministic
 wrapper names (my/<hydra>-<key>-action).
@@ -143,7 +143,7 @@ The menu command is <HYDRA-NAME>/body, same as the Hydra era."
       `(progn
          ,@wrappers
          ,@(when state-name
-             `((cyberdeck-keyboard-define-keys
+             `((biomechanical-input-interface-define-keys
                 :states '(,state-name)
                 :bind ',state-binds)))
          (transient-define-prefix

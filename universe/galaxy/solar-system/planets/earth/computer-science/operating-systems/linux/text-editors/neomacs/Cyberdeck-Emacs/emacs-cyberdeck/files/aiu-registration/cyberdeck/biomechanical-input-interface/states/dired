@@ -13,13 +13,13 @@ Self-registration: mode, keymap, and init predicate in one unit. Delete this fil
   (derived-mode-p 'dired-mode))
 #+end_src
 #+begin_src emacs-lisp
-(cyberdeck-keyboard-define-state "dired"
+(biomechanical-input-interface-define-state "dired"
   :lighter "[DIR]"
   :cursor-type 'box :init #'my/dired-state-init-p)
 #+end_src
 ** Bindings
 #+begin_src emacs-lisp
-(cyberdeck-keyboard-define-keys
+(biomechanical-input-interface-define-keys
   :states '("dired")
   :bind
   `(

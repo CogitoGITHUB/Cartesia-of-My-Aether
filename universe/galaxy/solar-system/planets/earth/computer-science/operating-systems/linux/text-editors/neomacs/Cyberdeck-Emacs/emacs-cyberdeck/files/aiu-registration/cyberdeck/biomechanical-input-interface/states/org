@@ -13,7 +13,7 @@ Self-registration: mode, keymap, and init predicate in one unit. Delete this fil
   (derived-mode-p 'org-mode))
 #+end_src
 #+begin_src emacs-lisp
-(cyberdeck-keyboard-define-state "org"
+(biomechanical-input-interface-define-state "org"
   :lighter "[ORG]"
   :cursor-type 'box :init #'my/org-state-init-p)
 #+end_src
@@ -24,25 +24,25 @@ Self-registration: mode, keymap, and init predicate in one unit. Delete this fil
   (interactive)
   (end-of-line)
   (insert "\n* TODO ")
-  (cyberdeck-keyboard-set-state "insert"))
+  (biomechanical-input-interface-set-state "insert"))
 #+end_src
 #+begin_src emacs-lisp
 (defun my/org-insert-code-block ()
   "Insert a src block and enter insert state."
   (interactive)
   (org-insert-structure-template "src")
-  (cyberdeck-keyboard-set-state "insert"))
+  (biomechanical-input-interface-set-state "insert"))
 #+end_src
 #+begin_src emacs-lisp
 (defun my/org-insert-latex-block ()
   "Insert a LaTeX export block and enter insert state."
   (interactive)
   (org-insert-structure-template "latex")
-  (cyberdeck-keyboard-set-state "insert"))
+  (biomechanical-input-interface-set-state "insert"))
 #+end_src
 ** Bindings
 #+begin_src emacs-lisp
-(cyberdeck-keyboard-define-keys
+(biomechanical-input-interface-define-keys
   :states '("org")
   :bind
   `(

@@ -33,7 +33,7 @@ Shared Boon-extracted editing primitives (https://github.com/jyp/boon, GPL, same
   '(hi-yellow hi-pink hi-green hi-blue hi-salmon hi-aquamarine
     hi-black-b hi-blue-b hi-red-b hi-green-b hi-black-hb)
   "Default faces for my/hl."
-  :group 'cyberdeck-keyboard
+  :group 'biomechanical-input-interface
   :type '(repeat face))
 #+end_src
 #+begin_src emacs-lisp

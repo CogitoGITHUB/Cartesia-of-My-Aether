@@ -13,7 +13,7 @@ Self-registration: mode and keymap in one unit. Enters automatically
 when `org-aiu-subnet-mode' turns on; leaves explicitly via q or ESC.
 Delete this file and the state unregisters on next boot.
 #+begin_src emacs-lisp
-(cyberdeck-keyboard-define-state "org-aiu-subnet"
+(biomechanical-input-interface-define-state "org-aiu-subnet"
   :lighter "[OMAP]"
   :cursor-type 'box)
 #+end_src
@@ -21,7 +21,7 @@ Delete this file and the state unregisters on next boot.
 Lowercase moves within the map, uppercase restructures it. Every
 org-aiu-subnet command no-ops outside an AIU Subnet region.
 #+begin_src emacs-lisp
-(cyberdeck-keyboard-define-keys
+(biomechanical-input-interface-define-keys
   :states '("org-aiu-subnet")
   :bind
   `(
@@ -55,14 +55,14 @@ absent.
 (defun my/org-aiu-subnet-quit-state ()
   "Leave the org-aiu-subnet state back to normal."
   (interactive)
-  (when (fboundp 'cyberdeck-keyboard-set-state)
-    (cyberdeck-keyboard-set-state "normal")))
+  (when (fboundp 'biomechanical-input-interface-set-state)
+    (biomechanical-input-interface-set-state "normal")))
 
 (defun my/org-aiu-subnet--auto-enter ()
   "Enter the org-aiu-subnet state when the map mode turns on."
   (when (and (boundp 'org-aiu-subnet-mode) org-aiu-subnet-mode
-             (fboundp 'cyberdeck-keyboard-set-state))
-    (cyberdeck-keyboard-set-state "org-aiu-subnet")))
+             (fboundp 'biomechanical-input-interface-set-state))
+    (biomechanical-input-interface-set-state "org-aiu-subnet")))
 
 (add-hook 'org-aiu-subnet-mode-hook #'my/org-aiu-subnet--auto-enter)
 #+end_src

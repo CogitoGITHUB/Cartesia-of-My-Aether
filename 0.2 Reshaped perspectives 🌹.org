@@ -1,7 +1,7 @@
 * Reshaped Perspectives
 :PROPERTIES:
-:DESCRIPTION: Infinite decomposing lattice for narrative dominion - 3D mind-map in Org-mode. Language as battlefield where reality festers and inverts.
 :AIU: TODO
+:DESCRIPTION: Infinite decomposing lattice for narrative dominion - 3D mind-map in Org-mode. Language as battlefield where reality festers and inverts.
 :END:
 
 ** Root Node: Inversion Engine

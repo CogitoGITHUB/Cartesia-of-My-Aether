@@ -7,7 +7,7 @@ Whole block, all external prompt functions.
 :END:
 Self-registration: mode and keymap in one unit (manual activation only). Delete this file and the state unregisters on next boot.
 #+begin_src emacs-lisp
-(cyberdeck-keyboard-define-state "cyberdeck-pick"
+(biomechanical-input-interface-define-state "cyberdeck-pick"
   :sparse t
   :lighter "[PCK]"
   :cursor-type 'box)
@@ -20,7 +20,7 @@ keymap mirrors the control keys so they work there and in standalone
 pickers too; the letter binds below apply only when the loop is not
 armed.
 #+begin_src emacs-lisp
-(cyberdeck-keyboard-define-keys
+(biomechanical-input-interface-define-keys
   :states '("cyberdeck-pick")
   :bind
   `(;; Selection

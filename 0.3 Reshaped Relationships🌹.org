@@ -25,6 +25,9 @@ if there is any reaction, both are transformed."
 # ============================================================
 
 * REALITY — The Relational Premise
+:PROPERTIES:
+:AIU: TODO
+:END:
 /Before the frameworks. Before the categories.
 What is actually true about relationships
 for an instrument with this specific profile./

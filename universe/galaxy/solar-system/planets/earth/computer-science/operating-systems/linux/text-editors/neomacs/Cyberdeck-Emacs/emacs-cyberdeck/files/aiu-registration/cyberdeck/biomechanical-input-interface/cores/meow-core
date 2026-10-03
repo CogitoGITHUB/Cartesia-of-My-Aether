@@ -20,7 +20,7 @@ terminal input layer. Not enabled by default — call ~(my/esc-mode 1)~ to turn 
 as a Meta / ESC-prefix combo rather than a standalone ESC, when
 ~my/esc-mode~ is active in the terminal."
   :type 'number
-  :group 'cyberdeck-keyboard)
+  :group 'biomechanical-input-interface)
 
 (defvar my/esc-sequence [?\e]
   "The key sequence used to reach the terminal's original ESC binding.")
@@ -32,7 +32,7 @@ filter (see ~my/esc~) that waits ~my/esc-delay~: a key pressed within the delay
 is read as a Meta/ESC-prefix combo; otherwise it is a standalone ESC."
   :init-value nil
   :global t
-  :group 'cyberdeck-keyboard
+  :group 'biomechanical-input-interface
   (if my/esc-mode
       (progn
         (add-hook 'after-make-frame-functions #'my/esc-init-if-tui)

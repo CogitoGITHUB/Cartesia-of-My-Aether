@@ -6,7 +6,7 @@ registry edit — dropping a tagged file is the whole registration.
 
 A new state needs three things (the creator does #1, you do #2–3):
 1. =states/<name>= (creator writes it),
-2. a =cyberdeck-keyboard-define-state= invocation in
+2. a =biomechanical-input-interface-define-state= invocation in
    =engine/state-machine.org=,
 3. =init-state-fn= routing in =engine/setup.org= if the state should
    activate automatically.
@@ -22,7 +22,7 @@ by body symbol at runtime).
 
 ** New state file
 #+begin_src emacs-lisp
-(defun cyberdeck-keyboard-new-state (name)
+(defun biomechanical-input-interface-new-state (name)
   "Create states/<NAME>.org from the state skeleton.
 Errors loudly when the file already exists."
   (interactive "sState name (lowercase, e.g. foreplay): ")
@@ -30,11 +30,11 @@ Errors loudly when the file already exists."
     (user-error "State name must not be empty"))
   (let ((path (expand-file-name
                (format "states/%s" name)
-               (cyberdeck-keyboard--module-dir))))
+               (biomechanical-input-interface--module-dir))))
     (when (file-exists-p path)
       (user-error "State file exists: %s" path))
     (with-temp-file path
-      (insert (format "#+title: Cyberdeck Keyboard — %s State\n\n* %s State :EMACS_MECHANISM:\n:PROPERTIES:\n:ID:       %s\n:END:\n\nKeys specific to the %s state. Shared bindings live in universal.org.\n** Bindings\n#+begin_src emacs-lisp\n(cyberdeck-keyboard-define-keys\n  :states '(\"%s\")\n  :bind\n  `((\"<key>\" . <command>)))\n#+end_src\n\n** Owned functions\n"
+      (insert (format "#+title: Biomechanical Input Interface — %s State\n\n* %s State :EMACS_MECHANISM:\n:PROPERTIES:\n:ID:       %s\n:END:\n\nKeys specific to the %s state. Shared bindings live in universal.org.\n** Bindings\n#+begin_src emacs-lisp\n(biomechanical-input-interface-define-keys\n  :states '(\"%s\")\n  :bind\n  `((\"<key>\" . <command>)))\n#+end_src\n\n** Owned functions\n"
                       (capitalize name) (capitalize name) (org-id-uuid) name name)))
     (find-file path)
     (message "State created: %s (add define-state + init routing, see header)" path)))
@@ -42,7 +42,7 @@ Errors loudly when the file already exists."
 
 ** New leader file
 #+begin_src emacs-lisp
-(defun cyberdeck-keyboard-new-leader (key title)
+(defun biomechanical-input-interface-new-leader (key title)
   "Create leaders/<KEY> from the leader skeleton.
 KEY is the SPC sub-key (single char); TITLE is the menu title.
 Errors loudly when the file already exists."
@@ -52,17 +52,17 @@ Errors loudly when the file already exists."
   (let* ((slug (downcase (replace-regexp-in-string "[^a-z0-9]+" "-" title)))
          (path (expand-file-name
                 (format "leaders/%s" slug)
-                (cyberdeck-keyboard--module-dir))))
+                (biomechanical-input-interface--module-dir))))
     (when (file-exists-p path)
       (user-error "Leader file exists: %s" path))
     (with-temp-file path
-      (insert (format "#+title: Cyberdeck Keyboard — %s Leader\n\n* %s Leader :EMACS_MECHANISM:\n:PROPERTIES:\n:ID:       %s\n:END:\n\n** %s menu\n#+begin_src emacs-lisp\n(my/defhydra-state my/%s-hydra nil \"%s\" (my/main-hydra/body \"main menu\")\n  \"Actions\"\n  ((\"<sub>\" <command> \"<desc>\" :exit t)))\n#+end_src\n"
+      (insert (format "#+title: Biomechanical Input Interface — %s Leader\n\n* %s Leader :EMACS_MECHANISM:\n:PROPERTIES:\n:ID:       %s\n:END:\n\n** %s menu\n#+begin_src emacs-lisp\n(my/defhydra-state my/%s-hydra nil \"%s\" (my/main-hydra/body \"main menu\")\n  \"Actions\"\n  ((\"<sub>\" <command> \"<desc>\" :exit t)))\n#+end_src\n"
                       title (capitalize title) (org-id-uuid) key slug title)))
     (find-file path)
     (message "Leader created: %s" path)))
 
-(defun cyberdeck-keyboard--module-dir ()
-  "Absolute path of the cyberdeck-keyboard/ module directory.
+(defun biomechanical-input-interface--module-dir ()
+  "Absolute path of the biomechanical-input-interface/ module directory.
 Derived from this file's own location; renames above it never break it."
   (file-name-directory
    (directory-file-name
@@ -77,7 +77,7 @@ vterm-*, aiu-subnet/* load lazily — erroring would train you to ignore the
 check). Duplicate keys and non-nil hydra states are always violations:
 those are never lazy-loading artifacts.
 #+begin_src emacs-lisp
-(defcustom cyberdeck-keyboard-external-prefixes
+(defcustom biomechanical-input-interface-external-prefixes
   '("consult-" "magit-" "org-" "mm/" "cyberdeck-"
     "my/cyberdeck-" "evil-" "mwheel-" "text-scale-" "tab-bar-" "centaur-tabs-"
     "org-tree-slide-" "treemacs-" "vundo" "git-timemachine" "dired-" "ibuffer-"
@@ -87,18 +87,18 @@ those are never lazy-loading artifacts.
     "evil-show-digraphs" "my/dired-" "my/aiu-subnet-")
   "Command prefixes treated as external (warn, never error, when unbound)."
   :type '(repeat string)
-  :group 'cyberdeck-keyboard)
+  :group 'biomechanical-input-interface)
 ;; AIU: my/dired-* (dired.org), my/aiu-subnet-* (states/aiu-subnet) resolve at
 ;; boot from sibling modules — covered here, not flagged.
 
-(defun cyberdeck-keyboard--defined-hydras ()
+(defun biomechanical-input-interface--defined-hydras ()
   "Hydra body symbols defined in leaders/ (generated at boot
 by the Transient shim)."
   (let ((out nil))
     (dolist (file (append
-                   (and (file-directory-p (expand-file-name "leaders/" (cyberdeck-keyboard--module-dir)))
-                        (directory-files (expand-file-name "leaders/" (cyberdeck-keyboard--module-dir)) t "[^./]+$"))
-                   (let ((m (expand-file-name "engine/menus.org" (cyberdeck-keyboard--module-dir))))
+                   (and (file-directory-p (expand-file-name "leaders/" (biomechanical-input-interface--module-dir)))
+                        (directory-files (expand-file-name "leaders/" (biomechanical-input-interface--module-dir)) t "[^./]+$"))
+                   (let ((m (expand-file-name "engine/menus.org" (biomechanical-input-interface--module-dir))))
                      (and (file-exists-p m) (list m)))))
       (dolist (blk (cyberdeck-emacs-concatenate-source-blocks file))
         (with-temp-buffer
@@ -115,20 +115,20 @@ by the Transient shim)."
             (end-of-file nil)))))
     out))
 
-(defun cyberdeck-keyboard--external-p (sym)
+(defun biomechanical-input-interface--external-p (sym)
   "Non-nil when SYM matches an external prefix."
   (let ((n (symbol-name sym)))
     (cl-some (lambda (p) (string-prefix-p p n))
-             cyberdeck-keyboard-external-prefixes)))
+             biomechanical-input-interface-external-prefixes)))
 
-(defun cyberdeck-keyboard-validate ()
+(defun biomechanical-input-interface-validate ()
   "Validate states/ and leaders/: mechanism tag, bindings,
 hydra shape, self-registration.
 Returns violation count; details go to *keyboard-validation*."
   (interactive)
-  (let ((dir (cyberdeck-keyboard--module-dir))
+  (let ((dir (biomechanical-input-interface--module-dir))
         (violations 0)
-        (hydras (cyberdeck-keyboard--defined-hydras)))
+        (hydras (biomechanical-input-interface--defined-hydras)))
     (with-current-buffer (get-buffer-create "*keyboard-validation*")
       (erase-buffer)
       (dolist (sub '("states/" "leaders/"))
@@ -154,7 +154,7 @@ Returns violation count; details go to *keyboard-validation*."
                       (let ((form (read (current-buffer))))
                         (when (consp form)
                           (cond
-                           ((eq (car form) 'cyberdeck-keyboard-define-keys)
+                           ((eq (car form) 'biomechanical-input-interface-define-keys)
                             (let ((seen nil))
                               (dolist (b (cadr (plist-get (cdr form) :bind)))
                                 (when (and (consp b) (stringp (car b)))
@@ -167,7 +167,7 @@ Returns violation count; details go to *keyboard-validation*."
                                     (when (and (symbolp cmd)
                                                (not (fboundp cmd))
                                                (not (memq cmd hydras))
-                                               (not (cyberdeck-keyboard--external-p cmd)))
+                                               (not (biomechanical-input-interface--external-p cmd)))
                                       (setq violations (1+ violations))
                                       (with-current-buffer "*keyboard-validation*"
                                         (insert (format "%s: unbound %s on %s\n" rel cmd (car b))))))))))
@@ -176,7 +176,7 @@ Returns violation count; details go to *keyboard-validation*."
                               (setq violations (1+ violations))
                               (with-current-buffer "*keyboard-validation*"
                                 (insert (format "%s: non-nil hydra state (must stay hydra-only)\n" rel)))))
-                           ((eq (car form) 'cyberdeck-keyboard-define-state)
+                           ((eq (car form) 'biomechanical-input-interface-define-state)
                             (push (cadr form) invokes)
                             (let ((init (plist-get (cddr form) :init)))
                               (when init
@@ -213,7 +213,7 @@ Returns violation count; details go to *keyboard-validation*."
                       (let ((form (read (current-buffer))))
                         (when (consp form)
                           (cond
-                           ((eq (car form) 'cyberdeck-keyboard-define-keys)
+                           ((eq (car form) 'biomechanical-input-interface-define-keys)
                             (dolist (b (cadr (plist-get (cdr form) :bind)))
                               (when (and (consp b) (stringp (car b))
                                          (symbolp (cdr b)))
@@ -229,7 +229,7 @@ Returns violation count; details go to *keyboard-validation*."
             (dolist (cmd (delete-dups bound))
               (when (and (fboundp cmd)
                          (not (documentation cmd))
-                         (not (cyberdeck-keyboard--external-p cmd))
+                         (not (biomechanical-input-interface--external-p cmd))
                          (not (memq cmd hydras)))
                 (setq violations (1+ violations))
                 (with-current-buffer "*keyboard-validation*"
@@ -254,9 +254,9 @@ Returns violation count; details go to *keyboard-validation*."
                       (let ((form (read (current-buffer))))
                         (when (consp form)
                           (cond
-                           ((eq (car form) 'cyberdeck-keyboard-define-state)
+                           ((eq (car form) 'biomechanical-input-interface-define-state)
                             (push (cadr form) invokes))
-                           ((eq (car form) 'cyberdeck-keyboard-define-keys)
+                           ((eq (car form) 'biomechanical-input-interface-define-keys)
                             (dolist (st (cadr (plist-get (cdr form) :states)))
                               (push st refs)))))))
                   (end-of-file nil))))

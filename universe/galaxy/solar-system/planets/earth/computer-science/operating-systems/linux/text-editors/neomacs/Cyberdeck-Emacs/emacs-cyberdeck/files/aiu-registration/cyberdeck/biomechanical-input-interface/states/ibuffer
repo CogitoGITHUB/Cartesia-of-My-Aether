@@ -13,7 +13,7 @@ Self-registration: mode, keymap, and init predicate in one unit. Delete this fil
   (derived-mode-p 'ibuffer-mode))
 #+end_src
 #+begin_src emacs-lisp
-(cyberdeck-keyboard-define-state "ibuffer"
+(biomechanical-input-interface-define-state "ibuffer"
   :lighter "[IBF]"
   :cursor-type 'box :init #'my/ibuffer-state-init-p)
 #+end_src
@@ -27,7 +27,7 @@ Self-registration: mode, keymap, and init predicate in one unit. Delete this fil
 #+end_src
 ** Bindings
 #+begin_src emacs-lisp
-(cyberdeck-keyboard-define-keys
+(biomechanical-input-interface-define-keys
   :states '("ibuffer")
   :bind
   `(

@@ -25,7 +25,7 @@ SPC d: dev tree (literate/debug/config).
 (my/defhydra-state my/literate-config-hydra nil "Dev › Config" (my/literate-hydra/body "dev")
   "Config"
   (("d" (lambda () (interactive) (my/dired-here)) "modules dir"   :exit t)
-   ("k" (lambda () (interactive) (my/find-file (cyberdeck-keyboard--module-dir))) "keyboard" :exit t))
+   ("k" (lambda () (interactive) (my/find-file (biomechanical-input-interface--module-dir))) "keyboard" :exit t))
   "Cyberdeck"
   (("r" cyberdeck-emacs-reload        "reload all"     :exit t)
    ("c" cyberdeck-emacs-reload-current-buffer "reload buf" :exit t)

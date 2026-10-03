@@ -128,7 +128,7 @@ say whose stock; `setup` and `macros` say nothing at all; and `dashboard` in
    `admin/order/dashboard widgets`, `admin/order/modeline widgets`,
    `admin/order/headings aiu-context drawer`. Never `order`, never `drawer`.
 2. **Directories say which module owns them.** `cyberdeck-dashboard/`,
-   `cyberdeck-keyboard/`, `cyberdeck/`. Never a bare `engine/`,
+   `biomechanical-input-interface/`, `cyberdeck/`. Never a bare `engine/`,
    `core/`, or `aiu-contexts/` at a shared level.
 3. **Function and variable names carry their module.** `cyberdeck-dashboard--…`,
    `my/cyberdeck--…`, `manifolding-modeline--…`. A name that could
@@ -254,7 +254,7 @@ All paths relative to `Cyberdeck-Emacs/emacs-cyberdeck/`.
 | `entering-the-machine/cyberdeck-dashboard/` | 78.3–78.5 | dashboard: `engine/`, `cores/` (vendored emacs-dashboard), `widgets/`, `banner/`, `faces`. Its order file lives in `admin/`. |
 | `the-screen/modeline/` | 80.1–80.11 | multi-row mode line: `engine/`, `cores/stock`, `faces`, `widgets/`, `header`. Its order file lives in `admin/`. |
 | `files/aiu-registration/cyberdeck/` | 100+ | the Cyberdeck — see §5 |
-| `…/cyberdeck/cyberdeck-keyboard/` | 2.x–4.x | modal key system: `engine/` (state machine, macros, scaffolding), `states/` (15), `leaders/` (19) |
+| `…/cyberdeck/biomechanical-input-interface/` | 2.x–4.x | modal key system: `engine/` (state machine, macros, scaffolding), `states/` (15), `leaders/` (19) |
 | `the-screen/display/06-screen` | — | raw Emacs-manual prose, parked. Still holds display/windows/frames/Imenu/font-lock |
 | `org-manual/*` | — | raw Emacs-manual prose, parked |
 
@@ -325,7 +325,7 @@ grep -o ':status [a-z-]*' ~/.config/emacs/cyberdeck-emacs-errors.log.el | sort |
 
 `:status ok` is the health metric. `:level part` entries carry the failing
 file, line and package. The three gates — `cyberdeck-dashboard-validate`,
-`cyberdeck-keyboard-validate`, `manifolding-modeline-audit` — should all be
+`biomechanical-input-interface-validate`, `manifolding-modeline-audit` — should all be
 empty.
 
 ---
@@ -341,8 +341,8 @@ Three exceptions, all real:
 
 1. **Chainless units reorder by path.** Give anything you move an `:MM_ORDER:`.
    `leaders/tools` currently has none — that is the one to fix first.
-2. **`cyberdeck-keyboard-validate` scans two hard-coded directories**
-   (`cyberdeck-keyboard/engine/scaffolding:132-134`): `states/` and `leaders/`,
+2. **`biomechanical-input-interface-validate` scans two hard-coded directories**
+   (`biomechanical-input-interface/engine/scaffolding:132-134`): `states/` and `leaders/`,
    non-recursively. Move a state out and the validator silently stops checking
    it. Silence means "not looked at", not "fine".
 3. **A dot in the new filename makes the file vanish.** §2A.1.

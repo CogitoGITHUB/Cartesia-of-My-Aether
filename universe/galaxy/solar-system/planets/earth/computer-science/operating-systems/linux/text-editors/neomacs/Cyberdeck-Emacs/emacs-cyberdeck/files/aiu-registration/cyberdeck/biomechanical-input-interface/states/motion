@@ -13,13 +13,13 @@ Self-registration: mode, keymap, and init predicate in one unit. Delete this fil
   (buffer-local-value 'buffer-read-only (current-buffer)))
 #+end_src
 #+begin_src emacs-lisp
-(cyberdeck-keyboard-define-state "motion"
+(biomechanical-input-interface-define-state "motion"
   :lighter "[MOT]"
   :cursor-type 'hbar :init #'my/motion-state-init-p)
 #+end_src
 ** Bindings
 #+begin_src emacs-lisp
-(cyberdeck-keyboard-define-keys
+(biomechanical-input-interface-define-keys
   :states '("motion")
   :bind
   `(

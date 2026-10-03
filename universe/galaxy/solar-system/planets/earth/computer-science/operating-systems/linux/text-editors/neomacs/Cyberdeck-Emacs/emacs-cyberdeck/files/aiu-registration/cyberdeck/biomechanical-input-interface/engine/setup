@@ -6,9 +6,9 @@ Requires, reload behavior, init state, hooks, modeline, activation.
 :MM_ORDER:  198.0
 :END:
 #+begin_src emacs-lisp
-(require 'cyberdeck-keyboard nil t)
-(unless (featurep 'cyberdeck-keyboard)
-  (error "cyberdeck-keyboard core (engine/state-machine.org, priority 19) must load before engine/setup.org (priority 21)"))
+(require 'biomechanical-input-interface nil t)
+(unless (featurep 'biomechanical-input-interface)
+  (error "biomechanical-input-interface core (engine/state-machine.org, priority 19) must load before engine/setup.org (priority 21)"))
 (require 'which-key)
 (require 'vundo)
 #+end_src
@@ -16,8 +16,8 @@ Requires, reload behavior, init state, hooks, modeline, activation.
 Derived from the state registry (every registered state, predicate or
 not) — never a hardcoded list, so new states are covered automatically.
 #+begin_src emacs-lisp
-(dolist (state (mapcar #'car cyberdeck-keyboard-state-init-alist))
-  (makunbound (cyberdeck-keyboard-get-state-keymap state)))
+(dolist (state (mapcar #'car biomechanical-input-interface-state-init-alist))
+  (makunbound (biomechanical-input-interface-get-state-keymap state)))
 #+end_src
 ** Init State
 Activation consults the registry. Colliding states (a read-only org
@@ -26,33 +26,33 @@ file/alphabetical order must never decide. States absent from the
 precedence list are consulted after it, newest registration first.
 Keep predicates narrow (one major mode or one buffer condition).
 #+begin_src emacs-lisp
-(defvar cyberdeck-keyboard-state-precedence '("org" "dired" "ibuffer" "motion")
+(defvar biomechanical-input-interface-state-precedence '("org" "dired" "ibuffer" "motion")
   "States consulted first by init-state-fn, in order.
 Preserves the historical cond precedence: org beats read-only-motion,
 dired beats it too. Everything else follows, newest first.")
 
-(setq cyberdeck-keyboard-init-state-fn
+(setq biomechanical-input-interface-init-state-fn
       (lambda ()
         (cond
          ((minibufferp) nil)
          ((derived-mode-p 'magit-mode)  nil)
          ((derived-mode-p 'vundo-mode)  nil)
          (t (or (cl-some (lambda (state)
-                           (let ((pred (cdr (assoc state cyberdeck-keyboard-state-init-alist))))
+                           (let ((pred (cdr (assoc state biomechanical-input-interface-state-init-alist))))
                              (and pred (funcall pred) state)))
-                         (append cyberdeck-keyboard-state-precedence
-                                 (seq-difference (mapcar #'car cyberdeck-keyboard-state-init-alist)
-                                                 cyberdeck-keyboard-state-precedence)))
+                         (append biomechanical-input-interface-state-precedence
+                                 (seq-difference (mapcar #'car biomechanical-input-interface-state-init-alist)
+                                                 biomechanical-input-interface-state-precedence)))
                 "normal")))))
 #+end_src
 ** State Hooks
 #+begin_src emacs-lisp
-(add-hook 'org-mode-hook   (lambda () (cyberdeck-keyboard-set-state "org")))
-(add-hook 'dired-mode-hook (lambda () (cyberdeck-keyboard-set-state "dired")))
-(add-hook 'help-mode-hook  (lambda () (cyberdeck-keyboard-set-state "motion")))
-(add-hook 'Info-mode-hook  (lambda () (cyberdeck-keyboard-set-state "motion")))
-(add-hook 'view-mode-hook  (lambda () (cyberdeck-keyboard-set-state "motion")))
-(add-hook 'magit-mode-hook (lambda () (cyberdeck-keyboard-set-state "magit")))
+(add-hook 'org-mode-hook   (lambda () (biomechanical-input-interface-set-state "org")))
+(add-hook 'dired-mode-hook (lambda () (biomechanical-input-interface-set-state "dired")))
+(add-hook 'help-mode-hook  (lambda () (biomechanical-input-interface-set-state "motion")))
+(add-hook 'Info-mode-hook  (lambda () (biomechanical-input-interface-set-state "motion")))
+(add-hook 'view-mode-hook  (lambda () (biomechanical-input-interface-set-state "motion")))
+(add-hook 'magit-mode-hook (lambda () (biomechanical-input-interface-set-state "magit")))
 #+end_src
 ** Activate
 #+begin_src emacs-lisp

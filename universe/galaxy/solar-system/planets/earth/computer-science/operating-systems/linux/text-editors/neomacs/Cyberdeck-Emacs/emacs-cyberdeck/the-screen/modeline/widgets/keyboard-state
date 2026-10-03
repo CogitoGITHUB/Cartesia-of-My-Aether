@@ -11,14 +11,14 @@
 :END:
 
 First on the line, always. Full state name straight from
-`cyberdeck-keyboard-modeline-state-name' — the bar never keeps
+`biomechanical-input-interface-modeline-state-name' — the bar never keeps
 its own copy, so the two can never disagree. Empty before the
 keyboard assigns a state.
 #+begin_src emacs-lisp
 (manifolding-modeline-define-segment keyboard-state
   (propertize
-   (or (and (fboundp 'cyberdeck-keyboard-modeline-state-name)
-            (cyberdeck-keyboard-modeline-state-name))
+   (or (and (fboundp 'biomechanical-input-interface-modeline-state-name)
+            (biomechanical-input-interface-modeline-state-name))
        "")
    'face 'manifolding-modeline-keyboard-face))
 #+end_src

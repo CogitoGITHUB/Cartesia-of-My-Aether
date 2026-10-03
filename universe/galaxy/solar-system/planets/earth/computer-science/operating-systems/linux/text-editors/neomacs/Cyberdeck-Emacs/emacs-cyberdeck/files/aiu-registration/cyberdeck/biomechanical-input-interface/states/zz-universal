@@ -17,8 +17,8 @@ keyboard engine, highlight state). No values, no rebinding.
 #+begin_src emacs-lisp
 (defvar my/symbol-collect-min-length)
 (defvar my/symbol-collect-sanitize)
-(defvar cyberdeck-keyboard-state)
-(defvar cyberdeck-keyboard-normal-state-keymap)
+(defvar biomechanical-input-interface-state)
+(defvar biomechanical-input-interface-normal-state-keymap)
 (defvar my/hl-patterns)
 (defvar my/act-highlight-overlay)
 (defvar ks-all-windows)
@@ -29,7 +29,7 @@ keyboard engine, highlight state). No values, no rebinding.
 (defvar ks-action)
 #+end_src
 #+begin_src emacs-lisp
-(cyberdeck-keyboard-define-keys
+(biomechanical-input-interface-define-keys
   :states '("normal" "visual" "org" "motion" "dired")
   :bind
   `(("<wheel-up>"   . mwheel-scroll)
@@ -46,7 +46,7 @@ keyboard engine, highlight state). No values, no rebinding.
 #+end_src
 *** Shared: normal + visual + org + motion + dired + ibuffer + AIU Subnet
 #+begin_src emacs-lisp
-(cyberdeck-keyboard-define-keys
+(biomechanical-input-interface-define-keys
   :states '("normal" "visual" "org" "motion" "dired" "ibuffer" "AIU Subnet")
   :bind
   `(
@@ -55,7 +55,7 @@ keyboard engine, highlight state). No values, no rebinding.
 #+end_src
 *** Shared: normal + org + motion + presentation
 #+begin_src emacs-lisp
-(cyberdeck-keyboard-define-keys
+(biomechanical-input-interface-define-keys
   :states '("normal" "org" "motion" "presentation")
   :bind
   `(
@@ -64,7 +64,7 @@ keyboard engine, highlight state). No values, no rebinding.
 #+end_src
 *** Shared: motion + dired + presentation
 #+begin_src emacs-lisp
-(cyberdeck-keyboard-define-keys
+(biomechanical-input-interface-define-keys
   :states '("motion" "dired" "presentation")
   :bind
   `(
@@ -73,7 +73,7 @@ keyboard engine, highlight state). No values, no rebinding.
 #+end_src
 *** Shared: motion + ibuffer
 #+begin_src emacs-lisp
-(cyberdeck-keyboard-define-keys
+(biomechanical-input-interface-define-keys
   :states '("motion" "ibuffer")
   :bind
   `(
@@ -82,7 +82,7 @@ keyboard engine, highlight state). No values, no rebinding.
 #+end_src
 *** Shared: normal + org + motion
 #+begin_src emacs-lisp
-(cyberdeck-keyboard-define-keys
+(biomechanical-input-interface-define-keys
   :states '("normal" "org" "motion")
   :bind
   `(
@@ -92,7 +92,7 @@ keyboard engine, highlight state). No values, no rebinding.
 #+end_src
 *** Shared: dired + presentation
 #+begin_src emacs-lisp
-(cyberdeck-keyboard-define-keys
+(biomechanical-input-interface-define-keys
   :states '("dired" "presentation")
   :bind
   `(
@@ -101,7 +101,7 @@ keyboard engine, highlight state). No values, no rebinding.
 #+end_src
 *** Shared: normal + motion
 #+begin_src emacs-lisp
-(cyberdeck-keyboard-define-keys
+(biomechanical-input-interface-define-keys
   :states '("normal" "motion")
   :bind
   `(
@@ -144,7 +144,7 @@ keyboard engine, highlight state). No values, no rebinding.
 #+end_src
 *** Shared: normal + org
 #+begin_src emacs-lisp
-(cyberdeck-keyboard-define-keys
+(biomechanical-input-interface-define-keys
   :states '("normal" "org")
   :bind
   `(
@@ -155,7 +155,7 @@ keyboard engine, highlight state). No values, no rebinding.
 #+end_src
 *** Shared: org + cyberdeck-pick
 #+begin_src emacs-lisp
-(cyberdeck-keyboard-define-keys
+(biomechanical-input-interface-define-keys
   :states '("org" "cyberdeck-pick")
   :bind
   `(
@@ -265,7 +265,7 @@ mark to the text strictly between the delimiters, and enters visual state."
           (push-mark (1+ (point)) t t)
           (goto-char (1- (cdr best)))
           (activate-mark)
-          (cyberdeck-keyboard-set-state "visual"))
+          (biomechanical-input-interface-set-state "visual"))
       (message "No enclosing delimiter pair"))))
 #+end_src
 *inline helper for my/select-inside-delimiters*
@@ -346,7 +346,7 @@ comments to end of line). Otherwise no-op with a message."
         (forward-sexp 1)
         (push-mark (1+ start) t t)
         (activate-mark)
-        (cyberdeck-keyboard-set-state "visual")))
+        (biomechanical-input-interface-set-state "visual")))
      ((my/in-comment-p)
       (let* ((start (nth 8 ppss))
              (end (save-mark-and-excursion
@@ -366,7 +366,7 @@ comments to end of line). Otherwise no-op with a message."
         (push-mark start t t)
         (goto-char end)
         (activate-mark)
-        (cyberdeck-keyboard-set-state "visual")))
+        (biomechanical-input-interface-set-state "visual")))
      (t
       (message "Point is not inside a string or comment")))))
 #+end_src
@@ -444,7 +444,7 @@ whitespace to that line's indentation column."
   "Show relative line numbers, switching to absolute in insert state."
   (when display-line-numbers
     (setq display-line-numbers
-          (if (eq cyberdeck-keyboard-state 'insert) t 'relative))))
+          (if (eq biomechanical-input-interface-state 'insert) t 'relative))))
 #+end_src
 #+begin_src emacs-lisp
 (defun my/line-beginning ()
@@ -757,7 +757,7 @@ Signal an error if nothing relevant is there."
   (let* ((mk-maps
           (cl-loop for sym being the symbols
                    when (and (symbolp sym)
-                             (string-prefix-p "cyberdeck-keyboard-"
+                             (string-prefix-p "biomechanical-input-interface-"
                                               (symbol-name sym))
                              (string-suffix-p "-state-keymap" (symbol-name sym))
                              (boundp sym))
@@ -792,7 +792,7 @@ Signal an error if nothing relevant is there."
            (cl-remove-if-not
             (lambda (map)
               (and (symbolp map)
-                   (string-prefix-p "cyberdeck-keyboard-" (symbol-name map))
+                   (string-prefix-p "biomechanical-input-interface-" (symbol-name map))
                    (string-suffix-p "-state-keymap" (symbol-name map))))
             (current-active-maps))))
       (when (and in-state-map
@@ -836,8 +836,8 @@ with no arguments. `this-command' stays COMMAND throughout the chain."
   (interactive)
   (with-output-to-temp-buffer "*my-modal-bindings*"
     (princ "M-K Modal Bindings\n\n")
-    (dolist (state '(cyberdeck-keyboard-normal-state-keymap
-                     cyberdeck-keyboard-motion-state-keymap))
+    (dolist (state '(biomechanical-input-interface-normal-state-keymap
+                     biomechanical-input-interface-motion-state-keymap))
       (let ((entries (my/keymap-entries (symbol-value state))))
         (princ (format "%s\n%s\n" (symbol-name state) (make-string 40 ?-)))
         (cl-loop for (key . cmd) in entries
@@ -862,14 +862,14 @@ For interactive temporary overrides. See `global-set-key'."
   (interactive "KSet M-K key: \nCSet M-K key %s to command: ")
   (or (vectorp key) (stringp key)
       (signal 'wrong-type-argument (list 'arrayp key)))
-  (define-key cyberdeck-keyboard-normal-state-keymap key command))
+  (define-key biomechanical-input-interface-normal-state-keymap key command))
 #+end_src
 #+begin_src emacs-lisp
 (defun my/unset-key (key)
   "Remove the M-K normal-state keymap binding of KEY.
 KEY is a string or vector. For interactive temporary unbinds."
   (interactive "kUnset M-K key: ")
-  (define-key cyberdeck-keyboard-normal-state-keymap key nil))
+  (define-key biomechanical-input-interface-normal-state-keymap key nil))
 #+end_src
 #+begin_src emacs-lisp
 (defun my/command-then-modal ()
@@ -877,7 +877,7 @@ KEY is a string or vector. For interactive temporary unbinds."
   (interactive)
   (let ((command (read-command "Command, then modal: ")))
     (call-interactively command)
-    (cyberdeck-keyboard-set-state "normal")))
+    (biomechanical-input-interface-set-state "normal")))
 #+end_src
 #+begin_src emacs-lisp
 (defun my/chord-describe ()
@@ -1111,13 +1111,13 @@ Meow #04): this batches an action on every occurrence."
 (defun my/insert-state ()
   "Switch to insert state."
   (interactive)
-  (cyberdeck-keyboard-set-state "insert"))
+  (biomechanical-input-interface-set-state "insert"))
 #+end_src
 #+begin_src emacs-lisp
 (defun my/normal-state ()
   "Switch to normal state."
   (interactive)
-  (cyberdeck-keyboard-set-state "normal"))
+  (biomechanical-input-interface-set-state "normal"))
 #+end_src
 #+begin_src emacs-lisp
 (defun my/chord-define-global (keys command)
@@ -1183,13 +1183,13 @@ Otherwise, forward to `goto-line' with ARG."
 (defcustom my/symbol-collect-min-length 1
   "Minimal length for a symbol/word to be collected as a completion candidate."
   :type 'integer
-  :group 'cyberdeck-keyboard)
+  :group 'biomechanical-input-interface)
 #+end_src
 #+begin_src emacs-lisp
 (defcustom my/symbol-collect-sanitize t
   "If non-nil, present each candidate as its ~\\_<...\\_>~ word-boundary regexp."
   :type 'boolean
-  :group 'cyberdeck-keyboard)
+  :group 'biomechanical-input-interface)
 #+end_src
 #+begin_src emacs-lisp
 (defvar my/act-highlight-overlay nil

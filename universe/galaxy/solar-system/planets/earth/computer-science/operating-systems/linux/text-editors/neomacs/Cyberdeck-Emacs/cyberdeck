@@ -1505,7 +1505,7 @@ churn inside keyboard dirs.
 NEXT UP after the dashboard: custom modeline.  (TODO)
 
 #+begin_src emacs-lisp
-(defvar cyberdeck-emacs--bootstrap-first-paths '("cyberdeck-keyboard/"
+(defvar cyberdeck-emacs--bootstrap-first-paths '("biomechanical-input-interface/"
                                                    "cyberdeck-dashboard/")
   "Path fragments whose units load before everything else, group by
 group in listed order (keyboard, then dashboard). Matched with
@@ -4171,7 +4171,7 @@ opens at the end, with or without file arguments.
              '(("my/cyberdeck-org-prompt--ask" . "org-prompts.org")
                ("my/cyberdeck-collect-prompts" . "prompt-engine.org")
                ("my/cyberdeck-aiu-runs-run" . "AIU Runs.org")
-                               ("cyberdeck-keyboard-define-keys" . "engine/state-machine.org")))
+                               ("biomechanical-input-interface-define-keys" . "engine/state-machine.org")))
       (unless (fboundp (intern (car check)))
         (let* ((name (car check))
                (found nil)
