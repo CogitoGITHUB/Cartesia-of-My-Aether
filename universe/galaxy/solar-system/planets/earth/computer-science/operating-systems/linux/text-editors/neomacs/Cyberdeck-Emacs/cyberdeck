@@ -2955,10 +2955,13 @@ the (possibly slow) load, and `--unit-load' uses it as the match."
           (cyberdeck-emacs--cache-read (nth 2 paths)) ph)
           t)))
 
-(defun cyberdeck-emacs--unit-aiu-loaded (file parts)
+(defun cyberdeck-emacs--unit-aiu-loaded (file parts &optional unit tier)
   "Record package statuses + DEFINED-but-VOID checks after a compiled
 load, mirroring `cyberdeck-emacs--eval-parts' diagnostics so loaded
-units report exactly like evaluated ones."
+units report exactly like evaluated ones.
+UNIT and TIER are diagnostic only: when a VOID fires the message names
+the check (unit-load), the file, the tier, the cache id and whether the
+source has emacs-lisp blocks.  No behaviour change."
   (dolist (part parts)
     (let ((body (plist-get part :body)))
       (when (eq (plist-get part :kind) 'package)
@@ -2968,8 +2971,14 @@ units report exactly like evaluated ones."
                  (not (fboundp (intern (match-string 1 body)))))
         (cyberdeck-emacs-record-error
          :level 'part :file file
-         :message (format "%s defined but VOID — nested inside another form"
-                          (match-string 1 body)))))))
+         :message (format "[unit-load] %s defined but VOID — file:%s tier:%s id:%s src-blocks:%s"
+                          (match-string 1 body) file (or tier "?")
+                          (if unit
+                              (condition-case nil
+                                  (cyberdeck-emacs--unit-elc-id file unit)
+                                (error "?"))
+                            "?")
+                          (if parts "yes" "no")))))))
 #+end_src
 
 ** Pre-flight gates — parens and block nesting
@@ -3160,15 +3169,15 @@ before any load/compile/eval."
          (straight-current-profile
           (or profile (and (boundp 'straight-current-profile)
                            straight-current-profile)))
-         (load-it (lambda ()
+         (load-it (lambda (tier)
                     (load elc nil t)
-                    (cyberdeck-emacs--unit-aiu-loaded file parts))))
+                    (cyberdeck-emacs--unit-aiu-loaded file parts unit tier))))
     (push id cyberdeck-emacs--unit-elc-live-ids)
     (cond
      ((and (not force)
            (cyberdeck-emacs--unit-cached-p file unit parts))
       (condition-case err
-          (progn (funcall load-it) 'loaded)
+          (progn (funcall load-it 'loaded) 'loaded)
         (error
          (cyberdeck-emacs-record-error
           :level 'file :file file
@@ -3197,7 +3206,7 @@ before any load/compile/eval."
                     (progn
                       (cyberdeck-emacs--unit-state-write
                        statep 'compiled ph)
-                      (funcall load-it)
+                      (funcall load-it 'compiled)
                       'compiled)
                   (error
                    (cyberdeck-emacs-record-error
@@ -4140,17 +4149,58 @@ opens at the end, with or without file arguments.
                  (format " (%d third-party package warning(s) filtered)"
                          cyberdeck-emacs--third-party-warning-count))))
     ;; Void-defun sweep: verify critical functions actually exist.
+    ;; Diagnostic only: when one is void the message names the check
+    ;; (sweep), the defining unit's file, its tier this boot, its cache id
+    ;; and whether its source has emacs-lisp blocks.  The file search below
+    ;; runs only on failure, never on a clean boot.  No behaviour change:
+    ;; still a warning, same type, same conditions.
     (dolist (check
              '(("my/cyberdeck-org-prompt--ask" . "org-prompts.org")
                ("my/cyberdeck-collect-prompts" . "prompt-engine.org")
                ("my/cyberdeck-aiu-runs-run" . "AIU Runs.org")
                                ("cyberdeck-keyboard-define-keys" . "engine/state-machine.org")))
       (unless (fboundp (intern (car check)))
-        (display-warning
-         'cyberdeck-emacs
-         (format "CRITICAL: %s is VOID — check %s for paren/nesting issues"
-                 (car check) (cdr check))
-         :warning))))
+        (let* ((name (car check))
+               (found nil)
+               (tier "?"))
+          (catch 'hit
+            (dolist (u (append cyberdeck-emacs--s1-units
+                              cyberdeck-emacs--s2-units))
+              (let ((f (plist-get u :file)))
+                (when (and f (stringp f))
+                  (let ((parts (condition-case nil
+                                   (car (cyberdeck-emacs--compile-unit-parts
+                                         f u))
+                                 (error nil))))
+                    (when (and parts
+                               (catch 'has
+                                 (dolist (p parts)
+                                   (let ((b (plist-get p :body)))
+                                     (when (and b (string-match-p (concat "(defun " (regexp-quote name)) b))
+                                       (throw 'has t))))
+                                 nil))
+                      (setq found u)
+                      (throw 'hit t)))))))
+          (when found
+            (let ((f (plist-get found :file)))
+              (dolist (t3 cyberdeck-emacs--unit-times)
+                (when (equal (nth 1 t3) f)
+                  (setq tier (nth 2 t3))))))
+          (display-warning
+           'cyberdeck-emacs
+           (format "[sweep] CRITICAL: %s is VOID — file:%s tier:%s id:%s src-blocks:%s — check %s for paren/nesting issues"
+                   name
+                   (or (and found (plist-get found :file)) "?")
+                   tier
+                   (if found
+                       (condition-case nil
+                           (cyberdeck-emacs--unit-elc-id
+                            (plist-get found :file) found)
+                         (error "?"))
+                     "?")
+                   (if found "yes" "unknown")
+                   (cdr check))
+           :warning)))))
     ;; Paren-issue detector.
     (dolist (e (cyberdeck-emacs-errors-list))
       (when (and (cyberdeck-emacs-error-entry-p e)
