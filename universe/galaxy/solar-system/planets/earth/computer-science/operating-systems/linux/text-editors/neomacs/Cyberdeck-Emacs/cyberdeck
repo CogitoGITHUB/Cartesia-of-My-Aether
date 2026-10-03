@@ -1141,7 +1141,7 @@ Warm-boot accelerator: verified entries skip all per-file parsing.")
   "Truenames hash-verified this session.  `cyberdeck-emacs--index-ensure'
 skips members: their entries are current by construction.")
 
-(defconst cyberdeck-emacs-discovery-index-version "3"
+(defconst cyberdeck-emacs-discovery-index-version "4"
   "Format version of the on-disk discovery index, tracked SEPARATELY
 from `cyberdeck-emacs-cache-salt'.
 
@@ -1156,7 +1156,12 @@ absent, so the index is rebuilt by one full scan and never misread.
    file is S2).  Boot reads it to skip S2 files outright: no stat, no
    read, no hash, no file-truename, no index-apply.  A version mismatch
    is treated as an absent index, so this costs exactly one full rebuild
-   on the first boot after the bump and then nothing.")
+    on the first boot after the bump and then nothing.
+4: per-entry :stage, corrected to compare stage SYMBOLS (S1/S2, what
+   `stage-of` returns).  Version 3 compared against the string S1, matched
+   nothing, and marked every file S2 -- the boot then skipped the whole tree
+   (0 units, BOOT THREW).  Bumping discards the poisoned v3 index; one full
+   rebuild, then nothing.")
 
 (defun cyberdeck-emacs-discovery-index-file ()
   "On-disk discovery index.  Under ~/.config/emacs, never the vault."
@@ -1451,9 +1456,15 @@ later boots skip re-scanning them too.  Never throws."
                            ;; without opening, statting or truenaming it.
                            ;; S1 wins: a file holding even one S1 unit must
                            ;; be walked and scanned like any other.
+                           ;; Compare SYMBOLS: `stage-of' normalizes to 'S1
+                           ;; / 'S2 (see its docstring).  Comparing against
+                           ;; the string "S1" matched nothing, marked every
+                           ;; file S2, and the boot skipped the whole tree.
                            :stage (if (or (null units)
                                           (seq-find (lambda (u)
-                                                      (equal "S1" (plist-get u :stage)))
+                                                      (let ((s (plist-get u :stage)))
+                                                        (or (eq s 'S1)
+                                                            (equal s "S1"))))
                                                     units))
                                       "S1"
                                     "S2"))
