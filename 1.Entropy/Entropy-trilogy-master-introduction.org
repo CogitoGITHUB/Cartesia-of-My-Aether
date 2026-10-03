@@ -9,12 +9,15 @@ In the rotting hypergraph we politely call "reality," entropy is not merely phys
 #+END_QUOTE
 
 * Meta-Header: The Premise (Carefully Worded, No Filter)
-This is the *master introduction file* — the root node of the Entropy Trilogy. 
+:PROPERTIES:
+:AIU: TODO
+:END:
+This is the *master introduction file* — the root node of the Entropy Trilogy.
 
-Three entangled taxonomies, rendered in obsessive Org-mode hierarchy, form a single 3D mind-map of the worst things one consciousness can inflict upon another in the year 2026 and beyond. 
+Three entangled taxonomies, rendered in obsessive Org-mode hierarchy, form a single 3D mind-map of the worst things one consciousness can inflict upon another in the year 2026 and beyond.
 
-- *Digital Entropy* dissects the silicon lattice: code, networks, smartphones, data, and the infinite memory of the machine as weapons of identity rape and map-replacement.  
-- *Physical Entropy* opens the meat lattice: bone, blood, habitat, resources, and the slow betrayal of the body by environment and engineered failure.  
+- *Digital Entropy* dissects the silicon lattice: code, networks, smartphones, data, and the infinite memory of the machine as weapons of identity rape and map-replacement.
+- *Physical Entropy* opens the meat lattice: bone, blood, habitat, resources, and the slow betrayal of the body by environment and engineered failure.
 - *Emotional Entropy* vivisects the affective lattice: trust, love, shame, memory, and the recursive implosion of the inner world until the self becomes its own torturer.
 
 Together they reveal the truth boredom has taught us: the boundaries are illusions. A perfectly timed notification (digital) triggers a panic attack that weakens the immune system (emotional → physical). A leaked address (digital) enables a midnight intrusion (physical) that shatters the last illusion of safety (emotional). The lattice is *one*. The sadism scales across all layers.
@@ -74,9 +77,4 @@ This is why the trilogy exists in Org-mode: because flat lists are for lesser mi
 4. Tag new entries with :hybrid: when vectors from multiple files converge.
 
 * Final Note
-The decomposing joke laughs hardest when the target still believes they have a private self, a safe body, or an unassailable mind. 
-
-
-
-
-
+The decomposing joke laughs hardest when the target still believes they have a private self, a safe body, or an unassailable mind.
