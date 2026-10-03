@@ -246,12 +246,51 @@ be created by extractors."
   (add-hook 'cyberdeck-db-autosync-mode-hook #'my/cyberdeck--ensure-aius-table)
   (add-hook 'cyberdeck-db-autosync-mode-hook #'my/cyberdeck--ensure-links-table))
 
+** Path canon — vault-relative storage, absolute access
+#+begin_src emacs-lisp
+(defun cyberdeck-db--canon-path (path)
+  "Vault-relative form of PATH for the notes table.
+Strips surrounding double quotes (shell-quoted find output keeps them,
+e.g. paths with spaces), expands both the Termux and the proot roots,
+and returns the path relative to the vault root — the form the good
+rows already use, so it survives root moves.  Never throws: returns
+PATH unchanged when the root is unknown."
+  (condition-case nil
+      (let* ((s (if (stringp path) path ""))
+             (s (if (and (> (length s) 0) (eq (aref s 0) ?\"))
+                    (substring s 1) s))
+             (s (if (and (> (length s) 0) (eq (aref s (1- (length s))) ?\"))
+                    (substring s 0 -1) s))
+             (abs (expand-file-name s))
+             (root (and (fboundp 'my/cyberdeck-root-dir)
+                        (file-name-as-directory
+                         (expand-file-name (my/cyberdeck-root-dir))))))
+        (if (and (> (length s) 0) root (string-prefix-p root abs))
+            (substring abs (length root))
+          (if (> (length s) 0) s path)))
+    (error path)))
+
+(defun cyberdeck-db--resolve-path (path)
+  "Absolute form of stored PATH for filesystem access.
+Stored paths are vault-relative; resolve them against the vault root so
+file-exists-p and file reads work whatever the current directory is.
+Absolute stored paths pass through untouched.  Never throws."
+  (condition-case nil
+      (if (and (stringp path) (file-name-absolute-p path))
+          path
+        (expand-file-name path
+                          (and (fboundp 'my/cyberdeck-root-dir)
+                               (my/cyberdeck-root-dir))))
+    (error path)))
+#+end_src
+
 (cl-defun cyberdeck-db--update-file (path)
   "Parse PATH, upsert its `notes' row, and run all registered extractors.
 Returns 1 if a note was indexed, 0 otherwise. Handles deletion
 when file missing."
   (my/cyberdeck--ensure-aius-table)
-  (if (not (file-exists-p path))
+  (setq path (cyberdeck-db--canon-path path))
+  (if (not (file-exists-p (cyberdeck-db--resolve-path path)))
       (progn
         (ignore-errors (emacsql (cyberdeck-db) [:delete :from notes :where (= path $s1)] path))
         ;; also purge dependent tables via cascade or explicit
@@ -263,23 +302,23 @@ when file missing."
     (let* ((ctx (if (fboundp 'cyberdeck-db--parse-file)
                     (ignore-errors (cyberdeck-db--parse-file path))
                   (with-temp-buffer
-                    (insert-file-contents path)
+                    (insert-file-contents (cyberdeck-db--resolve-path path))
                     (let ((ast (ignore-errors (org-element-parse-buffer))))
                       (make-cyberdeck-parse-ctx :path path :ast ast)))))
            (_ast (and ctx (cyberdeck-parse-ctx-ast ctx)))
             (id (with-temp-buffer
-                  (insert-file-contents path)
+                  (insert-file-contents (cyberdeck-db--resolve-path path))
                   (when (re-search-forward "^:ID:[ \t]+\\(.+\\)" nil t)
                     (string-trim (match-string 1)))))
            (title (with-temp-buffer
-                    (insert-file-contents path)
+                    (insert-file-contents (cyberdeck-db--resolve-path path))
                     (when (re-search-forward "^\\*+[ \t]+\\(.*\\)" nil t)
                       (string-trim (match-string 1))))))
       (unless id
         (ignore-errors (emacsql (cyberdeck-db) [:delete :from notes :where (= path $s1)] path))
         (cl-return-from cyberdeck-db--update-file 0))
       (let ((unfoldings (with-temp-buffer
-                     (insert-file-contents path)
+                     (insert-file-contents (cyberdeck-db--resolve-path path))
                      (when (re-search-forward "^:PROPERTIES:" nil t)
                        (let (alist)
                          (while (re-search-forward "^:\\([^:]+\\):[ \t]*\\(.*\\)" nil t)
@@ -288,7 +327,7 @@ when file missing."
                                (push (cons k (match-string 2)) alist))))
                          (nreverse alist)))))
             (tags (with-temp-buffer
-                    (insert-file-contents path)
+                    (insert-file-contents (cyberdeck-db--resolve-path path))
                     (let (tags)
                       (when (re-search-forward "^\\*+[ \t]+.*:\\([^:\n]+\\):[ \t]*$" nil t)
                         (setq tags (split-string (match-string 1) ":" t)))
@@ -373,9 +412,16 @@ Rows whose file no longer exists on disk are dropped before FILTER
 is applied, so callers never see stale/deleted entries."
   (let* ((db (ignore-errors (cyberdeck-db)))
          (db-result (when db
-                      (let ((notes (seq-filter
-                                    (lambda (n) (file-exists-p (cyberdeck-aiu-path n)))
-                                    (mapcar #'my/cyberdeck--row-to-aiu (emacsql db [:select * :from notes])))))
+                      (let* ((dropped 0)
+                             (notes (seq-filter
+                                     (lambda (n)
+                                       (if (file-exists-p (cyberdeck-db--resolve-path (cyberdeck-aiu-path n)))
+                                           t
+                                         (setq dropped (1+ dropped))
+                                         nil))
+                                     (mapcar #'my/cyberdeck--row-to-aiu (emacsql db [:select * :from notes])))))
+                        (when (> dropped 0)
+                          (message "cyberdeck-db-query: dropped %d row(s) with missing files" dropped))
                         (if filter (seq-filter filter notes) notes)))))
     (if (and db-result (consp db-result))
         db-result
