@@ -4,6 +4,9 @@
 #+cyberdeck-date: 2026-09-15
 
 * Dired
+:PROPERTIES:
+:AIU: TODO
+:END:
 
 Dired makes an Emacs buffer containing a listing of a directory, and optionally some of its subdirectories as well. You can use the normal Emacs commands to move around in this buffer, and special Dired commands to operate on the listed files. Dired works with both local and remote directories.
 
@@ -620,4 +623,3 @@ The default comparison method (used if you type RET at the prompt) is to compare
 For instance, the sequence M-x dired-compare-directories RET (> mtime1 mtime2) RET marks files newer in this directory than in the other, and marks files older in the other directory than in this one. It also marks files with no counterpart, in both directories, as always.
 
 On the X Window System, Emacs supports the drag and drop protocol. You can drag a file object from another program, and drop it onto a Dired buffer; this either moves, copies, or creates a link to the file in that directory. Precisely which action is taken is determined by the originating program. Dragging files out of a Dired buffer is also supported, by enabling the user option dired-mouse-drag-files, the mouse can be used to drag files onto other programs. When set to link, it will make the other program (typically a file manager) create a symbolic link to the file; when set to move, it will make the other program move the file to a new location, and setting it to any other non-nil value will make the other program open or create a copy of the file. The keyboard modifiers pressed during the drag-and-drop operation can also control what action the other program takes towards the file.
-
