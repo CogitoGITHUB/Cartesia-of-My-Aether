@@ -3854,10 +3854,18 @@ opens at the end, with or without file arguments.
       ;; through the whole boot, and the done message above shows
       ;; inline in the new stacked bar.  Cosmetic only, and the last
       ;; thing boot does.
+      ;; Handler is `t', NOT `error'.  A cosmetic modeline must never be
+      ;; able to end the boot, and `error' does not cover every way that
+      ;; can happen: a `quit', a non-error value thrown as a signal, or an
+      ;; error raised from a C-level caller all escape it.  Observed
+      ;; effect of that escape: the load stopped here, `after-init-hook'
+      ;; never fired, and so my/boot-report never wrote boot-times.log
+      ;; (frozen since 2026-10-01).  Catching everything here costs
+      ;; nothing — the only thing after this point is redisplay.
       (condition-case nil
           (when (fboundp 'mini-modeline-mode)
             (mini-modeline-mode 1))
-        (error nil))))
+        (t nil))))
 #+end_src
 
 ** Entry — provide
