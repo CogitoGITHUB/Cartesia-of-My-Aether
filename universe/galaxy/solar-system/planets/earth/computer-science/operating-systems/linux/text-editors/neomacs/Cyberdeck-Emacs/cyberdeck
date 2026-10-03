@@ -3542,13 +3542,15 @@ compiled, in completion order."
         (format "%d void function(s) — check nesting in listed files"
                 void-errors)
         :warning)))
-     ;; The loop kills *Warnings* at start; on a clean run nothing
-     ;; recreates it and the buffer looks "gone". Always leave one
-     ;; behind so it is switchable, with a clean bill when empty.
-     (unless (get-buffer "*Warnings*")
-       (with-current-buffer (get-buffer-create "*Warnings*")
-         (let ((inhibit-read-only t))
-           (insert "cyberdeck-emacs: clean — no errors, no warnings.\n"))))
+      ;; The loop kills *Warnings* at start; on a clean run nothing
+      ;; recreates it and the buffer looks "gone". Always leave one
+      ;; behind so it is switchable.  The bill covers the UNIT LOOP only:
+      ;; timers, dashboard and straight report afterwards, below this line,
+      ;; so a whole-boot "clean" here reads as a lie the moment they do.
+      (unless (get-buffer "*Warnings*")
+        (with-current-buffer (get-buffer-create "*Warnings*")
+          (let ((inhibit-read-only t))
+            (insert "cyberdeck-emacs: unit loop clean \u2014 no errors, no warnings recorded during unit loading.\nPost-boot phases (timers, dashboard, straight) report below this line.\n"))))
      (nreverse compiled)))
 
 (defun cyberdeck-emacs--unit-loaded-state (unit)
