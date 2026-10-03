@@ -821,7 +821,7 @@ Stat-cached, then hash-verified on-disk index: at most one full
 regex read per changed file per session, shared by
 `cyberdeck-emacs-file-remote', `-profile', and `-lexical-binding'."
   (when (file-exists-p file)
-    (let* ((key (file-truename file))
+    (let* ((key (cyberdeck-emacs--truename file))
            (sig (cyberdeck-emacs--file-sig file))
            (hit (gethash key cyberdeck-emacs--props-cache)))
       (cond
@@ -1016,17 +1016,58 @@ absorb into the preceding unit, never skipped."
   "FILE truename -> (SIG UNITS). Stat-validated memo so discovery,
 ordering, and compilation share one line scan per unchanged file.")
 
+(defvar cyberdeck-emacs--truename-cache (make-hash-table :test 'equal)
+  "Path string -> its `file-truename', for this boot.  The warm discovery
+pass used to ask for the same truename three times per file (`index-lookup'
+twice, `index-apply' once); through proot each is a syscall round trip, so
+the repeats were pure latency.  Same lifetime as the sibling memos above:
+one boot, never persisted, never written to the index.")
+
+(defvar cyberdeck-emacs--sig-cache (make-hash-table :test 'equal)
+  "Path string -> stat signature `(MTIME SIZE)' for this boot.  Same
+lifetime and rationale as `cyberdeck-emacs--truename-cache':
+`cyberdeck-emacs--file-sig' was computed once in
+`cyberdeck-emacs-file-tagged-units', again in `cyberdeck-emacs--index-lookup',
+and again in `cyberdeck-emacs--index-apply' — three `file-attributes'
+calls per file for one answer.  Never persisted: the index still stores
+mtime+size per entry, so the trust model is unchanged.")
+
+(defun cyberdeck-emacs--truename (file)
+  "`file-truename' of FILE, computed at most once per boot.
+Memoised per path string.  Falls back to the plain call when the memo is
+unavailable, so behaviour never depends on caching being present."
+  (if cyberdeck-emacs--truename-cache
+      (let ((hit (gethash file cyberdeck-emacs--truename-cache)))
+        (if hit
+            hit
+          (let ((v (file-truename file)))
+            (puthash file v cyberdeck-emacs--truename-cache)
+            v)))
+    (file-truename file)))
+
 (defun cyberdeck-emacs--file-sig (file)
-  "Stat signature (MTIME SIZE) of FILE, or nil when stat fails."
-  (let ((a (file-attributes file)))
-    (and a (list (nth 5 a) (nth 7 a)))))
+  "Stat signature (MTIME SIZE) of FILE, or nil when stat fails.
+Memoised per path string for the boot; one `file-attributes' call per
+file instead of one per call site.  A nil signature is a real answer and
+is memoised too, so a missing or unreadable file is not re-statted at
+every call site -- hence the ABSENT sentinel rather than a bare nil test."
+  (if cyberdeck-emacs--sig-cache
+      (let ((hit (gethash file cyberdeck-emacs--sig-cache :absent)))
+        (if (eq hit :absent)
+            (let* ((a (file-attributes file))
+                   (v (and a (list (nth 5 a) (nth 7 a)))))
+              (puthash file v cyberdeck-emacs--sig-cache)
+              v)
+          hit))
+    (let ((a (file-attributes file)))
+      (and a (list (nth 5 a) (nth 7 a))))))
 
 (defun cyberdeck-emacs-file-tagged-units (file)
   "Stat-cached wrapper around `cyberdeck-emacs--scan-file-tagged-units'.
  Consults the session memo, then the hash-verified on-disk index (which
  also fills the props/title memos), and re-scans only on a full miss."
   (when (file-exists-p file)
-    (let* ((key (file-truename file))
+    (let* ((key (cyberdeck-emacs--truename file))
            (sig (cyberdeck-emacs--file-sig file))
            (hit (gethash key cyberdeck-emacs--units-cache)))
       (cond
@@ -1054,7 +1095,7 @@ Stat-cached, then hash-verified on-disk index: at most one 4K read per
 changed file per session."
   (if (not (file-exists-p file))
       (file-name-nondirectory file)
-    (let* ((key (file-truename file))
+    (let* ((key (cyberdeck-emacs--truename file))
            (sig (cyberdeck-emacs--file-sig file))
            (hit (gethash key cyberdeck-emacs--title-cache)))
       (cond
@@ -1167,23 +1208,28 @@ skip re-reading the whole vault.  Safety comes from the per-unit
 parts-hash guarding every compiled load — a stale entry can only
 cost a re-extract, never load stale code.  Hash mismatches still
 re-verify through `--index-ensure'.  Hits are marked
-session-verified; misses read nothing."
+session-verified; misses read nothing.
+TRUENAME and SIG are memoised for the boot, so the three sites that
+need them (here, `index-apply', and the scanner) cost one syscall
+between them rather than one each."
   (cyberdeck-emacs--index-load)
   (when (file-exists-p file)
-    (let ((entry (gethash (file-truename file)
-                          cyberdeck-emacs--discovery-index)))
+    (let* ((truename (cyberdeck-emacs--truename file))
+           (entry (gethash truename cyberdeck-emacs--discovery-index)))
       (when entry
         (let ((sig (cyberdeck-emacs--file-sig file)))
           (when (and sig
                      (equal (plist-get entry :mtime) (nth 0 sig))
                      (equal (plist-get entry :size) (nth 1 sig)))
-            (push (file-truename file) cyberdeck-emacs--index-verified)
+            (push truename cyberdeck-emacs--index-verified)
             entry))))))
 
 (defun cyberdeck-emacs--index-apply (file entry)
   "Fill all three session memos from verified ENTRY.  Returns the units
-(nil for untagged files — a real answer, not a miss)."
-  (let* ((key (file-truename file))
+(nil for untagged files — a real answer, not a miss).
+KEY and SIG come from the per-boot memos, so a warm pass never re-stats
+or re-resolves a path it has already seen."
+  (let* ((key (cyberdeck-emacs--truename file))
          (sig (cyberdeck-emacs--file-sig file))
          (units (plist-get entry :units))
          (props (plist-get entry :props))
@@ -1339,7 +1385,7 @@ later boots skip re-scanning them too.  Never throws."
       (when (and (file-exists-p file)
                  (not (member (file-truename file)
                               cyberdeck-emacs--index-verified)))
-        (let* ((key (file-truename file))
+        (let* ((key (cyberdeck-emacs--truename file))
                (entry (gethash key cyberdeck-emacs--discovery-index))
                (sig0 (cyberdeck-emacs--file-sig file))
                ;; Unchanged means the stored entry already describes this
