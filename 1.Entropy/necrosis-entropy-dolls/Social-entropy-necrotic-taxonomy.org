@@ -5,6 +5,9 @@
 #+STARTUP: overview indent entitiespretty hidestars
 
 * Meta-Header: The Premise (Carefully Worded)
+:PROPERTIES:
+:AIU: TODO
+:END:
 In the decomposing hypergraph of "society," the individual is never truly alone — they are a node, permanently entangled in countless edges of trust, status, kinship, and memory. Social Entropy maps the worst vectors for weaponizing this very entanglement: turning the target's own tribe, reputation, alliances, and social operating system against them until isolation becomes a living death.
 
 This file is the fourth pillar of the Entropy Trilogy, sitting beside *Digital*, *Physical*, and *Emotional Entropy*. It is not separate — it is the conductive medium through which the others propagate at maximum lethality. A digital leak has no power without the social graph to amplify shame. Physical harm lands harder when delivered by former allies. Emotional collapse accelerates when the entire village joins the ritual stoning.
