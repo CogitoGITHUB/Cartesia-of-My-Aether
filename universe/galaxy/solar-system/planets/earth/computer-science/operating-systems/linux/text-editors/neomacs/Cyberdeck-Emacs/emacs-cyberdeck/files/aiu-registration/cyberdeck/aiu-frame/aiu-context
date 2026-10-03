@@ -592,7 +592,16 @@ Puts the raw AIU Proxy lines back exactly where they were.
 *** Parser advice wiring
 #+begin_src emacs-lisp
 (defun my/cyberdeck--strip-in-drawer-keywords (orig-fn &rest args)
-  (if (not my/cyberdeck--db-parse)
+  ;; `org-mode-p' guard: this advice wraps org-element-parse-buffer, which
+  ;; org also reaches from org-element-map / org-element-at-point -- and those
+  ;; get called with whatever buffer happens to be current.  During boot that
+  ;; is a `*temp file*' in fundamental-mode, and org-element-map then runs
+  ;; org-element-at-point-no-context -> org-element--get-category ->
+  ;; org-element-at-point, which signals
+  ;;   `org-element-at-point' cannot be used in non-Org buffer #<buffer *temp*>
+  ;; on every parse attempt.  There is nothing to strip in a non-Org buffer
+  ;; anyway, so defer to orig-fn unchanged.
+  (if (or (not my/cyberdeck--db-parse) (not (org-mode-p)))
       (apply orig-fn args)
     (save-excursion
       (save-restriction
@@ -601,7 +610,8 @@ Puts the raw AIU Proxy lines back exactly where they were.
           (goto-char (point-min))
           (while (re-search-forward "^:PROPERTIES:[ \t]*$" nil t)
             (setq restore (append (my/cyberdeck--strip-one-drawer)
-                                  restore)))          (let ((result (apply orig-fn args)))
+                                  restore)))
+          (let ((result (apply orig-fn args)))
             (my/cyberdeck--restore-stripped-lines restore)
             result))))))
 
