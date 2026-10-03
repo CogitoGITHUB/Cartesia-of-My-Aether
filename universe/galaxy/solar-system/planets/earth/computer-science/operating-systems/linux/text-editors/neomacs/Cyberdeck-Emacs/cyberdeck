@@ -1141,7 +1141,7 @@ Warm-boot accelerator: verified entries skip all per-file parsing.")
   "Truenames hash-verified this session.  `cyberdeck-emacs--index-ensure'
 skips members: their entries are current by construction.")
 
-(defconst cyberdeck-emacs-discovery-index-version "2"
+(defconst cyberdeck-emacs-discovery-index-version "3"
   "Format version of the on-disk discovery index, tracked SEPARATELY
 from `cyberdeck-emacs-cache-salt'.
 
@@ -1151,7 +1151,12 @@ salt to invalidate the index would also invalidate every compiled unit
 and force a full recompile, which is exactly what an index-only format
 change must never do.  Bump this instead; a mismatch is treated as
 absent, so the index is rebuilt by one full scan and never misread.
-2: per-entry :symbols (:code NAME/KIND/INTERACTIVE, :data var names).")
+2: per-entry :symbols (:code NAME/KIND/INTERACTIVE, :data var names).
+3: per-entry :stage, the per-FILE stage (\"S1\" unless every unit in the
+   file is S2).  Boot reads it to skip S2 files outright: no stat, no
+   read, no hash, no file-truename, no index-apply.  A version mismatch
+   is treated as an absent index, so this costs exactly one full rebuild
+   on the first boot after the bump and then nothing.")
 
 (defun cyberdeck-emacs-discovery-index-file ()
   "On-disk discovery index.  Under ~/.config/emacs, never the vault."
@@ -1441,7 +1446,17 @@ later boots skip re-scanning them too.  Never throws."
             (puthash (file-truename file)
                      (list :mtime (nth 0 sig) :size (nth 1 sig)
                            :hash h :units units :props props :title title
-                           :symbols syms)
+                           :symbols syms
+                           ;; Per-FILE stage, so boot can skip an S2 file
+                           ;; without opening, statting or truenaming it.
+                           ;; S1 wins: a file holding even one S1 unit must
+                           ;; be walked and scanned like any other.
+                           :stage (if (or (null units)
+                                          (seq-find (lambda (u)
+                                                      (equal "S1" (plist-get u :stage)))
+                                                    units))
+                                      "S1"
+                                    "S2"))
                      cyberdeck-emacs--discovery-index)
             (push key cyberdeck-emacs--index-verified)
             (unless unchanged
