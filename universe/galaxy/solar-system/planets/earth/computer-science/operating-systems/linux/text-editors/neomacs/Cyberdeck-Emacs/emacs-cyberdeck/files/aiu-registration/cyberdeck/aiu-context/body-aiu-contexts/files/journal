@@ -1,6 +1,6 @@
 * BODY_JOURNAL :AIU_CONTEXT_DRAWER:
 
-* Journal :: %U :: %^{Session|Morning|Evening} :: %^{Location|Transit|Base|Unknown} :EMACS_MECHANISM:AIU_CONTEXT_DRAWER:S1:
+* Journal :: %U :: %^{Session|Morning|Evening} :: %^{Location|Transit|Base|Unknown} :EMACS_MECHANISM:AIU_CONTEXT_DRAWER:S2:
 :PROPERTIES:
 :ID:       9a6412e8-393c-4a4b-bb15-4a25d4425e2c
 :MM_PARENT: none
