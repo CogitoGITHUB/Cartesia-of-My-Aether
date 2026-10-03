@@ -1922,14 +1922,34 @@ files are never read, loaded, or compiled — by any caller."
              (total (length all))
              (n 0)
              (tagged nil))
-         (dolist (f all)
-           (setq n (1+ n))
-           (when progress-fn (funcall progress-fn n total f))
-           (when (cyberdeck-emacs-file-loadable-p f) (push f tagged))
-           ;; Same pass refreshes the index entry (verified files skip,
-           ;; changed files rescan from the session memos just filled):
-           ;; one walk, each file named once.
-           (cyberdeck-emacs--index-ensure f))
+         (cyberdeck-emacs--index-load)
+         ;; One `find -newer' call decides for the whole tree which files
+         ;; may be served from the index untouched.  NIL when that call
+         ;; failed, and NIL means "trust nothing": every file then falls
+         ;; through to the per-file stat+scan path, i.e. today's exact
+         ;; behaviour.
+         (let ((changed (cyberdeck-emacs--changed-since-index directory)))
+           (setq cyberdeck-emacs--changed-files changed)
+           (dolist (f all)
+             (setq n (1+ n))
+             (when progress-fn (funcall progress-fn n total f))
+             (let* ((key (cyberdeck-emacs--truename f))
+                    (trusted (and changed (not (gethash key changed))))
+                    (entry (and trusted
+                               (gethash key cyberdeck-emacs--discovery-index))))
+               (cond
+                ;; Unchanged and indexed: the index alone answers "is
+                ;; this tagged?" -- no stat, no read, no hash.  Nothing
+                ;; needs re-verifying because nothing could have changed.
+                (entry
+                 (when (plist-get entry :units) (push f tagged)))
+                ;; Changed, unindexed, or change detection unavailable:
+                ;; stat to trust, scan on mismatch, and refresh the entry
+                ;; in the same pass (verified files skip, changed files
+                ;; rescan from the session memos just filled).
+                (t
+                 (when (cyberdeck-emacs-file-loadable-p f) (push f tagged))
+                 (cyberdeck-emacs--index-ensure f))))))
          (setq tagged (nreverse tagged))
          (let ((skipped (- total (length tagged)))
                (units (cyberdeck-emacs--collect-units tagged)))
@@ -1943,6 +1963,68 @@ files are never read, loaded, or compiled — by any caller."
     (message "cyberdeck-emacs: directory does not exist: %s"
              directory)
     nil))
+
+(defvar cyberdeck-emacs--changed-files nil
+  "TRUENAME -> t for files under the vault modified since the on-disk
+index was written.  NIL means UNKNOWN, not empty: the single `find'
+call failed, so no file may be trusted without per-file validation.
+Computed once per boot, never persisted.")
+
+(defun cyberdeck-emacs--changed-since-index (directory)
+  "One `find -newer' pass: which files under DIRECTORY changed since the
+index was saved.  Returns a hash of truename -> t, or NIL when the call
+fails or the index is absent -- and NIL means \"trust nothing\", never
+\"nothing changed\".
+
+This replaces a per-file `file-exists-p' + `file-truename' +
+`file-attributes' trust check for every unchanged file with a single
+process call.  Through proot each of those is a syscall round trip, and
+the warm boot paid them ~380 times to learn what one mtime comparison
+against the index file already says."
+  (let ((idx (cyberdeck-emacs-discovery-index-file)))
+    (when (file-exists-p idx)
+      (let ((out (generate-new-buffer " *cyberdeck-changed*")))
+        (unwind-protect
+            (with-current-buffer out
+              (condition-case nil
+                  (progn
+                    (call-process "find" nil t nil
+                                  directory "-type" "f" "-newer" idx)
+                    (let ((h (make-hash-table :test 'equal)))
+                      (goto-char (point-min))
+                      (while (not (eobp))
+                        (let ((f (buffer-substring-no-properties
+                                  (line-beginning-position)
+                                  (line-end-position))))
+                          (unless (or (string-match-p "/\\.git/" f)
+                                      (string-match-p "/admin/" f)
+                                      (string-match-p "/WIP/" f))
+                            (puthash (cyberdeck-emacs--truename f) t h)))
+                        (forward-line 1))
+                      h))
+                (error nil)))
+          (kill-buffer out))))))
+
+(defun cyberdeck-emacs-stage-rescan ()
+  "Force a full rescan of every unit file.
+Deletes the on-disk discovery index, clears every session memo, and
+re-runs discovery.  Use when the index is suspected stale and a boot
+would otherwise trust it: after an external bulk edit, a branch switch,
+or a restore that rewrote mtimes."
+  (interactive)
+  (let ((idx (cyberdeck-emacs-discovery-index-file)))
+    (when (file-exists-p idx) (delete-file idx))
+    (setq cyberdeck-emacs--discovery-loaded nil
+          cyberdeck-emacs--changed-files nil
+          cyberdeck-emacs--index-verified nil
+          cyberdeck-emacs--discovery-dirty nil)
+    (clrhash cyberdeck-emacs--discovery-index)
+    (clrhash cyberdeck-emacs--units-cache)
+    (clrhash cyberdeck-emacs--props-cache)
+    (clrhash cyberdeck-emacs--title-cache)
+    (clrhash cyberdeck-emacs--truename-cache)
+    (clrhash cyberdeck-emacs--sig-cache)
+    (message "stage-rescan: index dropped, memos cleared -- next boot does a full scan")))
 
 (defun cyberdeck-emacs-get-files (extension directory)
   "Discover files with tagged headings, ordered by unit topology.
